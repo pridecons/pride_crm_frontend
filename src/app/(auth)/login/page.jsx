@@ -52,7 +52,7 @@ export default function LoginPage() {
       if (decoded.role === 'SUPERADMIN') {
         router.push('/dashboard')
       } else {
-        router.push('/home') // change to your appropriate route
+        router.push('/dashboard') // change to your appropriate route
       }
     } catch (err) {
       console.error('Login error:', err)

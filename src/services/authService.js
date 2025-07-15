@@ -1,179 +1,184 @@
+// src/services/authService.js - FIXED VERSION
+
 import { apiMethods } from './apiClient'
 
-class UserService {
-  // Get all users with filtering
-  async getUsers(params = {}) {
-    const queryParams = new URLSearchParams()
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && value !== '') {
-        queryParams.append(key, value)
-      }
-    })
-
-    const response = await apiMethods.get(`/users?${queryParams.toString()}`)
-    return response.data
-  }
-
-  // Get user by employee code
-  async getUserById(employeeCode) {
-    const response = await apiMethods.get(`/users/${employeeCode}`)
-    return response.data
-  }
-
-  // Create new user
-  async createUser(userData) {
-    const response = await apiMethods.post('/users', userData)
-    return response.data
-  }
-
-  // Update user
-  async updateUser(employeeCode, userData) {
-    const response = await apiMethods.put(`/users/${employeeCode}`, userData)
-    return response.data
-  }
-
-  // Delete user
-  async deleteUser(employeeCode) {
-    const response = await apiMethods.delete(`/users/${employeeCode}`)
-    return response.data
-  }
-
-  // Toggle user status (activate/deactivate)
-  async toggleUserStatus(employeeCode) {
-    const response = await apiMethods.patch(`/users/${employeeCode}/toggle-status`)
-    return response.data
-  }
-
-  // Get user hierarchy
-  async getUserHierarchy(employeeCode) {
-    const response = await apiMethods.get(`/users/${employeeCode}/hierarchy`)
-    return response.data
-  }
-
-  // Get available roles
-  async getRoles() {
-    const response = await apiMethods.get('/users/roles')
-    return response.data
-  }
-
-  // Get users by role
-  async getUsersByRole(role, branchId = null) {
-    const params = { role }
-    if (branchId) params.branch_id = branchId
-    
-    const queryParams = new URLSearchParams(params)
-    const response = await apiMethods.get(`/users?${queryParams.toString()}`)
-    return response.data
-  }
-
-  // Get subordinates for a user
-  async getSubordinates(employeeCode) {
-    const response = await apiMethods.get(`/users/${employeeCode}/subordinates`)
-    return response.data
-  }
-
-  // Get managers for role assignment
-  async getManagers(role, branchId = null) {
-    const params = new URLSearchParams()
-    
-    // Define manager roles based on hierarchy
-    const managerRoles = {
-      'BA': ['TL', 'SALES_MANAGER'],
-      'SBA': ['TL', 'SALES_MANAGER'],
-      'TL': ['SALES_MANAGER'],
-      'SALES_MANAGER': ['BRANCH_MANAGER'],
-      'HR': ['BRANCH_MANAGER']
+class AuthService {
+  /**
+   * Login user with credentials
+   * @param {Object} credentials - Login credentials
+   * @param {string} credentials.username - Username or email
+   * @param {string} credentials.password - Password
+   * @returns {Promise<Object>} Login response
+   */
+  async login(credentials) {
+    try {
+      // Use the JSON login endpoint that matches your backend
+      const response = await apiMethods.post('/auth/login/json', {
+        username: credentials.username,
+        password: credentials.password
+      })
+      
+      return response.data
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
     }
+  }
 
-    const availableRoles = managerRoles[role] || []
-    
-    if (availableRoles.length > 0) {
-      params.append('role', availableRoles.join(','))
+  /**
+   * Alternative: Form-data login (if your backend expects OAuth2PasswordRequestForm)
+   * @param {Object} credentials - Login credentials
+   */
+  async loginForm(credentials) {
+    try {
+      // Create FormData for OAuth2PasswordRequestForm
+      const formData = new FormData()
+      formData.append('username', credentials.username)
+      formData.append('password', credentials.password)
+      
+      const response = await apiMethods.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      })
+      
+      return response.data
+    } catch (error) {
+      console.error('Form login error:', error)
+      throw error
     }
-    
-    if (branchId) {
-      params.append('branch_id', branchId)
+  }
+
+  /**
+   * Logout user
+   * @returns {Promise<void>}
+   */
+  async logout() {
+    try {
+      await apiMethods.post('/auth/logout')
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Continue with logout even if server call fails
     }
-
-    const response = await apiMethods.get(`/users?${params.toString()}`)
-    return response.data
   }
 
-  // Bulk user operations
-  async bulkUpdateUsers(operations) {
-    const response = await apiMethods.post('/users/bulk', operations)
-    return response.data
+  /**
+   * Register new user
+   * @param {Object} userData - User registration data
+   * @returns {Promise<Object>} Registration response
+   */
+  async register(userData) {
+    try {
+      const response = await apiMethods.post('/auth/register', userData)
+      return response.data
+    } catch (error) {
+      console.error('Registration error:', error)
+      throw error
+    }
   }
 
-  // Export users data
-  async exportUsers(format = 'csv', filters = {}) {
-    const params = new URLSearchParams(filters)
-    params.append('format', format)
-    
-    return await apiMethods.download(`/users/export?${params.toString()}`, `users.${format}`)
+  /**
+   * Refresh authentication token
+   * @param {string} refreshToken - Refresh token
+   * @returns {Promise<Object>} New tokens
+   */
+  async refreshToken(refreshToken) {
+    try {
+      const response = await apiMethods.post('/auth/refresh', {
+        refresh_token: refreshToken
+      })
+      return response.data
+    } catch (error) {
+      console.error('Token refresh error:', error)
+      throw error
+    }
   }
 
-  // Import users from file
-  async importUsers(file, onUploadProgress) {
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    const response = await apiMethods.upload('/users/import', formData, onUploadProgress)
-    return response.data
+  /**
+   * Verify token
+   * @param {string} token - Access token to verify
+   * @returns {Promise<Object>} Token verification result
+   */
+  async verifyToken(token) {
+    try {
+      const response = await apiMethods.post('/auth/verify', {
+        token: token
+      })
+      return response.data
+    } catch (error) {
+      console.error('Token verification error:', error)
+      throw error
+    }
   }
 
-  // Search users
-  async searchUsers(query, filters = {}) {
-    const params = new URLSearchParams(filters)
-    params.append('search', query)
-    
-    const response = await apiMethods.get(`/users/search?${params.toString()}`)
-    return response.data
+  /**
+   * Change user password
+   * @param {Object} passwordData - Password change data
+   * @returns {Promise<Object>} Password change result
+   */
+  async changePassword(passwordData) {
+    try {
+      const response = await apiMethods.post('/auth/change-password', {
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword
+      })
+      return response.data
+    } catch (error) {
+      console.error('Password change error:', error)
+      throw error
+    }
   }
 
-  // Get user permissions
-  async getUserPermissions(employeeCode) {
-    const response = await apiMethods.get(`/permissions/user/${employeeCode}`)
-    return response.data
+  /**
+   * Request password reset
+   * @param {string} email - User email
+   * @returns {Promise<Object>} Password reset request result
+   */
+  async requestPasswordReset(email) {
+    try {
+      const response = await apiMethods.post('/auth/forgot-password', {
+        email: email
+      })
+      return response.data
+    } catch (error) {
+      console.error('Password reset request error:', error)
+      throw error
+    }
   }
 
-  // Update user permissions
-  async updateUserPermissions(employeeCode, permissions) {
-    const response = await apiMethods.put(`/permissions/user/${employeeCode}`, permissions)
-    return response.data
+  /**
+   * Reset password with token
+   * @param {Object} resetData - Password reset data
+   * @returns {Promise<Object>} Password reset result
+   */
+  async resetPassword(resetData) {
+    try {
+      const response = await apiMethods.post('/auth/reset-password', {
+        token: resetData.token,
+        new_password: resetData.newPassword
+      })
+      return response.data
+    } catch (error) {
+      console.error('Password reset error:', error)
+      throw error
+    }
   }
 
-  // Get user statistics
-  async getUserStats(employeeCode) {
-    const response = await apiMethods.get(`/users/${employeeCode}/stats`)
-    return response.data
-  }
-
-  // Reset user password
-  async resetPassword(employeeCode, newPassword) {
-    const response = await apiMethods.post(`/users/${employeeCode}/reset-password`, {
-      new_password: newPassword
-    })
-    return response.data
-  }
-
-  // Change own password
-  async changePassword(currentPassword, newPassword) {
-    const response = await apiMethods.post('/users/change-password', {
-      current_password: currentPassword,
-      new_password: newPassword
-    })
-    return response.data
-  }
-
-  // Get user activity log
-  async getUserActivity(employeeCode, params = {}) {
-    const queryParams = new URLSearchParams(params)
-    const response = await apiMethods.get(`/users/${employeeCode}/activity?${queryParams.toString()}`)
-    return response.data
+  /**
+   * Get current user profile
+   * @returns {Promise<Object>} User profile
+   */
+  async getCurrentUser() {
+    try {
+      const response = await apiMethods.get('/auth/me')
+      return response.data
+    } catch (error) {
+      console.error('Get current user error:', error)
+      throw error
+    }
   }
 }
 
-const userService = new UserService()
-export default userService
+// Create and export instance
+const authService = new AuthService()
+export default authService

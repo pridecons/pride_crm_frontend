@@ -1,4 +1,6 @@
-import { api } from './apiClient'
+// src/services/branchService.js - FIXED VERSION
+
+import { apiMethods } from './apiClient'
 
 const branchService = {
   /**
@@ -35,7 +37,7 @@ const branchService = {
     if (search) queryParams.append('search', search)
     if (manager_id) queryParams.append('manager_id', manager_id)
 
-    const response = await api.get(`/branches?${queryParams}`)
+    const response = await apiMethods.get(`/branches?${queryParams}`)
     return response.data
   },
 
@@ -45,7 +47,7 @@ const branchService = {
    * @returns {Promise<Object>} Branch details
    */
   async getBranchById(branchId) {
-    const response = await api.get(`/branches/${branchId}`)
+    const response = await apiMethods.get(`/branches/${branchId}`)
     return response.data
   },
 
@@ -58,190 +60,80 @@ const branchService = {
    * @param {string} branchData.city - City (required)
    * @param {string} branchData.state - State (required)
    * @param {string} branchData.pincode - Postal code (required)
-   * @param {string} branchData.phone_number - Contact phone number
-   * @param {string} branchData.email - Contact email
-   * @param {string} branchData.manager_id - Branch manager employee code
+   * @param {string} branchData.phone_number - Phone number (optional)
+   * @param {string} branchData.email - Email address (optional)
+   * @param {string} branchData.manager_id - Branch manager employee code (optional)
+   * @param {string} branchData.branch_type - Branch type (optional)
    * @param {boolean} branchData.is_active - Active status (default: true)
-   * @param {string} branchData.established_date - Establishment date (YYYY-MM-DD)
-   * @param {string} branchData.gst_number - GST registration number
-   * @param {string} branchData.pan_number - PAN number
-   * @param {number} branchData.target_monthly - Monthly target amount
-   * @param {number} branchData.target_yearly - Yearly target amount
-   * @param {string} branchData.branch_type - Branch type (main, sub, franchise)
-   * @param {string} branchData.operating_hours - Operating hours
-   * @param {string} branchData.description - Branch description
-   * @returns {Promise<Object>} Created branch details
+   * @returns {Promise<Object>} Created branch
    */
   async createBranch(branchData) {
-    const response = await api.post('/branches', branchData)
+    const response = await apiMethods.post('/branches', branchData)
     return response.data
   },
 
   /**
-   * Update branch details
+   * Update branch
    * @param {string} branchId - Branch ID
    * @param {Object} branchData - Updated branch data
-   * @returns {Promise<Object>} Updated branch details
+   * @returns {Promise<Object>} Updated branch
    */
   async updateBranch(branchId, branchData) {
-    const response = await api.put(`/branches/${branchId}`, branchData)
+    const response = await apiMethods.put(`/branches/${branchId}`, branchData)
     return response.data
   },
 
   /**
-   * Delete branch (soft delete - sets is_active to false)
+   * Delete branch
    * @param {string} branchId - Branch ID
-   * @returns {Promise<Object>} Deletion confirmation
+   * @returns {Promise<Object>} Deletion result
    */
   async deleteBranch(branchId) {
-    const response = await api.delete(`/branches/${branchId}`)
+    const response = await apiMethods.delete(`/branches/${branchId}`)
     return response.data
   },
 
   /**
-   * Activate/Deactivate branch
+   * Toggle branch active status
    * @param {string} branchId - Branch ID
-   * @param {boolean} isActive - Active status
-   * @returns {Promise<Object>} Updated branch status
+   * @param {boolean} isActive - New active status
+   * @returns {Promise<Object>} Updated branch
    */
   async toggleBranchStatus(branchId, isActive) {
-    const response = await api.patch(`/branches/${branchId}/status`, {
+    const response = await apiMethods.patch(`/branches/${branchId}/toggle-status`, {
       is_active: isActive
     })
     return response.data
   },
 
   /**
-   * Get branch employees
-   * @param {string} branchId - Branch ID
-   * @param {boolean} activeOnly - Filter only active employees (default: true)
-   * @param {string} role - Filter by role
-   * @returns {Promise<Array>} List of branch employees
+   * Get branch statistics
+   * @param {string} branchId - Branch ID (optional - if not provided, returns all branches stats)
+   * @returns {Promise<Object>} Branch statistics
    */
-  async getBranchEmployees(branchId, activeOnly = true, role = '') {
-    const params = new URLSearchParams({
-      active_only: activeOnly.toString()
-    })
-    if (role) params.append('role', role)
-
-    const response = await api.get(`/branches/${branchId}/employees?${params}`)
+  async getBranchStats(branchId = null) {
+    const url = branchId ? `/branches/${branchId}/stats` : '/branches/stats'
+    const response = await apiMethods.get(url)
     return response.data
   },
 
   /**
-   * Assign manager to branch
-   * @param {string} branchId - Branch ID
-   * @param {string} managerId - Manager employee code
-   * @returns {Promise<Object>} Updated branch with new manager
+   * Get states with branches
+   * @returns {Promise<Array>} List of states with branch count
    */
-  async assignBranchManager(branchId, managerId) {
-    const response = await api.patch(`/branches/${branchId}/assign-manager`, {
-      manager_id: managerId
-    })
+  async getStatesWithBranches() {
+    const response = await apiMethods.get('/branches/states')
     return response.data
   },
 
   /**
-   * Get branch performance metrics
-   * @param {string} branchId - Branch ID
-   * @param {Object} filters - Filter options
-   * @param {string} filters.period - Time period (month, quarter, year)
-   * @param {string} filters.date_from - From date (YYYY-MM-DD)
-   * @param {string} filters.date_to - To date (YYYY-MM-DD)
-   * @returns {Promise<Object>} Branch performance data
-   */
-  async getBranchPerformance(branchId, filters = {}) {
-    const params = new URLSearchParams(filters)
-    const response = await api.get(`/branches/${branchId}/performance?${params}`)
-    return response.data
-  },
-
-  /**
-   * Get branch lead statistics
-   * @param {string} branchId - Branch ID
-   * @param {Object} filters - Filter options
-   * @param {string} filters.date_from - From date
-   * @param {string} filters.date_to - To date
-   * @returns {Promise<Object>} Branch lead statistics
-   */
-  async getBranchLeadStats(branchId, filters = {}) {
-    const params = new URLSearchParams(filters)
-    const response = await api.get(`/branches/${branchId}/lead-stats?${params}`)
-    return response.data
-  },
-
-  /**
-   * Get branch targets
-   * @param {string} branchId - Branch ID
-   * @param {number} year - Target year (default: current year)
-   * @returns {Promise<Object>} Branch targets and achievements
-   */
-  async getBranchTargets(branchId, year = new Date().getFullYear()) {
-    const response = await api.get(`/branches/${branchId}/targets`, {
-      params: { year }
-    })
-    return response.data
-  },
-
-  /**
-   * Set branch targets
-   * @param {string} branchId - Branch ID
-   * @param {Object} targetData - Target data
-   * @param {number} targetData.year - Target year
-   * @param {number} targetData.monthly_target - Monthly target amount
-   * @param {number} targetData.yearly_target - Yearly target amount
-   * @param {number} targetData.lead_target_monthly - Monthly lead target count
-   * @param {number} targetData.conversion_target - Conversion rate target (%)
-   * @returns {Promise<Object>} Updated targets
-   */
-  async setBranchTargets(branchId, targetData) {
-    const response = await api.post(`/branches/${branchId}/targets`, targetData)
-    return response.data
-  },
-
-  /**
-   * Get branches by state
+   * Get cities with branches in a state
    * @param {string} state - State name
-   * @param {boolean} activeOnly - Filter only active branches (default: true)
-   * @returns {Promise<Array>} List of branches in the state
+   * @returns {Promise<Array>} List of cities with branch count
    */
-  async getBranchesByState(state, activeOnly = true) {
-    const response = await api.get(`/branches/by-state/${state}`, {
-      params: { active_only: activeOnly }
-    })
-    return response.data
-  },
-
-  /**
-   * Get branches by city
-   * @param {string} city - City name
-   * @param {boolean} activeOnly - Filter only active branches (default: true)
-   * @returns {Promise<Array>} List of branches in the city
-   */
-  async getBranchesByCity(city, activeOnly = true) {
-    const response = await api.get(`/branches/by-city/${city}`, {
-      params: { active_only: activeOnly }
-    })
-    return response.data
-  },
-
-  /**
-   * Get unique states with branches
-   * @returns {Promise<Array>} List of states
-   */
-  async getBranchStates() {
-    const response = await api.get('/branches/states')
-    return response.data
-  },
-
-  /**
-   * Get unique cities with branches
-   * @param {string} state - Filter cities by state
-   * @returns {Promise<Array>} List of cities
-   */
-  async getBranchCities(state = '') {
+  async getCitiesWithBranches(state) {
     const params = state ? new URLSearchParams({ state }) : ''
-    const response = await api.get(`/branches/cities?${params}`)
+    const response = await apiMethods.get(`/branches/cities?${params}`)
     return response.data
   },
 
@@ -251,7 +143,7 @@ const branchService = {
    * @returns {Promise<Array>} List of child branches
    */
   async getBranchHierarchy(branchId) {
-    const response = await api.get(`/branches/${branchId}/hierarchy`)
+    const response = await apiMethods.get(`/branches/${branchId}/hierarchy`)
     return response.data
   },
 
@@ -266,7 +158,7 @@ const branchService = {
    * @returns {Promise<Object>} Search results with pagination
    */
   async searchBranches(searchParams) {
-    const response = await api.post('/branches/search', searchParams)
+    const response = await apiMethods.post('/branches/search', searchParams)
     return response.data
   },
 
@@ -280,9 +172,7 @@ const branchService = {
     const params = new URLSearchParams(filters)
     params.append('format', format)
 
-    const response = await api.get(`/branches/export?${params}`, {
-      responseType: 'blob'
-    })
+    const response = await apiMethods.download(`/branches/export?${params}`)
     return response.data
   },
 
@@ -300,7 +190,7 @@ const branchService = {
       formData.append(key, options[key])
     })
 
-    const response = await api.upload('/branches/import', formData)
+    const response = await apiMethods.upload('/branches/import', formData)
     return response.data
   },
 
@@ -311,7 +201,7 @@ const branchService = {
    * @returns {Promise<Object>} Bulk operation result
    */
   async bulkBranchOperation(operation, branchIds) {
-    const response = await api.post('/branches/bulk-operation', {
+    const response = await apiMethods.post('/branches/bulk-operation', {
       operation,
       branch_ids: branchIds
     })
@@ -319,18 +209,72 @@ const branchService = {
   },
 
   /**
-   * Get branch comparison report
-   * @param {Array<string>} branchIds - Branch IDs to compare
-   * @param {Object} filters - Comparison filters
-   * @param {string} filters.period - Time period for comparison
-   * @param {string} filters.metrics - Metrics to compare (leads, revenue, conversion)
-   * @returns {Promise<Object>} Branch comparison data
+   * Get branch employees
+   * @param {string} branchId - Branch ID
+   * @param {boolean} activeOnly - Filter only active employees (default: true)
+   * @param {string} role - Filter by role
+   * @returns {Promise<Array>} List of branch employees
    */
-  async compareBranches(branchIds, filters = {}) {
-    const response = await api.post('/branches/compare', {
-      branch_ids: branchIds,
-      ...filters
+  async getBranchEmployees(branchId, activeOnly = true, role = '') {
+    const params = new URLSearchParams({
+      active_only: activeOnly.toString()
     })
+    if (role) params.append('role', role)
+
+    const response = await apiMethods.get(`/branches/${branchId}/employees?${params}`)
+    return response.data
+  },
+
+  /**
+   * Assign manager to branch
+   * @param {string} branchId - Branch ID
+   * @param {string} managerId - Manager employee code
+   * @returns {Promise<Object>} Updated branch with new manager
+   */
+  async assignBranchManager(branchId, managerId) {
+    const response = await apiMethods.patch(`/branches/${branchId}/assign-manager`, {
+      manager_id: managerId
+    })
+    return response.data
+  },
+
+  /**
+   * Get branch performance metrics
+   * @param {string} branchId - Branch ID
+   * @param {Object} filters - Filter options
+   * @param {string} filters.period - Time period (month, quarter, year)
+   * @param {string} filters.date_from - From date (YYYY-MM-DD)
+   * @param {string} filters.date_to - To date (YYYY-MM-DD)
+   * @returns {Promise<Object>} Branch performance data
+   */
+  async getBranchPerformance(branchId, filters = {}) {
+    const params = new URLSearchParams(filters)
+    const response = await apiMethods.get(`/branches/${branchId}/performance?${params}`)
+    return response.data
+  },
+
+  /**
+   * Get branch lead statistics
+   * @param {string} branchId - Branch ID
+   * @param {Object} filters - Filter options
+   * @param {string} filters.date_from - From date
+   * @param {string} filters.date_to - To date
+   * @returns {Promise<Object>} Branch lead statistics
+   */
+  async getBranchLeadStats(branchId, filters = {}) {
+    const params = new URLSearchParams(filters)
+    const response = await apiMethods.get(`/branches/${branchId}/lead-stats?${params}`)
+    return response.data
+  },
+
+  /**
+   * Get branch targets
+   * @param {string} branchId - Branch ID
+   * @param {number} year - Target year (default: current year)
+   * @returns {Promise<Object>} Branch targets and achievements
+   */
+  async getBranchTargets(branchId, year = new Date().getFullYear()) {
+    const response = await apiMethods.get(`/branches/${branchId}/targets?year=${year}`)
     return response.data
   },
 
@@ -340,7 +284,7 @@ const branchService = {
    * @returns {Promise<Object>} Dashboard data including stats, charts, recent activities
    */
   async getBranchDashboard(branchId) {
-    const response = await api.get(`/branches/${branchId}/dashboard`)
+    const response = await apiMethods.get(`/branches/${branchId}/dashboard`)
     return response.data
   },
 
@@ -351,7 +295,7 @@ const branchService = {
    */
   async getAllBranchesSummary(filters = {}) {
     const params = new URLSearchParams(filters)
-    const response = await api.get(`/branches/summary?${params}`)
+    const response = await apiMethods.get(`/branches/summary?${params}`)
     return response.data
   },
 
@@ -366,7 +310,7 @@ const branchService = {
    * @returns {Promise<Object>} Updated branch contact info
    */
   async updateBranchContact(branchId, contactData) {
-    const response = await api.patch(`/branches/${branchId}/contact`, contactData)
+    const response = await apiMethods.patch(`/branches/${branchId}/contact`, contactData)
     return response.data
   },
 
@@ -377,7 +321,7 @@ const branchService = {
    * @returns {Promise<Array>} Branch activity log
    */
   async getBranchActivityLog(branchId, limit = 50) {
-    const response = await api.get(`/branches/${branchId}/activity-log`, {
+    const response = await apiMethods.get(`/branches/${branchId}/activity-log`, {
       params: { limit }
     })
     return response.data
@@ -390,7 +334,7 @@ const branchService = {
    * @returns {Promise<Object>} Validation result
    */
   async validateBranchData(branchData, isUpdate = false) {
-    const response = await api.post('/branches/validate', {
+    const response = await apiMethods.post('/branches/validate', {
       branch_data: branchData,
       is_update: isUpdate
     })
@@ -401,47 +345,13 @@ const branchService = {
    * Check branch code availability
    * @param {string} branchCode - Branch code to check
    * @param {string} excludeBranchId - Branch ID to exclude from check (for updates)
-   * @returns {Promise<Object>} Availability status
+   * @returns {Promise<Object>} Availability result
    */
-  async checkBranchCodeAvailability(branchCode, excludeBranchId = '') {
+  async checkBranchCodeAvailability(branchCode, excludeBranchId = null) {
     const params = new URLSearchParams({ branch_code: branchCode })
     if (excludeBranchId) params.append('exclude_branch_id', excludeBranchId)
 
-    const response = await api.get(`/branches/check-code?${params}`)
-    return response.data
-  },
-
-  /**
-   * Get branch revenue report
-   * @param {string} branchId - Branch ID
-   * @param {Object} filters - Report filters
-   * @param {string} filters.date_from - From date
-   * @param {string} filters.date_to - To date
-   * @param {string} filters.group_by - Group by (day, week, month, quarter)
-   * @returns {Promise<Object>} Revenue report data
-   */
-  async getBranchRevenueReport(branchId, filters = {}) {
-    const params = new URLSearchParams(filters)
-    const response = await api.get(`/branches/${branchId}/revenue-report?${params}`)
-    return response.data
-  },
-
-  /**
-   * Get top performing branches
-   * @param {Object} filters - Filter options
-   * @param {number} filters.limit - Number of top branches to return (default: 10)
-   * @param {string} filters.metric - Metric to rank by (revenue, leads, conversion)
-   * @param {string} filters.period - Time period for ranking
-   * @returns {Promise<Array>} Top performing branches
-   */
-  async getTopPerformingBranches(filters = {}) {
-    const params = new URLSearchParams({
-      limit: (filters.limit || 10).toString(),
-      metric: filters.metric || 'revenue',
-      period: filters.period || 'month'
-    })
-
-    const response = await api.get(`/branches/top-performing?${params}`)
+    const response = await apiMethods.get(`/branches/check-code?${params}`)
     return response.data
   }
 }

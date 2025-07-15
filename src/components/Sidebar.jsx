@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import { PermissionManager, NavigationHelper } from '@/config/roles'
 import { PERMISSIONS } from '@/utils/constants'
 import {
   // Navigation Icons
@@ -39,6 +38,65 @@ import {
   Minimize2,
   Maximize2,
 } from 'lucide-react'
+
+// Simplified permission checking function
+const checkPermission = (userRole, requiredPermissions) => {
+  // If no permissions required, allow access
+  if (!requiredPermissions || requiredPermissions.length === 0) return true
+  
+  // If no user role, deny access
+  if (!userRole) return false
+  
+  // For SUPERADMIN, always allow
+  if (userRole === 'SUPERADMIN') return true
+  
+  // Role-based permissions mapping
+  const rolePermissions = {
+    SUPERADMIN: Object.values(PERMISSIONS),
+    BRANCH_MANAGER: [
+      PERMISSIONS.ADD_USER, PERMISSIONS.EDIT_USER, PERMISSIONS.VIEW_USERS,
+      PERMISSIONS.ADD_LEAD, PERMISSIONS.EDIT_LEAD, PERMISSIONS.DELETE_LEAD, PERMISSIONS.VIEW_LEAD,
+      PERMISSIONS.VIEW_BRANCH, PERMISSIONS.VIEW_ACCOUNTS, PERMISSIONS.VIEW_RESEARCH,
+      PERMISSIONS.VIEW_CLIENT, PERMISSIONS.VIEW_PAYMENT, PERMISSIONS.VIEW_INVOICE, PERMISSIONS.VIEW_KYC,
+      PERMISSIONS.APPROVAL, PERMISSIONS.INTERNAL_MAILING, PERMISSIONS.CHATTING,
+      PERMISSIONS.TARGETS, PERMISSIONS.REPORTS, PERMISSIONS.FETCH_LEAD
+    ],
+    SALES_MANAGER: [
+      PERMISSIONS.VIEW_USERS, PERMISSIONS.ADD_LEAD, PERMISSIONS.EDIT_LEAD, PERMISSIONS.VIEW_LEAD,
+      PERMISSIONS.VIEW_ACCOUNTS, PERMISSIONS.VIEW_RESEARCH, PERMISSIONS.VIEW_CLIENT,
+      PERMISSIONS.VIEW_PAYMENT, PERMISSIONS.VIEW_INVOICE, PERMISSIONS.VIEW_KYC,
+      PERMISSIONS.INTERNAL_MAILING, PERMISSIONS.CHATTING, PERMISSIONS.TARGETS,
+      PERMISSIONS.REPORTS, PERMISSIONS.FETCH_LEAD
+    ],
+    HR: [
+      PERMISSIONS.ADD_USER, PERMISSIONS.EDIT_USER, PERMISSIONS.VIEW_USERS,
+      PERMISSIONS.VIEW_BRANCH, PERMISSIONS.INTERNAL_MAILING, PERMISSIONS.CHATTING,
+      PERMISSIONS.REPORTS
+    ],
+    TL: [
+      PERMISSIONS.VIEW_USERS, PERMISSIONS.ADD_LEAD, PERMISSIONS.EDIT_LEAD, PERMISSIONS.VIEW_LEAD,
+      PERMISSIONS.VIEW_ACCOUNTS, PERMISSIONS.VIEW_RESEARCH, PERMISSIONS.VIEW_CLIENT,
+      PERMISSIONS.VIEW_PAYMENT, PERMISSIONS.VIEW_INVOICE, PERMISSIONS.VIEW_KYC,
+      PERMISSIONS.INTERNAL_MAILING, PERMISSIONS.CHATTING, PERMISSIONS.TARGETS,
+      PERMISSIONS.REPORTS, PERMISSIONS.FETCH_LEAD
+    ],
+    SBA: [
+      PERMISSIONS.ADD_LEAD, PERMISSIONS.EDIT_LEAD, PERMISSIONS.VIEW_LEAD,
+      PERMISSIONS.VIEW_ACCOUNTS, PERMISSIONS.VIEW_RESEARCH, PERMISSIONS.VIEW_CLIENT,
+      PERMISSIONS.VIEW_PAYMENT, PERMISSIONS.VIEW_INVOICE, PERMISSIONS.VIEW_KYC,
+      PERMISSIONS.CHATTING, PERMISSIONS.FETCH_LEAD
+    ],
+    BA: [
+      PERMISSIONS.ADD_LEAD, PERMISSIONS.EDIT_LEAD, PERMISSIONS.VIEW_LEAD,
+      PERMISSIONS.VIEW_ACCOUNTS, PERMISSIONS.VIEW_RESEARCH, PERMISSIONS.VIEW_CLIENT,
+      PERMISSIONS.VIEW_PAYMENT, PERMISSIONS.VIEW_INVOICE, PERMISSIONS.VIEW_KYC,
+      PERMISSIONS.CHATTING, PERMISSIONS.FETCH_LEAD
+    ]
+  }
+  
+  const userPermissions = rolePermissions[userRole] || []
+  return requiredPermissions.some(permission => userPermissions.includes(permission))
+}
 
 const NAVIGATION_STRUCTURE = {
   main: {
@@ -104,22 +162,22 @@ const NAVIGATION_STRUCTURE = {
         id: 'lead-responses',
         label: 'Lead Responses',
         href: '/dashboard/leads/responses',
-        icon: Target,
+        icon: MessageCircle,
         requiredPermissions: [PERMISSIONS.VIEW_LEAD],
       },
       {
-        id: 'upload-leads',
-        label: 'Upload Leads',
-        href: '/dashboard/leads/upload',
-        icon: Plus,
+        id: 'bulk-upload',
+        label: 'Bulk Upload',
+        href: '/dashboard/leads/bulk',
+        icon: FileText,
         requiredPermissions: [PERMISSIONS.ADD_LEAD],
       },
       {
-        id: 'disposed-leads',
-        label: 'Disposed Leads',
-        href: '/dashboard/leads/disposed',
+        id: 'delete-leads',
+        label: 'Delete Leads',
+        href: '/dashboard/leads/delete',
         icon: Trash2,
-        requiredPermissions: [PERMISSIONS.VIEW_LEAD],
+        requiredPermissions: [PERMISSIONS.DELETE_LEAD],
       },
     ],
   },
@@ -129,8 +187,8 @@ const NAVIGATION_STRUCTURE = {
     requiredPermissions: [PERMISSIONS.VIEW_USERS],
     items: [
       {
-        id: 'users-list',
-        label: 'Users',
+        id: 'manage-users',
+        label: 'Manage Users',
         href: '/dashboard/users',
         icon: Users,
         requiredPermissions: [PERMISSIONS.VIEW_USERS],
@@ -142,6 +200,13 @@ const NAVIGATION_STRUCTURE = {
         icon: UserPlus,
         requiredPermissions: [PERMISSIONS.ADD_USER],
       },
+      {
+        id: 'user-permissions',
+        label: 'Permissions',
+        href: '/dashboard/users/permissions',
+        icon: Shield,
+        requiredPermissions: [PERMISSIONS.EDIT_USER],
+      },
     ],
   },
   branches: {
@@ -150,54 +215,53 @@ const NAVIGATION_STRUCTURE = {
     requiredPermissions: [PERMISSIONS.VIEW_BRANCH],
     items: [
       {
-        id: 'branches-list',
-        label: 'Branches',
+        id: 'manage-branches',
+        label: 'Manage Branches',
         href: '/dashboard/branches',
         icon: Building2,
         requiredPermissions: [PERMISSIONS.VIEW_BRANCH],
+      },
+      {
+        id: 'add-branch',
+        label: 'Add Branch',
+        href: '/dashboard/branches/add',
+        icon: Plus,
+        requiredPermissions: [PERMISSIONS.ADD_USER], // Using ADD_USER as proxy for branch creation
       },
     ],
   },
   business: {
     title: 'Business Operations',
     icon: BarChart3,
-    requiredPermissions: [
-      PERMISSIONS.VIEW_ACCOUNTS,
-      PERMISSIONS.VIEW_RESEARCH,
-      PERMISSIONS.VIEW_CLIENT,
-    ],
+    requiredPermissions: [PERMISSIONS.VIEW_ACCOUNTS],
     items: [
       {
-        id: 'accounts',
-        label: 'Accounts',
-        href: '/dashboard/accounts',
-        icon: CreditCard,
+        id: 'services',
+        label: 'Services',
+        href: '/dashboard/services',
+        icon: Settings,
         requiredPermissions: [PERMISSIONS.VIEW_ACCOUNTS],
       },
       {
-        id: 'research',
-        label: 'Research',
-        href: '/dashboard/research',
-        icon: Search,
-        requiredPermissions: [PERMISSIONS.VIEW_RESEARCH],
+        id: 'kyc-verification',
+        label: 'KYC Verification',
+        href: '/dashboard/kyc',
+        icon: Shield,
+        requiredPermissions: [PERMISSIONS.VIEW_KYC],
       },
       {
-        id: 'clients',
-        label: 'Clients',
-        href: '/dashboard/clients',
-        icon: Users,
-        requiredPermissions: [PERMISSIONS.VIEW_CLIENT],
+        id: 'pan-verification',
+        label: 'PAN Verification',
+        href: '/dashboard/pan',
+        icon: CreditCard,
+        requiredPermissions: [PERMISSIONS.VIEW_PAYMENT],
       },
     ],
   },
   finance: {
-    title: 'Finance & KYC',
+    title: 'Finance',
     icon: DollarSign,
-    requiredPermissions: [
-      PERMISSIONS.VIEW_PAYMENT,
-      PERMISSIONS.VIEW_INVOICE,
-      PERMISSIONS.VIEW_KYC,
-    ],
+    requiredPermissions: [PERMISSIONS.VIEW_PAYMENT],
     items: [
       {
         id: 'payments',
@@ -207,18 +271,11 @@ const NAVIGATION_STRUCTURE = {
         requiredPermissions: [PERMISSIONS.VIEW_PAYMENT],
       },
       {
-        id: 'invoices',
-        label: 'Invoices',
-        href: '/dashboard/invoices',
-        icon: FileText,
-        requiredPermissions: [PERMISSIONS.VIEW_INVOICE],
-      },
-      {
-        id: 'kyc',
-        label: 'KYC',
-        href: '/dashboard/kyc',
-        icon: Shield,
-        requiredPermissions: [PERMISSIONS.VIEW_KYC],
+        id: 'cashfree',
+        label: 'Cashfree',
+        href: '/dashboard/cashfree',
+        icon: CreditCard,
+        requiredPermissions: [PERMISSIONS.VIEW_PAYMENT],
       },
     ],
   },
@@ -228,18 +285,32 @@ const NAVIGATION_STRUCTURE = {
     requiredPermissions: [PERMISSIONS.REPORTS],
     items: [
       {
-        id: 'reports',
-        label: 'Reports',
-        href: '/dashboard/reports',
-        icon: BarChart3,
+        id: 'lead-reports',
+        label: 'Lead Reports',
+        href: '/dashboard/reports/leads',
+        icon: Target,
         requiredPermissions: [PERMISSIONS.REPORTS],
       },
       {
-        id: 'targets',
-        label: 'Targets',
-        href: '/dashboard/targets',
-        icon: Target,
-        requiredPermissions: [PERMISSIONS.TARGETS],
+        id: 'user-reports',
+        label: 'User Reports',
+        href: '/dashboard/reports/users',
+        icon: Users,
+        requiredPermissions: [PERMISSIONS.REPORTS],
+      },
+      {
+        id: 'branch-reports',
+        label: 'Branch Reports',
+        href: '/dashboard/reports/branches',
+        icon: Building2,
+        requiredPermissions: [PERMISSIONS.REPORTS],
+      },
+      {
+        id: 'analytics',
+        label: 'Analytics',
+        href: '/dashboard/analytics',
+        icon: BarChart3,
+        requiredPermissions: [PERMISSIONS.REPORTS],
       },
     ],
   },
@@ -249,37 +320,37 @@ const NAVIGATION_STRUCTURE = {
     requiredPermissions: [PERMISSIONS.APPROVAL],
     items: [
       {
-        id: 'permissions',
-        label: 'Permissions',
-        href: '/dashboard/configuration/permissions',
-        icon: Shield,
-        requiredPermissions: [PERMISSIONS.APPROVAL],
-      },
-      {
-        id: 'attendance',
-        label: 'Attendance',
-        href: '/dashboard/configuration/attendance',
-        icon: Clock,
-        requiredPermissions: [PERMISSIONS.APPROVAL],
-      },
-      {
         id: 'settings',
-        label: 'Settings',
-        href: '/dashboard/configuration/settings',
+        label: 'System Settings',
+        href: '/dashboard/settings',
         icon: Settings,
+        requiredPermissions: [PERMISSIONS.APPROVAL],
+      },
+      {
+        id: 'themes',
+        label: 'Themes',
+        href: '/dashboard/themes',
+        icon: Palette,
+        requiredPermissions: [PERMISSIONS.APPROVAL],
+      },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        href: '/dashboard/notifications',
+        icon: Bell,
         requiredPermissions: [PERMISSIONS.APPROVAL],
       },
     ],
   },
   communication: {
     title: 'Communication',
-    icon: Mail,
-    requiredPermissions: [PERMISSIONS.INTERNAL_MAILING, PERMISSIONS.CHATTING],
+    icon: MessageCircle,
+    requiredPermissions: [PERMISSIONS.INTERNAL_MAILING],
     items: [
       {
-        id: 'internal-mail',
-        label: 'Internal Mailing',
-        href: '/dashboard/communication/mail',
+        id: 'email',
+        label: 'Email',
+        href: '/dashboard/communication/email',
         icon: Mail,
         requiredPermissions: [PERMISSIONS.INTERNAL_MAILING],
       },
@@ -303,8 +374,9 @@ const NAVIGATION_STRUCTURE = {
 
 export default function Sidebar({ onClose, isCollapsed, onToggleCollapse }) {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [expandedSections, setExpandedSections] = useState({
+    main: true,
     leads: true,
     users: false,
     branches: false,
@@ -314,6 +386,18 @@ export default function Sidebar({ onClose, isCollapsed, onToggleCollapse }) {
     configuration: false,
     communication: false,
   })
+
+  // Debug information
+  useEffect(() => {
+    console.log('🔍 Sidebar Debug Info:', {
+      user,
+      isAuthenticated,
+      userRole: user?.role,
+      userName: user?.name,
+      isCollapsed,
+      pathname
+    })
+  }, [user, isAuthenticated, isCollapsed, pathname])
 
   // Auto-expand active sections
   useEffect(() => {
@@ -329,6 +413,7 @@ export default function Sidebar({ onClose, isCollapsed, onToggleCollapse }) {
   }, [pathname])
 
   const toggleSection = (section) => {
+    if (isCollapsed) return
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
@@ -343,9 +428,7 @@ export default function Sidebar({ onClose, isCollapsed, onToggleCollapse }) {
   }
 
   const hasPermission = (requiredPermissions) => {
-    if (!requiredPermissions || requiredPermissions.length === 0) return true
-    if (!user?.role) return false
-    return PermissionManager.hasAnyPermission(user.role, requiredPermissions)
+    return checkPermission(user?.role, requiredPermissions)
   }
 
   const filterNavigationItems = (items) => {
@@ -374,167 +457,183 @@ export default function Sidebar({ onClose, isCollapsed, onToggleCollapse }) {
         <Icon 
           size={18} 
           className={`transition-transform duration-200 ${
-            active ? 'text-blue-100' : 'group-hover:scale-110'
-          }`} 
+            active ? 'scale-110' : 'group-hover:scale-105'
+          }`}
         />
         {!isCollapsed && (
-          <>
-            <span className="font-medium tracking-wide">{item.label}</span>
-            {active && (
-              <div className="absolute right-2 w-2 h-2 bg-blue-200 rounded-full animate-pulse"></div>
-            )}
-          </>
+          <span className="truncate">{item.label}</span>
+        )}
+        
+        {active && !isCollapsed && (
+          <div className="absolute right-2 w-2 h-2 bg-white rounded-full opacity-80" />
         )}
       </Link>
     )
   }
 
-  const SectionHeader = ({ section, sectionKey, isExpanded, onToggle }) => {
+  const SectionHeader = ({ section, sectionKey }) => {
     const Icon = section.icon
-    
-    if (isCollapsed) return null
-    
+    const isExpanded = expandedSections[sectionKey]
+    const hasItems = section.items && section.items.length > 0
+    const filteredItems = hasItems ? filterNavigationItems(section.items) : []
+    const hasVisibleItems = filteredItems.length > 0
+
+    if (!hasVisibleItems && hasItems) return null
+
     return (
-      <button
-        onClick={onToggle}
-        className="group flex items-center justify-between w-full px-4 py-3 text-left text-sm font-bold text-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 rounded-lg transition-all duration-200"
-      >
-        <div className="flex items-center space-x-3">
-          <div className="p-1 rounded-lg bg-gray-100 group-hover:bg-blue-50 transition-colors duration-200">
-            <Icon size={16} className="text-gray-600 group-hover:text-blue-600 transition-colors duration-200" />
+      <div className="mb-2">
+        {!isCollapsed && (
+          <button
+            onClick={() => toggleSection(sectionKey)}
+            className={`
+              w-full flex items-center justify-between px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 transition-colors duration-200
+              ${hasItems ? 'cursor-pointer' : 'cursor-default'}
+            `}
+            disabled={!hasItems}
+          >
+            <div className="flex items-center space-x-2">
+              {Icon && <Icon size={14} />}
+              <span>{section.title}</span>
+            </div>
+            {hasItems && (
+              <ChevronRight 
+                size={14} 
+                className={`transform transition-transform duration-200 ${
+                  isExpanded ? 'rotate-90' : ''
+                }`}
+              />
+            )}
+          </button>
+        )}
+        
+        {isCollapsed && Icon && hasVisibleItems && (
+          <div className="flex justify-center py-2">
+            <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors duration-200">
+              <Icon size={16} />
+            </div>
           </div>
-          <span className="text-gray-800 font-semibold tracking-wide">{section.title}</span>
-        </div>
-        <div className="p-1 rounded-full bg-gray-100 group-hover:bg-blue-50 transition-all duration-200">
-          {isExpanded ? (
-            <ChevronDown size={14} className="text-gray-500 group-hover:text-blue-600 transition-colors duration-200" />
-          ) : (
-            <ChevronRight size={14} className="text-gray-500 group-hover:text-blue-600 transition-colors duration-200" />
-          )}
-        </div>
-      </button>
+        )}
+      </div>
     )
   }
 
-  const renderNavigationSection = (sectionKey, section) => {
-    // Check if user has permission to see this section
-    if (!hasPermission(section.requiredPermissions)) return null
-
-    // For main section (no grouping)
-    if (sectionKey === 'main') {
-      return (
-        <div key={sectionKey} className="space-y-1">
-          {filterNavigationItems(section.items).map(item => (
-            <NavItem key={item.id} item={item} />
-          ))}
-        </div>
-      )
-    }
-
-    // For grouped sections
-    const filteredItems = filterNavigationItems(section.items || [])
-    if (filteredItems.length === 0) return null
-
-    const isExpanded = expandedSections[sectionKey]
-
+  // Show loading state if auth is not ready
+  if (!isAuthenticated) {
     return (
-      <div key={sectionKey} className="space-y-1">
-        <SectionHeader
-          section={section}
-          sectionKey={sectionKey}
-          isExpanded={isExpanded}
-          onToggle={() => toggleSection(sectionKey)}
-        />
-        {(isExpanded || isCollapsed) && (
-          <div className={`space-y-1 ${isCollapsed ? '' : 'pb-2'}`}>
-            {filteredItems.map(item => (
-              <NavItem 
-                key={item.id} 
-                item={item} 
-                isSubItem={!isCollapsed}
-              />
-            ))}
-          </div>
-        )}
+      <div className="h-full flex items-center justify-center bg-white border-r border-gray-200">
+        <div className="text-center text-gray-500">
+          <Users size={24} className="mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show debug info if no user
+  if (!user) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white border-r border-gray-200">
+        <div className="text-center text-red-500">
+          <Users size={24} className="mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No user data found</p>
+          <p className="text-xs mt-1">Check authentication</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className={`
-      flex flex-col h-full bg-gradient-to-br from-slate-50 to-gray-100 border-r border-gray-200 shadow-xl
-      transition-all duration-300 ease-in-out
-      ${isCollapsed ? 'w-16' : 'w-64'}
-    `}>
+    <div className="h-full flex flex-col bg-white border-r border-gray-200 shadow-sm">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-lg">
-                <Building2 className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 tracking-tight">Pride CRM</h1>
-                <p className="text-xs text-gray-500 font-medium">Management System</p>
-              </div>
+      <div className={`flex items-center justify-between p-4 border-b border-gray-200 ${isCollapsed ? 'px-2' : ''}`}>
+        {!isCollapsed && (
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+              <Building2 size={18} className="text-white" />
             </div>
-          )}
-          
-          {/* Collapse Toggle */}
-          <button
-            onClick={onToggleCollapse}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors duration-200"
-            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-          >
-            {isCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-          </button>
-          
-          {/* Mobile Close Button */}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition-colors duration-200"
-          >
-            <X size={16} />
-          </button>
-        </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">Pride CRM</h1>
+              <p className="text-xs text-gray-500">Trading Consultancy</p>
+            </div>
+          </div>
+        )}
+        
+        <button
+          onClick={onToggleCollapse}
+          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-500 hover:text-gray-700"
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+        </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
-        {Object.entries(NAVIGATION_STRUCTURE).map(([sectionKey, section]) =>
-          renderNavigationSection(sectionKey, section)
-        )}
-      </nav>
-
-      {/* Footer */}
+      {/* User info */}
       {!isCollapsed && (
-        <div className="p-4 border-t border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-3 h-3 bg-emerald-500 rounded-full shadow-lg"></div>
-                <div className="absolute inset-0 w-3 h-3 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
-              </div>
-              <div>
-                <span className="text-sm font-semibold text-gray-700">System Online</span>
-                <p className="text-xs text-gray-500">All services operational</p>
-              </div>
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+              {user.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
-            <div className="text-xs text-gray-400 font-medium">
-              v2.1.0
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {user.name || 'Unknown User'}
+              </p>
+              <p className="text-xs text-gray-500 truncate capitalize">
+                {user.role?.toLowerCase().replace('_', ' ') || 'No Role'}
+              </p>
+              {user.branch_name && (
+                <p className="text-xs text-gray-400 truncate">
+                  {user.branch_name}
+                </p>
+              )}
             </div>
           </div>
         </div>
       )}
-      
-      {/* User Info (collapsed state) */}
-      {isCollapsed && user && (
-        <div className="p-3 border-t border-gray-200 bg-white shadow-sm">
-          <div className="flex justify-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-              {user.name?.charAt(0)?.toUpperCase() || 'U'}
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4 space-y-1">
+        {Object.entries(NAVIGATION_STRUCTURE).map(([sectionKey, section]) => {
+          // Check if user has permission to see this section
+          if (!hasPermission(section.requiredPermissions)) {
+            return null
+          }
+
+          const filteredItems = section.items ? filterNavigationItems(section.items) : []
+          const isExpanded = expandedSections[sectionKey]
+
+          return (
+            <div key={sectionKey}>
+              <SectionHeader section={section} sectionKey={sectionKey} />
+              
+              {section.items && (isCollapsed || isExpanded) && (
+                <div className={`space-y-1 ${isCollapsed ? '' : 'mb-4'}`}>
+                  {filteredItems.map(item => (
+                    <NavItem 
+                      key={item.id} 
+                      item={item} 
+                      isSubItem={!isCollapsed}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
+          )
+        })}
+      </nav>
+
+      {/* Footer */}
+      {!isCollapsed && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Pride CRM v2.1.0</span>
+            <Link 
+              href="/dashboard/help"
+              className="flex items-center space-x-1 hover:text-gray-700 transition-colors duration-200"
+            >
+              <HelpCircle size={12} />
+              <span>Help</span>
+            </Link>
           </div>
         </div>
       )}

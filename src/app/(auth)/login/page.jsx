@@ -22,19 +22,31 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [formErrors, setFormErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
   // Get redirect URL from query params
   const redirectTo = searchParams.get('redirect') || '/dashboard'
   const message = searchParams.get('message')
 
-  // Redirect if already authenticated
+  // Check authentication status only once
   useEffect(() => {
-    if (isAuthenticated()) {
-      const user = getCurrentUser()
-      console.log('User already authenticated, redirecting...', user)
-      router.push(redirectTo)
+    const checkAuth = async () => {
+      try {
+        if (isAuthenticated()) {
+          const user = getCurrentUser()
+          console.log('User already authenticated, redirecting...', user)
+          router.push(redirectTo)
+          return
+        }
+      } catch (error) {
+        console.error('Auth check error:', error)
+      } finally {
+        setAuthChecked(true)
+      }
     }
-  }, [isAuthenticated, getCurrentUser, router, redirectTo])
+    
+    checkAuth()
+  }, []) // Remove dependencies to prevent loop
 
   // Clear errors when user starts typing
   useEffect(() => {
@@ -53,33 +65,29 @@ export default function LoginPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }))
-
-    // Clear specific field error when user starts typing
+    
+    // Clear field-specific errors
     if (formErrors[name]) {
       setFormErrors(prev => ({
         ...prev,
-        [name]: null
+        [name]: ''
       }))
     }
   }
 
   const validateForm = () => {
     const errors = {}
-
-    // Username validation
+    
     if (!formData.username.trim()) {
       errors.username = 'Username or email is required'
-    } else if (formData.username.length < 3) {
-      errors.username = 'Username must be at least 3 characters'
     }
-
-    // Password validation
+    
     if (!formData.password) {
       errors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters'
+    } else if (formData.password.length < 3) {
+      errors.password = 'Password is too short'
     }
-
+    
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -90,86 +98,72 @@ export default function LoginPage() {
     if (!validateForm()) {
       return
     }
-
+    
     setIsSubmitting(true)
-
+    console.log('🚀 Submitting login form:', { username: formData.username })
+    
     try {
-      const result = await login({
-        username: formData.username.trim(),
-        password: formData.password,
-        rememberMe: formData.rememberMe
-      }, redirectTo)
-
+      const result = await login(formData, redirectTo)
+      
       if (result.success) {
-        // Success handled by useAuth hook (redirect + toast)
-        console.log('Login successful:', result.user)
+        console.log('✅ Login successful')
+        // Don't redirect here - let the login function handle it
+      } else {
+        console.error('❌ Login failed:', result.error)
       }
     } catch (err) {
-      console.error('Login submission error:', err)
+      console.error('❌ Login submission error:', err)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleForgotPassword = () => {
-    router.push('/forgot-password')
-  }
-
-  // Don't render if already authenticated (prevents flash)
-  if (isAuthenticated()) {
+  // Show loading while checking auth
+  if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <LoadingSpinner size="lg" text="Redirecting..." />
+        <LoadingSpinner size="lg" text="Checking authentication..." />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center mb-6">
-            <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900">
-            Welcome Back
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Sign in to your account
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to your CRM account
+            Enter your credentials to access the CRM
           </p>
         </div>
 
-        {/* Messages */}
+        {/* Success/Info message */}
         {message && (
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
             <div className="flex">
-              <CheckCircle className="h-5 w-5 text-blue-400" />
-              <div className="ml-3">
-                <p className="text-sm text-blue-700">{message}</p>
-              </div>
+              <CheckCircle className="h-5 w-5 text-blue-400 mr-2" />
+              <p className="text-sm text-blue-700">{message}</p>
             </div>
           </div>
         )}
 
-        {/* Error Display */}
+        {/* Error display */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <div className="flex">
-              <AlertCircle className="h-5 w-5 text-red-400" />
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
+              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           </div>
         )}
 
         {/* Login Form */}
-        <div className="bg-white py-8 px-6 shadow-xl rounded-lg">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Username Field */}
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            {/* Username/Email field */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
                 Username or Email
@@ -184,12 +178,12 @@ export default function LoginPage() {
                   type="text"
                   autoComplete="username"
                   required
+                  className={`appearance-none relative block w-full pl-10 pr-3 py-2 border ${
+                    formErrors.username ? 'border-red-300' : 'border-gray-300'
+                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
+                  placeholder="Enter your username or email"
                   value={formData.username}
                   onChange={handleInputChange}
-                  className={`appearance-none relative block w-full pl-10 pr-3 py-3 border ${
-                    formErrors.username ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                  placeholder="Enter your username or email"
                   disabled={isSubmitting}
                 />
               </div>
@@ -198,7 +192,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Password Field */}
+            {/* Password field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
@@ -213,12 +207,12 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
+                  className={`appearance-none relative block w-full pl-10 pr-10 py-2 border ${
+                    formErrors.password ? 'border-red-300' : 'border-gray-300'
+                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
+                  placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`appearance-none relative block w-full pl-10 pr-10 py-3 border ${
-                    formErrors.password ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                  placeholder="Enter your password"
                   disabled={isSubmitting}
                 />
                 <button
@@ -238,75 +232,63 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
               )}
             </div>
+          </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="rememberMe"
-                  name="rememberMe"
-                  type="checkbox"
-                  checked={formData.rememberMe}
-                  onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  disabled={isSubmitting}
-                />
-                <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
-                  Remember me
-                </label>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-sm text-blue-600 hover:text-blue-500 focus:outline-none focus:underline"
+          {/* Remember me & Forgot password */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                name="rememberMe"
+                type="checkbox"
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                checked={formData.rememberMe}
+                onChange={handleInputChange}
                 disabled={isSubmitting}
+              />
+              <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-900">
+                Remember me
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <Link
+                href="/forgot-password"
+                className="font-medium text-indigo-600 hover:text-indigo-500"
               >
                 Forgot your password?
-              </button>
-            </div>
-
-            {/* Submit Button */}
-            <div>
-              <button
-                type="submit"
-                disabled={isSubmitting || loading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                {(isSubmitting || loading) ? (
-                  <div className="flex items-center">
-                    <ButtonLoader size="sm" color="white" />
-                    <span className="ml-2">Signing in...</span>
-                  </div>
-                ) : (
-                  'Sign in'
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Additional Links */}
-          <div className="mt-6">
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
-                <Link 
-                  href="/register" 
-                  className="text-blue-600 hover:text-blue-500 font-medium focus:outline-none focus:underline"
-                >
-                  Contact your administrator
-                </Link>
-              </p>
+              </Link>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            © 2024 Pride Trading Consultancy Pvt. Ltd. All rights reserved.
-          </p>
-        </div>
+          {/* Submit button */}
+          <div>
+            <button
+              type="submit"
+              disabled={isSubmitting || loading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {(isSubmitting || loading) ? (
+                <ButtonLoader text="Signing in..." />
+              ) : (
+                'Sign in'
+              )}
+            </button>
+          </div>
+
+          {/* Register link */}
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link
+                href="/register"
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Sign up here
+              </Link>
+            </p>
+          </div>
+        </form>
       </div>
     </div>
   )

@@ -1,4 +1,6 @@
-import { api } from './apiClient'
+// src/services/userService.js - FIXED VERSION
+
+import { apiMethods } from './apiClient'
 
 const userService = {
   /**
@@ -32,7 +34,7 @@ const userService = {
     if (branch_id) queryParams.append('branch_id', branch_id)
     if (search) queryParams.append('search', search)
 
-    const response = await api.get(`/users?${queryParams}`)
+    const response = await apiMethods.get(`/users?${queryParams}`)
     return response.data
   },
 
@@ -42,7 +44,7 @@ const userService = {
    * @returns {Promise<Object>} User details
    */
   async getUserByCode(employeeCode) {
-    const response = await api.get(`/users/${employeeCode}`)
+    const response = await apiMethods.get(`/users/${employeeCode}`)
     return response.data
   },
 
@@ -52,73 +54,82 @@ const userService = {
    * @param {string} userData.phone_number - Phone number (required)
    * @param {string} userData.email - Email address (required)
    * @param {string} userData.name - Full name (required)
+   * @param {string} userData.father_name - Father's name (required)
    * @param {string} userData.role - User role (required)
-   * @param {string} userData.father_name - Father's name
-   * @param {boolean} userData.is_active - Active status (default: true)
-   * @param {number} userData.experience - Years of experience
-   * @param {string} userData.date_of_joining - Date of joining (YYYY-MM-DD)
-   * @param {string} userData.date_of_birth - Date of birth (YYYY-MM-DD)
-   * @param {string} userData.pan - PAN number
-   * @param {string} userData.aadhaar - Aadhaar number
-   * @param {string} userData.address - Address
-   * @param {string} userData.city - City
-   * @param {string} userData.state - State
-   * @param {string} userData.pincode - Postal code
-   * @param {string} userData.comment - Additional comments
-   * @param {string} userData.branch_id - Branch ID
-   * @param {string} userData.manager_id - Manager employee code
-   * @param {string} userData.sales_manager_id - Sales manager employee code
-   * @param {string} userData.tl_id - Team lead employee code
-   * @param {string} userData.password - Initial password
-   * @returns {Promise<Object>} Created user details
+   * @param {string} userData.password - Password (required)
+   * @param {string} userData.branch_id - Branch ID (optional)
+   * @param {string} userData.sales_manager_id - Sales manager employee code (optional)
+   * @param {string} userData.tl_id - Team leader employee code (optional)
+   * @param {number} userData.experience - Experience in years (optional)
+   * @param {string} userData.date_of_joining - Date of joining (YYYY-MM-DD) (optional)
+   * @param {string} userData.date_of_birth - Date of birth (YYYY-MM-DD) (optional)
+   * @param {string} userData.address - Address (optional)
+   * @param {string} userData.city - City (optional)
+   * @param {string} userData.state - State (optional)
+   * @param {string} userData.pincode - Postal code (optional)
+   * @param {string} userData.comment - Additional comments (optional)
+   * @returns {Promise<Object>} Created user
    */
   async createUser(userData) {
-    const response = await api.post('/users', userData)
+    const response = await apiMethods.post('/users', userData)
     return response.data
   },
 
   /**
-   * Update user details
+   * Update user
    * @param {string} employeeCode - User employee code
    * @param {Object} userData - Updated user data
-   * @returns {Promise<Object>} Updated user details
+   * @returns {Promise<Object>} Updated user
    */
   async updateUser(employeeCode, userData) {
-    const response = await api.put(`/users/${employeeCode}`, userData)
+    const response = await apiMethods.put(`/users/${employeeCode}`, userData)
     return response.data
   },
 
   /**
-   * Delete user (soft delete - sets is_active to false)
+   * Delete user
    * @param {string} employeeCode - User employee code
-   * @returns {Promise<Object>} Deletion confirmation
+   * @returns {Promise<Object>} Deletion result
    */
   async deleteUser(employeeCode) {
-    const response = await api.delete(`/users/${employeeCode}`)
+    const response = await apiMethods.delete(`/users/${employeeCode}`)
     return response.data
   },
 
   /**
-   * Activate/Deactivate user
+   * Toggle user active status
    * @param {string} employeeCode - User employee code
-   * @param {boolean} isActive - Active status
-   * @returns {Promise<Object>} Updated user status
+   * @param {boolean} isActive - New active status
+   * @returns {Promise<Object>} Updated user
    */
   async toggleUserStatus(employeeCode, isActive) {
-    const response = await api.patch(`/users/${employeeCode}/status`, {
+    const response = await apiMethods.patch(`/users/${employeeCode}/toggle-status`, {
       is_active: isActive
     })
     return response.data
   },
 
   /**
-   * Reset user password
+   * Change user password
+   * @param {string} employeeCode - User employee code
+   * @param {Object} passwordData - Password change data
+   * @param {string} passwordData.current_password - Current password
+   * @param {string} passwordData.new_password - New password
+   * @returns {Promise<Object>} Password change result
+   */
+  async changeUserPassword(employeeCode, passwordData) {
+    const response = await apiMethods.patch(`/users/${employeeCode}/change-password`, passwordData)
+    return response.data
+  },
+
+  /**
+   * Reset user password (admin only)
    * @param {string} employeeCode - User employee code
    * @param {string} newPassword - New password
-   * @returns {Promise<Object>} Password reset confirmation
+   * @returns {Promise<Object>} Password reset result
    */
   async resetUserPassword(employeeCode, newPassword) {
-    const response = await api.post(`/users/${employeeCode}/reset-password`, {
+    const response = await apiMethods.patch(`/users/${employeeCode}/reset-password`, {
       new_password: newPassword
     })
     return response.data
@@ -130,27 +141,27 @@ const userService = {
    * @returns {Promise<Object>} User permissions
    */
   async getUserPermissions(employeeCode) {
-    const response = await api.get(`/users/${employeeCode}/permissions`)
+    const response = await apiMethods.get(`/users/${employeeCode}/permissions`)
     return response.data
   },
 
   /**
    * Update user permissions
    * @param {string} employeeCode - User employee code
-   * @param {Object} permissions - Permission object
+   * @param {Object} permissions - Permission updates
    * @returns {Promise<Object>} Updated permissions
    */
   async updateUserPermissions(employeeCode, permissions) {
-    const response = await api.put(`/users/${employeeCode}/permissions`, permissions)
+    const response = await apiMethods.put(`/users/${employeeCode}/permissions`, permissions)
     return response.data
   },
 
   /**
-   * Get available user roles
-   * @returns {Promise<Object>} List of available roles
+   * Get user roles
+   * @returns {Promise<Array>} List of available roles
    */
   async getUserRoles() {
-    const response = await api.get('/users/roles')
+    const response = await apiMethods.get('/users/roles')
     return response.data
   },
 
@@ -158,12 +169,14 @@ const userService = {
    * Get users by role
    * @param {string} role - User role
    * @param {boolean} activeOnly - Filter only active users (default: true)
-   * @returns {Promise<Array>} List of users with specified role
+   * @returns {Promise<Array>} List of users with the specified role
    */
   async getUsersByRole(role, activeOnly = true) {
-    const response = await api.get(`/users/by-role/${role}`, {
-      params: { active_only: activeOnly }
+    const params = new URLSearchParams({
+      role,
+      active_only: activeOnly.toString()
     })
+    const response = await apiMethods.get(`/users/by-role?${params}`)
     return response.data
   },
 
@@ -171,69 +184,53 @@ const userService = {
    * Get users by branch
    * @param {string} branchId - Branch ID
    * @param {boolean} activeOnly - Filter only active users (default: true)
-   * @returns {Promise<Array>} List of users in specified branch
+   * @param {string} role - Filter by role (optional)
+   * @returns {Promise<Array>} List of users in the specified branch
    */
-  async getUsersByBranch(branchId, activeOnly = true) {
-    const response = await api.get(`/users/by-branch/${branchId}`, {
-      params: { active_only: activeOnly }
+  async getUsersByBranch(branchId, activeOnly = true, role = '') {
+    const params = new URLSearchParams({
+      branch_id: branchId,
+      active_only: activeOnly.toString()
     })
+    if (role) params.append('role', role)
+
+    const response = await apiMethods.get(`/users/by-branch?${params}`)
     return response.data
   },
 
   /**
-   * Get user hierarchy (subordinates)
+   * Get user hierarchy (manager-subordinate relationships)
    * @param {string} employeeCode - Manager employee code
-   * @returns {Promise<Array>} List of subordinate users
+   * @returns {Promise<Array>} List of subordinates
    */
   async getUserHierarchy(employeeCode) {
-    const response = await api.get(`/users/${employeeCode}/hierarchy`)
+    const response = await apiMethods.get(`/users/${employeeCode}/hierarchy`)
     return response.data
   },
 
   /**
-   * Get managers list for dropdown
-   * @param {string} role - Manager role type ('SALES_MANAGER', 'TL', etc.)
-   * @param {string} branchId - Optional branch filter
-   * @returns {Promise<Array>} List of managers
+   * Get user statistics
+   * @param {Object} filters - Filter options
+   * @returns {Promise<Object>} User statistics
    */
-  async getManagers(role = '', branchId = '') {
-    const params = new URLSearchParams({ active_only: 'true' })
-    if (role) params.append('role', role)
-    if (branchId) params.append('branch_id', branchId)
-
-    const response = await api.get(`/users/managers?${params}`)
+  async getUserStatistics(filters = {}) {
+    const params = new URLSearchParams(filters)
+    const response = await apiMethods.get(`/users/statistics?${params}`)
     return response.data
   },
 
   /**
-   * Get team leads for dropdown
-   * @param {string} salesManagerId - Sales manager employee code
-   * @param {string} branchId - Optional branch filter
-   * @returns {Promise<Array>} List of team leads
+   * Search users with advanced filters
+   * @param {Object} searchParams - Advanced search parameters
+   * @param {string} searchParams.query - Search query
+   * @param {Array<string>} searchParams.roles - Filter by roles
+   * @param {Array<string>} searchParams.branches - Filter by branches
+   * @param {string} searchParams.status - Filter by status ('active', 'inactive', 'all')
+   * @param {Object} searchParams.dateRange - Date range filter
+   * @returns {Promise<Object>} Search results with pagination
    */
-  async getTeamLeads(salesManagerId = '', branchId = '') {
-    const params = new URLSearchParams({ 
-      active_only: 'true',
-      role: 'TL'
-    })
-    if (salesManagerId) params.append('sales_manager_id', salesManagerId)
-    if (branchId) params.append('branch_id', branchId)
-
-    const response = await api.get(`/users?${params}`)
-    return response.data
-  },
-
-  /**
-   * Bulk user operations
-   * @param {string} operation - Operation type ('activate', 'deactivate', 'delete')
-   * @param {Array<string>} employeeCodes - Array of employee codes
-   * @returns {Promise<Object>} Bulk operation result
-   */
-  async bulkUserOperation(operation, employeeCodes) {
-    const response = await api.post('/users/bulk-operation', {
-      operation,
-      employee_codes: employeeCodes
-    })
+  async searchUsers(searchParams) {
+    const response = await apiMethods.post('/users/search', searchParams)
     return response.data
   },
 
@@ -247,9 +244,7 @@ const userService = {
     const params = new URLSearchParams(filters)
     params.append('format', format)
 
-    const response = await api.get(`/users/export?${params}`, {
-      responseType: 'blob'
-    })
+    const response = await apiMethods.download(`/users/export?${params}`)
     return response.data
   },
 
@@ -267,60 +262,51 @@ const userService = {
       formData.append(key, options[key])
     })
 
-    const response = await api.upload('/users/import', formData)
+    const response = await apiMethods.upload('/users/import', formData)
     return response.data
   },
 
   /**
-   * Get user statistics
-   * @param {Object} filters - Filter options
-   * @returns {Promise<Object>} User statistics
+   * Bulk user operations
+   * @param {string} operation - Operation type ('activate', 'deactivate', 'delete', 'reset_password')
+   * @param {Array<string>} employeeCodes - Array of employee codes
+   * @param {Object} options - Operation options
+   * @returns {Promise<Object>} Bulk operation result
    */
-  async getUserStatistics(filters = {}) {
-    const params = new URLSearchParams(filters)
-    const response = await api.get(`/users/statistics?${params}`)
-    return response.data
-  },
-
-  /**
-   * Search users with advanced filters
-   * @param {Object} searchParams - Advanced search parameters
-   * @param {string} searchParams.query - Search query
-   * @param {Array<string>} searchParams.roles - Filter by roles
-   * @param {Array<string>} searchParams.branches - Filter by branches
-   * @param {string} searchParams.status - Filter by status ('active', 'inactive', 'all')
-   * @param {Object} searchParams.dateRange - Date range filter
-   * @returns {Promise<Object>} Search results with pagination
-   */
-  async searchUsers(searchParams) {
-    const response = await api.post('/users/search', searchParams)
+  async bulkUserOperation(operation, employeeCodes, options = {}) {
+    const response = await apiMethods.post('/users/bulk-operation', {
+      operation,
+      employee_codes: employeeCodes,
+      ...options
+    })
     return response.data
   },
 
   /**
    * Get user activity log
    * @param {string} employeeCode - User employee code
-   * @param {number} limit - Number of records to return
+   * @param {number} limit - Number of records to return (default: 50)
    * @returns {Promise<Array>} User activity log
    */
   async getUserActivityLog(employeeCode, limit = 50) {
-    const response = await api.get(`/users/${employeeCode}/activity-log`, {
+    const response = await apiMethods.get(`/users/${employeeCode}/activity-log`, {
       params: { limit }
     })
     return response.data
   },
 
   /**
-   * Update user profile picture
+   * Get user performance metrics
    * @param {string} employeeCode - User employee code
-   * @param {File} imageFile - Profile image file
-   * @returns {Promise<Object>} Updated user with new profile picture URL
+   * @param {Object} filters - Filter options
+   * @param {string} filters.period - Time period (month, quarter, year)
+   * @param {string} filters.date_from - From date (YYYY-MM-DD)
+   * @param {string} filters.date_to - To date (YYYY-MM-DD)
+   * @returns {Promise<Object>} User performance data
    */
-  async updateProfilePicture(employeeCode, imageFile) {
-    const formData = new FormData()
-    formData.append('profile_picture', imageFile)
-
-    const response = await api.upload(`/users/${employeeCode}/profile-picture`, formData)
+  async getUserPerformance(employeeCode, filters = {}) {
+    const params = new URLSearchParams(filters)
+    const response = await apiMethods.get(`/users/${employeeCode}/performance?${params}`)
     return response.data
   },
 
@@ -331,10 +317,48 @@ const userService = {
    * @returns {Promise<Object>} Validation result
    */
   async validateUserData(userData, isUpdate = false) {
-    const response = await api.post('/users/validate', {
+    const response = await apiMethods.post('/users/validate', {
       user_data: userData,
       is_update: isUpdate
     })
+    return response.data
+  },
+
+  /**
+   * Check employee code availability
+   * @param {string} employeeCode - Employee code to check
+   * @returns {Promise<Object>} Availability result
+   */
+  async checkEmployeeCodeAvailability(employeeCode) {
+    const response = await apiMethods.get(`/users/check-code?employee_code=${employeeCode}`)
+    return response.data
+  },
+
+  /**
+   * Check email availability
+   * @param {string} email - Email to check
+   * @param {string} excludeEmployeeCode - Employee code to exclude from check (for updates)
+   * @returns {Promise<Object>} Availability result
+   */
+  async checkEmailAvailability(email, excludeEmployeeCode = null) {
+    const params = new URLSearchParams({ email })
+    if (excludeEmployeeCode) params.append('exclude_employee_code', excludeEmployeeCode)
+
+    const response = await apiMethods.get(`/users/check-email?${params}`)
+    return response.data
+  },
+
+  /**
+   * Check phone number availability
+   * @param {string} phoneNumber - Phone number to check
+   * @param {string} excludeEmployeeCode - Employee code to exclude from check (for updates)
+   * @returns {Promise<Object>} Availability result
+   */
+  async checkPhoneAvailability(phoneNumber, excludeEmployeeCode = null) {
+    const params = new URLSearchParams({ phone_number: phoneNumber })
+    if (excludeEmployeeCode) params.append('exclude_employee_code', excludeEmployeeCode)
+
+    const response = await apiMethods.get(`/users/check-phone?${params}`)
     return response.data
   }
 }

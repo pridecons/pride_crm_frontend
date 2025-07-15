@@ -1,4 +1,6 @@
-import { api } from './apiClient'
+// src/services/leadService.js - FIXED VERSION
+
+import { apiMethods } from './apiClient'
 
 const leadService = {
   /**
@@ -44,7 +46,7 @@ const leadService = {
     if (search) queryParams.append('search', search)
     if (priority) queryParams.append('priority', priority)
 
-    const response = await api.get(`/leads?${queryParams}`)
+    const response = await apiMethods.get(`/leads?${queryParams}`)
     return response.data
   },
 
@@ -54,7 +56,7 @@ const leadService = {
    * @returns {Promise<Object>} Lead details
    */
   async getLeadById(leadId) {
-    const response = await api.get(`/leads/${leadId}`)
+    const response = await apiMethods.get(`/leads/${leadId}`)
     return response.data
   },
 
@@ -83,7 +85,7 @@ const leadService = {
    * @returns {Promise<Object>} Created lead details
    */
   async createLead(leadData) {
-    const response = await api.post('/leads', leadData)
+    const response = await apiMethods.post('/leads', leadData)
     return response.data
   },
 
@@ -94,7 +96,7 @@ const leadService = {
    * @returns {Promise<Object>} Updated lead details
    */
   async updateLead(leadId, leadData) {
-    const response = await api.put(`/leads/${leadId}`, leadData)
+    const response = await apiMethods.put(`/leads/${leadId}`, leadData)
     return response.data
   },
 
@@ -104,7 +106,7 @@ const leadService = {
    * @returns {Promise<Object>} Deletion confirmation
    */
   async deleteLead(leadId) {
-    const response = await api.delete(`/leads/${leadId}`)
+    const response = await apiMethods.delete(`/leads/${leadId}`)
     return response.data
   },
 
@@ -116,7 +118,7 @@ const leadService = {
    * @returns {Promise<Object>} Updated lead
    */
   async updateLeadStatus(leadId, status, comments = '') {
-    const response = await api.patch(`/leads/${leadId}/status`, {
+    const response = await apiMethods.patch(`/leads/${leadId}/status`, {
       status,
       comments
     })
@@ -131,7 +133,7 @@ const leadService = {
    * @returns {Promise<Object>} Updated lead
    */
   async assignLead(leadId, assignedTo, comments = '') {
-    const response = await api.patch(`/leads/${leadId}/assign`, {
+    const response = await apiMethods.patch(`/leads/${leadId}/assign`, {
       assigned_to: assignedTo,
       comments
     })
@@ -146,7 +148,7 @@ const leadService = {
    * @returns {Promise<Object>} Bulk assignment result
    */
   async bulkAssignLeads(leadIds, assignedTo, comments = '') {
-    const response = await api.post('/leads/bulk-assign', {
+    const response = await apiMethods.post('/leads/bulk-assign', {
       lead_ids: leadIds,
       assigned_to: assignedTo,
       comments
@@ -160,9 +162,10 @@ const leadService = {
    * @returns {Promise<Array>} List of lead sources
    */
   async getLeadSources(activeOnly = true) {
-    const response = await api.get('/lead-sources', {
-      params: { active_only: activeOnly }
+    const params = new URLSearchParams({
+      active_only: activeOnly.toString()
     })
+    const response = await apiMethods.get(`/lead-sources?${params}`)
     return response.data
   },
 
@@ -175,7 +178,7 @@ const leadService = {
    * @returns {Promise<Object>} Created lead source
    */
   async createLeadSource(sourceData) {
-    const response = await api.post('/lead-sources', sourceData)
+    const response = await apiMethods.post('/lead-sources', sourceData)
     return response.data
   },
 
@@ -186,7 +189,7 @@ const leadService = {
    * @returns {Promise<Object>} Updated lead source
    */
   async updateLeadSource(sourceId, sourceData) {
-    const response = await api.put(`/lead-sources/${sourceId}`, sourceData)
+    const response = await apiMethods.put(`/lead-sources/${sourceId}`, sourceData)
     return response.data
   },
 
@@ -196,88 +199,65 @@ const leadService = {
    * @returns {Promise<Object>} Deletion confirmation
    */
   async deleteLeadSource(sourceId) {
-    const response = await api.delete(`/lead-sources/${sourceId}`)
+    const response = await apiMethods.delete(`/lead-sources/${sourceId}`)
     return response.data
   },
 
   /**
-   * Get lead responses/follow-ups for a lead
+   * Add follow-up to lead
    * @param {string|number} leadId - Lead ID
-   * @returns {Promise<Array>} List of lead responses
+   * @param {Object} followupData - Follow-up data
+   * @param {string} followupData.follow_up_date - Follow-up date (YYYY-MM-DD)
+   * @param {string} followupData.comments - Follow-up comments
+   * @param {string} followupData.follow_up_type - Follow-up type (call, email, meeting)
+   * @returns {Promise<Object>} Created follow-up
    */
-  async getLeadResponses(leadId) {
-    const response = await api.get(`/leads/${leadId}/responses`)
+  async addLeadFollowup(leadId, followupData) {
+    const response = await apiMethods.post(`/leads/${leadId}/follow-up`, followupData)
     return response.data
   },
 
   /**
-   * Add lead response/follow-up
+   * Get lead follow-ups
    * @param {string|number} leadId - Lead ID
-   * @param {Object} responseData - Response data
-   * @param {string} responseData.response_type - Response type (call, email, meeting, etc.)
-   * @param {string} responseData.response_text - Response content (required)
-   * @param {string} responseData.next_follow_up_date - Next follow-up date
-   * @param {string} responseData.status - Lead status after response
-   * @returns {Promise<Object>} Created response
+   * @returns {Promise<Array>} List of follow-ups for the lead
    */
-  async addLeadResponse(leadId, responseData) {
-    const response = await api.post(`/leads/${leadId}/responses`, responseData)
+  async getLeadFollowups(leadId) {
+    const response = await apiMethods.get(`/leads/${leadId}/follow-up`)
     return response.data
   },
 
   /**
-   * Update lead response
-   * @param {string|number} responseId - Response ID
-   * @param {Object} responseData - Updated response data
-   * @returns {Promise<Object>} Updated response
+   * Update follow-up
+   * @param {string|number} leadId - Lead ID
+   * @param {string|number} followupId - Follow-up ID
+   * @param {Object} followupData - Updated follow-up data
+   * @returns {Promise<Object>} Updated follow-up
    */
-  async updateLeadResponse(responseId, responseData) {
-    const response = await api.put(`/lead-responses/${responseId}`, responseData)
+  async updateLeadFollowup(leadId, followupId, followupData) {
+    const response = await apiMethods.put(`/leads/${leadId}/follow-up/${followupId}`, followupData)
     return response.data
   },
 
   /**
-   * Delete lead response
-   * @param {string|number} responseId - Response ID
+   * Delete follow-up
+   * @param {string|number} leadId - Lead ID
+   * @param {string|number} followupId - Follow-up ID
    * @returns {Promise<Object>} Deletion confirmation
    */
-  async deleteLeadResponse(responseId) {
-    const response = await api.delete(`/lead-responses/${responseId}`)
-    return response.data
-  },
-
-  /**
-   * Get leads assigned to current user
-   * @param {Object} params - Query parameters
-   * @returns {Promise<Object>} User's assigned leads
-   */
-  async getMyLeads(params = {}) {
-    const queryParams = new URLSearchParams({
-      skip: (params.skip || 0).toString(),
-      limit: (params.limit || 50).toString()
-    })
-
-    if (params.status) queryParams.append('status', params.status)
-    if (params.priority) queryParams.append('priority', params.priority)
-    if (params.date_from) queryParams.append('date_from', params.date_from)
-    if (params.date_to) queryParams.append('date_to', params.date_to)
-
-    const response = await api.get(`/leads/my-leads?${queryParams}`)
+  async deleteLeadFollowup(leadId, followupId) {
+    const response = await apiMethods.delete(`/leads/${leadId}/follow-up/${followupId}`)
     return response.data
   },
 
   /**
    * Get lead statistics
    * @param {Object} filters - Filter options
-   * @param {string} filters.date_from - From date
-   * @param {string} filters.date_to - To date
-   * @param {string} filters.branch_id - Branch filter
-   * @param {string} filters.assigned_to - User filter
    * @returns {Promise<Object>} Lead statistics
    */
   async getLeadStatistics(filters = {}) {
     const params = new URLSearchParams(filters)
-    const response = await api.get(`/leads/statistics?${params}`)
+    const response = await apiMethods.get(`/leads/statistics?${params}`)
     return response.data
   },
 
@@ -292,7 +272,7 @@ const leadService = {
     if (date) params.append('date', date)
     if (assignedTo) params.append('assigned_to', assignedTo)
 
-    const response = await api.get(`/leads/due-followup?${params}`)
+    const response = await apiMethods.get(`/leads/due-followup?${params}`)
     return response.data
   },
 
@@ -307,7 +287,7 @@ const leadService = {
    * @returns {Promise<Object>} Conversion result
    */
   async convertLead(leadId, conversionData) {
-    const response = await api.post(`/leads/${leadId}/convert`, conversionData)
+    const response = await apiMethods.post(`/leads/${leadId}/convert`, conversionData)
     return response.data
   },
 
@@ -325,7 +305,7 @@ const leadService = {
     })
     formData.append('document_type', documentType)
 
-    const response = await api.upload(`/leads/${leadId}/documents`, formData)
+    const response = await apiMethods.upload(`/leads/${leadId}/documents`, formData)
     return response.data
   },
 
@@ -335,7 +315,7 @@ const leadService = {
    * @returns {Promise<Array>} List of lead documents
    */
   async getLeadDocuments(leadId) {
-    const response = await api.get(`/leads/${leadId}/documents`)
+    const response = await apiMethods.get(`/leads/${leadId}/documents`)
     return response.data
   },
 
@@ -346,7 +326,7 @@ const leadService = {
    * @returns {Promise<Object>} Deletion confirmation
    */
   async deleteLeadDocument(leadId, documentId) {
-    const response = await api.delete(`/leads/${leadId}/documents/${documentId}`)
+    const response = await apiMethods.delete(`/leads/${leadId}/documents/${documentId}`)
     return response.data
   },
 
@@ -367,7 +347,7 @@ const leadService = {
       formData.append(key, options[key])
     })
 
-    const response = await api.upload('/leads/import', formData)
+    const response = await apiMethods.upload('/leads/import', formData)
     return response.data
   },
 
@@ -381,9 +361,7 @@ const leadService = {
     const params = new URLSearchParams(filters)
     params.append('format', format)
 
-    const response = await api.get(`/leads/export?${params}`, {
-      responseType: 'blob'
-    })
+    const response = await apiMethods.download(`/leads/export?${params}`)
     return response.data
   },
 
@@ -399,66 +377,81 @@ const leadService = {
    * @returns {Promise<Object>} Search results with pagination
    */
   async searchLeads(searchParams) {
-    const response = await api.post('/leads/search', searchParams)
+    const response = await apiMethods.post('/leads/search', searchParams)
+    return response.data
+  },
+
+  /**
+   * Bulk operations on leads
+   * @param {string} operation - Operation type ('delete', 'assign', 'update_status')
+   * @param {Array<string|number>} leadIds - Array of lead IDs
+   * @param {Object} options - Operation options
+   * @returns {Promise<Object>} Bulk operation result
+   */
+  async bulkLeadOperation(operation, leadIds, options = {}) {
+    const response = await apiMethods.post('/leads/bulk-operation', {
+      operation,
+      lead_ids: leadIds,
+      ...options
+    })
+    return response.data
+  },
+
+  /**
+   * Get lead activity history
+   * @param {string|number} leadId - Lead ID
+   * @param {number} limit - Number of records to return (default: 50)
+   * @returns {Promise<Array>} Lead activity history
+   */
+  async getLeadActivity(leadId, limit = 50) {
+    const response = await apiMethods.get(`/leads/${leadId}/activity`, {
+      params: { limit }
+    })
     return response.data
   },
 
   /**
    * Get lead conversion funnel data
    * @param {Object} filters - Filter options
-   * @returns {Promise<Object>} Funnel statistics
-   */
-  async getLeadFunnel(filters = {}) {
-    const params = new URLSearchParams(filters)
-    const response = await api.get(`/leads/funnel?${params}`)
-    return response.data
-  },
-
-  /**
-   * Get lead performance metrics
-   * @param {Object} filters - Filter options
-   * @param {string} filters.period - Time period (day, week, month, year)
    * @param {string} filters.date_from - From date
    * @param {string} filters.date_to - To date
-   * @returns {Promise<Object>} Performance metrics
+   * @param {string} filters.branch_id - Branch filter
+   * @param {string} filters.assigned_to - Assignee filter
+   * @returns {Promise<Object>} Conversion funnel data
    */
-  async getLeadPerformance(filters = {}) {
+  async getLeadFunnelData(filters = {}) {
     const params = new URLSearchParams(filters)
-    const response = await api.get(`/leads/performance?${params}`)
+    const response = await apiMethods.get(`/leads/funnel?${params}`)
     return response.data
   },
 
   /**
-   * Schedule lead follow-up reminder
-   * @param {string|number} leadId - Lead ID
-   * @param {Object} reminderData - Reminder data
-   * @param {string} reminderData.reminder_date - Reminder date and time
-   * @param {string} reminderData.reminder_type - Reminder type (email, sms, notification)
-   * @param {string} reminderData.message - Reminder message
-   * @returns {Promise<Object>} Scheduled reminder
+   * Validate lead data before creation/update
+   * @param {Object} leadData - Lead data to validate
+   * @param {boolean} isUpdate - Whether this is an update operation
+   * @returns {Promise<Object>} Validation result
    */
-  async scheduleLeadReminder(leadId, reminderData) {
-    const response = await api.post(`/leads/${leadId}/reminders`, reminderData)
+  async validateLeadData(leadData, isUpdate = false) {
+    const response = await apiMethods.post('/leads/validate', {
+      lead_data: leadData,
+      is_update: isUpdate
+    })
     return response.data
   },
 
   /**
-   * Get lead reminders
-   * @param {string|number} leadId - Lead ID
-   * @returns {Promise<Array>} List of reminders
+   * Check duplicate leads
+   * @param {string} phoneNumber - Phone number to check
+   * @param {string} email - Email to check (optional)
+   * @param {string|number} excludeLeadId - Lead ID to exclude from check (for updates)
+   * @returns {Promise<Object>} Duplicate check result
    */
-  async getLeadReminders(leadId) {
-    const response = await api.get(`/leads/${leadId}/reminders`)
-    return response.data
-  },
+  async checkDuplicateLeads(phoneNumber, email = '', excludeLeadId = null) {
+    const params = new URLSearchParams({ phone_number: phoneNumber })
+    if (email) params.append('email', email)
+    if (excludeLeadId) params.append('exclude_lead_id', excludeLeadId)
 
-  /**
-   * Mark reminder as completed
-   * @param {string|number} reminderId - Reminder ID
-   * @returns {Promise<Object>} Updated reminder
-   */
-  async completeReminder(reminderId) {
-    const response = await api.patch(`/lead-reminders/${reminderId}/complete`)
+    const response = await apiMethods.get(`/leads/check-duplicate?${params}`)
     return response.data
   }
 }

@@ -82,7 +82,10 @@ const FetchLimitModel = ({ open, setOpen }) => {
 
     try {
       if (editingId) {
-        await axiosInstance.put(`/api/v1/lead-fetch-config/${editingId}`, payload);
+        await axiosInstance.put(
+          `/api/v1/lead-fetch-config/${editingId}`,
+          payload
+        );
         setOpen(false);
       } else {
         await axiosInstance.post("/api/v1/lead-fetch-config/", payload);
@@ -133,16 +136,15 @@ const FetchLimitModel = ({ open, setOpen }) => {
           <h2 className="text-xl font-semibold">
             {editingId ? "Edit Fetch Limit" : "Add New Fetch Limit"}
           </h2>
-         <button
-  onClick={() => {
-    resetForm();
-    setOpen(false);
-  }}
-  className="text-gray-500 hover:text-gray-800"
->
-  ✕
-</button>
-
+          <button
+            onClick={() => {
+              resetForm();
+              setOpen(false);
+            }}
+            className="text-gray-500 hover:text-gray-800"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Form */}
@@ -153,7 +155,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
               <label className="block text-sm font-medium">Role</label>
               <select
                 value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, role: e.target.value }))
+                }
                 required
                 className="mt-1 w-full border px-2 py-1 rounded"
               >
@@ -171,7 +175,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
               <label className="block text-sm font-medium">Branch</label>
               <select
                 value={form.branch_id}
-                onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, branch_id: e.target.value }))
+                }
                 required
                 className="mt-1 w-full border px-2 py-1 rounded"
               >
@@ -215,7 +221,10 @@ const FetchLimitModel = ({ open, setOpen }) => {
                   Cancel
                 </button>
               )}
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
                 {editingId ? "Update" : "Create"}
               </button>
             </div>
@@ -238,7 +247,11 @@ const FetchLimitModel = ({ open, setOpen }) => {
                 strokeWidth={2}
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               New Fetch Limit
             </button>
@@ -269,7 +282,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
                   <td className="border px-2 py-1">{cfg.role}</td>
                   <td className="border px-2 py-1">{cfg.per_request_limit}</td>
                   <td className="border px-2 py-1">{cfg.daily_call_limit}</td>
-                  <td className="border px-2 py-1">{cfg.assignment_ttl_hours}</td>
+                  <td className="border px-2 py-1">
+                    {cfg.assignment_ttl_hours}
+                  </td>
                   <td className="border px-2 py-1">{cfg.branch_name}</td>
                   <td className="border px-2 py-1 text-center space-x-2">
                     <button
@@ -289,7 +304,10 @@ const FetchLimitModel = ({ open, setOpen }) => {
               ))}
               {configs.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="border px-2 py-4 text-center text-gray-500">
+                  <td
+                    colSpan={9}
+                    className="border px-2 py-4 text-center text-gray-500"
+                  >
                     No fetch limits configured.
                   </td>
                 </tr>
@@ -303,5 +321,3 @@ const FetchLimitModel = ({ open, setOpen }) => {
 };
 
 export default FetchLimitModel;
-
-

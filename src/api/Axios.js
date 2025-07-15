@@ -1,8 +1,9 @@
 import axios from "axios";
+import Cookies from "js-cookie";
 
 export const BASE_URL = "http://127.0.0.1:8000";
 
-const axiosInstance = axios.create({
+export const authAxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
@@ -14,7 +15,7 @@ const axiosInstance = axios.create({
   maxRedirects: 5,
 });
 
-const axiosInstanceMultipart = axios.create({
+export const authAxiosInstanceMultipart = axios.create({
   baseURL: BASE_URL,
   headers: {
     "Content-Type": "multipart/form-data",
@@ -22,108 +23,60 @@ const axiosInstanceMultipart = axios.create({
   maxRedirects: 5,
 });
 
-// GET Request
-export const GetRequest = async (url) => {
-  try {
-    const response = await axiosInstance.get(url);
-    return response.data;
-  } catch (error) {
-    throw error;
+
+export const axiosInstance = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// automatically attach access token
+axiosInstance.interceptors.request.use((config) => {
+  const access_token = Cookies.get("access_token");
+  if (access_token) {
+    // ensure headers object exists
+    config.headers = config.headers || {};
+    config.headers["Authorization"] = `Bearer ${access_token}`;
   }
-};
+  return config;
+});
 
-export const ServerGetRequest = async (url) => {
-  try {
-    const response = await fetch(`${BASE_URL}${url}`, {
-      cache: "no-store", // 👈 Important for router.refresh() to work
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+// on 401, refresh and retry
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalReq = error.config;
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      !originalReq._retry
+    ) {
+      originalReq._retry = true;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.statusText}`);
+      try {
+        const refresh_token = Cookies.get("refresh_token");
+        const { data } = await axios.post(
+          `${BASE_URL}/api/v1/auth/refresh`,
+          { refresh_token }
+        );
+
+        // update cookies
+        Cookies.set("access_token", data.access_token, { secure: true });
+        Cookies.set("refresh_token", data.refresh_token, { secure: true });
+
+        // patch and retry
+        originalReq.headers = originalReq.headers || {};
+        originalReq.headers["Authorization"] = `Bearer ${data.access_token}`;
+        return authAxios(originalReq);
+      } catch (refreshErr) {
+        // if even refresh fails, clear and force login
+        Cookies.remove("access_token");
+        Cookies.remove("refresh_token");
+        window.location.href = "/login";
+        return Promise.reject(refreshErr);
+      }
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error("ServerGetRequest error:", error);
-    return null;
+    return Promise.reject(error);
   }
-};
-
-// POST Request
-export const PostRequest = async (url, data) => {
-  try {
-    const response = await axiosInstance.post(url, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error posting data:", error);
-    throw error;
-  }
-};
-
-export const PostRequestMultipart = async (url, data) => {
-  try {
-    const response = await axiosInstanceMultipart.post(url, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error posting data:", error);
-    throw error;
-  }
-};
-
-// Authenticated POST Request
-export const AuthPostRequest = async (url, data) => {
-  try {
-    const response = await axios.post(`${BASE_URL}${url}`, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error posting data:", error);
-    throw error;
-  }
-};
-
-// UPDATE (PUT) Request
-export const PutRequest = async (url, data) => {
-  try {
-    const response = await axiosInstance.put(url, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error updating data:", error);
-    throw error;
-  }
-};
-export const PutRequestMultipart = async (url, data) => {
-  try {
-    const response = await axiosInstanceMultipart.put(url, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error updating data:", error);
-    throw error;
-  }
-};
-
-// UPDATE (PATCH) Request (for partial updates)
-export const PatchRequest = async (url, data) => {
-  try {
-    const response = await axiosInstance.patch(url, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error updating data (PATCH):", error);
-    throw error;
-  }
-};
-
-// DELETE Request
-export const DeleteRequest = async (url) => {
-  try {
-    const response = await axiosInstance.delete(url);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting data:", error);
-    throw error;
-  }
-};
-
-export default axiosInstance;
+);

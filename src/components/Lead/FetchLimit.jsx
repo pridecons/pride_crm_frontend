@@ -13,6 +13,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
     per_request_limit: "",
     daily_call_limit: "",
     assignment_ttl_hours: "",
+    last_fetch_limit: ""
   });
   const [editingId, setEditingId] = useState(null);
 
@@ -62,6 +63,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
       per_request_limit: "",
       daily_call_limit: "",
       assignment_ttl_hours: "",
+      last_fetch_limit: ""
     });
     setEditingId(null);
     setIsCreateNew(false);
@@ -70,7 +72,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const action = editingId ? "update this config" : "create this config";
-    if (!window.confirm(`Are you sure you want to ${action}?`)) return;
 
     const payload = {
       role: form.role,
@@ -78,6 +79,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
       per_request_limit: Number(form.per_request_limit),
       daily_call_limit: Number(form.daily_call_limit),
       assignment_ttl_hours: Number(form.assignment_ttl_hours),
+      last_fetch_limit: Number(form.last_fetch_limit),
     };
 
     try {
@@ -89,13 +91,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
         setOpen(false);
       } else {
         await axiosInstance.post("/lead-fetch-config/", payload);
-        const again = window.confirm("Config created! Add another?");
-        if (again) {
           resetForm();
           await fetchConfigs();
           return;
-        }
-        setOpen(false);
       }
       await fetchConfigs();
       resetForm();
@@ -112,6 +110,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
       per_request_limit: cfg.per_request_limit.toString(),
       daily_call_limit: cfg.daily_call_limit.toString(),
       assignment_ttl_hours: cfg.assignment_ttl_hours.toString(),
+      last_fetch_limit: cfg.last_fetch_limit.toString(),
     });
     setIsCreateNew(true);
   };
@@ -194,6 +193,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
             {[
               { label: "Per Request Limit", name: "per_request_limit" },
               { label: "Daily Call Limit", name: "daily_call_limit" },
+              { label: "Last Fetch Limit", name: "last_fetch_limit" },
               { label: "Assignment TTL (hrs)", name: "assignment_ttl_hours" },
             ].map(({ label, name }) => (
               <div key={name}>

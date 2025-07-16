@@ -33,6 +33,7 @@ export default function LeadForm() {
 
   const [leadSources, setLeadSources] = useState([])
   const [leadResponses, setLeadResponses] = useState([])
+  const [loadingPan, setLoadingPan] = useState(false)
 
   useEffect(() => {
     axios.get('http://127.0.0.1:8000/api/v1/lead-config/sources/?skip=0&limit=100')
@@ -57,6 +58,49 @@ export default function LeadForm() {
     }
   }
 
+  const handleVerifyPan = async () => {
+    if (!formData.pan) {
+      toast.error('Please enter a PAN number first')
+      return
+    }
+    setLoadingPan(true)
+    try {
+      const res = await axios.post(
+        'http://127.0.0.1:8000/api/v1/micro-pan-verification',
+        new URLSearchParams({ pannumber: formData.pan }),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      )
+
+      if (res.data.success && res.data.data?.result) {
+        const result = res.data.data.result
+        setFormData(prev => ({
+          ...prev,
+          full_name: result.user_full_name || prev.full_name,
+          father_name: result.user_father_name || prev.father_name,
+          dob: result.user_dob ? formatDob(result.user_dob) : prev.dob,
+          address: result.user_address?.full || prev.address,
+          city: result.user_address?.city || prev.city,
+          state: result.user_address?.state || prev.state
+        }))
+        toast.success('PAN verified and details autofilled!')
+      } else {
+        toast.error('PAN verification failed')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Error verifying PAN')
+    } finally {
+      setLoadingPan(false)
+    }
+  }
+
+  const formatDob = (dobString) => {
+    if (!dobString) return '';
+    // PAN API already gives DD-MM-YYYY, so just return as-is
+    return dobString;
+  };
+
+
   return (
     <form onSubmit={handleSubmit} className="max-w-7xl mx-auto p-6 bg-white rounded shadow">
       {/* Basic Details */}
@@ -72,9 +116,41 @@ export default function LeadForm() {
         <input name="district" value={formData.district} onChange={handleChange} placeholder="District" className="p-2 border rounded" />
         <input name="city" value={formData.city} onChange={handleChange} placeholder="City" className="p-2 border rounded" />
         <input name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} placeholder="Alternate Mobile" className="p-2 border rounded" />
-        <input name="dob" type="date" value={formData.dob} onChange={handleChange} className="p-2 border rounded" />
+        <input
+          name="dob"
+          type="text"
+          value={formData.dob}
+          onChange={(e) => {
+            // Validate input like DD-MM-YYYY
+            const value = e.target.value;
+            if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
+              setFormData((prev) => ({ ...prev, dob: value }));
+            }
+          }}
+          placeholder="DD-MM-YYYY"
+          className="p-2 border rounded"
+        />
         <input name="aadhaar" value={formData.aadhaar} onChange={handleChange} placeholder="Aadhaar Number" className="p-2 border rounded" />
-        <input name="pan" value={formData.pan} onChange={handleChange} placeholder="PAN Number" className="p-2 border rounded" />
+
+        {/* PAN with Verify Button */}
+        <div className="flex gap-2">
+          <input
+            name="pan"
+            value={formData.pan}
+            onChange={handleChange}
+            placeholder="PAN Number"
+            className="p-2 border rounded flex-1"
+          />
+          <button
+            type="button"
+            onClick={handleVerifyPan}
+            disabled={loadingPan}
+            className="bg-blue-600 text-white px-4 rounded hover:bg-blue-700"
+          >
+            {loadingPan ? 'Verifying...' : 'Verify PAN'}
+          </button>
+        </div>
+
         <input name="gstin" value={formData.gstin} onChange={handleChange} placeholder="GST Number" className="p-2 border rounded" />
         <input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Occupation" className="p-2 border rounded" />
         <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" className="p-2 border rounded col-span-2" />
@@ -102,7 +178,19 @@ export default function LeadForm() {
           ))}
         </select>
         <input name="lead_status" value={formData.lead_status} onChange={handleChange} placeholder="Lead Status" className="p-2 border rounded" />
-        <input name="call_back_date" type="date" value={formData.call_back_date} onChange={handleChange} className="p-2 border rounded" />
+        <input
+          name="call_back_date"
+          type="text"
+          value={formData.call_back_date}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
+              setFormData((prev) => ({ ...prev, call_back_date: value }));
+            }
+          }}
+          placeholder="DD-MM-YYYY"
+          className="p-2 border rounded"
+        />
         <textarea name="comment" value={formData.comment} onChange={handleChange} placeholder="Description" className="p-2 border rounded col-span-2" />
       </div>
 

@@ -1,10 +1,11 @@
+
   'use client'
 
   import { useState } from 'react'
   import Header from "@/components/Header"
   import Sidebar from "@/components/Sidebar"
 
-  export default function DashboardLayout({ children }) {
+  export default function Main({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
 
     return (

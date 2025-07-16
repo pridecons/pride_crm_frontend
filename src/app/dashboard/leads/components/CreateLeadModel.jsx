@@ -4,6 +4,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import { Fragment, useEffect, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
+import Cookies from 'js-cookie'
 
 export default function CreateLeadModal({ open, onClose }) {
   const [formData, setFormData] = useState({
@@ -35,6 +36,9 @@ export default function CreateLeadModal({ open, onClose }) {
   const [leadSources, setLeadSources] = useState([])
   const [leadResponses, setLeadResponses] = useState([])
 
+  // Get user info from cookies
+  const userInfo = Cookies.get('user_info') ? JSON.parse(Cookies.get('user_info')) : {}
+
   useEffect(() => {
     if (!open) return
     axios.get('http://127.0.0.1:8000/api/v1/lead-config/sources/?skip=0&limit=100')
@@ -50,12 +54,48 @@ export default function CreateLeadModal({ open, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Prepare payload for API
+    const payload = {
+      ...formData,
+      branch_id: userInfo.branch_id || null,
+      created_by: userInfo.employee_code || 'Admin',
+      created_by_name: userInfo.name || 'Admin',
+      segment: formData.segment ? formData.segment.split(',').map(s => s.trim()) : [],
+      comment: formData.comment ? { note: formData.comment } : {},
+    }
+
     try {
-      await axios.post('http://127.0.0.1:8000/api/v1/leads/', formData)
+      await axios.post('http://127.0.0.1:8000/api/v1/leads/', payload)
       toast.success('Lead created successfully')
       onClose()
-      setFormData({ ...formData, full_name: '', email: '', mobile: '',}) // reset important fields
+      setFormData({
+        full_name: '',
+        father_name: '',
+        email: '',
+        mobile: '',
+        alternate_mobile: '',
+        aadhaar: '',
+        pan: '',
+        gstin: '',
+        state: '',
+        city: '',
+        district: '',
+        address: '',
+        dob: '',
+        occupation: '',
+        segment: '',
+        experience: '',
+        investment: '',
+        lead_response_id: '',
+        lead_source_id: '',
+        comment: '',
+        call_back_date: '',
+        lead_status: '',
+        profile: '',
+      })
     } catch (err) {
+      console.error(err)
       toast.error('Failed to create lead')
     }
   }
@@ -91,7 +131,7 @@ export default function CreateLeadModal({ open, onClose }) {
                     <input name="pan" value={formData.pan} onChange={handleChange} placeholder="PAN" className="p-2 border rounded" />
                     <input name="gstin" value={formData.gstin} onChange={handleChange} placeholder="GSTIN" className="p-2 border rounded" />
                     <input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Occupation" className="p-2 border rounded" />
-                    <input name="segment" value={formData.segment} onChange={handleChange} placeholder="Segment" className="p-2 border rounded" />
+                    <input name="segment" value={formData.segment} onChange={handleChange} placeholder="Segment (comma separated)" className="p-2 border rounded" />
                     <input name="investment" value={formData.investment} onChange={handleChange} placeholder="Investment" className="p-2 border rounded" />
                     <input name="experience" value={formData.experience} onChange={handleChange} placeholder="Experience" className="p-2 border rounded" />
                     <input name="profile" value={formData.profile} onChange={handleChange} placeholder="Profile" className="p-2 border rounded" />

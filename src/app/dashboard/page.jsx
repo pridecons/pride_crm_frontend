@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Building, Users, TrendingUp, Globe, Plus, Search, Filter } from 'lucide-react'
 import BranchCard from './components/BranchCard'
-import AddBranchModal from './modals/AddBranchModal'
 import EditBranchModal from './modals/EditBranchModal'
+import CreateBranchWithManager from '@/components/CreateBranchWithManager'
 
 
 export default function DashboardPage() {
@@ -13,9 +13,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [showModal, setShowModal] = useState(false)
   const [selectedBranch, setSelectedBranch] = useState(null); // NEW
   const [showEditModal, setShowEditModal] = useState(false); // NEW
+  const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
 
   const handleEditBranch = (branch) => {
     setSelectedBranch(branch);
@@ -101,13 +101,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Add Branch Modal */}
-      <AddBranchModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        onSuccess={fetchBranches}
-      />
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -115,11 +108,10 @@ export default function DashboardPage() {
           <p className="mt-2 text-sm text-gray-600">Manage and monitor all your branches</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
-          className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          onClick={() => setIsAddBranchModalOpen(true)}
+          className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium"
         >
-          <Plus size={16} />
-          <span>Add Branch</span>
+          + Add Branch
         </button>
       </div>
 
@@ -197,7 +189,24 @@ export default function DashboardPage() {
           fetchBranches();
         }}
       />
+      {isAddBranchModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl flex justify-between items-center">
+        <h3 className="text-xl font-semibold text-gray-900">Add New Branch with Manager</h3>
+        <button
+          onClick={() => setIsAddBranchModalOpen(false)}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
 
+      {/* Branch Form */}
+      <CreateBranchWithManager onClose={() => setIsAddBranchModalOpen(false)} />
+    </div>
+  </div>
+)}
     </div>
   )
 }

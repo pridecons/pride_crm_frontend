@@ -15,8 +15,6 @@ const Lead = () => {
         <button className="px-3 py-1 bg-green-500 text-white rounded" onClick={()=>setIsOpenSource(true)}>CALL</button>
         <button className="px-3 py-1 bg-yellow-500 text-white rounded" onClick={()=>setIsOpenResponse(true)}>Next</button>
       </div>
-
-
     </div>
   );
 };

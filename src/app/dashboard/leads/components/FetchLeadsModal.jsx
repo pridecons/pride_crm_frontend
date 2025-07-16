@@ -3,31 +3,49 @@
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment, useEffect, useState } from 'react'
 import axios from 'axios'
+import { toast } from 'react-toastify'
 
-export default function FetchLeadsModal({ open, onClose }) {
+export default function FetchLeadsModal({ open, onClose, onLeadsFetched }) {
   const [configs, setConfigs] = useState([])
+  const [loading, setLoading] = useState(false)
 
+  // ✅ Fetch available lead-fetch configs
   const fetchConfigs = async () => {
     try {
       const res = await axios.get('http://127.0.0.1:8000/api/v1/lead-fetch-config/?skip=0&limit=100')
       setConfigs(res.data || [])
     } catch (error) {
       console.error('Error fetching config:', error)
-    }
-  }
-
-  const handleFetch = async (configId) => {
-    try {
-      await axios.post('http://127.0.0.1:8000/api/v1/leads/fetch')
-      alert(`Leads fetched successfully for Config ID ${configId}!`)
-    } catch (error) {
-      alert('Failed to fetch leads')
+      toast.error('Failed to load fetch configurations')
     }
   }
 
   useEffect(() => {
     if (open) fetchConfigs()
   }, [open])
+
+  // ✅ Fetch leads based on selected config
+  const handleFetch = async (configId) => {
+    try {
+      setLoading(true)
+      const response = await axios.post('http://127.0.0.1:8000/api/v1/leads/fetch')
+
+      if (response.data && Array.isArray(response.data)) {
+        toast.success(`Fetched ${response.data.length} leads successfully`)
+        if (onLeadsFetched) {
+          onLeadsFetched(response.data) // Pass leads to parent dashboard
+        }
+        onClose()
+      } else {
+        toast.warn('No new leads fetched')
+      }
+    } catch (error) {
+      console.error('Fetch error:', error)
+      toast.error('Failed to fetch leads')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <Transition.Root show={open} as={Fragment}>
@@ -62,12 +80,13 @@ export default function FetchLeadsModal({ open, onClose }) {
                     <button type="button" className="text-gray-400 hover:text-gray-600" onClick={onClose}>×</button>
                   </div>
 
+                  {/* Config Table */}
                   <table className="w-full text-sm text-left border">
                     <thead className="bg-gray-100 text-gray-700">
                       <tr>
                         <th className="px-4 py-2">Branch</th>
                         <th className="px-4 py-2">Role</th>
-                        <th className="px-4 py-2">Limit</th>
+                        <th className="px-4 py-2">Daily Limit</th>
                         <th className="px-4 py-2">TTL (hrs)</th>
                         <th className="px-4 py-2">Action</th>
                       </tr>
@@ -81,10 +100,11 @@ export default function FetchLeadsModal({ open, onClose }) {
                           <td className="px-4 py-2">{cfg.assignment_ttl_hours}</td>
                           <td className="px-4 py-2">
                             <button
-                              className="px-3 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                              className="px-3 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
                               onClick={() => handleFetch(cfg.id)}
+                              disabled={loading}
                             >
-                              Fetch
+                              {loading ? 'Fetching...' : 'Fetch'}
                             </button>
                           </td>
                         </tr>
@@ -96,6 +116,7 @@ export default function FetchLeadsModal({ open, onClose }) {
                     <button
                       className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-sm font-medium rounded"
                       onClick={onClose}
+                      disabled={loading}
                     >
                       Close
                     </button>

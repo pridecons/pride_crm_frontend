@@ -7,11 +7,25 @@ import { Bell, Menu, Search, User, LogOut, Settings } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
 import axios from 'axios'
 
-export default function Header({ onMenuClick }) {
+export default function Header({ onMenuClick, onSearch }) {
   const router = useRouter()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [user, setUser] = useState(null)
+  const [searchValue, setSearchValue] = useState('');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (typeof onSearch === 'function') {
+        onSearch(searchValue);
+      }
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('globalSearchQuery', searchValue);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [searchValue]);
 
   useEffect(() => {
     const accessToken = Cookies.get('access_token')
@@ -60,6 +74,8 @@ export default function Header({ onMenuClick }) {
               type="text"
               placeholder="Search..."
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
             />
           </div>
         </div>

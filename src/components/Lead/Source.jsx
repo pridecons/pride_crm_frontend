@@ -19,7 +19,7 @@ const SourceModel = ({ open, setOpen }) => {
   const fetchSources = async () => {
     try {
       const { data } = await axiosInstance.get(
-        "/api/v1/lead-config/sources/?skip=0&limit=100"
+        "/lead-config/sources/?skip=0&limit=100"
       );
       setSources(data);
     } catch (err) {
@@ -42,14 +42,14 @@ const SourceModel = ({ open, setOpen }) => {
 
     try {
       if (editingId) {
-        await axiosInstance.put(`/api/v1/lead-config/sources/${editingId}`, {
+        await axiosInstance.put(`/lead-config/sources/${editingId}`, {
           name: form.name,
           description: form.description,
         });
         // after update just close
         setOpen(false);
       } else {
-        await axiosInstance.post("/api/v1/lead-config/sources/", form);
+        await axiosInstance.post("/lead-config/sources/", form);
         // 2) After create, ask if they want to create another
         const again = window.confirm(
           "Source created successfully! Would you like to create another one?"
@@ -83,7 +83,7 @@ const SourceModel = ({ open, setOpen }) => {
     if (!window.confirm("Are you sure you want to delete this source?")) return;
     try {
       await axiosInstance.delete(
-        `/api/v1/lead-config/sources/${id}?force=false`
+        `/lead-config/sources/${id}?force=false`
       );
       await fetchSources();
     } catch (err) {

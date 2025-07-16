@@ -27,7 +27,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
   const fetchConfigs = async () => {
     try {
       const { data } = await axiosInstance.get(
-        "/api/v1/lead-fetch-config/?skip=0&limit=100"
+        "/lead-fetch-config/?skip=0&limit=100"
       );
       setConfigs(data);
     } catch (err) {
@@ -37,7 +37,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
 
   const fetchRoles = async () => {
     try {
-      const { data } = await axiosInstance.get("/api/v1/profile-role/");
+      const { data } = await axiosInstance.get("/profile-role/");
       setRoles(data);
     } catch (err) {
       console.error("Failed to load roles:", err);
@@ -47,7 +47,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
   const fetchBranches = async () => {
     try {
       const { data } = await axiosInstance.get(
-        "/api/v1/branches/?skip=0&limit=100&active_only=false"
+        "/branches/?skip=0&limit=100&active_only=false"
       );
       setBranches(data);
     } catch (err) {
@@ -83,12 +83,12 @@ const FetchLimitModel = ({ open, setOpen }) => {
     try {
       if (editingId) {
         await axiosInstance.put(
-          `/api/v1/lead-fetch-config/${editingId}`,
+          `/lead-fetch-config/${editingId}`,
           payload
         );
         setOpen(false);
       } else {
-        await axiosInstance.post("/api/v1/lead-fetch-config/", payload);
+        await axiosInstance.post("/lead-fetch-config/", payload);
         const again = window.confirm("Config created! Add another?");
         if (again) {
           resetForm();
@@ -119,7 +119,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this config?")) return;
     try {
-      await axiosInstance.delete(`/api/v1/lead-fetch-config/${id}`);
+      await axiosInstance.delete(`/lead-fetch-config/${id}`);
       await fetchConfigs();
     } catch (err) {
       console.error("Delete failed:", err);

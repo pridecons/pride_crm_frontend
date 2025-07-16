@@ -15,7 +15,7 @@ const ResponseModel = ({ open, setOpen }) => {
   const fetchResponses = async () => {
     try {
       const { data } = await axiosInstance.get(
-        "/api/v1/lead-config/responses/?skip=0&limit=100"
+        "/lead-config/responses/?skip=0&limit=100"
       );
       setResponses(data);
     } catch (err) {
@@ -36,12 +36,12 @@ const ResponseModel = ({ open, setOpen }) => {
     try {
       if (editingId) {
         await axiosInstance.put(
-          `/api/v1/lead-config/responses/${editingId}`,
+          `/lead-config/responses/${editingId}`,
           { name: form.name, lead_limit: Number(form.lead_limit) }
         );
         setOpen(false);
       } else {
-        await axiosInstance.post("/api/v1/lead-config/responses/", {
+        await axiosInstance.post("/lead-config/responses/", {
           name: form.name,
           lead_limit: Number(form.lead_limit),
         });
@@ -72,7 +72,7 @@ const ResponseModel = ({ open, setOpen }) => {
     if (!window.confirm("Delete this response?")) return;
     try {
       await axiosInstance.delete(
-        `/api/v1/lead-config/responses/${id}?force=false`
+        `/lead-config/responses/${id}?force=false`
       );
       await fetchResponses();
     } catch (err) {

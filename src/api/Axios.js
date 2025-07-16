@@ -1,7 +1,7 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-export const BASE_URL = "http://127.0.0.1:8000";
+export const BASE_URL = "http://127.0.0.1:8000/api/v1";
 
 export const authAxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -57,7 +57,7 @@ axiosInstance.interceptors.response.use(
       try {
         const refresh_token = Cookies.get("refresh_token");
         const { data } = await axios.post(
-          `${BASE_URL}/api/v1/auth/refresh`,
+          `${BASE_URL}/auth/refresh`,
           { refresh_token }
         );
 

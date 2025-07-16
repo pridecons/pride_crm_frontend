@@ -20,7 +20,7 @@ const LeadManage = () => {
   const fetchLeadData = async () => {
     try {
       const { data } = await axiosInstance.get(
-        "/api/v1/leads/?skip=0&limit=100&kyc_only=false"
+        "/leads/?skip=0&limit=100&kyc_only=false"
       );
       setLeadData(data);
     } catch (error) {

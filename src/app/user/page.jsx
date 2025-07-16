@@ -72,7 +72,7 @@ export default function UsersListPage() {
   const fetchUsers = async () => {
     try {
       const res = await axiosInstance.get(
-        "/api/v1/users/?skip=0&limit=100&active_only=true"
+        "/users/?skip=0&limit=100&active_only=true"
       );
       const list = Array.isArray(res.data.data) ? res.data.data : [];
       setUsers(list);
@@ -84,7 +84,7 @@ export default function UsersListPage() {
   const fetchBranches = async () => {
     try {
       const res = await axiosInstance.get(
-        "/api/v1/branches/?skip=0&limit=100&active_only=false"
+        "/branches/?skip=0&limit=100&active_only=false"
       );
       setBranches(res.data || []);
       const map = {};
@@ -99,7 +99,7 @@ export default function UsersListPage() {
 
   const fetchRoles = async () => {
     try {
-      const res = await axiosInstance.get("/api/v1/profile-role/");
+      const res = await axiosInstance.get("/profile-role/");
       setRoles(res.data || []);
     } catch (err) {
       console.error("Failed to fetch roles:", err);
@@ -119,7 +119,7 @@ export default function UsersListPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await await axiosInstance.put(`/api/v1/users/${formData.employee_code}`, payload);
+      await await axiosInstance.put(`/users/${formData.employee_code}`, payload);
       toast.success(`User ${formData.employee_code} updated.`);
       setEditingUser(null);
       fetchUsers();
@@ -134,7 +134,7 @@ export default function UsersListPage() {
   const handleDelete = async (employee_code) => {
     if (!confirm(`Are you sure you want to delete user ${employee_code}?`)) return;
     try {
-      await axiosInstance.delete(`/api/v1/users/${employee_code}`);
+      await axiosInstance.delete(`/users/${employee_code}`);
       toast.success(`User ${employee_code} deleted.`);
       fetchUsers();
     } catch (err) {
@@ -156,7 +156,7 @@ export default function UsersListPage() {
     setLoadingPan(true);
     try {
       const res = await axiosInstance.post(
-        '/api/v1/micro-pan-verification',
+        '/micro-pan-verification',
         new URLSearchParams({ pannumber: formData.pan }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
@@ -323,7 +323,7 @@ export default function UsersListPage() {
               };
 
               try {
-                await axiosInstance.put(`/api/v1/users/${formData.employee_code}`, payload);
+                await axiosInstance.put(`/users/${formData.employee_code}`, payload);
                 toast.success(`User ${formData.employee_code} updated successfully!`);
                 setEditingUser(null);
                 fetchUsers();
@@ -520,7 +520,7 @@ export default function UsersListPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               try {
-                await axiosInstance.post("/api/v1/users/", {
+                await axiosInstance.post("/users/", {
                   ...newUser,
                   branch_id: newUser.branch_id ? Number(newUser.branch_id) : null,
                   experience: Number(newUser.experience) || 0,
@@ -586,7 +586,7 @@ export default function UsersListPage() {
                   setLoadingPan(true);
                   try {
                     const res = await axiosInstance.post(
-                      '/api/v1/micro-pan-verification',
+                      '/micro-pan-verification',
                       new URLSearchParams({ pannumber: newUser.pan }),
                       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                     );

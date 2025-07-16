@@ -53,7 +53,7 @@ export default function CreateBranchWithManager() {
     setLoading(true);
     try {
       const response = await authAxiosInstanceMultipart.post(
-        "/api/v1/branches/create-with-manager",
+        "/branches/create-with-manager",
         form
       );
 

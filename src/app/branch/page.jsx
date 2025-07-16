@@ -32,7 +32,7 @@ const BranchesPage = () => {
   const fetchBranches = async () => {
     try {
       const { data } = await axiosInstance.get(
-        "/api/v1/branches/?skip=0&limit=100&active_only=false"
+        "/branches/?skip=0&limit=100&active_only=false"
       );
       setBranches(data);
       setLoading(false);
@@ -91,10 +91,10 @@ const BranchesPage = () => {
 
     try {
       if (editBranch) {
-        await axiosInstance.put(`/api/v1/branches/${editBranch.id}`, data);
+        await axiosInstance.put(`/branches/${editBranch.id}`, data);
         toast.success("Branch updated successfully");
       } else {
-        await axiosInstance.post(`/api/v1/branches/create-with-manager`, data);
+        await axiosInstance.post(`/branches/create-with-manager`, data);
         toast.success("Branch created successfully");
       }
       setIsOpen(false);

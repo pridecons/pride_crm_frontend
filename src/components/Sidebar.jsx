@@ -75,9 +75,12 @@ export default function Sidebar({ branchId, onClose }) {
       ]
     },
     {
-      title: 'User',
+      title: 'Configuration',
+      section: 'configuraation',
+      icon: Settings,
       items: [
         { href: '/user', icon: Users, label: 'Users' },
+        { href: '/permission', icon: Users, label: 'Permissions' },
       ]
     }
   ]

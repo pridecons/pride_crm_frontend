@@ -305,17 +305,22 @@ export default function PermissionsPage() {
                               }`} />
                           </div>
                           <div className="flex-1">
-                            <p className={`font-medium ${selectedUser === user.user_id
+                            <p className={`text-xs ${selectedUser === user.user_id
                               ? "text-blue-900"
                               : "text-gray-900"
                               }`}>
                               {user.user_id}
                             </p>
-                            <p className={`text-sm ${selectedUser === user.user_id
-                              ? "text-blue-600"
-                              : "text-gray-500"
-                              }`}>
-                              Click to manage permissions
+                            <div className="flex justify-between">
+                            <p className={`font-medium ${selectedUser === user.user_id ? "text-blue-900" : "text-gray-900"}`}>
+                              {user.user?.name || user.user_id}
+                            </p>
+                            <p className={`text-sm ${selectedUser === user.user_id ? "text-blue-600" : "text-gray-500"}`}>
+                              {user.user?.role || "Role not assigned"}
+                            </p>
+                            </div>
+                            <p className="text-xs text-gray-500 truncate">
+                              {user.user?.email || "Email not available"}
                             </p>
                           </div>
                           {selectedUser === user.user_id && (
@@ -346,7 +351,11 @@ export default function PermissionsPage() {
                         Permissions Editor
                       </h2>
                       <p className="text-green-100 text-sm">
-                        Editing: <span className="font-medium">{selectedUser}</span>
+                        Editing:
+                        <span className="font-medium">
+                          {selectedUserPermissions?.user?.name || selectedUser}
+                          ({selectedUserPermissions?.user?.role || 'Role N/A'})
+                        </span>
                       </p>
                     </div>
                   </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, UserPlus, CreditCard, MapPin, Calendar, Loader2, Check } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-toastify";
+import UserPermissionsModal from "./UserPermissionsModal";
 
 export default function AddUserModal({
     isOpen,
@@ -35,6 +36,8 @@ export default function AddUserModal({
     const [loadingPan, setLoadingPan] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPanVerified, setIsPanVerified] = useState(false);
+    const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+    const [createdUser, setCreatedUser] = useState(null);
 
     const formatToISO = (ddmmyyyy) => {
         if (!ddmmyyyy) return "";
@@ -89,7 +92,7 @@ export default function AddUserModal({
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            await axiosInstance.post("/users/", {
+            const { data } = await axiosInstance.post("/users/", {
                 ...newUser,
                 branch_id: newUser.branch_id ? Number(newUser.branch_id) : null,
                 experience: Number(newUser.experience) || 0,
@@ -97,9 +100,12 @@ export default function AddUserModal({
                 date_of_birth: formatToISO(newUser.date_of_birth),
                 is_active: true,
             });
+
             toast.success("User added successfully!");
-            onUserAdded();
-            onClose();
+            onUserAdded(data); // Send user data to parent
+            onClose(); // Just close AddUser modal
+
+            // Reset form
             setNewUser({
                 name: "",
                 email: "",
@@ -176,8 +182,8 @@ export default function AddUserModal({
                                         onClick={handleVerifyPan}
                                         disabled={loadingPan || isPanVerified}
                                         className={`px-4 py-3 rounded-xl flex items-center gap-2 ${isPanVerified
-                                                ? "bg-green-600 text-white cursor-default"
-                                                : "bg-blue-600 hover:bg-blue-700 text-white"
+                                            ? "bg-green-600 text-white cursor-default"
+                                            : "bg-blue-600 hover:bg-blue-700 text-white"
                                             }`}
                                     >
                                         {loadingPan ? (
@@ -248,6 +254,13 @@ export default function AddUserModal({
                     </div>
                 </form>
             </div>
+            {showPermissionsModal && createdUser && (
+                <UserPermissionsModal
+                    isOpen={showPermissionsModal}
+                    onClose={() => setShowPermissionsModal(false)}
+                    user={createdUser}
+                />
+            )}
         </div>
 
     );

@@ -6,15 +6,15 @@ import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
 export default function UserTable({ users = [], branchMap = {}, onEdit, onDelete, onDetails }) {
     const getRoleColorClass = (role) => {
         const roleColors = {
-            SUPERADMIN: "bg-blue-100 text-blue-800 border border-blue-200",
-            "BRANCH MANAGER": "bg-red-100 text-red-800 border border-red-200",
-            "SALES MANAGER": "bg-green-100 text-green-800 border border-green-200",
-            HR: "bg-pink-100 text-pink-800 border border-pink-200",
-            TL: "bg-yellow-100 text-yellow-800 border border-yellow-200",
-            SBA: "bg-indigo-100 text-indigo-800 border border-indigo-200",
-            BA: "bg-gray-100 text-gray-800 border border-gray-200",
+            SUPERADMIN: "text-blue-800",
+            "BRANCH MANAGER": "text-red-700",
+            "SALES MANAGER": "text-green-800",
+            HR: "text-pink-800",
+            TL: "text-yellow-800",
+            SBA: "text-indigo-800",
+            BA: "text-gray-800",
         };
-
+             
         return roleColors[role] || "bg-gray-100 text-gray-700 border border-gray-200";
     };
     return (

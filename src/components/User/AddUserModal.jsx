@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, UserPlus, CreditCard, MapPin, Calendar, Loader2, Check } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-toastify";
@@ -11,7 +11,9 @@ export default function AddUserModal({
     onClose,
     branches,
     roles,
-    onUserAdded
+    onUserAdded,
+    currentUser,       // ✅ Logged-in user info
+    selectedBranchId,  // ✅ Branch selected from main page
 }) {
     const [newUser, setNewUser] = useState({
         name: "",
@@ -38,6 +40,33 @@ export default function AddUserModal({
     const [isPanVerified, setIsPanVerified] = useState(false);
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
     const [createdUser, setCreatedUser] = useState(null);
+    const [filteredRoles, setFilteredRoles] = useState([]);
+    useEffect(() => {
+        if (!roles.length || !currentUser) return;
+        let allowedRoles = [];
+
+        switch (currentUser.role) {
+            case "SUPERADMIN":
+                allowedRoles = roles;
+                break;
+            case "BRANCH MANAGER":
+                allowedRoles = ["HR", "SALES MANAGER", "TL", "BA", "SBA"];
+                break;
+            case "HR":
+                allowedRoles = ["TL", "BA", "SBA"];
+                break;
+            case "SALES MANAGER":
+                allowedRoles = ["TL", "BA", "SBA"];
+                break;
+            case "TL":
+                allowedRoles = ["BA", "SBA"];
+                break;
+            default:
+                allowedRoles = [];
+        }
+
+        setFilteredRoles(roles.filter((r) => allowedRoles.includes(r)));
+    }, [roles, currentUser]);
 
     const formatToISO = (ddmmyyyy) => {
         if (!ddmmyyyy) return "";

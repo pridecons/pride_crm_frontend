@@ -108,49 +108,9 @@ export default function Sidebar({ branchId, onClose }) {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 border-r border-gray-200 shadow">
+    <div className="flex flex-col h-full bg-gray-50 shadow">
       {/* Header */}
-      <div className="p-6 border-b bg-white">
-        {/* Profile */}
-        <div className="relative">
-          <button
-            onClick={toggleProfileMenu}
-            className="flex items-center space-x-2  rounded-xl hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-          >
-            <div className="relative">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                <User size={18} className="text-white" />
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-            </div>
-            <div className="hidden md:block text-left">
-              <p className="text-sm font-semibold text-gray-900">
-                {user?.name || 'User'}
-              </p>
-              <p className="text-xs text-gray-500">
-                {user?.role || 'Role'}
-              </p>
-            </div>
-            <ChevronDown size={16} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
-          </button>
-
-          {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
-              <div className="p-2">
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-red-50 text-left transition-all duration-200 group"
-                >
-                  <div className="bg-red-100 rounded-full p-2 group-hover:bg-red-200 transition-colors">
-                    <LogOut size={16} className="text-red-600" />
-                  </div>
-                  <span className="text-sm font-medium text-red-600">Logout</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-4 overflow-y-auto">

@@ -2,25 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { Building, Users, TrendingUp, Globe, Plus, Search, Filter } from 'lucide-react'
-import BranchCard from './components/BranchCard'
+import { Building, Users, TrendingUp, Globe, Search, Filter } from 'lucide-react'
+import BranchCard from '../../components/Branch/BranchCard'
 import EditBranchModal from './modals/EditBranchModal'
-import CreateBranchWithManager from '@/components/CreateBranchWithManager'
-
+import AddBranchModal from '@/components/Branch/AddBranchModal' // ✅ Import our modal
 
 export default function DashboardPage() {
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [selectedBranch, setSelectedBranch] = useState(null); // NEW
-  const [showEditModal, setShowEditModal] = useState(false); // NEW
-  const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false)
 
   const handleEditBranch = (branch) => {
-    setSelectedBranch(branch);
-    setShowEditModal(true);
-  };
+    setSelectedBranch(branch)
+    setShowEditModal(true)
+  }
 
   useEffect(() => {
     fetchBranches()
@@ -40,8 +39,8 @@ export default function DashboardPage() {
 
   const filteredBranches = branches.filter(branch => {
     const matchesSearch = branch.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      branch.location?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === 'all' || branch.status === filterStatus
+      branch.address?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesFilter = filterStatus === 'all' || (filterStatus === 'active' && branch.active) || (filterStatus === 'inactive' && !branch.active)
     return matchesSearch && matchesFilter
   })
 
@@ -176,37 +175,32 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
       <EditBranchModal
         open={showEditModal}
         branch={selectedBranch}
         onClose={() => {
-          setShowEditModal(false);
-          setSelectedBranch(null);
+          setShowEditModal(false)
+          setSelectedBranch(null)
         }}
         onUpdated={() => {
-          setShowEditModal(false);
-          setSelectedBranch(null);
-          fetchBranches();
+          setShowEditModal(false)
+          setSelectedBranch(null)
+          fetchBranches()
         }}
       />
-      {isAddBranchModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-    <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-gray-900">Add New Branch with Manager</h3>
-        <button
-          onClick={() => setIsAddBranchModalOpen(false)}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          ✕
-        </button>
-      </div>
 
-      {/* Branch Form */}
-      <CreateBranchWithManager onClose={() => setIsAddBranchModalOpen(false)} />
-    </div>
-  </div>
-)}
+      {/* ✅ Add Branch Modal */}
+      {isAddBranchModalOpen && (
+        <AddBranchModal
+          isOpen={isAddBranchModalOpen}
+          onClose={() => {
+            setIsAddBranchModalOpen(false)
+            fetchBranches() // Refresh branch list after creation
+          }}
+        />
+      )}
     </div>
   )
 }

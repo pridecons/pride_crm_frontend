@@ -56,7 +56,7 @@ export default function EditBranchModal({ open, onClose, branch, onUpdated }) {
     if (form.agreement_pdf) formData.append('agreement_pdf', form.agreement_pdf)
 
     try {
-      const res = await axios.put(`http://127.0.0.1:8000/api/v1/branches/${branch.id}`, formData, {
+      const res = await axios.put(`http://147.93.30.144:8000/api/v1/branches/${branch.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       alert('Branch updated successfully!')

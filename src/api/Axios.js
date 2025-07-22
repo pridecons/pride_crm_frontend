@@ -1,7 +1,9 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-export const BASE_URL = "http://127.0.0.1:8000/api/v1";
+export const BASE_URL = "http://147.93.30.144:8000/api/v1";
+
+// http://147.93.30.144:8000/
 
 export const authAxiosInstance = axios.create({
   baseURL: BASE_URL,

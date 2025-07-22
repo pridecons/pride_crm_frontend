@@ -13,7 +13,7 @@ export default function OldLeadsPage() {
   const handleFetchLeads = async () => {
     try {
       setLoading(true)
-      const res = await axios.post('http://127.0.0.1:8000/api/v1/leads/fetch', {})
+      const res = await axios.post('http://147.93.30.144:8000/api/v1/leads/fetch', {})
       setLeads(res.data || [])
     } catch (error) {
       console.error('Error fetching leads:', error)

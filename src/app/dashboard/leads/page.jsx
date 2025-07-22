@@ -47,7 +47,7 @@ export default function LeadsDashboardPage() {
 
   // Fetch lead responses for dropdown
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/v1/lead-config/responses/?skip=0&limit=100')
+    axios.get('http://147.93.30.144:8000/api/v1/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
       .catch(() => console.error('Failed to load lead responses'))
   }, [])
@@ -64,7 +64,7 @@ export default function LeadsDashboardPage() {
   // ✅ Handler when response changes
   const handleResponseChange = async (leadId, newResponseId) => {
     try {
-      await axios.put(`http://127.0.0.1:8000/api/v1/leads/${leadId}`, {
+      await axios.put(`http://147.93.30.144:8000/api/v1/leads/${leadId}`, {
         lead_response_id: newResponseId
       })
       // Move lead from "new" to "old"

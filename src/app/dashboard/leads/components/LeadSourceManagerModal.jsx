@@ -5,7 +5,7 @@ import { Fragment, useEffect, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
-const API = 'http://127.0.0.1:8000/api/v1/lead-config/sources'
+const API = 'http://147.93.30.144:8000/api/v1/lead-config/sources'
 
 export default function LeadSourceManagerModal({ open, onClose }) {
   const [formData, setFormData] = useState({ name: '', description: '' })

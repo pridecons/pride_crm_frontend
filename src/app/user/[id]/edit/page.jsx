@@ -6,7 +6,7 @@ export default async function EditUserPage({ params }) {
   let user = null;
 
   try {
-    const res = await fetch(`http://127.0.0.1:8000/users/${id}`, {
+    const res = await fetch(`http://147.93.30.144:8000/users/${id}`, {
       headers: {
         accept: "application/json",
       },

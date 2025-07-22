@@ -33,14 +33,40 @@ export default function AddUserModal({
         date_of_birth: "",
         role: "",
         branch_id: "",
+        sales_manager_id: "",
+        tl_id: "",
     });
-
     const [loadingPan, setLoadingPan] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPanVerified, setIsPanVerified] = useState(false);
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
     const [createdUser, setCreatedUser] = useState(null);
     const [filteredRoles, setFilteredRoles] = useState([]);
+    const [salesManagers, setSalesManagers] = useState([]);
+    const [teamLeads, setTeamLeads] = useState([]);
+
+    useEffect(() => {
+        if ((newUser.role === "TL" || newUser.role === "BA" || newUser.role === "SBA") && newUser.branch_id) {
+            axiosInstance
+                .get(`/users/?role=SALES MANAGER&active_only=true&branch_id=${newUser.branch_id}`)
+                .then((res) => setSalesManagers(res.data?.data || []))
+                .catch(() => toast.error("Failed to load Sales Managers"));
+        }
+    }, [newUser.role, newUser.branch_id]);
+
+    useEffect(() => {
+        if ((newUser.role === "BA" || newUser.role === "SBA") && newUser.branch_id) {
+            let url = `/users/?role=TL&active_only=true&branch_id=${newUser.branch_id}`;
+            if (newUser.sales_manager_id) {
+                url += `&sales_manager_id=${newUser.sales_manager_id}`;
+            }
+            axiosInstance
+                .get(url)
+                .then((res) => setTeamLeads(res.data?.data || []))
+                .catch(() => toast.error("Failed to load Team Leads"));
+        }
+    }, [newUser.role, newUser.branch_id, newUser.sales_manager_id]);
+
     useEffect(() => {
         if (!roles.length || !currentUser) return;
         let allowedRoles = [];
@@ -119,6 +145,17 @@ export default function AddUserModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // ✅ Validation before anything
+        if (newUser.role === "TL" && !newUser.sales_manager_id) {
+            toast.error("Sales Manager is required for TL role");
+            return;
+        }
+        if ((newUser.role === "BA" || newUser.role === "SBA") && !newUser.tl_id) {
+            toast.error("Team Lead is required for BA/SBA role");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const { data } = await axiosInstance.post("/users/", {
@@ -131,10 +168,10 @@ export default function AddUserModal({
             });
 
             toast.success("User added successfully!");
-            onUserAdded(data); // Send user data to parent
-            onClose(); // Just close AddUser modal
+            onUserAdded(data);
+            onClose();
 
-            // Reset form
+            // ✅ Reset form
             setNewUser({
                 name: "",
                 email: "",
@@ -153,6 +190,8 @@ export default function AddUserModal({
                 date_of_birth: "",
                 role: "",
                 branch_id: "",
+                sales_manager_id: "",
+                tl_id: "",
             });
         } catch (err) {
             console.error(err);
@@ -248,6 +287,46 @@ export default function AddUserModal({
                                     <option value="">Select Branch</option>
                                     {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </select>
+                                {/* Sales Manager Dropdown */}
+                                {(newUser.role === "TL" || newUser.role === "BA" || newUser.role === "SBA") && (
+                                    <div>
+                                        <label className="text-gray-700 text-sm">Select Sales Manager *</label>
+                                        <select
+                                            className="w-full p-3 border rounded-xl bg-white"
+                                            value={newUser.sales_manager_id}
+                                            onChange={(e) => setNewUser({ ...newUser, sales_manager_id: e.target.value })}
+                                            required={newUser.role === "TL"}
+                                        >
+                                            <option value="">Select Sales Manager</option>
+                                            {salesManagers.map((sm) => (
+                                                <option key={sm.employee_code} value={sm.employee_code}>
+                                                    {sm.name} ({sm.employee_code})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Team Lead Dropdown */}
+                                {(newUser.role === "BA" || newUser.role === "SBA") && (
+                                    <div>
+                                        <label className="text-gray-700 text-sm">Select Team Lead *</label>
+                                        <select
+                                            className="w-full p-3 border rounded-xl bg-white"
+                                            value={newUser.tl_id}
+                                            onChange={(e) => setNewUser({ ...newUser, tl_id: e.target.value })}
+                                            required
+                                            disabled={!newUser.sales_manager_id}
+                                        >
+                                            <option value="">Select Team Lead</option>
+                                            {teamLeads.map((tl) => (
+                                                <option key={tl.employee_code} value={tl.employee_code}>
+                                                    {tl.name} ({tl.employee_code})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

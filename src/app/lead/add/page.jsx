@@ -36,9 +36,9 @@ export default function LeadForm() {
   const [loadingPan, setLoadingPan] = useState(false)
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/v1/lead-config/sources/?skip=0&limit=100')
+    axios.get('http://147.93.30.144:8000/api/v1/lead-config/sources/?skip=0&limit=100')
       .then(res => setLeadSources(res.data || []))
-    axios.get('http://127.0.0.1:8000/api/v1/lead-config/responses/?skip=0&limit=100')
+    axios.get('http://147.93.30.144:8000/api/v1/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
   }, [])
 
@@ -58,7 +58,7 @@ export default function LeadForm() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.post('http://127.0.0.1:8000/api/v1/leads/', formData)
+      await axios.post('http://147.93.30.144:8000/api/v1/leads/', formData)
       toast.success('Lead created successfully')
     } catch (err) {
       console.error(err)
@@ -74,7 +74,7 @@ export default function LeadForm() {
     setLoadingPan(true)
     try {
       const res = await axios.post(
-        'http://127.0.0.1:8000/api/v1/micro-pan-verification',
+        'http://147.93.30.144:8000/api/v1/micro-pan-verification',
         new URLSearchParams({ pannumber: formData.pan }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       )

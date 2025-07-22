@@ -53,9 +53,9 @@ export default function CreateUserPage() {
 
   const fetchData = async () => {
     const [branchRes, userRes, roleRes] = await Promise.all([
-      axios.get('http://127.0.0.1:8000/branches/?skip=0&limit=100&active_only=true'),
-      axios.get('http://127.0.0.1:8000/users/?skip=0&limit=100&active_only=true'),
-      axios.get('http://127.0.0.1:8000/users/roles'),
+      axios.get('http://147.93.30.144:8000/branches/?skip=0&limit=100&active_only=true'),
+      axios.get('http://147.93.30.144:8000/users/?skip=0&limit=100&active_only=true'),
+      axios.get('http://147.93.30.144:8000/users/roles'),
     ]);
     setBranches(branchRes.data || []);
     setUsers(userRes.data || []);
@@ -107,7 +107,7 @@ export default function CreateUserPage() {
           : currentUser?.branch_id,
       };
 
-      const res = await axios.post('http://127.0.0.1:8000/users/', payload, {
+      const res = await axios.post('http://147.93.30.144:8000/users/', payload, {
         headers: {
           'Content-Type': 'application/json',
         },

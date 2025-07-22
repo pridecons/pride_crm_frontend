@@ -28,8 +28,8 @@ export default function UploadLeadsModal({ open, onClose }) {
     const fetchDropdowns = async () => {
       try {
         const [sources, users] = await Promise.all([
-          axios.get('http://127.0.0.1:8000/api/v1/lead-config/sources/?skip=0&limit=100'),
-          axios.get('http://127.0.0.1:8000/api/v1/users/?skip=0&limit=100&active_only=false'),
+          axios.get('http://147.93.30.144:8000/api/v1/lead-config/sources/?skip=0&limit=100'),
+          axios.get('http://147.93.30.144:8000/api/v1/users/?skip=0&limit=100&active_only=false'),
         ])
         setLeadSources(sources.data)
         setEmployees(users.data)
@@ -63,7 +63,7 @@ export default function UploadLeadsModal({ open, onClose }) {
 
     try {
       setLoading(true)
-      const res = await axios.post('http://127.0.0.1:8000/api/v1/bulk-leads/upload', data, {
+      const res = await axios.post('http://147.93.30.144:8000/api/v1/bulk-leads/upload', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 

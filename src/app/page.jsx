@@ -42,7 +42,7 @@ export default function BranchMainPage({
     fetchBranches();
     fetchRoles();
   }, []);
-
+  
   const fetchBranches = async () => {
     try {
       setLoading(true);

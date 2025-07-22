@@ -43,15 +43,15 @@ export default function LeadForm() {
 
   useEffect(() => {
     // Fetch sources, responses, and branches
-    axios.get("http://127.0.0.1:8000/api/v1/lead-config/sources/")
+    axios.get("http://147.93.30.144:8000/api/v1/lead-config/sources/")
       .then((res) => setLeadSources(res.data || []))
       .catch(() => toast.error("Failed to load lead sources"));
 
-    axios.get("http://127.0.0.1:8000/api/v1/lead-config/responses/")
+    axios.get("http://147.93.30.144:8000/api/v1/lead-config/responses/")
       .then((res) => setLeadResponses(res.data || []))
       .catch(() => toast.error("Failed to load lead responses"));
 
-    axios.get("http://127.0.0.1:8000/api/v1/branches/")
+    axios.get("http://147.93.30.144:8000/api/v1/branches/")
       .then((res) => setBranches(res.data || []))
       .catch(() => toast.error("Failed to load branches"));
   }, []);
@@ -109,11 +109,11 @@ export default function LeadForm() {
           if (file) form.append(key, file);
         });
 
-        await axios.post("http://127.0.0.1:8000/api/v1/leads/form", form, {
+        await axios.post("http://147.93.30.144:8000/api/v1/leads/form", form, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        await axios.post("http://127.0.0.1:8000/api/v1/leads/", payload);
+        await axios.post("http://147.93.30.144:8000/api/v1/leads/", payload);
       }
 
       toast.success("Lead created successfully!");

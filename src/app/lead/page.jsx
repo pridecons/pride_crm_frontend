@@ -118,7 +118,7 @@ const Lead = () => {
       setAssignments(assignmentsRes.assignments);
       setUncalledCount(uncalledRes.uncalled_count);
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.log("Error fetching data:", err);
     }
   };
 

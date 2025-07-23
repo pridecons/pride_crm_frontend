@@ -26,7 +26,8 @@ import {
   Globe,
 } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
-
+import FetchLeadsButton from "@/components/Fetch_Lead/FetchButton";
+import { toast } from "react-toastify";
 
 const Lead = () => {
   const router = useRouter();
@@ -57,19 +58,6 @@ const Lead = () => {
         Accept: "application/json",
       },
     });
-  };
-
-  const fetchLead = async () => {
-    try {
-      await axiosInstance.post("/leads/fetch", formData, {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
-      });
-    } catch (err) {
-      setError(err);
-    }
   };
 
   // Common API functions
@@ -108,18 +96,29 @@ const Lead = () => {
     try {
       const [sourcesRes, responsesRes, assignmentsRes, uncalledRes] =
         await Promise.all([
-          apiCall("GET", "/leads/sources"),
-          apiCall("GET", "/leads/responses"),
+          apiCall("GET", "/api/v1/lead-config/sources/?skip=0&limit=100"),
+          apiCall("GET", "/api/v1/lead-config/responses/?skip=0&limit=100"),
           apiCall("GET", "/leads/assignments/my"),
           apiCall("GET", "/leads/navigation/uncalled-count"),
         ]);
 
-      setLeadSources(sourcesRes);
-      setLeadResponses(responsesRes);
+      // Normalize data for dropdowns
+      setLeadSources(
+        sourcesRes.map((src) => ({
+          value: src.id,
+          label: src.name,
+        }))
+      );
+      setLeadResponses(
+        responsesRes.map((res) => ({
+          value: res.id,
+          label: res.name,
+        }))
+      );
       setAssignments(assignmentsRes.assignments);
       setUncalledCount(uncalledRes.uncalled_count);
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.log("Error fetching data:", err);
     }
   };
 
@@ -171,7 +170,7 @@ const Lead = () => {
       if (updateData.segment && typeof updateData.segment === 'string') {
         updateData.segment = updateData.segment.split(',').map(s => s.trim()).filter(s => s);
       }
-      
+
       if (updateData.comment && typeof updateData.comment === 'string') {
         updateData.comment = { text: updateData.comment };
       }
@@ -243,11 +242,17 @@ const Lead = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <button onClick={() => fetchLead()}>Fetch Lead</button>
-
+      <div className="flex justify-end mb-4">
+        <FetchLeadsButton
+          onSuccess={(data) => {
+            setAssignments((prev) => [...prev, ...data.leads]); // Merge new leads into assignments
+            toast.success(`${data.fetched_count} leads fetched successfully`);
+          }}
+        />
+      </div>
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
-        <LeadHeader 
+        <LeadHeader
           navigationInfo={navigationInfo}
           uncalledCount={uncalledCount}
           currentLead={currentLead}
@@ -355,13 +360,13 @@ const Lead = () => {
           </p>
         </Modal>
       </div>
-      
-      <PaymentModel 
-        open={isOpenPayment} 
-        setOpen={setIsOpenPayment} 
-        name={currentLead?.full_name} 
-        phone={currentLead?.mobile} 
-        email={currentLead?.email} 
+
+      <PaymentModel
+        open={isOpenPayment}
+        setOpen={setIsOpenPayment}
+        name={currentLead?.full_name}
+        phone={currentLead?.mobile}
+        email={currentLead?.email}
         service={displaySegment}
       />
     </div>
@@ -435,10 +440,10 @@ export const InputField = ({
                 ? new Date(value).toISOString().split("T")[0]
                 : ""
               : type === "datetime-local"
-              ? value
-                ? new Date(value).toISOString().slice(0, 16)
-                : ""
-              : value || ""
+                ? value
+                  ? new Date(value).toISOString().slice(0, 16)
+                  : ""
+                : value || ""
           }
           onChange={onInputChange}
           placeholder={placeholder}
@@ -449,11 +454,10 @@ export const InputField = ({
       <div className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] flex items-center">
         {type === "checkbox" ? (
           <span
-            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              value
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${value
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+              }`}
           >
             {value ? (
               <CheckCircle size={12} className="mr-1" />
@@ -477,11 +481,11 @@ export const InputField = ({
           </span>
         ) : (
           <span className="text-gray-900 break-words">
-            {Array.isArray(value) 
-              ? value.join(", ") 
-              : typeof value === 'object' && value !== null 
-              ? value.text || JSON.stringify(value)
-              : value || "Not provided"}
+            {Array.isArray(value)
+              ? value.join(", ")
+              : typeof value === 'object' && value !== null
+                ? value.text || JSON.stringify(value)
+                : value || "Not provided"}
           </span>
         )}
       </div>
@@ -534,7 +538,7 @@ export const AssignmentsSummary = ({ assignments, currentLead, uncalledCount }) 
 // ErrorAlert Component
 export const ErrorAlert = ({ error, onClose }) => {
   if (!error) return null;
-  
+
   return (
     <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
       <div className="flex items-center">
@@ -552,10 +556,10 @@ export const ErrorAlert = ({ error, onClose }) => {
 };
 
 // NavigationButtons Component
-export const NavigationButtons = ({ 
-  navigationInfo, 
-  loading, 
-  onNavigation 
+export const NavigationButtons = ({
+  navigationInfo,
+  loading,
+  onNavigation
 }) => {
   return (
     <div className="flex gap-3">
@@ -567,7 +571,7 @@ export const NavigationButtons = ({
         <ArrowLeft size={16} className="mr-2" />
         Previous
       </button>
-      
+
       <button
         onClick={() => onNavigation("next")}
         disabled={!navigationInfo.has_next || loading}
@@ -581,13 +585,13 @@ export const NavigationButtons = ({
 };
 
 // LeadActionButton Component
-export const LeadActionButton = ({ 
-  icon: Icon, 
-  label, 
-  onClick, 
-  disabled = false, 
+export const LeadActionButton = ({
+  icon: Icon,
+  label,
+  onClick,
+  disabled = false,
   variant = "primary",
-  loading = false 
+  loading = false
 }) => {
   const getButtonStyle = () => {
     switch (variant) {
@@ -812,15 +816,14 @@ export const ActionButtons = ({
           <ArrowLeft size={16} className="mr-2" />
           Previous
         </button>
-        
+
         <button
           onClick={onCallClick}
           disabled={!currentLead || currentLead?.is_call}
-          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-            currentLead?.is_call
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-green-500 text-white hover:bg-green-600"
-          }`}
+          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${currentLead?.is_call
+            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+            : "bg-green-500 text-white hover:bg-green-600"
+            }`}
         >
           <PhoneCall size={16} className="mr-2" />
           {currentLead?.is_call ? "Called" : "Call"}
@@ -829,11 +832,10 @@ export const ActionButtons = ({
         <button
           onClick={onEditClick}
           disabled={!currentLead}
-          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-            isEditMode
-              ? "bg-red-500 text-white hover:bg-red-600"
-              : "bg-indigo-500 text-white hover:bg-indigo-600"
-          }`}
+          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${isEditMode
+            ? "bg-red-500 text-white hover:bg-red-600"
+            : "bg-indigo-500 text-white hover:bg-indigo-600"
+            }`}
         >
           {isEditMode ? (
             <X size={16} className="mr-2" />
@@ -868,7 +870,7 @@ export const ActionButtons = ({
         >
           Payment
         </button>
-        
+
         <button
           onClick={() => onNavigation("next")}
           disabled={!navigationInfo.has_next || loading}
@@ -1047,20 +1049,14 @@ export const ViewAndEditLead = ({
       label: "Lead Source",
       icon: Building,
       type: "select",
-      options: leadSources.map((source) => ({
-        value: source.id,
-        label: source.name,
-      })),
+      options: leadSources,
     },
     {
       name: "lead_response_id",
       label: "Lead Response",
       icon: Building,
       type: "select",
-      options: leadResponses.map((response) => ({
-        value: response.id,
-        label: response.name,
-      })),
+      options: leadResponses,
     },
     {
       name: "lead_status",

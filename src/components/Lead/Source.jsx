@@ -265,7 +265,6 @@ const SourceModel = ({ open, setOpen }) => {
                     onClick={resetForm}
                     className="flex items-center gap-2 px-6 py-3 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200"
                   >
-                    <Cancel className="w-4 h-4" />
                     Cancel
                   </button>
                   <button

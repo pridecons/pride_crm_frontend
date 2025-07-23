@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
-
 const API_BASE = 'http://147.93.30.144:8000/api/v1/lead-config/sources'
 
 export default function LeadSourceManager() {

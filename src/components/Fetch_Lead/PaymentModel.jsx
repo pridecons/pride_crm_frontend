@@ -75,11 +75,10 @@ export default function PaymentModal({
               <button
                 key={opt.value}
                 onClick={() => setSelectOption(opt.value)}
-                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  selectOption === opt.value
-                    ? "border-blue-500 text-blue-600 bg-blue-50"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
+                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${selectOption === opt.value
+                  ? "border-blue-500 text-blue-600 bg-blue-50"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  }`}
               >
                 <span className="mr-2">{opt.icon}</span>
                 {opt.name}
@@ -120,9 +119,7 @@ const CreatePaymentLink = ({
   const [customerService, setCustomerService] = useState(service);
 
   const [allowAll, setAllowAll] = useState(true);
-  const [selectedMethods, setSelectedMethods] = useState(
-    PAYMENT_METHODS.map((m) => m.code)
-  );
+  const [selectedMethods, setSelectedMethods] = useState(PAYMENT_METHODS.map(m => m.code));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -130,9 +127,9 @@ const CreatePaymentLink = ({
   const [copied, setCopied] = useState(false);
 
   const toggleMethod = (code) => {
-    setSelectedMethods((prev) => {
+    setSelectedMethods(prev => {
       const upd = prev.includes(code)
-        ? prev.filter((c) => c !== code)
+        ? prev.filter(c => c !== code)
         : [...prev, code];
       setAllowAll(upd.length === PAYMENT_METHODS.length);
       return upd;
@@ -144,7 +141,7 @@ const CreatePaymentLink = ({
       setSelectedMethods([]);
       setAllowAll(false);
     } else {
-      setSelectedMethods(PAYMENT_METHODS.map((m) => m.code));
+      setSelectedMethods(PAYMENT_METHODS.map(m => m.code));
       setAllowAll(true);
     }
   };
@@ -153,15 +150,12 @@ const CreatePaymentLink = ({
     setError(null);
     setLoading(true);
 
-    // --- Client-side validation ---
-    const emailRegex = /^\S+@\S+\.\S+$/;
-    if (!emailRegex.test(customerEmail)) {
+    if (!/^\S+@\S+\.\S+$/.test(customerEmail)) {
       setError("Please enter a valid email address.");
       setLoading(false);
       return;
     }
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(customerPhone)) {
+    if (!/^\d{10}$/.test(customerPhone)) {
       setError("Please enter a valid 10-digit phone number.");
       setLoading(false);
       return;
@@ -178,20 +172,17 @@ const CreatePaymentLink = ({
     }
 
     try {
-      const methods = allowAll ? "" : selectedMethods.join(",");
       const payload = {
         name: customerName,
         email: customerEmail,
         phone: customerPhone,
         service: customerService,
         amount,
-        payment_methods: methods,
+        payment_methods: allowAll ? "" : selectedMethods.join(","),
       };
-
       const { data } = await axiosInstance.post("/payment/create", payload);
       setResponse(data);
     } catch (err) {
-      console.error("API Error:", err);
       setError(err.response?.data?.detail || err.message);
     } finally {
       setLoading(false);
@@ -221,188 +212,266 @@ const CreatePaymentLink = ({
 
   return (
     <div className="p-6 space-y-6">
-      {/* Customer Info */}
-      <div className="bg-gray-50 rounded-xl p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          👤 Customer Information
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Full Name</label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required
-              className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter customer name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              required
-              className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-              placeholder="customer@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              required
-              className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-              placeholder="+91 XXXXXXXXXX"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Service Description
-            </label>
-            <input
-              type="text"
-              value={customerService}
-              onChange={(e) => setCustomerService(e.target.value)}
-              required
-              className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Product or service details"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Amount */}
-      <div className="bg-green-50 rounded-xl p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          💰 Payment Amount
-        </h3>
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg">
-            ₹
-          </span>
-          <input
-            type="number"
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(parseFloat(e.target.value))}
-            required
-            className="w-full pl-8 pr-4 py-3 border-gray-300 rounded-lg focus:ring-green-500 focus:border-transparent"
-            placeholder="0.00"
-          />
-        </div>
-      </div>
-
-      {/* Payment Methods */}
-      <div className="bg-blue-50 rounded-xl p-4 space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
-          💳 Payment Methods
-        </h3>
-        <label className="inline-flex items-center mb-4 cursor-pointer">
-          <input
-            type="checkbox"
-            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-            checked={allowAll}
-            onChange={handleSelectAll}
-          />
-          <span className="ml-3 text-gray-700 font-medium">
-            Enable All Payment Methods
-          </span>
-        </label>
-        {Object.entries(grouped).map(([cat, methods]) => (
-          <div key={cat} className="bg-white rounded-lg p-3">
-            <h4 className="text-sm font-semibold text-gray-600 mb-3">
-              {labels[cat]}
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {methods.map((m) => (
-                <label
-                  key={m.code}
-                  className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
-                >
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    checked={selectedMethods.includes(m.code)}
-                    onChange={() => toggleMethod(m.code)}
-                  />
-                  <span className="ml-3 flex items-center">
-                    <span className="mr-2">{m.icon}</span>
-                    {m.label}
-                  </span>
-                </label>
-              ))}
+      {/* If No Payment Link */}
+      {!response?.cashfreeResponse?.payment_link && (
+        <>
+          {/* Customer Info */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+              👤 Customer Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter customer name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="customer@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Phone Number</label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="10-digit number"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Service Description</label>
+                <input
+                  type="text"
+                  value={customerService}
+                  onChange={(e) => setCustomerService(e.target.value)}
+                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Product or service details"
+                />
+              </div>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-          <span className="text-red-500 text-xl mr-3">⚠️</span>
-          <div>
-            <h4 className="text-red-800 font-medium">Error</h4>
-            <p className="text-red-700 text-sm mt-1">{error}</p>
+          {/* Amount */}
+          <div className="bg-green-50 rounded-xl p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">💰 Payment Amount</h3>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg">₹</span>
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(parseFloat(e.target.value))}
+                className="w-full pl-8 pr-4 py-3 border-gray-300 rounded-lg focus:ring-green-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Success */}
-      {response?.cashfreeResponse?.payment_link && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="text-green-800 font-medium flex items-center mb-3">
-            <span className="mr-2">✅</span>
-            Payment Link Generated!
-          </h4>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={response.cashfreeResponse.payment_link}
-              className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
-            />
+          {/* Payment Methods */}
+          <div className="bg-blue-50 rounded-xl p-4 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">💳 Payment Methods</h3>
+            <label className="inline-flex items-center mb-4 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                checked={allowAll}
+                onChange={handleSelectAll}
+              />
+              <span className="ml-3 text-gray-700 font-medium">Enable All Payment Methods</span>
+            </label>
+            {Object.entries(grouped).map(([cat, methods]) => (
+              <div key={cat} className="bg-white rounded-lg p-3">
+                <h4 className="text-sm font-semibold text-gray-600 mb-3">{labels[cat]}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {methods.map((m) => (
+                    <label key={m.code} className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        checked={selectedMethods.includes(m.code)}
+                        onChange={() => toggleMethod(m.code)}
+                      />
+                      <span className="ml-3 flex items-center">
+                        <span className="mr-2">{m.icon}</span>{m.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+              <span className="text-red-500 text-xl mr-3">⚠️</span>
+              <div>
+                <h4 className="text-red-800 font-medium">Error</h4>
+                <p className="text-red-700 text-sm mt-1">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <button
               type="button"
-              onClick={handleCopy}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                copied
-                  ? "bg-gray-100 text-gray-600"
-                  : "bg-green-600 text-white hover:bg-green-700"
-              }`}
+              onClick={() => setOpen(false)}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
-              {copied ? "✅ Copied!" : "📋 Copy"}
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {loading ? "⏳ Creating..." : "💰 Generate Payment Link"}
             </button>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Actions */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
+      {/* If Payment Link Generated */}
+      {response?.cashfreeResponse?.payment_link && (
+        <div className="space-y-6">
+          {/* Payment Link */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="text-green-800 font-medium mb-3">✅ Payment Link Generated</h4>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={response.cashfreeResponse.payment_link}
+                className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <button
+                onClick={handleCopy}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${copied ? "bg-gray-200" : "bg-green-600 text-white hover:bg-green-700"
+                  }`}
+              >
+                {copied ? "✅ Copied" : "📋 Copy"}
+              </button>
+            </div>
+          </div>
+
+          {/* QR Code */}
+          <QRCodeSection orderId={response.cashfreeResponse.order_id} />
+
+          {/* UPI Section */}
+          <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+const QRCodeSection = ({ orderId }) => {
+  const [qrData, setQrData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchQR = async () => {
+    try {
+      setLoading(true);
+      const { data } = await axiosInstance.post(`/payment/generate-qr-code/${orderId}`);
+      setQrData(data);
+    } catch (err) {
+      console.error("QR Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-blue-50 rounded-lg p-4">
+      <h4 className="text-blue-800 font-medium mb-3">📷 QR Code Payment</h4>
+      {!qrData ? (
         <button
           type="button"
-          onClick={() => setOpen(false)}
-          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
+          onClick={fetchQR}
           disabled={loading}
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? "⏳ Creating..." : "💰 Generate Payment Link"}
+          {loading ? "Generating..." : "Generate QR Code"}
         </button>
-      </div>
+      ) : (
+        <div className="flex flex-col items-center space-y-2">
+          <img
+            src={qrData.qrcode}
+            alt="Payment QR Code"
+            className="w-48 h-48 border rounded-lg"
+          />
+          <p className="text-gray-600 text-sm">Scan to Pay ₹{qrData.payment_amount}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+const UPIRequestSection = ({ orderId }) => {
+  const [upiId, setUpiId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [upiLink, setUpiLink] = useState(null);
+
+  const handleGenerateUPI = async () => {
+    if (!upiId.trim()) {
+      alert("Enter a valid UPI ID");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data: upiData } = await axiosInstance.post(
+        `/payment/generate-upi-request/${orderId}?upi_id=${encodeURIComponent(upiId)}`
+      );
+      setUpiLink(upiData);
+    } catch (err) {
+      console.error("UPI Error:", err);
+      alert("Failed to send UPI request.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-purple-50 rounded-lg p-4">
+      <h4 className="text-purple-800 font-medium mb-3">📱 UPI Payment Request</h4>
+      {!upiLink ? (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Enter UPI ID (e.g. 98765@ybl)"
+            value={upiId}
+            onChange={(e) => setUpiId(e.target.value)}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+          />
+          <button
+            type="button"
+            onClick={handleGenerateUPI}
+            disabled={loading}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          >
+            {loading ? "Sending..." : "Send Request"}
+          </button>
+        </div>
+      ) : (
+        <div className="text-green-700 font-semibold mt-2">
+          ✅ UPI Request Sent Successfully!
+        </div>
+      )}
     </div>
   );
 };

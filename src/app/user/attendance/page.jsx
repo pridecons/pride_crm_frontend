@@ -14,6 +14,7 @@ import {
 export default function AttendancePage() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://147.93.30.144:8000'
 
+
   const [employees, setEmployees] = useState([])
   const [filteredEmployees, setFilteredEmployees] = useState([])
   const [attendance, setAttendance] = useState({})
@@ -150,7 +151,7 @@ console.log('data', employees)
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
 
           {/* Date Picker & Bulk Mark */}
-          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="bg-blue-500 text-white p-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
               <label className="font-semibold text-lg">Select Date:</label>
               <input
@@ -288,5 +289,6 @@ const StatCard = ({ title, value, Icon, color }) => (
     <div className={`w-12 h-12 rounded-full bg-${color}-100 text-${color}-600 flex items-center justify-center`}>
       <Icon className="w-6 h-6" />
     </div>
-  </div>
+  </div>          
+
 )

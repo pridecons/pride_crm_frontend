@@ -1,8 +1,9 @@
 // src/components/PaymentModal.jsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy } from "react";
 import { axiosInstance } from "@/api/Axios";
+import { DropdownCheckboxButton, InputField } from "../common/InputField";
 
 const PAYMENT_METHODS = [
   { code: "cc", label: "Credit Card", icon: "💳", category: "card" },
@@ -35,12 +36,7 @@ const TAB_OPTIONS = [
   { name: "Generate Payment Link", value: "generate_link", icon: "🔗" },
 ];
 
-const serviceOption=[
-  "CASH",
-  "OPTION PUT BUY",
-  "OPTION CALL BUY",
-]
-
+const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"];
 export default function PaymentModal({
   open,
   setOpen,
@@ -81,10 +77,11 @@ export default function PaymentModal({
               <button
                 key={opt.value}
                 onClick={() => setSelectOption(opt.value)}
-                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${selectOption === opt.value
-                  ? "border-blue-500 text-blue-600 bg-blue-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  selectOption === opt.value
+                    ? "border-blue-500 text-blue-600 bg-blue-50"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
               >
                 <span className="mr-2">{opt.icon}</span>
                 {opt.name}
@@ -118,27 +115,31 @@ const CreatePaymentLink = ({
   service = "",
   setOpen,
 }) => {
-  const [amount, setAmount] = useState(1);
+  const [amount, setAmount] = useState(0);
   const [customerName, setCustomerName] = useState(name);
   const [customerEmail, setCustomerEmail] = useState(email);
   const [customerPhone, setCustomerPhone] = useState(phone);
-  const [customerService, setCustomerService] = useState(service);
 
   const [allowAll, setAllowAll] = useState(true);
-  const [selectedMethods, setSelectedMethods] = useState(PAYMENT_METHODS.map(m => m.code));
+  const [selectedMethods, setSelectedMethods] = useState(
+    PAYMENT_METHODS.map((m) => m.code)
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [response, setResponse] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const [serviceId, setServiceId] = useState(0)
-
+  const [service_plan, setService_plan] = useState({});
+  const [selectService, setSelectService] = useState(service);
+  const [description, setDescription] = useState("");
+  const [call, setCall] = useState(2);
+  const [duration_day, setDuration_day] = useState(0);
 
   const toggleMethod = (code) => {
-    setSelectedMethods(prev => {
+    setSelectedMethods((prev) => {
       const upd = prev.includes(code)
-        ? prev.filter(c => c !== code)
+        ? prev.filter((c) => c !== code)
         : [...prev, code];
       setAllowAll(upd.length === PAYMENT_METHODS.length);
       return upd;
@@ -150,7 +151,7 @@ const CreatePaymentLink = ({
       setSelectedMethods([]);
       setAllowAll(false);
     } else {
-      setSelectedMethods(PAYMENT_METHODS.map(m => m.code));
+      setSelectedMethods(PAYMENT_METHODS.map((m) => m.code));
       setAllowAll(true);
     }
   };
@@ -174,23 +175,25 @@ const CreatePaymentLink = ({
       setLoading(false);
       return;
     }
-    if (!customerService.trim()) {
-      setError("Please enter a service description.");
-      setLoading(false);
-      return;
-    }
 
     try {
       const payload = {
         name: customerName,
         email: customerEmail,
         phone: customerPhone,
-        service: customerService,
-        amount,
+        service: selectService,
+        amount: amount,
         payment_methods: allowAll ? "" : selectedMethods.join(","),
+        call: call,
+        duration_day: duration_day,
+        service_id: service_plan?.id,
+        description: description,
       };
 
-      const { data } = await axiosInstance.post("/payment/create-order", payload);
+      const { data } = await axiosInstance.post(
+        "/payment/create-order",
+        payload
+      );
       setResponse(data);
     } catch (err) {
       setError(err.response?.data?.detail || err.message);
@@ -198,7 +201,6 @@ const CreatePaymentLink = ({
       setLoading(false);
     }
   };
-
 
   const handleCopy = () => {
     const link = response?.cashfreeResponse?.payment_link;
@@ -214,12 +216,33 @@ const CreatePaymentLink = ({
     (acc[m.category] ??= []).push(m);
     return acc;
   }, {});
+
   const labels = {
     card: "💳 Cards",
     bank: "🏦 Banking",
     digital: "📱 Digital Wallets",
     credit: "💰 Credit & EMI",
   };
+
+  const handleAmount = (value) => {
+    const newAmount = parseFloat(value);
+    setAmount(newAmount);
+
+    if (service_plan?.billing_cycle === "CALL") {
+      const perCall = service_plan?.discounted_price / service_plan?.CALL;
+      const totalCall = Math.round(newAmount / perCall);
+      setCall(totalCall);
+      setDuration_day(0);
+    } else {
+      setCall(0);
+      const daysCount = service_plan?.billing_cycle === "MONTHLY" ? 30 : 365;
+      const perDayPrice = service_plan?.discounted_price / daysCount;
+      const totalDays = Math.round(newAmount / perDayPrice);
+      setDuration_day(totalDays);
+    }
+  };
+
+  console.log("service_plan : ", service_plan);
 
   return (
     <div className="p-6 space-y-6">
@@ -231,76 +254,118 @@ const CreatePaymentLink = ({
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
               👤 Customer Information
             </h3>
-            <ServiceCard selectServiceId={serviceId} setSelectServiceId={setServiceId}/>
+            <ServiceCard
+              selectService={service_plan}
+              setSelectService={(val) => {
+                setService_plan(val);
+                setCall(val?.CALL);
+                setAmount(val?.discounted_price);
+                setDuration_day(
+                  val?.billing_cycle === "MONTHLY"
+                    ? 30
+                    : val?.billing_cycle === "YEARLY"
+                    ? 365
+                    : 0
+                );
+              }}
+            />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InputField
+                label="Full Name"
+                value={customerName}
+                setValue={setCustomerName}
+              />
+              <InputField
+                label="Email Address"
+                value={customerEmail}
+                setValue={setCustomerEmail}
+                placeholder="customer@example.com"
+              />
+              <InputField
+                label="Phone Number"
+                value={customerPhone}
+                setValue={setCustomerPhone}
+                placeholder="10-digit number"
+                type="number"
+              />
               <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter customer name"
-                />
+                <label
+                  for="countries"
+                  class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+                >
+                  Select Service
+                </label>
+                <select
+                  id="countries"
+                  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                  value={selectService}
+                  onChange={(e) => setSelectService(e.target.value)}
+                >
+                  <option selected>Choose a Service</option>
+                  {serviceOption.map((val) => (
+                    <option value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Email Address</label>
-                <input
-                  type="email"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="customer@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Phone Number</label>
-                <input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="10-digit number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Service Description</label>
-                <input
-                  type="text"
-                  value={customerService}
-                  onChange={(e) => setCustomerService(e.target.value)}
-                  className="w-full border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Product or service details"
-                />
-              </div>
+              <InputField
+                label="Description"
+                value={description}
+                setValue={setDescription}
+                placeholder="Product or service details"
+              />
             </div>
           </div>
 
           {/* Amount */}
-          <div className="bg-green-50 rounded-xl p-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">💰 Payment Amount</h3>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg">₹</span>
-              <input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => {
-                  const newAmount = parseFloat(e.target.value);
-                  setAmount(newAmount);
-                  if (pricePerCall > 0) {
-                    setCallCount(Math.ceil(newAmount / pricePerCall));
-                  }
-                }}
-                className="w-full pl-8 pr-4 py-3 border-gray-300 rounded-lg focus:ring-green-500 focus:border-transparent"
-                placeholder="0.00"
-              />
+          <div className="flex justify-between">
+            <div className="bg-green-50 rounded-xl p-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                💰 Payment Amount
+              </h3>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => {
+                    handleAmount(e.target.value);
+                  }}
+                  className="w-full pl-8 pr-4 border-2 py-3 border-gray-400 rounded-lg focus:ring-green-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div>
+              {service_plan?.billing_cycle === "CALL" ? (
+                <InputField
+                  label="Call"
+                  value={call}
+                  setValue={setCall}
+                  placeholder="****"
+                  type="number"
+                  disabled={true}
+                />
+              ) : (
+                <InputField
+                  label="Duration Day"
+                  value={duration_day}
+                  setValue={setDuration_day}
+                  placeholder="****"
+                  type="number"
+                  disabled={true}
+                />
+              )}
             </div>
           </div>
 
           {/* Payment Methods */}
           <div className="bg-blue-50 rounded-xl p-4 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">💳 Payment Methods</h3>
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
+              💳 Payment Methods
+            </h3>
             <label className="inline-flex items-center mb-4 cursor-pointer">
               <input
                 type="checkbox"
@@ -308,14 +373,21 @@ const CreatePaymentLink = ({
                 checked={allowAll}
                 onChange={handleSelectAll}
               />
-              <span className="ml-3 text-gray-700 font-medium">Enable All Payment Methods</span>
+              <span className="ml-3 text-gray-700 font-medium">
+                Enable All Payment Methods
+              </span>
             </label>
             {Object.entries(grouped).map(([cat, methods]) => (
               <div key={cat} className="bg-white rounded-lg p-3">
-                <h4 className="text-sm font-semibold text-gray-600 mb-3">{labels[cat]}</h4>
+                <h4 className="text-sm font-semibold text-gray-600 mb-3">
+                  {labels[cat]}
+                </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {methods.map((m) => (
-                    <label key={m.code} className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition">
+                    <label
+                      key={m.code}
+                      className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
+                    >
                       <input
                         type="checkbox"
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
@@ -323,7 +395,8 @@ const CreatePaymentLink = ({
                         onChange={() => toggleMethod(m.code)}
                       />
                       <span className="ml-3 flex items-center">
-                        <span className="mr-2">{m.icon}</span>{m.label}
+                        <span className="mr-2">{m.icon}</span>
+                        {m.label}
                       </span>
                     </label>
                   ))}
@@ -366,39 +439,44 @@ const CreatePaymentLink = ({
 
       {/* If Payment Link Generated */}
       {response?.cashfreeResponse?.payment_link && (
-          <div className="space-y-6">
-            {/* Payment Link */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="text-green-800 font-medium mb-3">✅ Payment Link Generated</h4>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={response.cashfreeResponse.payment_link}
-                  className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
-                />
-                <button
-                  onClick={handleCopy}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${copied ? "bg-gray-200" : "bg-green-600 text-white hover:bg-green-700"
-                    }`}
-                >
-                  {copied ? "✅ Copied" : "📋 Copy"}
-                </button>
-              </div>
+        <div className="space-y-6">
+          {/* Payment Link */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="text-green-800 font-medium mb-3">
+              ✅ Payment Link Generated
+            </h4>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={response.cashfreeResponse.payment_link}
+                className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <button
+                onClick={handleCopy}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  copied
+                    ? "bg-gray-200"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
+              >
+                {copied ? "✅ Copied" : "📋 Copy"}
+              </button>
             </div>
-
-            {/* QR Code */}
-            <QRCodeSection orderId={response.cashfreeResponse.order_id} />
-
-            {/* UPI Section */}
-            <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
           </div>
+
+          {/* QR Code */}
+          <QRCodeSection orderId={response.cashfreeResponse.order_id} />
+
+          {/* UPI Section */}
+          <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
+        </div>
       )}
     </div>
   );
 };
 
-const ServiceCard = ({ selectServiceId="", setSelectServiceId=()=>{} }) => {
+const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
   const [service_plan, setService_plan] = useState([]);
 
   useEffect(() => {
@@ -413,8 +491,9 @@ const ServiceCard = ({ selectServiceId="", setSelectServiceId=()=>{} }) => {
     fetchServices();
   }, []);
 
-  const handleSelect = (id) => {
-    setSelectServiceId(id);
+  const handleSelect = (service) => {
+    console.log("service : ", service);
+    setSelectService(service);
   };
 
   return (
@@ -423,27 +502,35 @@ const ServiceCard = ({ selectServiceId="", setSelectServiceId=()=>{} }) => {
         <div
           key={service.id}
           className={`w-full min-w-56 border rounded-xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all ${
-            selectServiceId === service.id ? "border-blue-500 bg-blue-50" : "border-gray-200"
+            selectService?.id === service.id
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-200"
           }`}
         >
           <h3 className="text-lg font-semibold mb-1">{service.name}</h3>
           <p className="text-sm text-gray-500 mb-2">{service.description}</p>
           <div className="text-sm mb-1">
-            <span className="font-medium">Price:</span> ₹{service.discounted_price}{" "}
+            <span className="font-medium">Price:</span> ₹
+            {service.discounted_price}{" "}
             {service.discount_percent > 0 && (
-              <span className="line-through text-gray-400 ml-1">₹{service.price}</span>
+              <span className="line-through text-gray-400 ml-1">
+                ₹{service.price}
+              </span>
             )}
           </div>
           <p className="text-xs text-gray-600 mb-2">
-            Billing: {service.billing_cycle} {service.billing_cycle === "CALL" && `(${service.CALL} Calls)`}
+            Billing: {service.billing_cycle}{" "}
+            {service.billing_cycle === "CALL" && `(${service.CALL} Calls)`}
           </p>
           <button
-            onClick={() => handleSelect(service.id)}
+            onClick={() => handleSelect(service)}
             className={`w-full py-2 mt-2 rounded-lg text-white font-medium transition-all ${
-              selectServiceId === service.id ? "bg-green-600" : "bg-blue-600 hover:bg-blue-700"
+              selectService?.id === service.id
+                ? "bg-green-600"
+                : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {selectServiceId === service.id ? "Selected" : "Select"}
+            {selectService?.id === service.id ? "Selected" : "Select"}
           </button>
         </div>
       ))}
@@ -458,7 +545,9 @@ const QRCodeSection = ({ orderId }) => {
   const fetchQR = async () => {
     try {
       setLoading(true);
-      const { data } = await axiosInstance.post(`/payment/generate-qr-code/${orderId}`);
+      const { data } = await axiosInstance.post(
+        `/payment/generate-qr-code/${orderId}`
+      );
       setQrData(data);
     } catch (err) {
       console.error("QR Error:", err);
@@ -486,12 +575,15 @@ const QRCodeSection = ({ orderId }) => {
             alt="Payment QR Code"
             className="w-48 h-48 border rounded-lg"
           />
-          <p className="text-gray-600 text-sm">Scan to Pay ₹{qrData.payment_amount}</p>
+          <p className="text-gray-600 text-sm">
+            Scan to Pay ₹{qrData.payment_amount}
+          </p>
         </div>
       )}
     </div>
   );
 };
+
 const UPIRequestSection = ({ orderId }) => {
   const [upiId, setUpiId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -505,7 +597,9 @@ const UPIRequestSection = ({ orderId }) => {
     setLoading(true);
     try {
       const { data: upiData } = await axiosInstance.post(
-        `/payment/generate-upi-request/${orderId}?upi_id=${encodeURIComponent(upiId)}`
+        `/payment/generate-upi-request/${orderId}?upi_id=${encodeURIComponent(
+          upiId
+        )}`
       );
       setUpiLink(upiData);
     } catch (err) {
@@ -518,7 +612,9 @@ const UPIRequestSection = ({ orderId }) => {
 
   return (
     <div className="bg-purple-50 rounded-lg p-4">
-      <h4 className="text-purple-800 font-medium mb-3">📱 UPI Payment Request</h4>
+      <h4 className="text-purple-800 font-medium mb-3">
+        📱 UPI Payment Request
+      </h4>
       {!upiLink ? (
         <div className="flex gap-2">
           <input

@@ -53,7 +53,7 @@ export default function PaymentModal({
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 px-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold">Payment Dashboard</h2>
@@ -269,7 +269,7 @@ const CreatePaymentLink = ({
                 );
               }}
             />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
               <InputField
                 label="Full Name"
                 value={customerName}
@@ -317,47 +317,73 @@ const CreatePaymentLink = ({
           </div>
 
           {/* Amount */}
-          <div className="flex justify-between">
-            <div className="bg-green-50 rounded-xl p-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                💰 Payment Amount
-              </h3>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => {
-                    handleAmount(e.target.value);
-                  }}
-                  className="w-full pl-8 pr-4 border-2 py-3 border-gray-400 rounded-lg focus:ring-green-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
+          <div className="grid grid-cols-12 gap-4">
+            {/* Payment Amount - Takes 8 columns (larger width) */}
+            <div className="col-span-8">
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-3 shadow-sm border border-green-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
+                  <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
+                    ₹
+                  </span>
+                  Payment Amount
+                </h3>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 text-xl font-semibold">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => {
+                      handleAmount(e.target.value);
+                    }}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium transition-all duration-200 bg-white shadow-sm hover:shadow-md"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
             </div>
-            <div>
-              {service_plan?.billing_cycle === "CALL" ? (
-                <InputField
-                  label="Call"
-                  value={call}
-                  setValue={setCall}
-                  placeholder="****"
-                  type="number"
-                  disabled={true}
-                />
-              ) : (
-                <InputField
-                  label="Duration Day"
-                  value={duration_day}
-                  setValue={setDuration_day}
-                  placeholder="****"
-                  type="number"
-                  disabled={true}
-                />
-              )}
+
+            {/* Duration/Call Field - Takes 4 columns (smaller width) */}
+            <div className="col-span-4">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 shadow-sm border border-blue-200 h-full">
+                {service_plan?.billing_cycle === "CALL" ? (
+                  <div>
+                    <label className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
+                      <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
+                        📞
+                      </span>
+                      Call
+                    </label>
+                    <input
+                      type="number"
+                      value={call}
+                      onChange={(e) => setCall(e.target.value)}
+                      placeholder="****"
+                      disabled={true}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-gray-100 text-lg font-medium text-gray-600 cursor-not-allowed"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
+                      <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
+                        📅
+                      </span>
+                      Duration (Days)
+                    </label>
+                    <input
+                      type="number"
+                      value={duration_day}
+                      onChange={(e) => setDuration_day(e.target.value)}
+                      placeholder="****"
+                      disabled={true}
+                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-gray-100 text-lg font-medium text-gray-600 cursor-not-allowed"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -497,41 +523,76 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
   };
 
   return (
-    <div className="w-full flex flex-row gap-4 mt-6 overflow-x-auto">
+    <div
+      className="w-full flex flex-row gap-6 mt-8 overflow-x-auto pb-2 z-50"
+      style={{
+        msOverflowStyle: "none",
+        scrollbarWidth: "none",
+        WebkitScrollbar: { display: "none" },
+      }}
+    >
       {service_plan.map((service) => (
         <div
           key={service.id}
-          className={`w-full min-w-56 border rounded-xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all ${
+          onClick={() => handleSelect(service)}
+          className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${
             selectService?.id === service.id
-              ? "border-blue-500 bg-blue-50"
-              : "border-gray-200"
+              ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
+              : "border-gray-200 hover:border-gray-300"
           }`}
         >
-          <h3 className="text-lg font-semibold mb-1">{service.name}</h3>
-          <p className="text-sm text-gray-500 mb-2">{service.description}</p>
-          <div className="text-sm mb-1">
-            <span className="font-medium">Price:</span> ₹
-            {service.discounted_price}{" "}
-            {service.discount_percent > 0 && (
-              <span className="line-through text-gray-400 ml-1">
-                ₹{service.price}
+          {/* Selected Badge */}
+          {selectService?.id === service.id && (
+            <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-md">
+              Selected
+            </div>
+          )}
+
+          <div className="mt-1">
+            {/* Service Name */}
+            <div className="flex justify-between">
+              <h3 className="text-lg font-bold text-gray-800 mb-2 leading-tight">
+                {service.name}
+              </h3>
+
+              {/* Discount Badge */}
+              {service.discount_percent > 0 && (
+                <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-md font-bold">
+                  {service.discount_percent}% OFF
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <p className="text-sm text-gray-600 mb-3 leading-relaxed line-clamp-2">
+              {service.description}
+            </p>
+
+            {/* Price Section */}
+            <div className="mb-2 p-2 bg-gray-50 rounded-lg">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold text-gray-800">
+                  ₹{service.discounted_price}
+                </span>
+                {service.discount_percent > 0 && (
+                  <span className="text-sm line-through text-gray-400">
+                    ₹{service.price}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Billing Info */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Billing:</span>
+              <span className="text-gray-800 font-semibold">
+                {service.billing_cycle}
+                {service.billing_cycle === "CALL" && service.CALL && (
+                  <span className="text-gray-500 ml-1">({service.CALL})</span>
+                )}
               </span>
-            )}
+            </div>
           </div>
-          <p className="text-xs text-gray-600 mb-2">
-            Billing: {service.billing_cycle}{" "}
-            {service.billing_cycle === "CALL" && `(${service.CALL} Calls)`}
-          </p>
-          <button
-            onClick={() => handleSelect(service)}
-            className={`w-full py-2 mt-2 rounded-lg text-white font-medium transition-all ${
-              selectService?.id === service.id
-                ? "bg-green-600"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            {selectService?.id === service.id ? "Selected" : "Select"}
-          </button>
         </div>
       ))}
     </div>

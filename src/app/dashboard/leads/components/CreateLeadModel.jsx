@@ -41,9 +41,9 @@ export default function CreateLeadModal({ open, onClose }) {
 
   useEffect(() => {
     if (!open) return
-    axios.get('http://127.0.0.1:8000/api/v1/lead-config/sources/?skip=0&limit=100')
+    axios.get('http://147.93.30.144:8000/api/v1/lead-config/sources/?skip=0&limit=100')
       .then(res => setLeadSources(res.data || []))
-    axios.get('http://127.0.0.1:8000/api/v1/lead-config/responses/?skip=0&limit=100')
+    axios.get('http://147.93.30.144:8000/api/v1/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
   }, [open])
 
@@ -66,7 +66,7 @@ export default function CreateLeadModal({ open, onClose }) {
     }
 
     try {
-      await axios.post('http://127.0.0.1:8000/api/v1/leads/', payload)
+      await axios.post('http://147.93.30.144:8000/api/v1/leads/', payload)
       toast.success('Lead created successfully')
       onClose()
       setFormData({

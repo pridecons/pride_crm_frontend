@@ -17,7 +17,7 @@ export default function FetchLeadsPage() {
       const token = Cookies.get('access_token')
 
       const res = await axios.post(
-        'http://127.0.0.1:8000/api/v1/leads/fetch',
+        'http://147.93.30.144:8000/api/v1/leads/fetch',
         { count: parseInt(count) || 100 },
         {
           headers: {

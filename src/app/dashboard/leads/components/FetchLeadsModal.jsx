@@ -12,7 +12,7 @@ export default function FetchLeadsModal({ open, onClose, onLeadsFetched }) {
   // ✅ Fetch available lead-fetch configs
   const fetchConfigs = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/v1/lead-fetch-config/?skip=0&limit=100')
+      const res = await axios.get('http://147.93.30.144:8000/api/v1/lead-fetch-config/?skip=0&limit=100')
       setConfigs(res.data || [])
     } catch (error) {
       console.error('Error fetching config:', error)
@@ -28,7 +28,7 @@ export default function FetchLeadsModal({ open, onClose, onLeadsFetched }) {
   const handleFetch = async (configId) => {
     try {
       setLoading(true)
-      const response = await axios.post('http://127.0.0.1:8000/api/v1/leads/fetch')
+      const response = await axios.post('http://147.93.30.144:8000/api/v1/leads/fetch')
 
       if (response.data && Array.isArray(response.data)) {
         toast.success(`Fetched ${response.data.length} leads successfully`)

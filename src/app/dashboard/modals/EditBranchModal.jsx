@@ -56,11 +56,11 @@ export default function EditBranchModal({ open, onClose, branch, onUpdated }) {
     if (form.agreement_pdf) formData.append('agreement_pdf', form.agreement_pdf)
 
     try {
-      const res = await axios.put(`http://127.0.0.1:8000/api/v1/branches/${branch.id}`, formData, {
+      const res = await axios.put(`http://147.93.30.144:8000/api/v1/branches/${branch.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       alert('Branch updated successfully!')
-      onBranchUpdated(res.data)
+      onUpdated(res.data)
       onClose()
     } catch (err) {
       console.error(err)
@@ -84,23 +84,97 @@ export default function EditBranchModal({ open, onClose, branch, onUpdated }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input name="name" value={form.name} onChange={handleChange} placeholder="Branch Name" className="border p-2 rounded" required />
-            <input name="authorized_person" value={form.authorized_person} onChange={handleChange} placeholder="Authorized Person" className="border p-2 rounded" required />
-            <input name="address" value={form.address} onChange={handleChange} placeholder="Address" className="border p-2 rounded" required />
-            <input name="pan" value={form.pan} onChange={handleChange} placeholder="PAN" className="border p-2 rounded" required />
-            <input name="aadhaar" value={form.aadhaar} onChange={handleChange} placeholder="Aadhaar" className="border p-2 rounded" required />
-            <input name="manager_id" value={form.manager_id} onChange={handleChange} placeholder="Manager Employee Code (optional)" className="border p-2 rounded" />
+            <div className="flex flex-col">
+              <label className="mb-1 text-gray-700 font-medium">Branch Name</label>
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="Branch Name"
+                className="border p-2 rounded"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="mb-1 text-gray-700 font-medium">Authorized Person</label>
+              <input
+                name="authorized_person"
+                value={form.authorized_person}
+                onChange={handleChange}
+                placeholder="Authorized Person"
+                className="border p-2 rounded"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="mb-1 text-gray-700 font-medium">Address</label>
+              <input
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                placeholder="Address"
+                className="border p-2 rounded"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="mb-1 text-gray-700 font-medium">PAN</label>
+              <input
+                name="pan"
+                value={form.pan}
+                onChange={handleChange}
+                placeholder="PAN"
+                className="border p-2 rounded"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="mb-1 text-gray-700 font-medium">Aadhaar</label>
+              <input
+                name="aadhaar"
+                value={form.aadhaar}
+                onChange={handleChange}
+                placeholder="Aadhaar"
+                className="border p-2 rounded"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="mb-1 text-gray-700 font-medium">Manager Employee Code</label>
+              <input
+                name="manager_id"
+                value={form.manager_id}
+                onChange={handleChange}
+                placeholder="Manager Employee Code (optional)"
+                className="border p-2 rounded"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <label className="flex items-center space-x-2">
-              <input type="checkbox" name="active" checked={form.active} onChange={handleChange} />
+              <input
+                type="checkbox"
+                name="active"
+                checked={form.active}
+                onChange={handleChange}
+              />
               <span>Active</span>
             </label>
 
             <label className="flex-1">
               <span className="block text-sm text-gray-600 mb-1">Upload Agreement (PDF)</span>
-              <input type="file" accept="application/pdf" name="agreement_pdf" onChange={handleChange} />
+              <input
+                type="file"
+                accept="application/pdf"
+                name="agreement_pdf"
+                onChange={handleChange}
+              />
             </label>
           </div>
 

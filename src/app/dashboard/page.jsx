@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const fetchBranches = async () => {
     try {
       setLoading(true)
-      const res = await axios.get('http://127.0.0.1:8000/api/v1/branches/')
+      const res = await axios.get('http://147.93.30.144:8000/api/v1/branches/')
       setBranches(res.data || [])
     } catch (error) {
       console.error('Error fetching branches:', error)

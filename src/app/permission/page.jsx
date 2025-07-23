@@ -57,7 +57,7 @@ export default function PermissionsPage() {
     try {
       setLoading(true);
       const res = await axios.get(
-        "http://127.0.0.1:8000/api/v1/permissions/?skip=0&limit=100"
+        "http://147.93.30.144:8000/api/v1/permissions/?skip=0&limit=100"
       );
       setPermissions(res.data);
     } catch (err) {
@@ -72,7 +72,7 @@ export default function PermissionsPage() {
       setSelectedUser(userId);
       setLoading(true);
       const res = await axios.get(
-        `http://127.0.0.1:8000/api/v1/permissions/user/${userId}`
+        `http://147.93.30.144:8000/api/v1/permissions/user/${userId}`
       );
       setSelectedUserPermissions(res.data);
     } catch (err) {
@@ -85,7 +85,7 @@ export default function PermissionsPage() {
   const togglePermission = async (perm) => {
     try {
       const res = await axios.patch(
-        `http://127.0.0.1:8000/api/v1/permissions/user/${selectedUser}/toggle/${perm}`
+        `http://147.93.30.144:8000/api/v1/permissions/user/${selectedUser}/toggle/${perm}`
       );
       toast.success(res.data.message);
       loadUserPermissions(selectedUser);
@@ -97,7 +97,7 @@ export default function PermissionsPage() {
   const resetToDefault = async () => {
     try {
       const res = await axios.post(
-        `http://127.0.0.1:8000/api/v1/permissions/user/${selectedUser}/reset-defaults`
+        `http://147.93.30.144:8000/api/v1/permissions/user/${selectedUser}/reset-defaults`
       );
       toast.success(res.data.message);
       loadUserPermissions(selectedUser);
@@ -110,7 +110,7 @@ export default function PermissionsPage() {
     try {
       setSaving(true);
       await axios.put(
-        `http://127.0.0.1:8000/api/v1/permissions/user/${selectedUser}`,
+        `http://147.93.30.144:8000/api/v1/permissions/user/${selectedUser}`,
         selectedUserPermissions
       );
       toast.success("Permissions updated successfully");

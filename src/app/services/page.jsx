@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { axiosInstance } from '@/api/Axios'
 import { toast } from 'react-toastify'
+import axios from 'axios'
 
 export default function ServicesPage() {
   const [services, setServices] = useState([])
@@ -10,17 +11,22 @@ export default function ServicesPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price: '',
-    discount_percent: '',
+    price: 0,
+    discount_percent: 0,
     billing_cycle: '',
     CALL: 0,
+    service_type: '',
   })
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const SERVICE_API = '/services'
+  const SERVICE_API = '/services/'
   const BILLING_CYCLE_API = '/services/billing-cycles'
+
+  // const fetchData=async()=>{
+  //   const response = await axios.get("")
+  // }
 
   // ✅ Fetch Services
   const fetchServices = async () => {
@@ -49,22 +55,32 @@ export default function ServicesPage() {
     fetchBillingCycles()
   }, [])
 
-  // ✅ Handle form field change
+  // ✅ Handle Input Change
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'CALL' ? parseInt(value) || 0 : value,
-    }))
+    setFormData((prev) => {
+      if (name === 'billing_cycle' && value !== 'CALL') {
+        return { ...prev, [name]: value, CALL: 0 }
+      }
+      return {
+        ...prev,
+        [name]: name === 'CALL' ? parseInt(value) || 0 : value,
+      }
+    })
   }
 
-  // ✅ Handle Create or Update
+  // ✅ Handle Create / Update
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const { name, description, price, billing_cycle } = formData
+    const { name, description, price, billing_cycle, discount_percent } = formData
 
     if (!name || !description || !price || !billing_cycle) {
       toast.error('Please fill all required fields')
+      return
+    }
+
+    if (discount_percent > 100) {
+      toast.error('Discount cannot be more than 100%')
       return
     }
 
@@ -78,17 +94,7 @@ export default function ServicesPage() {
         toast.success(`Service "${res.data.name}" created!`)
       }
 
-      // ✅ Reset Form
-      setFormData({
-        name: '',
-        description: '',
-        price: '',
-        discount_percent: '',
-        billing_cycle: '',
-        CALL: 0,
-      })
-      setEditId(null)
-      setIsModalOpen(false)
+      resetForm()
       fetchServices()
     } catch (err) {
       console.error(err)
@@ -96,6 +102,21 @@ export default function ServicesPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // ✅ Reset Form
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      price: '',
+      discount_percent: '',
+      billing_cycle: '',
+      CALL: 0,
+      service_type: '',
+    })
+    setEditId(null)
+    setIsModalOpen(false)
   }
 
   // ✅ Edit Handler
@@ -107,6 +128,7 @@ export default function ServicesPage() {
       discount_percent: parseFloat(srv.discount_percent),
       billing_cycle: srv.billing_cycle,
       CALL: srv.CALL || 0,
+      service_type: srv.service_type || '',
     })
     setEditId(srv.id)
     setIsModalOpen(true)
@@ -116,12 +138,26 @@ export default function ServicesPage() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this service?')) return
     try {
-      await axiosInstance.delete(`${SERVICE_API}/${id}`);
+      await axiosInstance.delete(`${SERVICE_API}/${id}`)
       toast.success('Service deleted')
       fetchServices()
     } catch (err) {
       console.error(err)
       toast.error('Failed to delete service')
+    }
+  }
+
+  // ✅ Badge Color for Billing Cycle
+  const getBadgeColor = (cycle) => {
+    switch (cycle) {
+      case 'CALL':
+        return 'bg-red-100 text-red-700'
+      case 'MONTHLY':
+        return 'bg-blue-100 text-blue-700'
+      case 'YEARLY':
+        return 'bg-green-100 text-green-700'
+      default:
+        return 'bg-gray-100 text-gray-700'
     }
   }
 
@@ -139,15 +175,7 @@ export default function ServicesPage() {
           </div>
           <button
             onClick={() => {
-              setEditId(null)
-              setFormData({
-                name: '',
-                description: '',
-                price: '',
-                discount_percent: '',
-                billing_cycle: '',
-                CALL: 0,
-              })
+              resetForm()
               setIsModalOpen(true)
             }}
             className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
@@ -173,15 +201,21 @@ export default function ServicesPage() {
                 <div className="relative p-6 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white">
                   <div className="relative z-10">
                     <h3 className="text-xl font-bold line-clamp-2">{srv.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{srv.billing_cycle}</span>
-                      {srv.CALL > 0 && <span className="text-sm">{srv.CALL} calls</span>}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getBadgeColor(srv.billing_cycle)}`}>
+                        {srv.billing_cycle}
+                      </span>
+                      {srv.CALL > 0 && (
+                        <span className="bg-yellow-100 text-yellow-700 px-2 py-1 text-xs rounded">
+                          {srv.CALL} Calls
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* ✅ Card Body */}
-                <div className="p-3">
+                <div className="p-4">
                   <p className="text-gray-600 mb-4 line-clamp-3">{srv.description}</p>
                   <div className="mb-6">
                     <div className="flex items-baseline gap-2 mb-2">
@@ -192,28 +226,26 @@ export default function ServicesPage() {
                     </div>
                     {srv.discount_percent > 0 && (
                       <p className="text-sm text-green-600 font-medium">
-                        You save ₹{srv.price - srv.discounted_price}
+                        You save ₹{(srv.price - srv.discounted_price).toFixed(2)}
                       </p>
                     )}
                   </div>
                 </div>
 
                 {/* ✅ Actions */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                  <div className="flex justify-between gap-3">
-                    <button
-                      onClick={() => handleEdit(srv)}
-                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(srv.id)}
-                      className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+                  <button
+                    onClick={() => handleEdit(srv)}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(srv.id)}
+                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
@@ -237,111 +269,41 @@ export default function ServicesPage() {
               <div className="p-6">
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Name */}
-                  <div className="flex flex-col">
-                    {editId && <label className="mb-1 text-gray-700 font-medium">Service Name</label>}
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Service Name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="p-4 border rounded-xl"
-                      required
-                    />
-                  </div>
+                  <input type="text" name="name" placeholder="Service Name" value={formData.name} onChange={handleChange} className="p-4 border rounded-xl" required />
 
                   {/* Price */}
-                  <div className="flex flex-col">
-                    {editId && <label className="mb-1 text-gray-700 font-medium">Price (₹)</label>}
-                    <input
-                      type="number"
-                      name="price"
-                      placeholder="Price (₹)"
-                      value={formData.price}
-                      onChange={handleChange}
-                      className="p-4 border rounded-xl"
-                      required
-                    />
-                  </div>
+                  <input type="number" name="price" placeholder="Price (₹)" value={formData.price} onChange={handleChange} className="p-4 border rounded-xl" required />
 
                   {/* Discount */}
-                  <div className="flex flex-col">
-                    {editId && <label className="mb-1 text-gray-700 font-medium">Discount (%)</label>}
-                    <input
-                      type="number"
-                      name="discount_percent"
-                      placeholder="Discount (%)"
-                      value={formData.discount_percent}
-                      onChange={handleChange}
-                      className="p-4 border rounded-xl"
-                    />
-                  </div>
+                  <input type="number" name="discount_percent" placeholder="Discount (%)" value={formData.discount_percent} onChange={handleChange} className="p-4 border rounded-xl" />
 
                   {/* Billing Cycle */}
-                  <div className="flex flex-col">
-                    {editId && <label className="mb-1 text-gray-700 font-medium">Billing Cycle</label>}
-                    <select
-                      name="billing_cycle"
-                      value={formData.billing_cycle}
-                      onChange={handleChange}
-                      className="p-4 border rounded-xl"
-                      required
-                    >
-                      <option value="">Select Billing Cycle</option>
-                      {billingCycles.map((cycle) => (
-                        <option key={cycle} value={cycle}>{cycle}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <select name="billing_cycle" value={formData.billing_cycle} onChange={handleChange} className="p-4 border rounded-xl" required>
+                    <option value="">Select Billing Cycle</option>
+                    {billingCycles.map((cycle) => (
+                      <option key={cycle} value={cycle}>{cycle}</option>
+                    ))}
+                  </select>
 
                   {/* CALL Limit */}
                   {formData.billing_cycle === 'CALL' && (
-                    <div className="flex flex-col">
-                      {editId && <label className="mb-1 text-gray-700 font-medium">CALL Limit</label>}
-                      <input
-                        type="number"
-                        name="CALL"
-                        placeholder="CALL Limit"
-                        onChange={handleChange}
-                        className="p-4 border rounded-xl"
-                        required
-                      />
-                    </div>
+                    <input type="number" name="CALL" placeholder="CALL Limit" value={formData.CALL} onChange={handleChange} className="p-4 border rounded-xl" required />
                   )}
 
+                  {/* Service Type */}
+                  <input type="text" name="service_type" placeholder="Service Type" value={formData.service_type} onChange={handleChange} className="p-4 border rounded-xl" />
+
                   {/* Description */}
-                  <div className="flex flex-col md:col-span-2">
-                    {editId && <label className="mb-1 text-gray-700 font-medium">Description</label>}
-                    <textarea
-                      name="description"
-                      placeholder="Description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      className="p-4 border rounded-xl"
-                      rows="3"
-                      required
-                    />
-                  </div>
+                  <textarea name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="p-4 border rounded-xl md:col-span-2" rows="3" required />
 
                   {/* Buttons */}
                   <div className="flex gap-4 md:col-span-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsModalOpen(false)}
-                      className="flex-1 px-6 py-3 border rounded-xl"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl"
-                      disabled={loading}
-                    >
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-3 border rounded-xl">Cancel</button>
+                    <button type="submit" className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl" disabled={loading}>
                       {loading ? 'Saving...' : editId ? 'Update Service' : 'Create Service'}
                     </button>
                   </div>
                 </form>
-
               </div>
             </div>
           </div>

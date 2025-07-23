@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Cookies from "js-cookie";
 import { toast } from "react-toastify";
 import { jwtDecode } from "jwt-decode";
-import axios from 'axios';
+import { axiosInstance } from '@/api/Axios';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -30,7 +30,7 @@ export default function LoginPage() {
       params.append('client_id', '')
       params.append('client_secret', '')
 
-      const res = await axios.post('http://147.93.30.144:8000/api/v1/auth/login', params, {
+      const res = await axiosInstance.post('/auth/login', params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           Accept: 'application/json',

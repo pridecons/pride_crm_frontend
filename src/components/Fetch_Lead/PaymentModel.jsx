@@ -35,6 +35,12 @@ const TAB_OPTIONS = [
   { name: "Generate Payment Link", value: "generate_link", icon: "🔗" },
 ];
 
+const serviceOption=[
+  "CASH",
+  "OPTION PUT BUY",
+  "OPTION CALL BUY",
+]
+
 export default function PaymentModal({
   open,
   setOpen,
@@ -126,6 +132,9 @@ const CreatePaymentLink = ({
   const [response, setResponse] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  const [serviceId, setServiceId] = useState(0)
+
+
   const toggleMethod = (code) => {
     setSelectedMethods(prev => {
       const upd = prev.includes(code)
@@ -180,7 +189,8 @@ const CreatePaymentLink = ({
         amount,
         payment_methods: allowAll ? "" : selectedMethods.join(","),
       };
-      const { data } = await axiosInstance.post("/payment/create", payload);
+
+      const { data } = await axiosInstance.post("/payment/create-order", payload);
       setResponse(data);
     } catch (err) {
       setError(err.response?.data?.detail || err.message);
@@ -188,6 +198,7 @@ const CreatePaymentLink = ({
       setLoading(false);
     }
   };
+
 
   const handleCopy = () => {
     const link = response?.cashfreeResponse?.payment_link;
@@ -220,6 +231,7 @@ const CreatePaymentLink = ({
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
               👤 Customer Information
             </h3>
+            <ServiceCard selectServiceId={serviceId} setSelectServiceId={setServiceId}/>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Full Name</label>
@@ -273,7 +285,13 @@ const CreatePaymentLink = ({
                 type="number"
                 step="0.01"
                 value={amount}
-                onChange={(e) => setAmount(parseFloat(e.target.value))}
+                onChange={(e) => {
+                  const newAmount = parseFloat(e.target.value);
+                  setAmount(newAmount);
+                  if (pricePerCall > 0) {
+                    setCallCount(Math.ceil(newAmount / pricePerCall));
+                  }
+                }}
                 className="w-full pl-8 pr-4 py-3 border-gray-300 rounded-lg focus:ring-green-500 focus:border-transparent"
                 placeholder="0.00"
               />
@@ -348,38 +366,90 @@ const CreatePaymentLink = ({
 
       {/* If Payment Link Generated */}
       {response?.cashfreeResponse?.payment_link && (
-        <div className="space-y-6">
-          {/* Payment Link */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 className="text-green-800 font-medium mb-3">✅ Payment Link Generated</h4>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={response.cashfreeResponse.payment_link}
-                className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
-              />
-              <button
-                onClick={handleCopy}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${copied ? "bg-gray-200" : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
-              >
-                {copied ? "✅ Copied" : "📋 Copy"}
-              </button>
+          <div className="space-y-6">
+            {/* Payment Link */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 className="text-green-800 font-medium mb-3">✅ Payment Link Generated</h4>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={response.cashfreeResponse.payment_link}
+                  className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={handleCopy}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${copied ? "bg-gray-200" : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
+                >
+                  {copied ? "✅ Copied" : "📋 Copy"}
+                </button>
+              </div>
             </div>
+
+            {/* QR Code */}
+            <QRCodeSection orderId={response.cashfreeResponse.order_id} />
+
+            {/* UPI Section */}
+            <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
           </div>
-
-          {/* QR Code */}
-          <QRCodeSection orderId={response.cashfreeResponse.order_id} />
-
-          {/* UPI Section */}
-          <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
-        </div>
       )}
     </div>
   );
 };
 
+const ServiceCard = ({ selectServiceId="", setSelectServiceId=()=>{} }) => {
+  const [service_plan, setService_plan] = useState([]);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const { data } = await axiosInstance.get("/services/");
+        setService_plan(data);
+      } catch (err) {
+        console.error("Failed to load services:", err);
+      }
+    };
+    fetchServices();
+  }, []);
+
+  const handleSelect = (id) => {
+    setSelectServiceId(id);
+  };
+
+  return (
+    <div className="w-full flex flex-row gap-4 mt-6 overflow-x-auto">
+      {service_plan.map((service) => (
+        <div
+          key={service.id}
+          className={`w-full min-w-56 border rounded-xl p-4 shadow-sm hover:shadow-md cursor-pointer transition-all ${
+            selectServiceId === service.id ? "border-blue-500 bg-blue-50" : "border-gray-200"
+          }`}
+        >
+          <h3 className="text-lg font-semibold mb-1">{service.name}</h3>
+          <p className="text-sm text-gray-500 mb-2">{service.description}</p>
+          <div className="text-sm mb-1">
+            <span className="font-medium">Price:</span> ₹{service.discounted_price}{" "}
+            {service.discount_percent > 0 && (
+              <span className="line-through text-gray-400 ml-1">₹{service.price}</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-600 mb-2">
+            Billing: {service.billing_cycle} {service.billing_cycle === "CALL" && `(${service.CALL} Calls)`}
+          </p>
+          <button
+            onClick={() => handleSelect(service.id)}
+            className={`w-full py-2 mt-2 rounded-lg text-white font-medium transition-all ${
+              selectServiceId === service.id ? "bg-green-600" : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {selectServiceId === service.id ? "Selected" : "Select"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const QRCodeSection = ({ orderId }) => {
   const [qrData, setQrData] = useState(null);

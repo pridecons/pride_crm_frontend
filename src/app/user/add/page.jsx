@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import Cookies from 'js-cookie';
 import { jwtDecode } from 'jwt-decode';
 import { useRouter } from 'next/navigation';
+import { axiosInstance } from '@/api/Axios';
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -53,9 +53,9 @@ export default function CreateUserPage() {
 
   const fetchData = async () => {
     const [branchRes, userRes, roleRes] = await Promise.all([
-      axios.get('http://147.93.30.144:8000/branches/?skip=0&limit=100&active_only=true'),
-      axios.get('http://147.93.30.144:8000/users/?skip=0&limit=100&active_only=true'),
-      axios.get('http://147.93.30.144:8000/users/roles'),
+      axiosInstance.get('/branches/?skip=0&limit=100&active_only=true'),
+      axiosInstance.get('/users/?skip=0&limit=100&active_only=true'),
+      axiosInstance.get('/users/roles'),
     ]);
     setBranches(branchRes.data || []);
     setUsers(userRes.data || []);
@@ -107,7 +107,7 @@ export default function CreateUserPage() {
           : currentUser?.branch_id,
       };
 
-      const res = await axios.post('http://147.93.30.144:8000/users/', payload, {
+      const res = await axiosInstance.post('/users/', payload, {
         headers: {
           'Content-Type': 'application/json',
         },

@@ -49,6 +49,13 @@ const Lead = () => {
     has_next: false,
     has_previous: false,
   });
+  const [aadharFront, setAadharFront] = useState(null);
+  const [aadharBack, setAadharBack] = useState(null);
+  const [panPic, setPanPic] = useState(null);
+
+  const [aadharFrontPreview, setAadharFrontPreview] = useState(null);
+  const [aadharBackPreview, setAadharBackPreview] = useState(null);
+  const [panPicPreview, setPanPicPreview] = useState(null);
 
   const fetchKycUserDetails = async () => {
     const formData = { mobile: currentLead?.mobile };
@@ -59,6 +66,32 @@ const Lead = () => {
       },
     });
   };
+
+  const handleFileChange = (e, setter, previewSetter) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File size must be under 2MB");
+      return;
+    }
+
+    setter(file);
+
+    // Revoke old preview if exists
+    previewSetter((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (aadharFrontPreview) URL.revokeObjectURL(aadharFrontPreview);
+      if (aadharBackPreview) URL.revokeObjectURL(aadharBackPreview);
+      if (panPicPreview) URL.revokeObjectURL(panPicPreview);
+    };
+  }, [aadharFrontPreview, aadharBackPreview, panPicPreview]);
 
   // Common API functions
   const apiCall = async (method, endpoint, data = null) => {
@@ -96,8 +129,8 @@ const Lead = () => {
     try {
       const [sourcesRes, responsesRes, assignmentsRes, uncalledRes] =
         await Promise.all([
-          apiCall("GET", "/api/v1/lead-config/sources/?skip=0&limit=100"),
-          apiCall("GET", "/api/v1/lead-config/responses/?skip=0&limit=100"),
+          apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
+          apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
           apiCall("GET", "/leads/assignments/my"),
           apiCall("GET", "/leads/navigation/uncalled-count"),
         ]);
@@ -162,29 +195,40 @@ const Lead = () => {
         updateData.dob = new Date(updateData.dob).toISOString().split("T")[0];
       }
       if (updateData.call_back_date) {
-        updateData.call_back_date = new Date(
-          updateData.call_back_date
-        ).toISOString();
+        updateData.call_back_date = new Date(updateData.call_back_date).toISOString();
       }
 
-      if (updateData.segment && typeof updateData.segment === 'string') {
-        updateData.segment = updateData.segment.split(',').map(s => s.trim()).filter(s => s);
+      if (updateData.segment && typeof updateData.segment === "string") {
+        updateData.segment = updateData.segment.split(",").map((s) => s.trim()).filter((s) => s);
       }
 
-      if (updateData.comment && typeof updateData.comment === 'string') {
+      if (updateData.comment && typeof updateData.comment === "string") {
         updateData.comment = { text: updateData.comment };
       }
 
-      const response = await apiCall(
-        "PUT",
-        `/leads/${currentLead.id}`,
-        updateData
-      );
+      // Step 1: Update lead
+      const response = await apiCall("PUT", `/leads/${currentLead.id}`, updateData);
       setCurrentLead(response);
       setIsEditMode(false);
+
+      // Step 2: Upload documents if selected
+      if (aadharFront || aadharBack || panPic) {
+        const formData = new FormData();
+        if (aadharFront) formData.append("aadhar_front", aadharFront);
+        if (aadharBack) formData.append("aadhar_back", aadharBack);
+        if (panPic) formData.append("pan_pic", panPic);
+
+        await axiosInstance.post(`/leads/${currentLead.id}/upload-documents`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        toast.success("Documents uploaded successfully!");
+      }
+
+      toast.success("Lead updated successfully!");
       setError(null);
     } catch (err) {
       setError(err);
+      toast.error("Error updating lead");
     } finally {
       setLoading(false);
     }
@@ -296,6 +340,16 @@ const Lead = () => {
           isEditMode={isEditMode}
           leadSources={leadSources}
           leadResponses={leadResponses}
+          handleFileChange={handleFileChange}
+          aadharFrontPreview={aadharFrontPreview}
+          aadharBackPreview={aadharBackPreview}
+          panPicPreview={panPicPreview}
+          setAadharFront={setAadharFront}
+          setAadharBack={setAadharBack}
+          setPanPic={setPanPic}
+          setAadharFrontPreview={setAadharFrontPreview}
+          setAadharBackPreview={setAadharBackPreview}
+          setPanPicPreview={setPanPicPreview}
         />
 
         {/* Assignments Summary */}
@@ -895,6 +949,16 @@ export const ViewAndEditLead = ({
   isEditMode,
   leadSources,
   leadResponses,
+  handleFileChange,
+  aadharFrontPreview,
+  aadharBackPreview,
+  panPicPreview,
+  setAadharFront,
+  setAadharBack,
+  setPanPic,
+  setAadharFrontPreview,
+  setAadharBackPreview,
+  setPanPicPreview
 }) => {
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
@@ -903,6 +967,18 @@ export const ViewAndEditLead = ({
       [name]: type === "checkbox" ? checked : value,
     }));
   }, [setEditFormData]);
+
+  const getFileUrl = (path) => {
+    if (!path) return null;
+
+    // Remove leading slashes if any
+    const cleanPath = path.startsWith("/") ? path : `/static/lead_documents/${path}`;
+
+    // Get base URL (without /api/v1)
+    const baseURL = axiosInstance.defaults.baseURL.replace("/api/v1", "");
+
+    return `${baseURL}${cleanPath}`;
+  };
 
   // Field definitions
   const personalFields = [
@@ -1102,6 +1178,7 @@ export const ViewAndEditLead = ({
 
   return (
     <div className="flex flex-col gap-6 mb-6">
+
       {/* Personal Information */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
@@ -1138,6 +1215,142 @@ export const ViewAndEditLead = ({
             />
           ))}
         </div>
+      </div>
+
+      {/* Document Section */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+          <FileText className="mr-2 text-indigo-500" size={20} />
+          Documents
+        </h3>
+
+        {isEditMode ? (
+          // Edit Mode → Show Upload Inputs + Existing Images
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Aadhaar Front */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Aadhaar Front</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, setAadharFront, setAadharFrontPreview)}
+                className="w-full border rounded p-2"
+              />
+              {(aadharFrontPreview || currentLead?.aadhar_front_pic) && (
+                <div className="relative mt-2 w-32 h-24">
+                  <img
+                    src={aadharFrontPreview || getFileUrl(currentLead.aadhar_front_pic)}
+                    alt="Aadhaar Front"
+                    className="w-full h-full object-cover border rounded"
+                  />
+                  {aadharFrontPreview && (
+                    <button
+                      onClick={() => { setAadharFront(null); setAadharFrontPreview(null); }}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Aadhaar Back */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Aadhaar Back</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, setAadharBack, setAadharBackPreview)}
+                className="w-full border rounded p-2"
+              />
+              {(aadharBackPreview || currentLead?.aadhar_back_pic) && (
+                <div className="relative mt-2 w-32 h-24">
+                  <img
+                    src={aadharBackPreview || getFileUrl(currentLead.aadhar_back_pic)}
+                    alt="Aadhaar Back"
+                    className="w-full h-full object-cover border rounded"
+                  />
+                  {aadharBackPreview && (
+                    <button
+                      onClick={() => { setAadharBack(null); setAadharBackPreview(null); }}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* PAN Card */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">PAN Card</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange(e, setPanPic, setPanPicPreview)}
+                className="w-full border rounded p-2"
+              />
+              {(panPicPreview || currentLead?.pan_pic) && (
+                <div className="relative mt-2 w-32 h-24">
+                  <img
+                    src={panPicPreview || getFileUrl(currentLead.pan_pic)}
+                    alt="PAN Card"
+                    className="w-full h-full object-cover border rounded"
+                  />
+                  {panPicPreview && (
+                    <button
+                      onClick={() => { setPanPic(null); setPanPicPreview(null); }}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // View Mode → Show only images
+          <div className="flex gap-6">
+            {/* Aadhaar Front */}
+            {currentLead?.aadhar_front_pic && (
+              <div className="text-center">
+                <img
+                  src={getFileUrl(currentLead.aadhar_front_pic)}
+                  alt="Aadhaar Front"
+                  className="w-32 h-24 object-cover border rounded"
+                />
+                <p className="mt-2 text-sm font-medium text-gray-700">Aadhaar Front</p>
+              </div>
+            )}
+
+            {/* Aadhaar Back */}
+            {currentLead?.aadhar_back_pic && (
+              <div className="text-center">
+                <img
+                  src={getFileUrl(currentLead.aadhar_back_pic)}
+                  alt="Aadhaar Back"
+                  className="w-32 h-24 object-cover border rounded"
+                />
+                <p className="mt-2 text-sm font-medium text-gray-700">Aadhaar Back</p>
+              </div>
+            )}
+
+            {/* PAN Card */}
+            {currentLead?.pan_pic && (
+              <div className="text-center">
+                <img
+                  src={getFileUrl(currentLead.pan_pic)}
+                  alt="PAN Card"
+                  className="w-32 h-24 object-cover border rounded"
+                />
+                <p className="mt-2 text-sm font-medium text-gray-700">PAN Card</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Professional & Documentation */}

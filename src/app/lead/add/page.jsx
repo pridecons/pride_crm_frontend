@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import { toast } from 'react-toastify'
+import { axiosInstance } from '@/api/Axios'
 
 export default function LeadForm() {
   const [formData, setFormData] = useState({
@@ -31,14 +31,28 @@ export default function LeadForm() {
     profile: '',
   })
 
+  const [aadharFront, setAadharFront] = useState(null);
+  const [aadharBack, setAadharBack] = useState(null);
+  const [panPic, setPanPic] = useState(null);
+  const [aadharFrontPreview, setAadharFrontPreview] = useState(null);
+  const [aadharBackPreview, setAadharBackPreview] = useState(null);
+  const [panPicPreview, setPanPicPreview] = useState(null);
   const [leadSources, setLeadSources] = useState([])
   const [leadResponses, setLeadResponses] = useState([])
   const [loadingPan, setLoadingPan] = useState(false)
 
+  const handleFileChange = (e, setter, previewSetter) => {
+    const file = e.target.files[0];
+    if (file) {
+      setter(file);
+      previewSetter(URL.createObjectURL(file)); // generate preview URL
+    }
+  };
+
   useEffect(() => {
-    axios.get('http://147.93.30.144:8000/api/v1/lead-config/sources/?skip=0&limit=100')
+    axiosInstance.get('/lead-config/sources/?skip=0&limit=100')
       .then(res => setLeadSources(res.data || []))
-    axios.get('http://147.93.30.144:8000/api/v1/lead-config/responses/?skip=0&limit=100')
+    axiosInstance.get('/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
   }, [])
 
@@ -56,15 +70,64 @@ export default function LeadForm() {
 
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await axios.post('http://147.93.30.144:8000/api/v1/leads/', formData)
-      toast.success('Lead created successfully')
+      // Step 1: Create Lead
+      const { data } = await axiosInstance.post('/leads/', formData);
+      const leadId = data.id;
+
+      // Step 2: Upload Documents
+      if (aadharFront || aadharBack || panPic) {
+        const uploadData = new FormData();
+        if (aadharFront) uploadData.append('aadhar_front', aadharFront);
+        if (aadharBack) uploadData.append('aadhar_back', aadharBack);
+        if (panPic) uploadData.append('pan_pic', panPic);
+
+
+        await axiosInstance.post(`/leads/${leadId}/upload-documents`, uploadData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+
+      toast.success('Lead and documents uploaded successfully');
+
+      // ✅ Reset form and files
+      setFormData({
+        full_name: '',
+        father_name: '',
+        email: '',
+        mobile: '',
+        alternate_mobile: '',
+        aadhaar: '',
+        pan: '',
+        gstin: '',
+        state: '',
+        city: '',
+        district: '',
+        address: '',
+        dob: '',
+        occupation: '',
+        segment: [],
+        experience: '',
+        investment: '',
+        lead_response_id: '',
+        lead_source_id: '',
+        comment: '',
+        call_back_date: '',
+        lead_status: '',
+        profile: '',
+      });
+      setAadharFront(null);
+      setAadharBack(null);
+      setPanPic(null);
+      setAadharFrontPreview(null);
+      setAadharBackPreview(null);
+      setPanPicPreview(null);
     } catch (err) {
-      console.error(err)
-      toast.error('Error creating lead')
+      console.error(err);
+      toast.error(err.response?.data?.detail || 'Error creating lead or uploading documents');
     }
-  }
+  };
 
   const handleVerifyPan = async () => {
     if (!formData.pan) {
@@ -73,8 +136,8 @@ export default function LeadForm() {
     }
     setLoadingPan(true)
     try {
-      const res = await axios.post(
-        'http://147.93.30.144:8000/api/v1/micro-pan-verification',
+      const res = await axiosInstance.post(
+        '/micro-pan-verification',
         new URLSearchParams({ pannumber: formData.pan }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       )
@@ -162,6 +225,51 @@ export default function LeadForm() {
         <input name="gstin" value={formData.gstin} onChange={handleChange} placeholder="GST Number" className="p-2 border rounded" />
         <input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Occupation" className="p-2 border rounded" />
         <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" className="p-2 border rounded col-span-2" />
+      </div>
+
+      <div className="bg-gradient-to-r from-blue-900 to-blue-400 text-white px-4 py-2 mt-8 rounded-t font-bold">
+        Upload Documents
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-t-0 rounded-b">
+        <div>
+          <label className="block mb-2">Aadhar Front</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange(e, setAadharFront, setAadharFrontPreview)}
+            className="p-2 border rounded w-full"
+          />
+          {aadharFrontPreview && (
+            <img src={aadharFrontPreview} alt="Aadhar Front" className="mt-2 h-24 w-32 object-cover border rounded" />
+          )}
+        </div>
+
+        <div>
+          <label className="block mb-2">Aadhar Back</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange(e, setAadharBack, setAadharBackPreview)}
+            className="p-2 border rounded w-full"
+          />
+          {aadharBackPreview && (
+            <img src={aadharBackPreview} alt="Aadhar Back" className="mt-2 h-24 w-32 object-cover border rounded" />
+          )}
+        </div>
+
+        <div>
+          <label className="block mb-2">PAN Card</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange(e, setPanPic, setPanPicPreview)}
+            className="p-2 border rounded w-full"
+          />
+          {panPicPreview && (
+            <img src={panPicPreview} alt="PAN Card" className="mt-2 h-24 w-32 object-cover border rounded" />
+          )}
+        </div>
+
       </div>
 
       {/* Investment Details */}

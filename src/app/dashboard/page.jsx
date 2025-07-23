@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import axios from 'axios'
 import { Building, Users, TrendingUp, Globe, Search, Filter } from 'lucide-react'
 import BranchCard from '../../components/Branch/BranchCard'
 import EditBranchModal from './modals/EditBranchModal'
 import AddBranchModal from '@/components/Branch/AddBranchModal' // ✅ Import our modal
+import { axiosInstance } from '@/api/Axios'
 
 export default function DashboardPage() {
   const [branches, setBranches] = useState([])
@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const fetchBranches = async () => {
     try {
       setLoading(true)
-      const res = await axios.get('http://147.93.30.144:8000/api/v1/branches/')
+      const res = await axiosInstance.get('http://147.93.30.144:8000/api/v1/branches/')
       setBranches(res.data || [])
     } catch (error) {
       console.error('Error fetching branches:', error)

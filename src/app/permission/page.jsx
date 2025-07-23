@@ -31,6 +31,7 @@ import {
   CheckSquare,
   Square
 } from "lucide-react";
+import { axiosInstance } from "@/api/Axios";
 
 const PERMISSION_LIST = [
   "add_user", "edit_user", "delete_user",
@@ -56,8 +57,8 @@ export default function PermissionsPage() {
   const fetchAllPermissions = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        "http://147.93.30.144:8000/api/v1/permissions/?skip=0&limit=100"
+      const res = await axiosInstance.get(
+        "/permissions/?skip=0&limit=100"
       );
       setPermissions(res.data);
     } catch (err) {
@@ -71,8 +72,8 @@ export default function PermissionsPage() {
     try {
       setSelectedUser(userId);
       setLoading(true);
-      const res = await axios.get(
-        `http://147.93.30.144:8000/api/v1/permissions/user/${userId}`
+      const res = await axiosInstance.get(
+        `/permissions/user/${userId}`
       );
       setSelectedUserPermissions(res.data);
     } catch (err) {
@@ -84,8 +85,8 @@ export default function PermissionsPage() {
 
   const togglePermission = async (perm) => {
     try {
-      const res = await axios.patch(
-        `http://147.93.30.144:8000/api/v1/permissions/user/${selectedUser}/toggle/${perm}`
+      const res = await axiosInstance.patch(
+        `/permissions/user/${selectedUser}/toggle/${perm}`
       );
       toast.success(res.data.message);
       loadUserPermissions(selectedUser);
@@ -96,8 +97,8 @@ export default function PermissionsPage() {
 
   const resetToDefault = async () => {
     try {
-      const res = await axios.post(
-        `http://147.93.30.144:8000/api/v1/permissions/user/${selectedUser}/reset-defaults`
+      const res = await axiosInstance.post(
+        `/permissions/user/${selectedUser}/reset-defaults`
       );
       toast.success(res.data.message);
       loadUserPermissions(selectedUser);
@@ -109,8 +110,8 @@ export default function PermissionsPage() {
   const handleUpdate = async () => {
     try {
       setSaving(true);
-      await axios.put(
-        `http://147.93.30.144:8000/api/v1/permissions/user/${selectedUser}`,
+      await axiosInstance.put(
+        `/permissions/user/${selectedUser}`,
         selectedUserPermissions
       );
       toast.success("Permissions updated successfully");

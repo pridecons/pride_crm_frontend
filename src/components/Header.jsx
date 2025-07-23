@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
 import { Bell, Menu, Search, User, LogOut, Settings, Clock, ChevronDown, Calendar, MapPin } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
-import axios from 'axios'
+import { axiosInstance } from '@/api/Axios'
 
 export default function Header({ onMenuClick, onSearch }) {
   const router = useRouter()
@@ -61,7 +61,7 @@ export default function Header({ onMenuClick, onSearch }) {
     const userInfo = Cookies.get('user_info')
 
     if (accessToken && userInfo) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
       const decoded = jwtDecode(accessToken)
       setUser({
         ...JSON.parse(userInfo),

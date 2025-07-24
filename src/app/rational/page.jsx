@@ -1,10 +1,12 @@
 // get all , create rational button, edit options, delete options, edit rational field 
 // RationalListPage.jsx
 
+// get all , create rational button, edit options, delete options, edit rational field 
+// RationalListPage.jsx
 
 
 'use client';
-import { sendNotification } from './notificationService';
+
 import { useEffect, useState } from 'react';
 import { axiosInstance } from '@/api/Axios';
 import {
@@ -14,7 +16,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { CardContent } from '@/components/common/CardContent';
-// import RationalTable from '@/components/common/TableContent';
+import RationalTable from '@/components/common/TableContent';
 
 const API_URL = 'http://147.93.30.144:8000/api/v1/narrations/';
 
@@ -96,23 +98,6 @@ export default function RationalPage() {
     }
   };
 
-  // Function to send notification
-  async function sendNotification() {
-    await fetch("https://crm.24x7techelp.com/api/v1/notification/", {
-      method: "POST",
-      headers: {
-        "accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        user_id: "USER_ID_HERE",
-        title: "Hello!",
-        message: "This is a test notification.",
-      }),
-    });
-  }
-
-
   const getRecommendationBadge = (type) => {
     const colors = {
       'Buy': 'bg-green-100 text-green-800 border-green-200',
@@ -145,7 +130,7 @@ export default function RationalPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <CardContent
             label="Total Stocks"
             value={rationalList.length}
@@ -266,7 +251,7 @@ export default function RationalPage() {
                 ))}
               </tbody>
             </table>
-
+            
             {rationalList.length === 0 && (
               <div className="text-center py-12">
                 <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -407,7 +392,6 @@ export default function RationalPage() {
                 >
                   {editId ? 'Update Rational' : 'Create Rational'}
                 </button>
-                <button onClick={sendNotification}>Send Test Notification</button>
               </div>
             </form>
           </div>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Header from "@/components/Header"
 import Sidebar from "@/components/Sidebar"
 import { usePathname } from 'next/navigation'
+import { Toaster } from 'react-hot-toast'
 
 export default function Main({ children }) {
   const pathname = usePathname()
@@ -13,6 +14,10 @@ export default function Main({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster
+        position="bottom-center"
+        reverseOrder={false}
+      />
       {/* Header */}
       {pathname !== "/login" && (
         <div className="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-50">

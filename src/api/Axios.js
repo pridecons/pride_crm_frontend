@@ -1,14 +1,7 @@
   import axios from "axios";
   import Cookies from "js-cookie";
 
-<<<<<<< Updated upstream
   export const BASE_URL = "https://crm.24x7techelp.com/api/v1";
-=======
-export const BASE_URL = "https://crm.24x7techelp.com/";
-
-// http://147.93.30.144:8000/
->>>>>>> Stashed changes
-
 
   export const authAxiosInstance = axios.create({
     baseURL: BASE_URL,

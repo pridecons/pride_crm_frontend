@@ -3,7 +3,6 @@
 
   export const BASE_URL = "https://crm.24x7techelp.com/api/v1";
 
-
   export const authAxiosInstance = axios.create({
     baseURL: BASE_URL,
     headers: {

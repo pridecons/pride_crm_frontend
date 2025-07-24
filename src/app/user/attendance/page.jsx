@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 
 export default function AttendancePage() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://147.93.30.144:8000'
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://147.93.30.144:8000/api/v1'
 
 
   const [employees, setEmployees] = useState([])
@@ -45,23 +45,6 @@ console.log('data', employees)
       toast.error('Error fetching employees')
     }
   }
-
-    const fetchBranches = async () => {
-      try {
-        const res = await axiosInstance.get(
-          "/branches/?skip=0&limit=100&active_only=false"
-        );
-        setBranches(res.data || []);
-        const map = {};
-        res.data.forEach((b) => {
-          map[b.id] = b.name;
-        });
-        setBranchMap(map);
-      } catch (err) {
-        console.error("Failed to fetch branches:", err);
-      }
-    };
-
 
   const applyFilters = () => {
     let data = employees

@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation'
 import { Bell, Menu, Search, User, LogOut, Settings, Clock, ChevronDown, Calendar, MapPin } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
 import { axiosInstance } from '@/api/Axios'
+import toast from 'react-hot-toast'
 
 export default function Header({ onMenuClick, onSearch }) {
   const router = useRouter()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
   const [user, setUser] = useState(null)
   const [searchValue, setSearchValue] = useState('')
   const [currentTime, setCurrentTime] = useState('')
@@ -153,79 +153,130 @@ export default function Header({ onMenuClick, onSearch }) {
           </div>
 
           {/* Enhanced Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-            >
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse"></span>
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-400 rounded-full animate-ping"></span>
-            </button>
 
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Notifications</h3>
-                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">1</span>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
-                    <div className="bg-blue-100 rounded-full p-2">
-                      <Bell size={16} className="text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">System Update</p>
-                      <p className="text-xs text-gray-500">No new notifications available</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <ShowNotifications />
+
         </div>
         {/* Profile */}
-          <div className="relative">
-            <button
-              onClick={toggleProfileMenu}
-              className="flex items-center space-x-2  rounded-xl hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-            >
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                  <User size={18} className="text-white" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+        <div className="relative">
+          <button
+            onClick={toggleProfileMenu}
+            className="flex items-center space-x-2  rounded-xl hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
+          >
+            <div className="relative">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                <User size={18} className="text-white" />
               </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-semibold text-gray-900">
-                  {user?.name || 'User'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {user?.role || 'Role'}
-                </p>
-              </div>
-              <ChevronDown size={16} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
-            </button>
+              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+            </div>
+            <div className="hidden md:block text-left">
+              <p className="text-sm font-semibold text-gray-900">
+                {user?.name || 'User'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {user?.role || 'Role'}
+              </p>
+            </div>
+            <ChevronDown size={16} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+          </button>
 
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
-                <div className="p-2">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-red-50 text-left transition-all duration-200 group"
-                  >
-                    <div className="bg-red-100 rounded-full p-2 group-hover:bg-red-200 transition-colors">
-                      <LogOut size={16} className="text-red-600" />
-                    </div>
-                    <span className="text-sm font-medium text-red-600">Logout</span>
-                  </button>
-                </div>
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
+              <div className="p-2">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-red-50 text-left transition-all duration-200 group"
+                >
+                  <div className="bg-red-100 rounded-full p-2 group-hover:bg-red-200 transition-colors">
+                    <LogOut size={16} className="text-red-600" />
+                  </div>
+                  <span className="text-sm font-medium text-red-600">Logout</span>
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
+  )
+}
+
+const ShowNotifications = () => {
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/Admin001`);
+
+    console.log("socket : ", socket)
+
+    socket.onopen = () => {
+      console.log("WebSocket connected");
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type !== "connection_confirmed") {
+        console.log("websocket data : ", data)
+        setMessages((prev) => [...prev, data]);
+        toast.custom((t) => (
+          <div
+            className={`${t.visible ? 'animate-enter' : 'animate-leave'
+              } max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
+          >
+            <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 w-full">
+              <div className="bg-blue-100 rounded-full p-2">
+                <Bell size={16} className="text-blue-600" />
+              </div>
+              <div className="flex-1 w-full">
+                <p className="text-sm font-medium text-gray-900">{data?.title}</p>
+                <p className="text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: data.message }} />
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    };
+
+    socket.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
+
+    return () => socket.close();
+  }, []);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowNotifications(!showNotifications)}
+        className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
+      >
+        <Bell size={20} />
+        <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse"></span>
+        <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-400 rounded-full animate-ping"></span>
+      </button>
+
+      {showNotifications && <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Notifications</h3>
+            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{messages?.length}</span>
+          </div>
+        </div>
+        <div className="p-4">
+          {messages?.map((val) =>
+            <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <div className="bg-blue-100 rounded-full p-2">
+                <Bell size={16} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">{val?.title}</p>
+                <p className="text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: val.message }} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>}
+    </div>
   )
 }

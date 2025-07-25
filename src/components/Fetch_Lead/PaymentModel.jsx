@@ -50,7 +50,7 @@ export default function PaymentModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-transparent backdrop-blur-sm bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 px-6">
@@ -77,11 +77,10 @@ export default function PaymentModal({
               <button
                 key={opt.value}
                 onClick={() => setSelectOption(opt.value)}
-                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  selectOption === opt.value
+                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${selectOption === opt.value
                     ? "border-blue-500 text-blue-600 bg-blue-50"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <span className="mr-2">{opt.icon}</span>
                 {opt.name}
@@ -264,8 +263,8 @@ const CreatePaymentLink = ({
                   val?.billing_cycle === "MONTHLY"
                     ? 30
                     : val?.billing_cycle === "YEARLY"
-                    ? 365
-                    : 0
+                      ? 365
+                      : 0
                 );
               }}
             />
@@ -480,11 +479,10 @@ const CreatePaymentLink = ({
               />
               <button
                 onClick={handleCopy}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  copied
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${copied
                     ? "bg-gray-200"
                     : "bg-green-600 text-white hover:bg-green-700"
-                }`}
+                  }`}
               >
                 {copied ? "✅ Copied" : "📋 Copy"}
               </button>
@@ -502,7 +500,7 @@ const CreatePaymentLink = ({
   );
 };
 
-const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
+const ServiceCard = ({ selectService = {}, setSelectService = () => { } }) => {
   const [service_plan, setService_plan] = useState([]);
 
   useEffect(() => {
@@ -535,11 +533,10 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
         <div
           key={service.id}
           onClick={() => handleSelect(service)}
-          className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${
-            selectService?.id === service.id
+          className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${selectService?.id === service.id
               ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
               : "border-gray-200 hover:border-gray-300"
-          }`}
+            }`}
         >
           {/* Selected Badge */}
           {selectService?.id === service.id && (

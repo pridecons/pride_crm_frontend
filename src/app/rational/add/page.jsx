@@ -141,11 +141,7 @@ export default function RationalFormPage() {
                         {id ? 'Update Rational' : 'Create Rational'}
                     </button>
                 </div>
-
             </form>
-
-
-
         </div>
     );
 }

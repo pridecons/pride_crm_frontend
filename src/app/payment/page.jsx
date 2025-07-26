@@ -36,7 +36,7 @@ const TAB_OPTIONS = [
     { name: "Generate Payment Link", value: "generate_link", icon: "🔗" },
 ];
 
-const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"];
+const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"];``
 
 export default function PaymentPage({
     name = "",

@@ -132,9 +132,15 @@ export default function Header({ onMenuClick, onSearch }) {
       </div>
 
       {/* Clock + Notifications + Profile */}
-      <div className="flex items-center gap-2">
-        {/* Clock */}
-        <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-1 rounded-xl border border-gray-200 shadow-sm">
+      <div className="flex items-center gap-4">
+        <ShowNotifications setIsConnect={setIsConnect} />
+    
+
+        {/* Notifications + Profile with no space */}
+        <div className="flex items-center gap-4">
+          
+    {/* Clock */}
+        <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center gap-2">
             <div className="bg-blue-100 rounded-full p-1">
               <Clock size={14} className="text-blue-600" />
@@ -145,13 +151,8 @@ export default function Header({ onMenuClick, onSearch }) {
             </div>
           </div>
         </div>
-
-        {/* Notifications + Profile with no space */}
-        <div className="flex items-center gap-1">
-          <ShowNotifications setIsConnect={setIsConnect} />
-
           {/* Profile */}
-          <div className="relative" ref={profileRef}>
+          <div className="relative"  ref={profileRef}>
             <button
               onClick={toggleProfileMenu}
               className="flex items-center space-x-1 px-1 py-1 rounded-xl hover:bg-gray-100 transition-all duration-200 group"

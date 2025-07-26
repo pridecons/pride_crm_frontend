@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Header from "@/components/Header"
 import Sidebar from "@/components/Sidebar"
 import { usePathname } from 'next/navigation'
-// import { Toaster } from 'react-hot-toast'
+import { Toaster } from 'react-hot-toast'
 
 export default function Main({ children }) {
   const pathname = usePathname()
@@ -13,14 +13,14 @@ export default function Main({ children }) {
   const headerHeight = 64 // Adjust based on your Header height in px (e.g., h-16 = 64px)
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* <Toaster
+    <div className="min-h-[100vh] bg-gray-50">
+      <Toaster
         position="bottom-center"
         reverseOrder={false}
-      /> */}
+      /> 
       {/* Header */}
       {pathname !== "/login" && (
-        <div className="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-50">
+        <div className="fixed top-0 left-0 right-0 h-8 bg-white shadow-md z-50">
           <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
         </div>
       )}
@@ -36,10 +36,9 @@ export default function Main({ children }) {
 
       {/* Main Content */}
       <main
-        className={`overflow-y-auto p-6 ${
+        className={`${
           pathname !== "/login" ? 'ml-64 mt-16' : ''
-        }`}
-        style={{ height: `calc(100vh - ${headerHeight}px)` }}
+        } px-2`}
       >
         {children}
       </main>

@@ -26,8 +26,10 @@ export default function Sidebar({ branchId, onClose }) {
   })
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [user, setUser] = useState(null)
+  const [hasMounted, setHasMounted] = useState(false)
 
   useEffect(() => {
+    setHasMounted(true)
     const accessToken = Cookies.get('access_token')
     const userInfo = Cookies.get('user_info')
 
@@ -76,31 +78,42 @@ export default function Sidebar({ branchId, onClose }) {
     </Link>
   )
 
-  const menu = [
-    {
-      title: 'Main',
-      items: [{ href: '/dashboard', icon: BarChart3, label: 'Home' }],
-    },
-    {
-      title: 'Leads',
-      section: 'leads',
-      icon: FileText,
-      items: [
-        { href: '/lead', icon: Target, label: 'Lead' },
-        { href: '/lead/add', icon: Plus, label: 'Add Lead' },
-        { href: '/lead/manage', icon: FileText, label: 'Manage Leads' },
-      ],
-    },
-    {
-      title: 'Configuration',
-      section: 'configuration',
-      icon: Settings,
-      items: [
-        { href: '/user', icon: Users, label: 'Users' },
-        { href: '/permission', icon: Users, label: 'Permissions' },
-      ],
-    },
-  ]
+const menu = [
+  {
+    title: 'Main',
+    items: [
+      { href: '/dashboard', icon: BarChart3, label: 'Home' },
+    ],
+  },
+  {
+    title: 'Leads',
+    section: 'leads',
+    icon: FileText,
+    items: [
+      { href: '/lead', icon: Target, label: 'Lead' },
+      { href: '/lead/add', icon: Plus, label: 'Add Lead' },
+      { href: '/lead/manage', icon: FileText, label: 'Manage Leads' },
+    ],
+  },
+  {
+    title: 'Configuration',
+    section: 'configuration',
+    icon: Settings,
+    items: [
+      { href: '/user', icon: Users, label: 'Users' },
+      { href: '/permission', icon: Users, label: 'Permissions' },
+    ],
+  },
+  {
+    title: 'Rationals',
+    items: [
+      { href: '/rational', icon: FileText, label: 'Rationals' },
+    ],
+  },
+]
+
+
+if (!hasMounted) return null
 
   return (
     <aside className="flex flex-col h-full bg-gray-50 shadow-md">

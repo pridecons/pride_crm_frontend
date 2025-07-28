@@ -160,13 +160,25 @@ export default function LeadsTable() {
         prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: newResponseId } : l))
       );
 
-      // ✅ Switch to Old Leads tab automatically
-      setActiveTab("Old Leads");
+      // Only switch if not FT
+      const responseName = responses.find((r) => r.id == newResponseId)?.name?.toLowerCase();
+      if (responseName !== "ft") {
+        setActiveTab("Old Leads");
+      }
     } catch (error) {
       console.error("Error updating response:", error);
       toast.error("Failed to update response!");
     }
   };
+  const getValidFTDates = () => {
+    const today = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      return d.toISOString().split("T")[0];
+    });
+  };
+
 
   // ✅ Pagination
   const totalPages = Math.ceil(total / limit);
@@ -286,18 +298,89 @@ export default function LeadsTable() {
 
                   {/* Response */}
                   <td className="px-4 py-3">
-                    <select
-                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
-                      value={lead.lead_response_id || ""}
-                      onChange={(e) => handleResponseChange(lead, e.target.value)}
-                    >
-                      <option value="">Select Response</option>
-                      {responses.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const responseName = responseNameMap[lead.lead_response_id] || "";
+                      if (responseName === "ft") {
+                        const validDates = getValidFTDates();
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <input
+                              type="date"
+                              className="px-2 py-1 border border-gray-300 rounded text-sm"
+                              min={validDates[0]}
+                              max={validDates[validDates.length - 1]}
+                              value={lead.ft_date || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setLeads((prev) =>
+                                  prev.map((l) =>
+                                    l.id === lead.id ? { ...l, ft_date: val } : l
+                                  )
+                                );
+                              }}
+                            />
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="FT comment..."
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                value={lead.ft_comment || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setLeads((prev) =>
+                                    prev.map((l) =>
+                                      l.id === lead.id ? { ...l, ft_comment: val } : l
+                                    )
+                                  );
+                                }}
+                              />
+                              <button
+                                onClick={async () => {
+                                  if (!lead.ft_comment?.trim()) {
+                                    toast.error("Comment cannot be empty");
+                                    return;
+                                  }
+                                  try {
+                                    const res = await axiosInstance.post(`/leads/${lead.id}/comments`, null, {
+                                      params: { comment: lead.ft_comment },
+                                    });
+                                    toast.success("FT comment saved");
+                                    setLeads((prev) =>
+                                      prev.map((l) =>
+                                        l.id === lead.id
+                                          ? { ...l, comment: res.data.comment, ft_comment: "", ft_date: lead.ft_date }
+                                          : l
+                                      )
+                                    );
+                                  } catch (err) {
+                                    toast.error("Failed to save FT comment");
+                                    console.error(err);
+                                  }
+                                }}
+                                className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <select
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+                          value={lead.lead_response_id || ""}
+                          onChange={(e) => handleResponseChange(lead, e.target.value)}
+                        >
+                          <option value="">Select Response</option>
+                          {responses.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </td>
 
                   {/* Comment */}

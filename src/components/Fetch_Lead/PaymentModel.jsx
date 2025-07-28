@@ -44,6 +44,7 @@ export default function PaymentModal({
   phone = "",
   email = "",
   service = "",
+  lead_id = null,
 }) {
   const [selectOption, setSelectOption] = useState("check_payment");
 
@@ -78,8 +79,8 @@ export default function PaymentModal({
                 key={opt.value}
                 onClick={() => setSelectOption(opt.value)}
                 className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${selectOption === opt.value
-                    ? "border-blue-500 text-blue-600 bg-blue-50"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                  ? "border-blue-500 text-blue-600 bg-blue-50"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                   }`}
               >
                 <span className="mr-2">{opt.icon}</span>
@@ -98,6 +99,7 @@ export default function PaymentModal({
               email={email}
               service={service}
               setOpen={setOpen}
+              lead_id={lead_id}
             />
           )}
           {selectOption === "check_payment" && <CheckPayment phone={phone} />}
@@ -113,6 +115,7 @@ const CreatePaymentLink = ({
   email = "",
   service = "",
   setOpen,
+  lead_id = null,
 }) => {
   const [amount, setAmount] = useState(0);
   const [customerName, setCustomerName] = useState(name);
@@ -187,6 +190,7 @@ const CreatePaymentLink = ({
         duration_day: duration_day,
         service_id: service_plan?.id,
         description: description,
+        lead_id: lead_id,
       };
 
       const { data } = await axiosInstance.post(
@@ -289,20 +293,20 @@ const CreatePaymentLink = ({
               />
               <div>
                 <label
-                  for="countries"
-                  class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+                  htmlFor="countries"
+                  className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
                 >
                   Select Service
                 </label>
                 <select
                   id="countries"
-                  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                   value={selectService}
                   onChange={(e) => setSelectService(e.target.value)}
                 >
-                  <option selected>Choose a Service</option>
-                  {serviceOption.map((val) => (
-                    <option value={val}>{val}</option>
+                  <option value=''>Choose a Service</option>
+                  {serviceOption.map((val, index) => (
+                    <option key={index} value={val}>{val}</option>
                   ))}
                 </select>
               </div>
@@ -480,8 +484,8 @@ const CreatePaymentLink = ({
               <button
                 onClick={handleCopy}
                 className={`px-4 py-2 rounded-lg text-sm font-medium ${copied
-                    ? "bg-gray-200"
-                    : "bg-green-600 text-white hover:bg-green-700"
+                  ? "bg-gray-200"
+                  : "bg-green-600 text-white hover:bg-green-700"
                   }`}
               >
                 {copied ? "✅ Copied" : "📋 Copy"}
@@ -534,8 +538,8 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => { } }) => {
           key={service.id}
           onClick={() => handleSelect(service)}
           className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${selectService?.id === service.id
-              ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
-              : "border-gray-200 hover:border-gray-300"
+            ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
+            : "border-gray-200 hover:border-gray-300"
             }`}
         >
           {/* Selected Badge */}

@@ -26,8 +26,13 @@ import {
   Globe,
 } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
-import FetchLeadsButton from "@/components/Fetch_Lead/FetchButton";
 import toast from "react-hot-toast";
+import { Viewer, Worker } from "@react-pdf-viewer/core";
+import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
+import "@react-pdf-viewer/core/lib/styles/index.css";
+import "@react-pdf-viewer/default-layout/lib/styles/index.css";
+import Cookies from "js-cookie";
+
 
 
 const Lead = () => {
@@ -76,6 +81,76 @@ const Lead = () => {
   const [selectedRecording, setSelectedRecording] = useState(null);
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
+  const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [kycUrl, setKycUrl] = useState(null);
+
+
+  const defaultLayoutPluginInstance = defaultLayoutPlugin({
+    renderToolbar: (Toolbar) => (
+      <Toolbar>
+        {(slots) => {
+          const {
+            CurrentPageInput,
+            GoToNextPage,
+            GoToPreviousPage,
+            ZoomIn,
+            ZoomOut,
+            Zoom,
+            Download,
+            Print,
+          } = slots;
+
+          // ✅ Fetch role from Cookies (set during login)
+          const tokenUserInfo = Cookies.get("user_info");
+          let userRole = "";
+          if (tokenUserInfo) {
+            try {
+              userRole = JSON.parse(tokenUserInfo)?.role?.toUpperCase() || "";
+            } catch (e) {
+              console.error("Invalid user_info cookie", e);
+            }
+          }
+
+          return (
+            <div className="rpv-toolbar flex items-center">
+              <div className="rpv-toolbar__item">
+                <GoToPreviousPage />
+              </div>
+              <div className="rpv-toolbar__item">
+                <CurrentPageInput /> / {slots.NumberOfPages()}
+              </div>
+              <div className="rpv-toolbar__item">
+                <GoToNextPage />
+              </div>
+              <div className="rpv-toolbar__item">
+                <ZoomOut />
+              </div>
+              <div className="rpv-toolbar__item">
+                <Zoom />
+              </div>
+              <div className="rpv-toolbar__item">
+                <ZoomIn />
+              </div>
+
+              {/* ✅ Show only if SUPERADMIN */}
+              {userRole === "SUPERADMIN" && (
+                <>
+                  <div className="rpv-toolbar__item">
+                    <Download />
+                  </div>
+                  <div className="rpv-toolbar__item">
+                    <Print />
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        }}
+      </Toolbar>
+    ),
+  });
+
+
 
   const fetchRecordings = async () => {
     try {
@@ -243,6 +318,23 @@ const Lead = () => {
       setError(err);
     } finally {
       setLoading(false);
+    }
+  };
+  const handleViewKyc = async () => {
+    try {
+      const response = await axiosInstance.post(`/agreement/view/${currentLead?.id}`);
+      const signedUrl = response?.complete_signed_url || response?.data?.complete_signed_url;
+
+      if (!signedUrl) {
+        toast.error("Failed to get KYC document link!");
+        return;
+      }
+
+      setKycUrl(signedUrl);
+      setIsKycModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching KYC document:", error);
+      toast.error("Unable to fetch KYC document");
     }
   };
 
@@ -446,6 +538,18 @@ const Lead = () => {
   }
   const displaySegment = parsedSegment.join(", ");
 
+  const getFileUrl = (path) => {
+    if (!path) return null;
+
+    // Remove leading slashes if any
+    const cleanPath = path.startsWith("/") ? path : `/static/lead_documents/${path}`;
+
+    // Get base URL (without /api/v1)
+    const baseURL = axiosInstance.defaults.baseURL.replace("/api/v1", "");
+
+    return `${baseURL}${cleanPath}`;
+  };
+
 
   // Loading State
   if (loading && !currentLead) {
@@ -457,16 +561,12 @@ const Lead = () => {
     return <ErrorState error={error} onRetry={fetchCurrentLead} />;
   }
 
+  // Fetch role from localStorage or cookies
+  const userInfo = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user_info")) : null;
+  const userRole = userInfo?.role || "";
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex justify-end mb-4">
-        <FetchLeadsButton
-          onSuccess={(data) => {
-            setAssignments((prev) => [...prev, ...data.leads]); // Merge new leads into assignments
-            toast.success(`${data.fetched_count} leads fetched successfully`);
-          }}
-        />
-      </div>
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <LeadHeader
@@ -508,6 +608,7 @@ const Lead = () => {
           onViewEmailLogsClick={fetchEmailLogs}
           onCommentsClick={() => setIsCommentsModalOpen(true)}
           onRecordingsClick={() => setIsRecordingsModalOpen(true)}
+          onViewKycClick={handleViewKyc}
         />
 
         {/* Lead Details */}
@@ -530,17 +631,7 @@ const Lead = () => {
           setPanPicPreview={setPanPicPreview}
         />
 
-        {/* Upload Button */}
-        <div className="p-3 border-t flex items-center gap-2">
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={handleUploadRecording}
-            disabled={uploadingRecording}
-            className="w-full border rounded p-2"
-          />
-          {uploadingRecording && <span className="text-blue-500 text-sm">Uploading...</span>}
-        </div>
+
 
         {/* Assignments Summary */}
         {/* <AssignmentsSummary
@@ -576,6 +667,93 @@ const Lead = () => {
             cannot be undone.
           </p>
         </Modal>
+        <Modal
+          isOpen={isKycModalOpen}
+          onClose={() => setIsKycModalOpen(false)}
+          title=""
+          actions={[]} // Remove footer buttons
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex flex-col z-50">
+            {/* Header */}
+            <div className="flex justify-between items-center bg-white shadow px-4 py-2">
+              <h3 className="text-lg font-semibold text-gray-900">KYC Document</h3>
+              <div className="flex gap-2">
+                {userRole === "SUPERADMIN" && (
+                  <a
+                    href={kycUrl}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  >
+                    Download
+                  </a>
+                )}
+                <button
+                  onClick={() => setIsKycModalOpen(false)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Horizontal Layout */}
+            <div className="flex h-[600px]">
+              {/* PDF Section */}
+              <div className="flex-1 bg-gray-100 overflow-auto">
+                {kycUrl ? (
+                  <div className="h-full w-full">
+                    <Worker workerUrl="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js">
+                      <Viewer fileUrl={kycUrl} plugins={[defaultLayoutPluginInstance]} />
+                    </Worker>
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 mt-20">Loading PDF...</p>
+                )}
+              </div>
+
+              {/* Documents Section */}
+              <div className="w-[300px] bg-white p-4 border-l overflow-y-auto">
+                <h4 className="text-lg font-semibold mb-4">Uploaded Documents</h4>
+                <div className="flex flex-col gap-4">
+                  {currentLead?.aadhar_front_pic && (
+                    <div className="text-center">
+                      <img
+                        src={getFileUrl(currentLead.aadhar_front_pic)}
+                        alt="Aadhaar Front"
+                        className="w-32 h-24 object-cover border rounded mx-auto"
+                      />
+                      <p className="mt-2 text-sm text-gray-700">Aadhaar Front</p>
+                    </div>
+                  )}
+                  {currentLead?.aadhar_back_pic && (
+                    <div className="text-center">
+                      <img
+                        src={getFileUrl(currentLead.aadhar_back_pic)}
+                        alt="Aadhaar Back"
+                        className="w-32 h-24 object-cover border rounded mx-auto"
+                      />
+                      <p className="mt-2 text-sm text-gray-700">Aadhaar Back</p>
+                    </div>
+                  )}
+                  {currentLead?.pan_pic && (
+                    <div className="text-center">
+                      <img
+                        src={getFileUrl(currentLead.pan_pic)}
+                        alt="PAN Card"
+                        className="w-32 h-24 object-cover border rounded mx-auto"
+                      />
+                      <p className="mt-2 text-sm text-gray-700">PAN Card</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </Modal>
+
 
         <Modal
           isOpen={isOpenResponse}
@@ -712,6 +890,7 @@ const Lead = () => {
         phone={currentLead?.mobile}
         email={currentLead?.email}
         service={displaySegment}
+        lead_id={currentLead?.id}
       />
 
       <Modal
@@ -798,6 +977,7 @@ const Lead = () => {
               ))}
             </select>
           </div>
+
 
           {/* Recipient Email
           <div>
@@ -1310,41 +1490,12 @@ export const ActionButtons = ({
   onPaymentClick,
   onSendEmailClick,
   onViewEmailLogsClick,
-  onCommentsClick, // ✅ add this
-  onRecordingsClick // ✅ add this
+  onCommentsClick,
+  onRecordingsClick,
+  onViewKycClick
 }) => {
 
-  // Fetch role from localStorage or cookies
-  const userInfo = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user_info")) : null;
-  const userRole = userInfo?.role || "";
 
-  const handleViewKyc = async () => {
-    try {
-      const response = await axiosInstance.post(`/agreement/view/${currentLead?.id}`);
-      const signedUrl = response?.complete_signed_url || response?.data?.complete_signed_url;
-
-      if (!signedUrl) {
-        toast.error("Failed to get KYC document link!");
-        return;
-      }
-
-      if (userRole === "SUPERADMIN") {
-        // Download the file
-        const a = document.createElement("a");
-        a.href = signedUrl;
-        a.download = `kyc-${currentLead?.id}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else {
-        // Open in new tab
-        window.open(signedUrl, "_blank");
-      }
-    } catch (error) {
-      console.error("Error fetching KYC document:", error);
-      toast.error("Unable to fetch KYC document");
-    }
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -1392,11 +1543,11 @@ export const ActionButtons = ({
         {/* ✅ Show KYC Button Only if KYC Completed */}
         {currentLead?.kyc && (
           <button
-            onClick={handleViewKyc}
+            onClick={onViewKycClick}
             className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             <Eye size={16} className="mr-2" />
-            {userRole === "SUPERADMIN" ? "Download KYC" : "View KYC"}
+            View KYC
           </button>
         )}
 
@@ -1478,17 +1629,7 @@ export const ViewAndEditLead = ({
     }));
   }, [setEditFormData]);
 
-  const getFileUrl = (path) => {
-    if (!path) return null;
-
-    // Remove leading slashes if any
-    const cleanPath = path.startsWith("/") ? path : `/static/lead_documents/${path}`;
-
-    // Get base URL (without /api/v1)
-    const baseURL = axiosInstance.defaults.baseURL.replace("/api/v1", "");
-
-    return `${baseURL}${cleanPath}`;
-  };
+  
 
   // Field definitions
   const personalFields = [
@@ -1715,7 +1856,7 @@ export const ViewAndEditLead = ({
         </h3>
 
         {isEditMode ? (
-          // Edit Mode → Show Upload Inputs + Existing Images
+          // ✅ Edit Mode → Show Upload Inputs + Preview
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Aadhaar Front */}
             <div className="space-y-2">
@@ -1726,22 +1867,12 @@ export const ViewAndEditLead = ({
                 onChange={(e) => handleFileChange(e, setAadharFront, setAadharFrontPreview)}
                 className="w-full border rounded p-2"
               />
-              {(aadharFrontPreview || currentLead?.aadhar_front_pic) && (
-                <div className="relative mt-2 w-32 h-24">
-                  <img
-                    src={aadharFrontPreview || getFileUrl(currentLead.aadhar_front_pic)}
-                    alt="Aadhaar Front"
-                    className="w-full h-full object-cover border rounded"
-                  />
-                  {aadharFrontPreview && (
-                    <button
-                      onClick={() => { setAadharFront(null); setAadharFrontPreview(null); }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
+              {aadharFrontPreview && (
+                <img
+                  src={aadharFrontPreview}
+                  alt="Aadhaar Front"
+                  className="mt-2 w-32 h-24 object-cover border rounded"
+                />
               )}
             </div>
 
@@ -1754,22 +1885,12 @@ export const ViewAndEditLead = ({
                 onChange={(e) => handleFileChange(e, setAadharBack, setAadharBackPreview)}
                 className="w-full border rounded p-2"
               />
-              {(aadharBackPreview || currentLead?.aadhar_back_pic) && (
-                <div className="relative mt-2 w-32 h-24">
-                  <img
-                    src={aadharBackPreview || getFileUrl(currentLead.aadhar_back_pic)}
-                    alt="Aadhaar Back"
-                    className="w-full h-full object-cover border rounded"
-                  />
-                  {aadharBackPreview && (
-                    <button
-                      onClick={() => { setAadharBack(null); setAadharBackPreview(null); }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
+              {aadharBackPreview && (
+                <img
+                  src={aadharBackPreview}
+                  alt="Aadhaar Back"
+                  className="mt-2 w-32 h-24 object-cover border rounded"
+                />
               )}
             </div>
 
@@ -1782,66 +1903,21 @@ export const ViewAndEditLead = ({
                 onChange={(e) => handleFileChange(e, setPanPic, setPanPicPreview)}
                 className="w-full border rounded p-2"
               />
-              {(panPicPreview || currentLead?.pan_pic) && (
-                <div className="relative mt-2 w-32 h-24">
-                  <img
-                    src={panPicPreview || getFileUrl(currentLead.pan_pic)}
-                    alt="PAN Card"
-                    className="w-full h-full object-cover border rounded"
-                  />
-                  {panPicPreview && (
-                    <button
-                      onClick={() => { setPanPic(null); setPanPicPreview(null); }}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
+              {panPicPreview && (
+                <img
+                  src={panPicPreview}
+                  alt="PAN Card"
+                  className="mt-2 w-32 h-24 object-cover border rounded"
+                />
               )}
             </div>
           </div>
         ) : (
-          // View Mode → Show only images
-          <div className="flex gap-6">
-            {/* Aadhaar Front */}
-            {currentLead?.aadhar_front_pic && (
-              <div className="text-center">
-                <img
-                  src={getFileUrl(currentLead.aadhar_front_pic)}
-                  alt="Aadhaar Front"
-                  className="w-32 h-24 object-cover border rounded"
-                />
-                <p className="mt-2 text-sm font-medium text-gray-700">Aadhaar Front</p>
-              </div>
-            )}
-
-            {/* Aadhaar Back */}
-            {currentLead?.aadhar_back_pic && (
-              <div className="text-center">
-                <img
-                  src={getFileUrl(currentLead.aadhar_back_pic)}
-                  alt="Aadhaar Back"
-                  className="w-32 h-24 object-cover border rounded"
-                />
-                <p className="mt-2 text-sm font-medium text-gray-700">Aadhaar Back</p>
-              </div>
-            )}
-
-            {/* PAN Card */}
-            {currentLead?.pan_pic && (
-              <div className="text-center">
-                <img
-                  src={getFileUrl(currentLead.pan_pic)}
-                  alt="PAN Card"
-                  className="w-32 h-24 object-cover border rounded"
-                />
-                <p className="mt-2 text-sm font-medium text-gray-700">PAN Card</p>
-              </div>
-            )}
-          </div>
+          // ✅ View Mode → Hide documents (nothing to show here)
+          <p className="text-gray-500">Uploaded documents can be viewed in KYC modal.</p>
         )}
       </div>
+
 
       {/* Professional & Documentation */}
       <div className="bg-white rounded-lg shadow-sm p-6">

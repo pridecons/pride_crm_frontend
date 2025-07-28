@@ -30,6 +30,9 @@ const LeadManage = () => {
   const [isOpenResponse, setIsOpenResponse] = useState(false);
   const [isOpenFetchLimit, setIsOpenFetchLimit] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
 
   useEffect(() => {
     fetchLeadData();
@@ -248,6 +251,18 @@ const LeadManage = () => {
             <p className="text-sm text-gray-500">Set data limits</p>
           </div>
         </div>
+        <div
+          onClick={() => setIsBulkUploadOpen(true)}
+          className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-red-300 hover:-translate-y-1"
+        >
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="bg-red-50 rounded-full p-4 mb-4 group-hover:bg-red-100 transition-colors">
+              <Database size={28} className="text-red-600" />
+            </div>
+            <p className="text-lg font-semibold text-gray-900 mb-1">Bulk Upload</p>
+            <p className="text-sm text-gray-500">Upload leads from CSV</p>
+          </div>
+        </div>
       </div>
 
       {/* Enhanced Search & Filters */}
@@ -378,6 +393,74 @@ const LeadManage = () => {
       <SourceModel open={isOpenSource} setOpen={setIsOpenSource} />
       <ResponseModel open={isOpenResponse} setOpen={setIsOpenResponse} />
       <FetchLimitModel open={isOpenFetchLimit} setOpen={setIsOpenFetchLimit} />
+      {isBulkUploadOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Bulk Lead Upload</h2>
+              <button onClick={() => setIsBulkUploadOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            {/* Upload Form */}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                try {
+                  setUploading(true);
+                  const { data } = await axiosInstance.post("/bulk-leads/upload", formData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                  });
+                  setUploadResult(data);
+                } catch (error) {
+                  console.error("Upload failed", error);
+                  alert("Failed to upload CSV");
+                } finally {
+                  setUploading(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <input type="file" name="csv_file" accept=".csv" required className="w-full border p-2 rounded" />
+
+              {/* Mapping Fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" name="name_column" placeholder="Name Column" required className="border p-2 rounded" />
+                <input type="number" name="mobile_column" placeholder="Mobile Column" required className="border p-2 rounded" />
+                <input type="number" name="email_column" placeholder="Email Column" required className="border p-2 rounded" />
+                <input type="number" name="address_column" placeholder="Address Column" className="border p-2 rounded" />
+                <input type="number" name="city_column" placeholder="City Column" className="border p-2 rounded" />
+                <input type="number" name="segment_column" placeholder="Segment Column" className="border p-2 rounded" />
+                <input type="number" name="occupation_column" placeholder="Occupation Column" className="border p-2 rounded" />
+                <input type="number" name="investment_column" placeholder="Investment Column" className="border p-2 rounded" />
+              </div>
+
+              <input type="text" name="branch_id" defaultValue="3" className="border p-2 rounded w-full" placeholder="Branch ID" />
+              <input type="text" name="lead_source_id" defaultValue="1" className="border p-2 rounded w-full" placeholder="Lead Source ID" />
+              <input type="text" name="employee_code" defaultValue="" className="border p-2 rounded w-full" placeholder="Employee Code" />
+
+              <button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+              >
+                {uploading ? "Uploading..." : "Upload CSV"}
+              </button>
+            </form>
+
+            {/* Upload Result */}
+            {uploadResult && (
+              <div className="mt-4 p-3 border rounded bg-gray-50">
+                <p>Total Rows: {uploadResult.total_rows}</p>
+                <p>Successful Uploads: {uploadResult.successful_uploads}</p>
+                <p>Duplicates Skipped: {uploadResult.duplicates_skipped}</p>
+                <p className="text-red-600 mt-2">Errors: {uploadResult.errors.length}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

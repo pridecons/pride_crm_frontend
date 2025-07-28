@@ -13,11 +13,11 @@ export default function Main({ children }) {
   const headerHeight = 64 // Adjust based on your Header height in px (e.g., h-16 = 64px)
 
   return (
-    <div className="min-h-[100vh] bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <Toaster
         position="bottom-center"
         reverseOrder={false}
-      /> 
+      />
       {/* Header */}
       {pathname !== "/login" && (
         <div className="fixed top-0 left-0 right-0 h-8 bg-white shadow-md z-50">

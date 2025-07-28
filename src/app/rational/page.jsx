@@ -2,7 +2,7 @@
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { useEffect, useState } from 'react';
-import { axiosInstance } from '@/api/Axios';
+import { axiosInstance, BASE_URL } from '@/api/Axios';
 import {
   LineChart,
   TrendingUp,
@@ -10,23 +10,28 @@ import {
   Eye,
 } from 'lucide-react';
 import { CardContent } from '@/components/common/CardContent';
-const API_URL = 'http://147.93.30.144:8000/api/v1/narrations/';
+
+const API_URL = '/recommendations/';
 
 export default function RationalPage() {
+  const [openStatusDropdown, setOpenStatusDropdown] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [rationalList, setRationalList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [modalImage, setModalImage] = useState(null);
+  const [imageError, setImageError] = useState('');
   const [formData, setFormData] = useState({
     stock_name: '',
     entry_price: '',
     stop_loss: '',
-    targets1: '',
+    targets: '',
     targets2: '',
     targets3: '',
     rational: '',
     recommendation_type: '',
-    rational_image: null,
+    graph: null,
   });
   const [selectedDate, setSelectedDate] = useState('');
 
@@ -43,8 +48,21 @@ export default function RationalPage() {
     fetchRationals();
   }, []);
 
+  // Fixed: Moved useEffect to proper location
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openStatusDropdown !== null) {
+        setOpenStatusDropdown(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openStatusDropdown]);
+
   const openModal = async (id = null) => {
     setEditId(id);
+    setImageError(''); // Clear any previous image error
     if (id) {
       try {
         const res = await axiosInstance.get(`${API_URL}${id}/`);
@@ -57,97 +75,147 @@ export default function RationalPage() {
         stock_name: '',
         entry_price: '',
         stop_loss: '',
-        targets1: '',
+        targets: '',
         targets2: '',
         targets3: '',
         rational: '',
         recommendation_type: '',
+        graph: null,
       });
     }
     setIsModalOpen(true);
   };
-  // const handleExport = () => {
-  //   const fileData = JSON.stringify(formData, null, 2);
-  //   const blob = new Blob([fileData], { type: 'application/json' });
-  //   const url = URL.createObjectURL(blob);
-
-  //   const link = document.createElement('a');
-  //   link.href = url;
-  //   link.download = 'formData.json';
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   document.body.removeChild(link);
-  // };
-
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value,
     }));
   };
 
+
   const handleExport = async () => {
     try {
-      const response = await axiosInstance.get('/narrations'); // Base URL is assumed set in axiosInstance
-
+      const response = await axiosInstance.get('/recommendations');
       const data = response.data;
 
       // Convert JSON to Excel worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Narrations");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "recommendations");
 
       // Trigger file download
-      XLSX.writeFile(workbook, 'narrations-export.xlsx');
+      XLSX.writeFile(workbook, 'recommendations-export.xlsx');
     } catch (error) {
       console.error('Export failed:', error);
     }
   };
 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleStatusChange = async (id, item) => {
     try {
-      let dataToSend;
-      let headers = { 'Content-Type': 'application/json' };
+      const response = await axiosInstance.put(`/recommendations/status/${id}?status=${item}`);
 
-      if (formData.rational_image) {
-        dataToSend = new FormData();
-        Object.keys(formData).forEach((key) => {
-          if (formData[key] !== null) {
-            dataToSend.append(key, formData[key]);
-          }
-        });
-        headers = { 'Content-Type': 'multipart/form-data' };
-      } else {
-        dataToSend = formData;
-      }
+      const data = response.data;
+      console.log('Updated:', data);
 
-      if (editId) {
-        await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
-      } else {
-        await axiosInstance.post(API_URL, dataToSend, { headers });
-      }
-
-      setIsModalOpen(false);
-      fetchRationals();
+      setOpenStatusDropdown(null);
     } catch (err) {
+      console.error('Status update error:', err);
+    }
+  };
+
+  const openImageModal = (path) => {
+    setModalImage(`${BASE_URL}${encodeURI(path)}`);
+  };
+
+  const closeModal = () => {
+    setModalImage(null);
+  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setImageError('');
+
+  const {
+    stock_name,
+    entry_price,
+    stop_loss,
+    targets,
+    targets2,
+    targets3,
+    rational,
+    recommendation_type,
+    graph,
+    status,
+  } = formData;
+
+  // Validate required fields
+  if (!editId && !graph) {
+    setImageError('Please select an image to upload');
+    return;
+  }
+
+  try {
+    let dataToSend;
+    let headers = {};
+
+    // Always normalize numbers
+    const cleanedData = {
+      stock_name: stock_name?.trim() || '',
+      entry_price: Number(entry_price),
+      stop_loss: Number(stop_loss),
+      targets: Number(targets),
+      targets2: Number(targets2),
+      targets3: Number(targets3),
+      rational: rational?.trim() || '',
+      recommendation_type: recommendation_type?.trim() || '',
+      status: status || 'OPEN',
+    };
+
+    const isGraphFile = graph instanceof File;
+
+    if (isGraphFile || (!editId && graph)) {
+      // Use FormData when there's an image
+      dataToSend = new FormData();
+      Object.entries(cleanedData).forEach(([key, value]) => {
+        dataToSend.append(key, value);
+      });
+      if (isGraphFile) dataToSend.append('graph', graph);
+      headers['Content-Type'] = 'multipart/form-data';
+    } else {
+      // Use JSON otherwise
+      dataToSend = { ...cleanedData, graph }; // include graph path string if already uploaded
+      headers['Content-Type'] = 'application/json';
+    }
+
+    // DEBUG: Log the payload
+    if (dataToSend instanceof FormData) {
+      for (let [key, value] of dataToSend.entries()) {
+        console.log(`${key}:`, value);
+      }
+    } else {
+      console.log('Payload:', dataToSend);
+    }
+
+    // Send to API
+    if (editId) {
+      await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
+    } else {
+      await axiosInstance.post(API_URL, dataToSend, { headers });
+    }
+
+    setIsModalOpen(false);
+    fetchRationals();
+  } catch (err) {
+    if (err.response?.status === 422) {
+      console.error('Validation error:', err.response.data);
+    } else {
       console.error('Submit failed:', err);
     }
-  };
+  }
+};
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this rational?')) return;
-    try {
-      await axiosInstance.delete(`${API_URL}${id}/`);
-      fetchRationals();
-    } catch (err) {
-      console.error('Failed to delete rational:', err);
-    }
-  };
 
   const getRecommendationBadge = (type) => {
     const colors = {
@@ -179,12 +247,10 @@ export default function RationalPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto">
-
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
           {/* Left Side: Search + Date */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 w-full sm:w-auto space-y-3 sm:space-y-0">
-
             {/* Search */}
             <div className="relative w-full sm:w-64">
               <svg
@@ -244,7 +310,7 @@ export default function RationalPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Export
-            </button>`
+            </button>
 
             <button
               onClick={() => openModal()}
@@ -262,7 +328,6 @@ export default function RationalPage() {
             </button>
           </div>
         </div>
-
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -301,31 +366,37 @@ export default function RationalPage() {
                   <th className="text-left py-4 px-6">Stock Name</th>
                   <th className="text-left py-4 px-6">Entry Price</th>
                   <th className="text-left py-4 px-6">Stop Loss</th>
-                  <th className="text-left py-4 px-6">Target</th>
+                  <th className="text-left py-4 px-6">Target </th>
+                  <th className="text-left py-4 px-6">Target 2</th>
+                  <th className="text-left py-4 px-6">Target 3</th>
                   <th className="text-left py-4 px-6">Recommendation</th>
                   <th className="text-left py-4 px-6">Date</th>
                   <th className="text-left py-4 px-6">Rational</th>
                   <th className="text-center py-4 px-6">Actions</th>
+                  <th className="text-center py-4 px-6">Status</th>
+                  <th className="text-center py-4 px-6">Graph</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredData.map((item, index) => (
+                {filteredData.map((item) => (
                   <tr key={item.id}>
-                    <td className="py-4 px-6">
-                      <div className="font-semibold">{item.stock_name}</div>
-                    </td>
+                    <td className="py-4 px-6 font-semibold">{item.stock_name}</td>
                     <td className="py-4 px-6">{item.entry_price}</td>
                     <td className="py-4 px-6">{item.stop_loss}</td>
-                    <td className="py-4 px-6">{item.targets}</td>
+                    <td className="py-4 px-6">{item.targets || '-'}</td>
+                    <td className="py-4 px-6">{item.targets2 || '-'}</td>
+                    <td className="py-4 px-6">{item.targets3 || '-'}</td>
                     <td className="py-4 px-6">{item.recommendation_type}</td>
                     <td className="py-4 px-6">
-                      {item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                      }) : '-'}
+                      {item.created_at
+                        ? new Date(item.created_at).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })
+                        : '-'}
                     </td>
-                    <td className="py-4 px-6">{item.rational}</td>
+                    <td className="py-4 px-6">{item.rational || '-'}</td>
                     <td className="py-4 px-6 text-center">
                       {!item.rational && (
                         <button
@@ -336,10 +407,67 @@ export default function RationalPage() {
                         </button>
                       )}
                     </td>
+
+                    <td className="py-4 px-6 text-center relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
+                        }}
+                        className="text-sm text-blue-600 hover:underline focus:outline-none"
+                      >
+                        {item.status || 'N/A'}
+                      </button>
+
+                      {openStatusDropdown === item.id && (
+                        <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
+                          {[
+                            'OPEN',
+                            'TARGET1',
+                            'TARGET2',
+                            'TARGET3',
+                            'STOP_LOSS',
+                            'CLOSED',
+                          ].map((status) => (
+                            <div
+                              key={status}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Remove the condition that was preventing selection
+                                console.log('Dropdown option clicked:', status);
+                                handleStatusChange(item.id, status);
+                              }}
+                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === status
+                                ? 'bg-blue-50 text-blue-600 font-medium' // Changed: Show current status but still allow clicking
+                                : 'text-gray-700 hover:text-blue-600'
+                                }`}
+                            >
+                              {status}
+                              {/* Add a checkmark for current status */}
+                              {item.status === status && <span className="ml-2">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
+                    <td className="py-4 px-6 text-center">
+                      {item.graph ? (
+                        <button
+                          onClick={() => openImageModal(item.graph)}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No Graph</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
             {rationalList.length === 0 && (
               <div className="text-center py-12">
                 <h3 className="text-lg font-semibold text-slate-800 mb-2">No rationals found</h3>
@@ -356,7 +484,31 @@ export default function RationalPage() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Image Modal */}
+      {modalImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl overflow-hidden shadow-lg max-w-3xl w-full">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-lg font-semibold">Graph Preview</h2>
+              <button
+                onClick={closeModal}
+                className="text-gray-500 hover:text-red-500 text-xl"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="p-4">
+              <img
+                src={modalImage}
+                alt="Graph"
+                className="w-full h-auto object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-xl relative max-h-[90vh] overflow-y-auto">
@@ -378,22 +530,26 @@ export default function RationalPage() {
                 <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" />
               </div>
               <div className="flex flex-col">
-                <label className="mb-1 text-gray-700 text-sm">Targets 1</label>
+                <label className="mb-1 text-gray-700 text-sm">
+                  Targets 1 <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
-                  name="targets1"
-                  value={formData.targets1}
+                  name="targets"
+                  value={formData.targets ?? ''}
                   onChange={handleChange}
-                  className="p-3 border rounded"
+                  required
+                  className="p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
 
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Targets 2</label>
                 <input
                   type="number"
                   name="targets2"
-                  value={formData.targets2}
+                  value={formData.targets2 ?? ''}
                   onChange={handleChange}
                   className="p-3 border rounded"
                 />
@@ -404,7 +560,7 @@ export default function RationalPage() {
                 <input
                   type="number"
                   name="targets3"
-                  value={formData.targets3}
+                  value={formData.targets3 ?? ''}
                   onChange={handleChange}
                   className="p-3 border rounded"
                 />
@@ -414,10 +570,35 @@ export default function RationalPage() {
                 <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
                 <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required>
                   <option value="">Select Recommendation Type</option>
-                  <option value="Buy">Call Buy</option>
-                  <option value="Buy">Put Buy</option>
+                  <option value="Buy">Equity Cash</option>
+                  <option value="Buy">Stock Future</option>
+                  <option value="Buy">Index Future</option>
+                  <option value="Buy">Stock Option</option>
+                  <option value="Buy">MCX Bullion</option>
+                  <option value="Buy">MCX Base Metal</option>
+                  <option value="Buy">MCX Energy</option>
                 </select>
               </div>
+
+              <div className="flex flex-col md:col-span-2">
+                <label className="mb-1 text-gray-700 text-sm">Status</label>
+                <select
+                  name="status"
+                  value={formData.status || 'OPEN'}
+                  onChange={handleChange}
+                  className="p-3 border rounded"
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option value="OPEN">OPEN</option>
+                  <option value="TARGET1_HIT">TARGET1</option>
+                  <option value="TARGET2_HIT">TARGET2</option>
+                  <option value="TARGET3_HIT">TARGET3</option>
+                  <option value="STOP_LOSS_HIT">STOP_LOSS</option>
+                  <option value="CLOSED">CLOSED</option>
+                </select>
+              </div>
+
 
               <div className="flex flex-col md:col-span-2 relative">
                 <label className="mb-1 text-gray-700 text-sm">Rational</label>
@@ -430,34 +611,50 @@ export default function RationalPage() {
                   rows={3}
                 />
 
-                {/* Upload Button Styled */}
-                <div className="mt-2 flex justify-end">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        rational_image: e.target.files[0],
-                      }))
-                    }
-                    className="hidden"
-                    id="rationalImageUpload"
-                  />
-                  <label
-                    htmlFor="rationalImageUpload"
-                    className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
-                    title="Upload image"
-                  >
-                    Upload Image
-                  </label>
-                </div>
+                {!isEditMode && (
+                  <div className="mt-2 flex justify-end">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          graph: e.target.files[0],
+                        }));
+                        // Clear image error when file is selected
+                        if (e.target.files[0]) {
+                          setImageError('');
+                        }
+                      }}
+                      className="hidden"
+                      id="rationalImageUpload"
+                    />
+                    <label
+                      htmlFor="rationalImageUpload"
+                      className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
+                      title="Upload image"
+                    >
+                      Upload Image {!editId && <span className="text-red-300">*</span>}
+                    </label>
+                  </div>
+                )}
+
+                {/* Display image error */}
+                {imageError && (
+                  <div className="mt-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded p-2">
+                    {imageError}
+                  </div>
+                )}
 
                 {/* Image Preview with Delete Button */}
-                {formData.rational_image && (
+                {formData.graph && (
                   <div className="mt-2 relative inline-block w-fit">
                     <img
-                      src={URL.createObjectURL(formData.rational_image)}
+                      src={
+                        formData.graph instanceof File
+                          ? URL.createObjectURL(formData.graph)
+                          : `${BASE_URL}${formData.graph}`
+                      }
                       alt="Preview"
                       className="max-h-20 rounded border"
                     />
@@ -466,7 +663,7 @@ export default function RationalPage() {
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
-                          rational_image: null,
+                          graph: null,
                         }))
                       }
                       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
@@ -477,8 +674,6 @@ export default function RationalPage() {
                   </div>
                 )}
               </div>
-
-
 
               <div className="md:col-span-2">
                 <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition-colors duration-150">

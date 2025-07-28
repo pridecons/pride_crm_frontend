@@ -24,9 +24,6 @@ export default function ServicesPage() {
   const SERVICE_API = '/services/'
   const BILLING_CYCLE_API = '/services/billing-cycles'
 
-  // const fetchData=async()=>{
-  //   const response = await axios.get("")
-  // }
 
   // ✅ Fetch Services
   const fetchServices = async () => {
@@ -168,7 +165,7 @@ export default function ServicesPage() {
         {/* ✅ Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-12">
           <div className="text-center md:text-left mb-6 md:mb-0">
-            <h1 className="text-4xl font-bold text-gray-800 mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold text-gray-800 mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text ">
               Services Management
             </h1>
             <p className="text-gray-600 text-lg">Manage and organize your service offerings</p>
@@ -183,74 +180,78 @@ export default function ServicesPage() {
             + Create Service
           </button>
         </div>
-
-        {/* ✅ Services List */}
-        {services.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-xl text-gray-500 font-medium">No services available</p>
-            <p className="text-gray-400 mt-2">Create your first service to get started</p>
+      {loading ? (
+  <div className="flex items-center justify-center h-64">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+  </div>
+) : services.length === 0 ? (
+  <div className="text-center py-20">
+    <p className="text-xl text-gray-500 font-medium">No services available</p>
+    <p className="text-gray-400 mt-2">Create your first service to get started</p>
+  </div>
+) : (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+    {services.map((srv) => (
+      <div
+        key={srv.id}
+        className="group relative bg-white rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
+      >
+        {/* ✅ Card Header */}
+        <div className="relative p-6 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white">
+          <div className="relative z-10">
+            <h3 className="text-xl font-bold line-clamp-2">{srv.name}</h3>
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getBadgeColor(srv.billing_cycle)}`}>
+                {srv.billing_cycle}
+              </span>
+              {srv.CALL > 0 && (
+                <span className="bg-yellow-100 text-yellow-700 px-2 py-1 text-xs rounded">
+                  {srv.CALL} Calls
+                </span>
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {services.map((srv) => (
-              <div
-                key={srv.id}
-                className="group relative bg-white rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
-              >
-                {/* ✅ Card Header */}
-                <div className="relative p-6 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white">
-                  <div className="relative z-10">
-                    <h3 className="text-xl font-bold line-clamp-2">{srv.name}</h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getBadgeColor(srv.billing_cycle)}`}>
-                        {srv.billing_cycle}
-                      </span>
-                      {srv.CALL > 0 && (
-                        <span className="bg-yellow-100 text-yellow-700 px-2 py-1 text-xs rounded">
-                          {srv.CALL} Calls
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+        </div>
 
-                {/* ✅ Card Body */}
-                <div className="p-4">
-                  <p className="text-gray-600 mb-4 line-clamp-3">{srv.description}</p>
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-3xl font-bold text-gray-900">₹{srv.discounted_price || srv.price}</span>
-                      {srv.discount_percent > 0 && (
-                        <span className="text-lg text-gray-500 line-through">₹{srv.price}</span>
-                      )}
-                    </div>
-                    {srv.discount_percent > 0 && (
-                      <p className="text-sm text-green-600 font-medium">
-                        You save ₹{(srv.price - srv.discounted_price).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* ✅ Actions */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
-                  <button
-                    onClick={() => handleEdit(srv)}
-                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(srv.id)}
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+        {/* ✅ Card Body */}
+        <div className="p-4">
+          <p className="text-gray-600 mb-4 line-clamp-3">{srv.description}</p>
+          <div className="mb-6">
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-3xl font-bold text-gray-900">
+                ₹{srv.discounted_price || srv.price}
+              </span>
+              {srv.discount_percent > 0 && (
+                <span className="text-lg text-gray-500 line-through">₹{srv.price}</span>
+              )}
+            </div>
+            {srv.discount_percent > 0 && (
+              <p className="text-sm text-green-600 font-medium">
+                You save ₹{(srv.price - srv.discounted_price).toFixed(2)}
+              </p>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* ✅ Actions */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+          <button
+            onClick={() => handleEdit(srv)}
+            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => handleDelete(srv.id)}
+            className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
         {/* ✅ Modal */}
         {isModalOpen && (

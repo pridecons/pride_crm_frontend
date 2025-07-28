@@ -50,7 +50,7 @@ export default function LeadForm() {
   };
 
   useEffect(() => {
-    axiosInstance.get('/lead-config/sources/?skip=0&limit=100')
+    axiosInstance.get('/lead-config/sources/?skip=0-h&limit=100')
       .then(res => setLeadSources(res.data || []))
     axiosInstance.get('/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import axios from 'axios';
 
-const API_URL = 'http://147.93.30.144:8000/api/v1/narrations/';
+const API_URL = '/recommendations';
 
 export default function RationalFormPage() {
     const [formData, setFormData] = useState({

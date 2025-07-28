@@ -1,10 +1,11 @@
   import axios from "axios";
   import Cookies from "js-cookie";
 
-  export const BASE_URL = "https://crm.24x7techelp.com/api/v1";
+  export const BASE_URL = "https://crm.24x7techelp.com";
+  export const BASE_URL_full = "https://crm.24x7techelp.com/api/v1";
 
   export const authAxiosInstance = axios.create({
-    baseURL: BASE_URL,
+    baseURL: BASE_URL_full,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -16,7 +17,7 @@
   });
 
   export const authAxiosInstanceMultipart = axios.create({
-    baseURL: BASE_URL,
+    baseURL: BASE_URL_full,
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -25,7 +26,7 @@
 
 
   export const axiosInstance = axios.create({
-    baseURL: BASE_URL,
+    baseURL: BASE_URL_full,
     headers: {
       "Content-Type": "application/json",
     },
@@ -43,40 +44,46 @@
   });
 
   // on 401, refresh and retry
-  axiosInstance.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-      const originalReq = error.config;
-      if (
-        error.response &&
-        error.response.status === 401 &&
-        !originalReq._retry
-      ) {
-        originalReq._retry = true;
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalReq = error.config;
 
-        try {
-          const refresh_token = Cookies.get("refresh_token");
-          const { data } = await axios.post(
-            `${BASE_URL}/auth/refresh`,
-            { refresh_token }
-          );
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      !originalReq._retry
+    ) {
+      originalReq._retry = true;
 
-          // update cookies
-          Cookies.set("access_token", data.access_token, { secure: true });
-          Cookies.set("refresh_token", data.refresh_token, { secure: true });
+      try {
+        const refresh_token = Cookies.get("refresh_token");
 
-          // patch and retry
-          originalReq.headers = originalReq.headers || {};
-          originalReq.headers["Authorization"] = `Bearer ${data.access_token}`;
-          return authAxios(originalReq);
-        } catch (refreshErr) {
-          // if even refresh fails, clear and force login
-          Cookies.remove("access_token");
-          Cookies.remove("refresh_token");
-          window.location.href = "/login";
-          return Promise.reject(refreshErr);
-        }
+        const { data } = await axios.post(`${BASE_URL_full}/auth/refresh`, {
+          refresh_token,
+        });
+
+        // Save new tokens
+        Cookies.set("access_token", data.access_token, { secure: true });
+        Cookies.set("refresh_token", data.refresh_token, { secure: true });
+
+        // Retry original request with new access token
+        originalReq.headers = {
+          ...originalReq.headers,
+          Authorization: `Bearer ${data.access_token}`,
+        };
+
+        return axiosInstance(originalReq); // <-- retry with correct instance
+      } catch (refreshErr) {
+        // Failed refresh - logout
+        Cookies.remove("access_token");
+        Cookies.remove("refresh_token");
+        window.location.href = "/login";
+        return Promise.reject(refreshErr);
       }
-      return Promise.reject(error);
     }
-  );
+
+    return Promise.reject(error);
+  }
+);
+

@@ -62,7 +62,8 @@ export default function RationalPage() {
 
   const openModal = async (id = null) => {
     setEditId(id);
-    setImageError(''); // Clear any previous image error
+    setImageError('');
+    setIsEditMode(!!id) // Clear any previous image error
     if (id) {
       try {
         const res = await axiosInstance.get(`${API_URL}${id}/`);
@@ -96,9 +97,11 @@ export default function RationalPage() {
 
 
   const handleExport = async () => {
+    
     try {
       const response = await axiosInstance.get('/recommendations');
       const data = response.data;
+    
 
       // Convert JSON to Excel worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
@@ -136,6 +139,7 @@ export default function RationalPage() {
 const handleSubmit = async (e) => {
   e.preventDefault();
   setImageError('');
+  setIsEditMode(false)
 
   const {
     stock_name,
@@ -243,6 +247,7 @@ const handleSubmit = async (e) => {
       : true;
     return stockMatch && dateMatch;
   });
+  console.log('mamta',filteredData)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -519,15 +524,15 @@ const handleSubmit = async (e) => {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Stock Name</label>
-                <input type="text" name="stock_name" value={formData.stock_name} onChange={handleChange} className="p-3 border rounded" required />
+                <input type="text" name="stock_name" value={formData.stock_name} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode} />
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Entry Price</label>
-                <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" />
+                <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode} />
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" />
+                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode}/>
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">
@@ -540,6 +545,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   required
                   className="p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isEditMode}
                 />
               </div>
 
@@ -552,6 +558,7 @@ const handleSubmit = async (e) => {
                   value={formData.targets2 ?? ''}
                   onChange={handleChange}
                   className="p-3 border rounded"
+                  disabled={isEditMode}
                 />
               </div>
 
@@ -563,6 +570,7 @@ const handleSubmit = async (e) => {
                   value={formData.targets3 ?? ''}
                   onChange={handleChange}
                   className="p-3 border rounded"
+                  disabled={isEditMode}
                 />
               </div>
 
@@ -579,8 +587,7 @@ const handleSubmit = async (e) => {
                   <option value="Buy">MCX Energy</option>
                 </select>
               </div>
-
-              <div className="flex flex-col md:col-span-2">
+{isEditMode && (<div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Status</label>
                 <select
                   name="status"
@@ -588,6 +595,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   className="p-3 border rounded"
                   required
+                  
                 >
                   <option value="">Select Status</option>
                   <option value="OPEN">OPEN</option>
@@ -597,7 +605,8 @@ const handleSubmit = async (e) => {
                   <option value="STOP_LOSS_HIT">STOP_LOSS</option>
                   <option value="CLOSED">CLOSED</option>
                 </select>
-              </div>
+              </div>)}
+              
 
 
               <div className="flex flex-col md:col-span-2 relative">
@@ -628,6 +637,7 @@ const handleSubmit = async (e) => {
                       }}
                       className="hidden"
                       id="rationalImageUpload"
+                      disabled={isEditMode}
                     />
                     <label
                       htmlFor="rationalImageUpload"
@@ -668,6 +678,7 @@ const handleSubmit = async (e) => {
                       }
                       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
                       title="Remove Image"
+                      disabled={isEditMode}
                     >
                       ×
                     </button>

@@ -289,7 +289,7 @@ const ShowNotifications = ({ setIsConnect }) => {
             {messages?.map((val, index) => (
               <div
                 key={index}
-                className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100"
+                className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 word-break"
               >
                 <div className="bg-blue-100 rounded-full p-2">
                   <Bell size={16} className="text-blue-600" />

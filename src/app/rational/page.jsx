@@ -62,7 +62,8 @@ export default function RationalPage() {
 
   const openModal = async (id = null) => {
     setEditId(id);
-    setImageError(''); // Clear any previous image error
+    setImageError('');
+    setIsEditMode(!!id) // Clear any previous image error
     if (id) {
       try {
         const res = await axiosInstance.get(`${API_URL}${id}/`);
@@ -96,9 +97,11 @@ export default function RationalPage() {
 
 
   const handleExport = async () => {
+    
     try {
       const response = await axiosInstance.get('/recommendations');
       const data = response.data;
+    
 
       // Convert JSON to Excel worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
@@ -113,18 +116,32 @@ export default function RationalPage() {
   };
 
 
-  const handleStatusChange = async (id, item) => {
-    try {
-      const response = await axiosInstance.put(`/recommendations/status/${id}?status=${item}`);
+const handleStatusChange = async (id, newStatus) => {
+  try {
+    const response = await axiosInstance.put(`/recommendations/status/${id}?status=${newStatus}`);
+    console.log('Updated:', response.data);
 
-      const data = response.data;
-      console.log('Updated:', data);
+    // Refetch the recommendations data
+    await fetchRecommendations(); // Call your data fetching function
+    
+    setOpenStatusDropdown(null);
+  } catch (err) {
+    console.error('Status update error:', err);
+  }
+};
 
-      setOpenStatusDropdown(null);
-    } catch (err) {
-      console.error('Status update error:', err);
-    }
+// Add this useEffect to handle outside clicks
+useEffect(() => {
+  const handleClickOutside = () => {
+    setOpenStatusDropdown(null);
   };
+
+  if (openStatusDropdown) {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }
+}, [openStatusDropdown]);
+
 
   const openImageModal = (path) => {
     setModalImage(`${BASE_URL}${encodeURI(path)}`);
@@ -136,6 +153,7 @@ export default function RationalPage() {
 const handleSubmit = async (e) => {
   e.preventDefault();
   setImageError('');
+  setIsEditMode(false)
 
   const {
     stock_name,
@@ -408,48 +426,48 @@ const handleSubmit = async (e) => {
                       )}
                     </td>
 
-                    <td className="py-4 px-6 text-center relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
-                        }}
-                        className="text-sm text-blue-600 hover:underline focus:outline-none"
-                      >
-                        {item.status || 'N/A'}
-                      </button>
+                  <td className="py-4 px-6 text-center relative">                       
+  <button                         
+    onClick={(e) => {                           
+      e.stopPropagation();                           
+      setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);                         
+    }}                         
+    className="text-sm text-blue-600 hover:underline focus:outline-none"                       
+  >                         
+    {item.status || 'N/A'}                       
+  </button>                        
 
-                      {openStatusDropdown === item.id && (
-                        <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
-                          {[
-                            'OPEN',
-                            'TARGET1',
-                            'TARGET2',
-                            'TARGET3',
-                            'STOP_LOSS',
-                            'CLOSED',
-                          ].map((status) => (
-                            <div
-                              key={status}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Remove the condition that was preventing selection
-                                console.log('Dropdown option clicked:', status);
-                                handleStatusChange(item.id, status);
-                              }}
-                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === status
-                                ? 'bg-blue-50 text-blue-600 font-medium' // Changed: Show current status but still allow clicking
-                                : 'text-gray-700 hover:text-blue-600'
-                                }`}
-                            >
-                              {status}
-                              {/* Add a checkmark for current status */}
-                              {item.status === status && <span className="ml-2">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
+  {openStatusDropdown === item.id && (                         
+    <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">                           
+      {[
+        'OPEN',
+        'TARGET1', 
+        'TARGET2',
+        'TARGET3',
+        'STOP_LOSS',
+        'CLOSED',
+      ].map((status) => (                             
+        <div                               
+          key={status}                               
+          onClick={(e) => {                                 
+            e.stopPropagation();
+            console.log('Dropdown option clicked:', status);                                 
+            handleStatusChange(item.id, status);
+            setOpenStatusDropdown(null); // Close dropdown after selection                               
+          }}                               
+          className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+            item.status === status
+              ? 'bg-blue-50 text-blue-600 font-medium'
+              : 'text-gray-700 hover:text-blue-600'
+          }`}                             
+        >                               
+          {status}
+          {item.status === status && <span className="ml-2">✓</span>}                             
+        </div>                           
+      ))}                         
+    </div>                       
+  )}                     
+</td>
 
                     <td className="py-4 px-6 text-center">
                       {item.graph ? (
@@ -519,15 +537,15 @@ const handleSubmit = async (e) => {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Stock Name</label>
-                <input type="text" name="stock_name" value={formData.stock_name} onChange={handleChange} className="p-3 border rounded" required />
+                <input type="text" name="stock_name" value={formData.stock_name} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode} />
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Entry Price</label>
-                <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" />
+                <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode} />
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" />
+                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode}/>
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">
@@ -540,6 +558,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   required
                   className="p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isEditMode}
                 />
               </div>
 
@@ -552,6 +571,7 @@ const handleSubmit = async (e) => {
                   value={formData.targets2 ?? ''}
                   onChange={handleChange}
                   className="p-3 border rounded"
+                  disabled={isEditMode}
                 />
               </div>
 
@@ -563,12 +583,13 @@ const handleSubmit = async (e) => {
                   value={formData.targets3 ?? ''}
                   onChange={handleChange}
                   className="p-3 border rounded"
+                  disabled={isEditMode}
                 />
               </div>
 
               <div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
-                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required>
+                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required  disabled={isEditMode}>
                   <option value="">Select Recommendation Type</option>
                   <option value="Buy">Equity Cash</option>
                   <option value="Buy">Stock Future</option>
@@ -579,8 +600,7 @@ const handleSubmit = async (e) => {
                   <option value="Buy">MCX Energy</option>
                 </select>
               </div>
-
-              <div className="flex flex-col md:col-span-2">
+{isEditMode && (<div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Status</label>
                 <select
                   name="status"
@@ -588,6 +608,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   className="p-3 border rounded"
                   required
+                  
                 >
                   <option value="">Select Status</option>
                   <option value="OPEN">OPEN</option>
@@ -597,7 +618,8 @@ const handleSubmit = async (e) => {
                   <option value="STOP_LOSS_HIT">STOP_LOSS</option>
                   <option value="CLOSED">CLOSED</option>
                 </select>
-              </div>
+              </div>)}
+              
 
 
               <div className="flex flex-col md:col-span-2 relative">
@@ -628,6 +650,7 @@ const handleSubmit = async (e) => {
                       }}
                       className="hidden"
                       id="rationalImageUpload"
+                      disabled={isEditMode}
                     />
                     <label
                       htmlFor="rationalImageUpload"
@@ -668,6 +691,7 @@ const handleSubmit = async (e) => {
                       }
                       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
                       title="Remove Image"
+                      disabled={isEditMode}
                     >
                       ×
                     </button>

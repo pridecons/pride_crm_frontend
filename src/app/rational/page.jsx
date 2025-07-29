@@ -116,18 +116,32 @@ export default function RationalPage() {
   };
 
 
-  const handleStatusChange = async (id, item) => {
-    try {
-      const response = await axiosInstance.put(`/recommendations/status/${id}?status=${item}`);
+const handleStatusChange = async (id, newStatus) => {
+  try {
+    const response = await axiosInstance.put(`/recommendations/status/${id}?status=${newStatus}`);
+    console.log('Updated:', response.data);
 
-      const data = response.data;
-      console.log('Updated:', data);
+    // Refetch the recommendations data
+    await fetchRecommendations(); // Call your data fetching function
+    
+    setOpenStatusDropdown(null);
+  } catch (err) {
+    console.error('Status update error:', err);
+  }
+};
 
-      setOpenStatusDropdown(null);
-    } catch (err) {
-      console.error('Status update error:', err);
-    }
+// Add this useEffect to handle outside clicks
+useEffect(() => {
+  const handleClickOutside = () => {
+    setOpenStatusDropdown(null);
   };
+
+  if (openStatusDropdown) {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }
+}, [openStatusDropdown]);
+
 
   const openImageModal = (path) => {
     setModalImage(`${BASE_URL}${encodeURI(path)}`);
@@ -247,7 +261,6 @@ const handleSubmit = async (e) => {
       : true;
     return stockMatch && dateMatch;
   });
-  console.log('mamta',filteredData)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -413,48 +426,48 @@ const handleSubmit = async (e) => {
                       )}
                     </td>
 
-                    <td className="py-4 px-6 text-center relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
-                        }}
-                        className="text-sm text-blue-600 hover:underline focus:outline-none"
-                      >
-                        {item.status || 'N/A'}
-                      </button>
+                  <td className="py-4 px-6 text-center relative">                       
+  <button                         
+    onClick={(e) => {                           
+      e.stopPropagation();                           
+      setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);                         
+    }}                         
+    className="text-sm text-blue-600 hover:underline focus:outline-none"                       
+  >                         
+    {item.status || 'N/A'}                       
+  </button>                        
 
-                      {openStatusDropdown === item.id && (
-                        <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
-                          {[
-                            'OPEN',
-                            'TARGET1',
-                            'TARGET2',
-                            'TARGET3',
-                            'STOP_LOSS',
-                            'CLOSED',
-                          ].map((status) => (
-                            <div
-                              key={status}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Remove the condition that was preventing selection
-                                console.log('Dropdown option clicked:', status);
-                                handleStatusChange(item.id, status);
-                              }}
-                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === status
-                                ? 'bg-blue-50 text-blue-600 font-medium' // Changed: Show current status but still allow clicking
-                                : 'text-gray-700 hover:text-blue-600'
-                                }`}
-                            >
-                              {status}
-                              {/* Add a checkmark for current status */}
-                              {item.status === status && <span className="ml-2">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
+  {openStatusDropdown === item.id && (                         
+    <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">                           
+      {[
+        'OPEN',
+        'TARGET1', 
+        'TARGET2',
+        'TARGET3',
+        'STOP_LOSS',
+        'CLOSED',
+      ].map((status) => (                             
+        <div                               
+          key={status}                               
+          onClick={(e) => {                                 
+            e.stopPropagation();
+            console.log('Dropdown option clicked:', status);                                 
+            handleStatusChange(item.id, status);
+            setOpenStatusDropdown(null); // Close dropdown after selection                               
+          }}                               
+          className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+            item.status === status
+              ? 'bg-blue-50 text-blue-600 font-medium'
+              : 'text-gray-700 hover:text-blue-600'
+          }`}                             
+        >                               
+          {status}
+          {item.status === status && <span className="ml-2">✓</span>}                             
+        </div>                           
+      ))}                         
+    </div>                       
+  )}                     
+</td>
 
                     <td className="py-4 px-6 text-center">
                       {item.graph ? (
@@ -576,7 +589,7 @@ const handleSubmit = async (e) => {
 
               <div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
-                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required>
+                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required  disabled={isEditMode}>
                   <option value="">Select Recommendation Type</option>
                   <option value="Buy">Equity Cash</option>
                   <option value="Buy">Stock Future</option>

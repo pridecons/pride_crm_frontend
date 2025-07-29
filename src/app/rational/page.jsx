@@ -97,11 +97,11 @@ export default function RationalPage() {
 
 
   const handleExport = async () => {
-    
+
     try {
       const response = await axiosInstance.get('/recommendations');
       const data = response.data;
-    
+
 
       // Convert JSON to Excel worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
@@ -115,32 +115,29 @@ export default function RationalPage() {
     }
   };
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const response = await axiosInstance.put(`/recommendations/status/${id}?status=${newStatus}`);
+      console.log('Updated:', response.data);
 
-const handleStatusChange = async (id, newStatus) => {
-  try {
-    const response = await axiosInstance.put(`/recommendations/status/${id}?status=${newStatus}`);
-    console.log('Updated:', response.data);
-
-    // Refetch the recommendations data
-    await fetchRecommendations(); // Call your data fetching function
-    
-    setOpenStatusDropdown(null);
-  } catch (err) {
-    console.error('Status update error:', err);
-  }
-};
-
-// Add this useEffect to handle outside clicks
-useEffect(() => {
-  const handleClickOutside = () => {
-    setOpenStatusDropdown(null);
+      await fetchRationals();
+      setOpenStatusDropdown(null);
+    } catch (err) {
+      console.error('Status update error:', err);
+    }
   };
 
-  if (openStatusDropdown) {
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }
-}, [openStatusDropdown]);
+  // Add this useEffect to handle outside clicks
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenStatusDropdown(null);
+    };
+
+    if (openStatusDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openStatusDropdown]);
 
 
   const openImageModal = (path) => {
@@ -150,89 +147,89 @@ useEffect(() => {
   const closeModal = () => {
     setModalImage(null);
   };
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setImageError('');
-  setIsEditMode(false)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setImageError('');
+    setIsEditMode(false)
 
-  const {
-    stock_name,
-    entry_price,
-    stop_loss,
-    targets,
-    targets2,
-    targets3,
-    rational,
-    recommendation_type,
-    graph,
-    status,
-  } = formData;
+    const {
+      stock_name,
+      entry_price,
+      stop_loss,
+      targets,
+      targets2,
+      targets3,
+      rational,
+      recommendation_type,
+      graph,
+      status,
+    } = formData;
 
-  // Validate required fields
-  if (!editId && !graph) {
-    setImageError('Please select an image to upload');
-    return;
-  }
-
-  try {
-    let dataToSend;
-    let headers = {};
-
-    // Always normalize numbers
-    const cleanedData = {
-      stock_name: stock_name?.trim() || '',
-      entry_price: Number(entry_price),
-      stop_loss: Number(stop_loss),
-      targets: Number(targets),
-      targets2: Number(targets2),
-      targets3: Number(targets3),
-      rational: rational?.trim() || '',
-      recommendation_type: recommendation_type?.trim() || '',
-      status: status || 'OPEN',
-    };
-
-    const isGraphFile = graph instanceof File;
-
-    if (isGraphFile || (!editId && graph)) {
-      // Use FormData when there's an image
-      dataToSend = new FormData();
-      Object.entries(cleanedData).forEach(([key, value]) => {
-        dataToSend.append(key, value);
-      });
-      if (isGraphFile) dataToSend.append('graph', graph);
-      headers['Content-Type'] = 'multipart/form-data';
-    } else {
-      // Use JSON otherwise
-      dataToSend = { ...cleanedData, graph }; // include graph path string if already uploaded
-      headers['Content-Type'] = 'application/json';
+    // Validate required fields
+    if (!editId && !graph) {
+      setImageError('Please select an image to upload');
+      return;
     }
 
-    // DEBUG: Log the payload
-    if (dataToSend instanceof FormData) {
-      for (let [key, value] of dataToSend.entries()) {
-        console.log(`${key}:`, value);
+    try {
+      let dataToSend;
+      let headers = {};
+
+      // Always normalize numbers
+      const cleanedData = {
+        stock_name: stock_name?.trim() || '',
+        entry_price: Number(entry_price),
+        stop_loss: Number(stop_loss),
+        targets: Number(targets),
+        targets2: Number(targets2),
+        targets3: Number(targets3),
+        rational: rational?.trim() || '',
+        recommendation_type: recommendation_type?.trim() || '',
+        status: status || 'OPEN',
+      };
+
+      const isGraphFile = graph instanceof File;
+
+      if (isGraphFile || (!editId && graph)) {
+        // Use FormData when there's an image
+        dataToSend = new FormData();
+        Object.entries(cleanedData).forEach(([key, value]) => {
+          dataToSend.append(key, value);
+        });
+        if (isGraphFile) dataToSend.append('graph', graph);
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        // Use JSON otherwise
+        dataToSend = { ...cleanedData, graph }; // include graph path string if already uploaded
+        headers['Content-Type'] = 'application/json';
       }
-    } else {
-      console.log('Payload:', dataToSend);
-    }
 
-    // Send to API
-    if (editId) {
-      await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
-    } else {
-      await axiosInstance.post(API_URL, dataToSend, { headers });
-    }
+      // DEBUG: Log the payload
+      if (dataToSend instanceof FormData) {
+        for (let [key, value] of dataToSend.entries()) {
+          console.log(`${key}:`, value);
+        }
+      } else {
+        console.log('Payload:', dataToSend);
+      }
 
-    setIsModalOpen(false);
-    fetchRationals();
-  } catch (err) {
-    if (err.response?.status === 422) {
-      console.error('Validation error:', err.response.data);
-    } else {
-      console.error('Submit failed:', err);
+      // Send to API
+      if (editId) {
+        await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
+      } else {
+        await axiosInstance.post(API_URL, dataToSend, { headers });
+      }
+
+      setIsModalOpen(false);
+      fetchRationals();
+    } catch (err) {
+      if (err.response?.status === 422) {
+        console.error('Validation error:', err.response.data);
+      } else {
+        console.error('Submit failed:', err);
+      }
     }
-  }
-};
+  };
 
 
   const getRecommendationBadge = (type) => {
@@ -426,48 +423,47 @@ const handleSubmit = async (e) => {
                       )}
                     </td>
 
-                  <td className="py-4 px-6 text-center relative">                       
-  <button                         
-    onClick={(e) => {                           
-      e.stopPropagation();                           
-      setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);                         
-    }}                         
-    className="text-sm text-blue-600 hover:underline focus:outline-none"                       
-  >                         
-    {item.status || 'N/A'}                       
-  </button>                        
+                    <td className="py-4 px-6 text-center relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
+                        }}
+                        className="text-sm text-blue-600 hover:underline focus:outline-none"
+                      >
+                        {item.status || 'N/A'}
+                      </button>
 
-  {openStatusDropdown === item.id && (                         
-    <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">                           
-      {[
-        'OPEN',
-        'TARGET1', 
-        'TARGET2',
-        'TARGET3',
-        'STOP_LOSS',
-        'CLOSED',
-      ].map((status) => (                             
-        <div                               
-          key={status}                               
-          onClick={(e) => {                                 
-            e.stopPropagation();
-            console.log('Dropdown option clicked:', status);                                 
-            handleStatusChange(item.id, status);
-            setOpenStatusDropdown(null); // Close dropdown after selection                               
-          }}                               
-          className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-            item.status === status
-              ? 'bg-blue-50 text-blue-600 font-medium'
-              : 'text-gray-700 hover:text-blue-600'
-          }`}                             
-        >                               
-          {status}
-          {item.status === status && <span className="ml-2">✓</span>}                             
-        </div>                           
-      ))}                         
-    </div>                       
-  )}                     
-</td>
+                      {openStatusDropdown === item.id && item.status === "OPEN" && (
+                        <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
+                          {[
+                            'OPEN',
+                            'TARGET1',
+                            'TARGET2',
+                            'TARGET3',
+                            'STOP_LOSS',
+                            'CLOSED',
+                          ].map((status) => (
+                            <div
+                              key={status}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('Dropdown option clicked:', status);
+                                handleStatusChange(item.id, status);
+                                setOpenStatusDropdown(null); // Close dropdown after selection                               
+                              }}
+                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === status
+                                  ? 'bg-blue-50 text-blue-600 font-medium'
+                                  : 'text-gray-700 hover:text-blue-600'
+                                }`}
+                            >
+                              {status}
+                              {item.status === status && <span className="ml-2">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
 
                     <td className="py-4 px-6 text-center">
                       {item.graph ? (
@@ -545,7 +541,7 @@ const handleSubmit = async (e) => {
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode}/>
+                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode} />
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">
@@ -586,21 +582,22 @@ const handleSubmit = async (e) => {
                   disabled={isEditMode}
                 />
               </div>
-
-              <div className="flex flex-col md:col-span-2">
+   <div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
-                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required  disabled={isEditMode}>
+                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode}>
                   <option value="">Select Recommendation Type</option>
-                  <option value="Buy">Equity Cash</option>
-                  <option value="Buy">Stock Future</option>
-                  <option value="Buy">Index Future</option>
-                  <option value="Buy">Stock Option</option>
-                  <option value="Buy">MCX Bullion</option>
-                  <option value="Buy">MCX Base Metal</option>
-                  <option value="Buy">MCX Energy</option>
+                  <option value="Equity Cash">Equity Cash</option>
+                  <option value="Stock Future">Stock Future</option>
+                  <option value="Index Future">Index Future</option>
+                  <option value="Stock Option">Stock Option</option>
+                  <option value="MCX Bullion">MCX Bullion</option>
+                  <option value="MCX Base Metal">MCX Base Metal</option>
+                  <option value="MCX Energy">MCX Energy</option>
                 </select>
               </div>
-{isEditMode && (<div className="flex flex-col md:col-span-2">
+
+              
+              {isEditMode && (<div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Status</label>
                 <select
                   name="status"
@@ -608,7 +605,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   className="p-3 border rounded"
                   required
-                  
+
                 >
                   <option value="">Select Status</option>
                   <option value="OPEN">OPEN</option>
@@ -619,7 +616,7 @@ const handleSubmit = async (e) => {
                   <option value="CLOSED">CLOSED</option>
                 </select>
               </div>)}
-              
+
 
 
               <div className="flex flex-col md:col-span-2 relative">

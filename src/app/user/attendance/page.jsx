@@ -19,12 +19,12 @@ export default function AttendancePage() {
   const itemsPerPage = 5
 
 
-const ATTENDANCE_STATUS = [
-  'PRESENT',
-  'ABSENT',
-  'LEAVE',
-  'HALF DAY',
-];
+  const ATTENDANCE_STATUS = [
+    'PRESENT',
+    'ABSENT',
+    'LEAVE',
+    'HALF DAY',
+  ];
 
   useEffect(() => {
     fetchEmployees()
@@ -59,19 +59,19 @@ const ATTENDANCE_STATUS = [
     setAttendance(prev => ({ ...prev, [empCode]: value }))
   }
 
-//   const handleBulkMark = (status) => {
-//     const updated = {}
-//     filteredEmployees.forEach(emp => {
-//       updated[emp.employee_code] = status
-//     })
-//     setAttendance(prev => ({ ...prev, ...updated }))
-//   }
+  //   const handleBulkMark = (status) => {
+  //     const updated = {}
+  //     filteredEmployees.forEach(emp => {
+  //       updated[emp.employee_code] = status
+  //     })
+  //     setAttendance(prev => ({ ...prev, ...updated }))
+  //   }
 
-//   const handleSubmit = async () => {
-//     if (!selectedDate) {
-//       toast.error('Please select a date')
-//       return
-//     }
+  const handleSubmit = async () => {
+    if (!selectedDate) {
+      toast.error('Please select a date')
+      return
+    }
 
     const unmarked = filteredEmployees.filter(emp => !attendance[emp.employee_code])
     if (unmarked.length > 0) {
@@ -100,19 +100,19 @@ const ATTENDANCE_STATUS = [
     }
   }
 
-//   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
-//   const startIndex = (currentPage - 1) * itemsPerPage
-//   const currentEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage)
+  //   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
+  //   const startIndex = (currentPage - 1) * itemsPerPage
+  //   const currentEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage)
 
-//   const roles = [...new Set(employees.map(emp => emp.role))]
-//   const branches = [...new Set(employees.map(emp => emp.branch_id).filter(Boolean))]
+  //   const roles = [...new Set(employees.map(emp => emp.role))]
+  //   const branches = [...new Set(employees.map(emp => emp.branch_id).filter(Boolean))]
 
   const totalMarked = Object.keys(attendance).filter(key => attendance[key]).length
   const presentCount = Object.values(attendance).filter(status => status === 'OPEN').length
   const leaveCount = Object.values(attendance).filter(status => status === 'CLOSED').length
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case 'PRESENT': return 'text-green-600 bg-green-50 border-green-200'
       case 'ABSENT': return 'text-red-600 bg-red-50 border-red-200'
       case 'LEAVE': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
@@ -162,9 +162,9 @@ const ATTENDANCE_STATUS = [
               </div>
               <div className="flex gap-3">
                 {ATTENDANCE_STATUS.map(status => (
-                  <button 
-                    key={status} 
-                    onClick={() => handleBulkMark(status)} 
+                  <button
+                    key={status}
+                    onClick={() => handleBulkMark(status)}
                     className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/30 hover:scale-105"
                   >
                     {status}
@@ -191,24 +191,24 @@ const ATTENDANCE_STATUS = [
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <select 
-                value={selectedRole} 
-                onChange={(e) => setSelectedRole(e.target.value)} 
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
                 className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 bg-white min-w-32"
               >
                 <option value="">All Roles</option>
                 {roles.map(role => <option key={role} value={role}>{role}</option>)}
               </select>
-              <select 
-                value={selectedBranch} 
-                onChange={(e) => setSelectedBranch(e.target.value)} 
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
                 className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 bg-white min-w-36"
               >
                 <option value="">All Branches</option>
                 {branches.map(branch => <option key={branch} value={branch}>Branch {branch}</option>)}
               </select>
-              <button 
-                onClick={applyFilters} 
+              <button
+                onClick={applyFilters}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 Apply Filters
@@ -221,7 +221,7 @@ const ATTENDANCE_STATUS = [
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
                 <tr>
-                  {['#', 'Employee Code', 'Name', 'Role', 'Branch', 'Attendance Status'].map(h => 
+                  {['#', 'Employee Code', 'Name', 'Role', 'Branch', 'Attendance Status'].map(h =>
                     <th key={h} className="px-6 py-4 text-left font-semibold text-gray-700 text-sm uppercase tracking-wider">{h}</th>
                   )}
                 </tr>
@@ -248,11 +248,10 @@ const ATTENDANCE_STATUS = [
                       <select
                         value={attendance[emp.employee_code] || ''}
                         onChange={(e) => handleAttendanceChange(emp.employee_code, e.target.value)}
-                        className={`border-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus:ring-4 focus:outline-none ${
-                          attendance[emp.employee_code] 
+                        className={`border-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus:ring-4 focus:outline-none ${attendance[emp.employee_code]
                             ? getStatusColor(attendance[emp.employee_code])
                             : 'border-gray-200 bg-white text-gray-600'
-                        }`}
+                          }`}
                       >
                         <option value="">Select Status</option>
                         {ATTENDANCE_STATUS.map(status => (
@@ -280,8 +279,8 @@ const ATTENDANCE_STATUS = [
           {totalPages > 1 && (
             <div className="p-6 bg-gray-50 border-t flex justify-center">
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
@@ -291,17 +290,16 @@ const ATTENDANCE_STATUS = [
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`px-4 py-2 border rounded-lg transition-all duration-200 ${
-                      currentPage === i + 1 
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg' 
+                    className={`px-4 py-2 border rounded-lg transition-all duration-200 ${currentPage === i + 1
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
                         : 'border-gray-300 hover:bg-gray-100'
-                    }`}
+                      }`}
                   >
                     {i + 1}
                   </button>
                 ))}
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >

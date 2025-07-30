@@ -107,7 +107,19 @@ const menu = [
   {
     title: 'Rationals',
     items: [
-      { href: '/rational', icon: FileText, label: 'Rationals' },
+      { href: '/rational', icon: BarChart3, label: 'Rationals' },
+    ],
+  },
+  {
+    title: 'Services',
+    items: [
+      { href: '/services', icon: BarChart3, label: 'Services' },
+    ],
+  },
+  {
+    title: 'Email',
+    items: [
+      { href: '/email', icon: FileText, label: 'Email' },
     ],
   },
 ]

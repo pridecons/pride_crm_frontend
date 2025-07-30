@@ -34,7 +34,8 @@ const FetchLimitModel = ({ open, setOpen }) => {
     per_request_limit: "",
     daily_call_limit: "",
     assignment_ttl_hours: "",
-    last_fetch_limit: ""
+    last_fetch_limit: "",
+    old_lead_remove_days: ""
   });
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -86,7 +87,8 @@ const FetchLimitModel = ({ open, setOpen }) => {
       per_request_limit: "",
       daily_call_limit: "",
       assignment_ttl_hours: "",
-      last_fetch_limit: ""
+      last_fetch_limit: "",
+      old_lead_remove_days: ""
     });
     setEditingId(null);
     setIsCreateNew(false);
@@ -103,6 +105,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
       daily_call_limit: Number(form.daily_call_limit),
       assignment_ttl_hours: Number(form.assignment_ttl_hours),
       last_fetch_limit: Number(form.last_fetch_limit),
+      old_lead_remove_days: Number(form.old_lead_remove_days),
     };
 
     setIsSubmitting(true);
@@ -115,9 +118,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
         setOpen(false);
       } else {
         await axiosInstance.post("/lead-fetch-config/", payload);
-          resetForm();
-          await fetchConfigs();
-          return;
+        resetForm();
+        await fetchConfigs();
+        return;
       }
       await fetchConfigs();
       resetForm();
@@ -209,7 +212,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-100 rounded-full p-2">
@@ -221,7 +224,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-green-50 rounded-xl p-4 border border-green-100">
               <div className="flex items-center gap-3">
                 <div className="bg-green-100 rounded-full p-2">
@@ -233,7 +236,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
               <div className="flex items-center gap-3">
                 <div className="bg-purple-100 rounded-full p-2">
@@ -304,6 +307,23 @@ const FetchLimitModel = ({ open, setOpen }) => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <Clock className="w-4 h-4" />
+                      Old Lead Remove (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.old_lead_remove_days}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, old_lead_remove_days: e.target.value }))
+                      }
+                      required
+                      placeholder="Enter days after which old leads are removed"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    />
                   </div>
                 </div>
 
@@ -388,7 +408,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
                     onClick={resetForm}
                     className="flex items-center gap-2 px-6 py-3 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200"
                   >
-                    <Cancel className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -547,7 +566,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
                             {searchTerm ? "No configurations found" : "No fetch limits configured"}
                           </h3>
                           <p className="text-gray-500 text-center max-w-sm">
-                            {searchTerm 
+                            {searchTerm
                               ? `No configurations match "${searchTerm}". Try adjusting your search.`
                               : "Get started by creating your first fetch limit configuration."
                             }

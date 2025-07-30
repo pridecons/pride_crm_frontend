@@ -1,4 +1,4 @@
-'use client'
+// 'use client'
 
 import { useEffect, useState } from 'react'
 import { Users, CheckCircle, XCircle, Clock, DivideCircle, Calendar, Search, Filter } from 'lucide-react'
@@ -59,19 +59,19 @@ const ATTENDANCE_STATUS = [
     setAttendance(prev => ({ ...prev, [empCode]: value }))
   }
 
-  const handleBulkMark = (status) => {
-    const updated = {}
-    filteredEmployees.forEach(emp => {
-      updated[emp.employee_code] = status
-    })
-    setAttendance(prev => ({ ...prev, ...updated }))
-  }
+//   const handleBulkMark = (status) => {
+//     const updated = {}
+//     filteredEmployees.forEach(emp => {
+//       updated[emp.employee_code] = status
+//     })
+//     setAttendance(prev => ({ ...prev, ...updated }))
+//   }
 
-  const handleSubmit = async () => {
-    if (!selectedDate) {
-      toast.error('Please select a date')
-      return
-    }
+//   const handleSubmit = async () => {
+//     if (!selectedDate) {
+//       toast.error('Please select a date')
+//       return
+//     }
 
     const unmarked = filteredEmployees.filter(emp => !attendance[emp.employee_code])
     if (unmarked.length > 0) {
@@ -100,12 +100,12 @@ const ATTENDANCE_STATUS = [
     }
   }
 
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const currentEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage)
+//   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage)
+//   const startIndex = (currentPage - 1) * itemsPerPage
+//   const currentEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage)
 
-  const roles = [...new Set(employees.map(emp => emp.role))]
-  const branches = [...new Set(employees.map(emp => emp.branch_id).filter(Boolean))]
+//   const roles = [...new Set(employees.map(emp => emp.role))]
+//   const branches = [...new Set(employees.map(emp => emp.branch_id).filter(Boolean))]
 
   const totalMarked = Object.keys(attendance).filter(key => attendance[key]).length
   const presentCount = Object.values(attendance).filter(status => status === 'OPEN').length

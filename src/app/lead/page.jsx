@@ -17,6 +17,12 @@ export default function LeadsTable() {
   const [userId, setUserId] = useState(null);
   const [activeTab, setActiveTab] = useState("New Leads");
   const [fullScreenDocUrl, setFullScreenDocUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showFTModal, setShowFTModal] = useState(false);
+  const [ftLead, setFTLead] = useState(null);
+  const [ftFromDate, setFTFromDate] = useState("");
+  const [ftToDate, setFTToDate] = useState("");
+
   const router = useRouter();
 
   // ✅ Load user info for comments
@@ -33,6 +39,7 @@ export default function LeadsTable() {
   }, []);
 
   const fetchLeads = async () => {
+    setLoading(true);
     try {
       const { data } = await axiosInstance.get("/leads/assignments/my");
       const items = data.assignments || [];
@@ -42,29 +49,13 @@ export default function LeadsTable() {
         assignment_id: item.assignment_id,
       }));
 
-      const commentRequests = leadsWithIds.map((lead) =>
-        axiosInstance
-          .get(`/leads/${lead.id}/comments`)
-          .then((res) => ({
-            leadId: lead.id,
-            comment: res.data.length > 0 ? res.data[res.data.length - 1].comment : null,
-          }))
-          .catch(() => ({ leadId: lead.id, comment: null }))
-      );
-
-      const comments = await Promise.all(commentRequests);
-      const commentMap = Object.fromEntries(comments.map((c) => [c.leadId, c.comment]));
-
-      const leadsWithComments = leadsWithIds.map((lead) => ({
-        ...lead,
-        comment: commentMap[lead.id] || null,
-      }));
-
-      setLeads(leadsWithComments);
-      setTotal(data.total_count || leadsWithComments.length);
+      setLeads(leadsWithIds);
+      setTotal(data.total_count || leadsWithIds.length);
     } catch (error) {
       console.error("Error fetching leads:", error);
       toast.error("Failed to load leads!");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -88,16 +79,17 @@ export default function LeadsTable() {
 
   // ✅ Fetch New Leads Button
   const handleFetchLeads = async () => {
+    setLoading(true);
     try {
       const { data } = await axiosInstance.post("/leads/fetch");
-      const newLeads = data.leads || [];
-
-      setLeads((prev) => [...prev, ...newLeads]);
       toast.success(`${data.fetched_count} new leads fetched`);
+      await fetchLeads(); // refresh full table
       setActiveTab("New Leads");
     } catch (error) {
       console.error("Error fetching leads:", error);
       toast.error("Failed to fetch new leads!");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,28 +140,38 @@ export default function LeadsTable() {
 
   // ✅ Update response & move lead to Old Leads
   const handleResponseChange = async (lead, newResponseId) => {
-    try {
-      await axiosInstance.put(`/leads/${lead.id}`, {
-        ...lead,
-        lead_response_id: newResponseId,
-      });
+    const selectedResponse = responses.find((r) => r.id == newResponseId);
+    const responseName = selectedResponse?.name?.toLowerCase();
 
-      toast.success("Response updated!");
+    if (responseName === "ft") {
+      // open modal for FT date input
+      setFTLead(lead);
+      setFTFromDate("");
+      setFTToDate("");
+      setShowFTModal(true);
+    } else {
+      // Non-FT response, update directly
+      try {
+        await axiosInstance.patch(`/leads/${lead.id}/response`, {
+          lead_response_id: parseInt(newResponseId),
+        });
 
-      setLeads((prev) =>
-        prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: newResponseId } : l))
-      );
+        toast.success("Response updated!");
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === lead.id ? { ...l, lead_response_id: parseInt(newResponseId) } : l
+          )
+        );
 
-      // Only switch if not FT
-      const responseName = responses.find((r) => r.id == newResponseId)?.name?.toLowerCase();
-      if (responseName !== "ft") {
         setActiveTab("Old Leads");
+      } catch (error) {
+        console.error("Error updating response:", error);
+        toast.error("Failed to update response!");
       }
-    } catch (error) {
-      console.error("Error updating response:", error);
-      toast.error("Failed to update response!");
     }
   };
+
+
   const getValidFTDates = () => {
     const today = new Date();
     return Array.from({ length: 6 }, (_, i) => {
@@ -234,207 +236,179 @@ export default function LeadsTable() {
         </div>
 
         {/* ✅ Table Container */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left border-collapse">
-            <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white sticky top-0 z-10">
-              <tr>
-                {[
-                  "S.No.",
-                  "Lead ID",
-                  "Owner",
-                  "Client Name",
-                  "Mobile",
-                  "Response",
-                  "Comment",
-                  "Source",
-                  "Actions",
-                ].map((header, i) => (
-                  <th
-                    key={i}
-                    className="px-4 py-3 font-semibold uppercase tracking-wide text-xs"
+        {loading ? (
+          <div className="flex justify-center items-center py-10 text-gray-500 text-sm">
+            Loading leads...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left border-collapse">
+              <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white sticky top-0 z-10">
+                <tr>
+                  {[
+                    "S.No.",
+                    "Lead ID",
+                    "Owner",
+                    "Client Name",
+                    "Mobile",
+                    "Response",
+                    "Comment",
+                    "Source",
+                    "Actions",
+                  ].map((header, i) => (
+                    <th
+                      key={i}
+                      className="px-4 py-3 font-semibold uppercase tracking-wide text-xs"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLeads.map((lead, index) => (
+                  <tr
+                    key={lead.id}
+                    className={`hover:bg-blue-50 transition-colors duration-150 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      }`}
                   >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLeads.map((lead, index) => (
-                <tr
-                  key={lead.id}
-                  className={`hover:bg-blue-50 transition-colors duration-150 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
-                >
-                  {/* S.No */}
-                  <td className="px-4 py-3 font-medium">{(page - 1) * limit + index + 1}</td>
+                    {/* S.No */}
+                    <td className="px-4 py-3 font-medium">{(page - 1) * limit + index + 1}</td>
 
-                  {/* Lead ID */}
-                  <td className="px-4 py-3">{lead.id}</td>
+                    {/* Lead ID */}
+                    <td className="px-4 py-3">{lead.id}</td>
 
-                  {/* Owner */}
-                  <td className="px-4 py-3">{lead.created_by_name}</td>
+                    {/* Owner */}
+                    <td className="px-4 py-3">{lead.created_by_name}</td>
 
-                  {/* Client Name */}
-                  <td className="px-4 py-3">
-                    {editId === lead.id ? (
-                      <input
-                        type="text"
-                        value={lead.full_name}
-                        onChange={(e) =>
-                          setLeads((prev) =>
-                            prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
-                          )
-                        }
-                        onBlur={() => handleUpdateName(lead)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
-                      />
-                    ) : (
-                      <span>{lead.full_name}</span>
-                    )}
-                  </td>
-
-                  {/* Mobile */}
-                  <td className="px-4 py-3">{lead.mobile}</td>
-
-                  {/* Response */}
-                  <td className="px-4 py-3">
-                    {(() => {
-                      const responseName = responseNameMap[lead.lead_response_id] || "";
-                      if (responseName === "ft") {
-                        const validDates = getValidFTDates();
-                        return (
-                          <div className="flex flex-col gap-1">
-                            <input
-                              type="date"
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              min={validDates[0]}
-                              max={validDates[validDates.length - 1]}
-                              value={lead.ft_date || ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setLeads((prev) =>
-                                  prev.map((l) =>
-                                    l.id === lead.id ? { ...l, ft_date: val } : l
-                                  )
-                                );
-                              }}
-                            />
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder="FT comment..."
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                value={lead.ft_comment || ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setLeads((prev) =>
-                                    prev.map((l) =>
-                                      l.id === lead.id ? { ...l, ft_comment: val } : l
-                                    )
-                                  );
-                                }}
-                              />
-                              <button
-                                onClick={async () => {
-                                  if (!lead.ft_comment?.trim()) {
-                                    toast.error("Comment cannot be empty");
-                                    return;
-                                  }
-                                  try {
-                                    const res = await axiosInstance.post(`/leads/${lead.id}/comments`, null, {
-                                      params: { comment: lead.ft_comment },
-                                    });
-                                    toast.success("FT comment saved");
-                                    setLeads((prev) =>
-                                      prev.map((l) =>
-                                        l.id === lead.id
-                                          ? { ...l, comment: res.data.comment, ft_comment: "", ft_date: lead.ft_date }
-                                          : l
-                                      )
-                                    );
-                                  } catch (err) {
-                                    toast.error("Failed to save FT comment");
-                                    console.error(err);
-                                  }
-                                }}
-                                className="px-3 py-1 bg-green-500 text-white rounded text-sm"
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <select
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
-                          value={lead.lead_response_id || ""}
-                          onChange={(e) => handleResponseChange(lead, e.target.value)}
-                        >
-                          <option value="">Select Response</option>
-                          {responses.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                      );
-                    })()}
-                  </td>
-
-                  {/* Comment */}
-                  <td className="px-4 py-3">
-                    {lead.comment ? (
-                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded block truncate">
-                        {lead.comment}
-                      </span>
-                    ) : (
-                      <div className="flex gap-2">
+                    {/* Client Name */}
+                    <td className="px-4 py-3">
+                      {editId === lead.id ? (
                         <input
                           type="text"
-                          value={lead.tempComment || ""}
-                          placeholder="Add comment..."
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-green-400"
-                          onChange={(e) => {
-                            const val = e.target.value;
+                          value={lead.full_name}
+                          onChange={(e) =>
                             setLeads((prev) =>
-                              prev.map((l) => (l.id === lead.id ? { ...l, tempComment: val } : l))
-                            );
-                          }}
+                              prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
+                            )
+                          }
+                          onBlur={() => handleUpdateName(lead)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
                         />
-                        <button
-                          onClick={() => handleSaveComment(lead)}
-                          className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition"
-                        >
-                          Save
-                        </button>
+                      ) : (
+                        <span>{lead.full_name}</span>
+                      )}
+                    </td>
+
+                    {/* Mobile */}
+                    <td className="px-4 py-3">{lead.mobile}</td>
+
+                    {/* Response */}
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const responseName = responseNameMap[lead.lead_response_id] || "";
+                        if (responseName === "ft") {
+                          return (
+                            <div className="flex flex-col gap-1 text-xs text-gray-700">
+                              <div className="flex justify-between items-center">
+                                <span><strong>From:</strong> {lead.ft_from_date || "N/A"}</span>
+                                <button
+                                  className="text-blue-600 hover:underline text-[11px]"
+                                  onClick={() => {
+                                    setFTLead(lead);
+                                    setFTFromDate(lead.ft_from_date?.split("-").reverse().join("-") || "");
+                                    setFTToDate(lead.ft_to_date?.split("-").reverse().join("-") || "");
+                                    setShowFTModal(true);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                              <div>
+                                <strong>To:</strong> {lead.ft_to_date || "N/A"}
+                              </div>
+                              <div className="text-green-600 italic">
+                                {lead.comment || "FT assigned"}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <select
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+                            value={lead.lead_response_id || ""}
+                            onChange={(e) => handleResponseChange(lead, e.target.value)}
+                          >
+                            <option value="">Select Response</option>
+                            {responses.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })()}
+                    </td>
+
+                    {/* Comment */}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        {/* Show saved comment */}
+                        {lead.comment ? (
+                          <div className="text-sm text-gray-700 italic">{lead.comment}</div>
+                        ) : (
+                          <div className="text-xs text-gray-400 italic">No comment</div>
+                        )}
+
+                        {/* Input to add new comment */}
+                        <div className="flex gap-1 items-center">
+                          <input
+                            type="text"
+                            placeholder="Add comment"
+                            className="px-2 py-1 border border-gray-300 rounded text-xs w-full"
+                            value={lead.tempComment || ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setLeads((prev) =>
+                                prev.map((l) =>
+                                  l.id === lead.id ? { ...l, tempComment: val } : l
+                                )
+                              );
+                            }}
+                          />
+                          <button
+                            onClick={() => handleSaveComment(lead)}
+                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                          >
+                            Save
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Source */}
-                  <td className="px-4 py-3">
-                    <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
-                      {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
-                    </span>
-                  </td>
+                    {/* Source */}
+                    <td className="px-4 py-3">
+                      <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
+                        {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
+                      </span>
+                    </td>
 
-                  {/* Actions */}
-                  <td className="px-4 py-3 text-center ">
-                    <button
-                      onClick={() => router.push(`/lead/${lead.id}`)}
-                      className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
-                      title="Edit lead"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {/* Actions */}
+                    <td className="px-4 py-3 text-center ">
+                      <button
+                        onClick={() => router.push(`/lead/${lead.id}`)}
+                        className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
+                        title="Edit lead"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* ✅ Pagination */}
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between text-sm">
@@ -466,6 +440,82 @@ export default function LeadsTable() {
           </div>
         </div>
       </div>
+      {showFTModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+            <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">From Date</label>
+                <input
+                  type="date"
+                  value={ftFromDate}
+                  onChange={(e) => setFTFromDate(e.target.value)}
+                  className="w-full border px-3 py-2 rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">To Date</label>
+                <input
+                  type="date"
+                  value={ftToDate}
+                  onChange={(e) => setFTToDate(e.target.value)}
+                  className="w-full border px-3 py-2 rounded"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowFTModal(false)}
+                className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!ftFromDate || !ftToDate) {
+                    toast.error("Both dates required");
+                    return;
+                  }
+
+                  try {
+                    await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+                      lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                      ft_from_date: ftFromDate.split("-").reverse().join("-"), // DD-MM-YYYY
+                      ft_to_date: ftToDate.split("-").reverse().join("-"),
+                    });
+
+                    toast.success("FT response and dates saved!");
+
+                    setLeads((prev) =>
+                      prev.map((l) =>
+                        l.id === ftLead.id
+                          ? {
+                            ...l,
+                            lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                            ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                            ft_to_date: ftToDate.split("-").reverse().join("-"),
+                          }
+                          : l
+                      )
+                    );
+
+                    setActiveTab("FT Leads");
+                    setShowFTModal(false);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to save FT response");
+                  }
+                }}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 

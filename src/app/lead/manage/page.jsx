@@ -33,6 +33,47 @@ const LeadManage = () => {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
+  const [responseFilter, setResponseFilter] = useState("All");
+  const [sourceFilter, setSourceFilter] = useState("All");
+  const [employeeFilter, setEmployeeFilter] = useState("All");
+  const [branchFilter, setBranchFilter] = useState("All");
+  // at the top of your component, alongside your other useState’s:
+  const [branches, setBranches] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [sourcesList, setSourcesList] = useState([]);
+  const [responsesList, setResponsesList] = useState([]);
+
+  // then, in a new useEffect, fetch them once on mount:
+  useEffect(() => {
+    const loadFilterLists = async () => {
+      try {
+        const [bRes, uRes, sRes, rRes] = await Promise.all([
+          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+          axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
+          axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
+        ]);
+        setBranches(bRes.data);             // array of {id, name, …}
+        setEmployees(uRes.data.data);       // user list nested under .data
+        setSourcesList(sRes.data);          // array of {id, name, …}
+        setResponsesList(rRes.data);        // array of {id, name, …}
+      } catch (err) {
+        console.error("Failed to load filters", err);
+      }
+    };
+    loadFilterLists();
+  }, []);
+
+
+  // once leadData is loaded, build your dropdown options:
+  const branchOptions = [
+    { value: "All", label: "All Branches" },
+    ...branches.map(b => ({ value: b.id.toString(), label: b.name }))
+  ];
+  const employeeOptions = ["All", ...employees.map(e => ({ value: e.employee_code, label: e.name }))];
+  const sourceOptions = ["All", ...sourcesList.map(s => ({ value: s.name, label: s.name }))];
+  const responseOptions = ["All", ...responsesList.map(r => ({ value: r.name, label: r.name }))];
+
 
   useEffect(() => {
     fetchLeadData();
@@ -54,26 +95,33 @@ const LeadManage = () => {
 
   // Filter leads when search or filter changes
   useEffect(() => {
-    let updatedLeads = [...leadData];
+    let updated = [...leadData];
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      updatedLeads = updatedLeads.filter((lead) =>
-        (lead.full_name && lead.full_name.toLowerCase().includes(query)) ||
-        (lead.email && lead.email.toLowerCase().includes(query)) ||
-        (lead.mobile && lead.mobile.toString().includes(query)) ||
-        (lead.alternate_mobile && lead.alternate_mobile.toString().includes(query)) ||
-        (lead.city && lead.city.toLowerCase().includes(query)) ||
-        (lead.state && lead.state.toLowerCase().includes(query))
-      );
+    // … your search + status logic …
+
+    if (branchFilter !== "All") {
+      updated = updated.filter(lead => lead.branch_id?.toString() === branchFilter);
+    }
+    if (employeeFilter !== "All") {
+      updated = updated.filter(lead => lead.employee_code === employeeFilter);
+    }
+    if (sourceFilter !== "All") {
+      updated = updated.filter(lead => lead.source === sourceFilter);
+    }
+    if (responseFilter !== "All") {
+      updated = updated.filter(lead => lead.response === responseFilter);
     }
 
-    if (statusFilter !== "All") {
-      updatedLeads = updatedLeads.filter((lead) => lead.status === statusFilter);
-    }
-
-    setFilteredLeads(updatedLeads);
-  }, [searchQuery, statusFilter, leadData]);
+    setFilteredLeads(updated);
+  }, [
+    leadData,
+    searchQuery,
+    statusFilter,
+    branchFilter,     // ← add here
+    employeeFilter,   // ← and here
+    sourceFilter,     // ← and here
+    responseFilter,   // ← and here
+  ]);
 
   const columns = leadData.length > 0 ? Object.keys(leadData[0]) : [];
 
@@ -282,15 +330,68 @@ const LeadManage = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700">Status:</label>
+            {/* Status */}
             <select
-              className="px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white"
+              className="px-4 py-3"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={e => setStatusFilter(e.target.value)}
             >
               <option value="All">All Status</option>
               <option value="Pending">Pending</option>
               <option value="Completed">Completed</option>
+            </select>
+
+            {/* Branch */}
+
+            <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="px-4 py-3 ">
+              {branchOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+
+            </select>
+
+            {/* Employee */}
+            <select
+              value={employeeFilter}
+              onChange={e => setEmployeeFilter(e.target.value)}
+              className="px-4 py-3 "
+            >
+              {employeeOptions.map(opt =>
+                <option key={opt === "All" ? "All" : opt.value}
+                  value={opt === "All" ? "All" : opt.value}>
+                  {opt === "All" ? "All Employees" : opt.label}
+                </option>
+              )}
+            </select>
+
+            {/* Source */}
+            <select
+              value={sourceFilter}
+              onChange={e => setSourceFilter(e.target.value)}
+              className="px-4 py-3 "
+            >
+              {sourceOptions.map(opt =>
+                <option key={opt === "All" ? "All" : opt.value}
+                  value={opt === "All" ? "All" : opt.value}>
+                  {opt === "All" ? "All Sources" : opt.label}
+                </option>
+              )}
+            </select>
+
+            {/* Response */}
+            <select
+              value={responseFilter}
+              onChange={e => setResponseFilter(e.target.value)}
+              className="px-4 py-3 "
+            >
+              {responseOptions.map(opt =>
+                <option key={opt === "All" ? "All" : opt.value}
+                  value={opt === "All" ? "All" : opt.value}>
+                  {opt === "All" ? "All Responses" : opt.label}
+                </option>
+              )}
             </select>
           </div>
         </div>
@@ -424,18 +525,61 @@ const LeadManage = () => {
               <input type="file" name="csv_file" accept=".csv" required className="w-full border p-2 rounded" />
 
               {/* Mapping Fields */}
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" name="name_column" placeholder="Name Column" required className="border p-2 rounded" />
-                <input type="number" name="mobile_column" placeholder="Mobile Column" required className="border p-2 rounded" />
-                <input type="number" name="email_column" placeholder="Email Column" required className="border p-2 rounded" />
-                <input type="number" name="address_column" placeholder="Address Column" className="border p-2 rounded" />
-                <input type="number" name="city_column" placeholder="City Column" className="border p-2 rounded" />
-                <input type="number" name="segment_column" placeholder="Segment Column" className="border p-2 rounded" />
-                <input type="number" name="occupation_column" placeholder="Occupation Column" className="border p-2 rounded" />
-                <input type="number" name="investment_column" placeholder="Investment Column" className="border p-2 rounded" />
+              <div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name Column</label>
+                  <input type="number" name="name_column"  required className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Column</label>
+                  <input type="number" name="mobile_column"  required className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Column</label>
+                  <input type="number" name="email_column"  required className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address Column</label>
+                  <input type="number" name="address_column"  className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">City Column</label>
+                  <input type="number" name="city_column"  className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Segment Column</label>
+                  <input type="number" name="segment_column"  className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Occupation Column</label>
+                  <input type="number" name="occupation_column" className="border p-2 rounded w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Investment Column</label>
+                  <input type="number" name="investment_column" className="border p-2 rounded w-full" />
+                </div>
               </div>
+              {/* Upload Result */}
+            {uploadResult && (
+              <div className="mt-4 p-3 border rounded bg-gray-50">
+                <p>Total Rows: {uploadResult.total_rows}</p>
+                <p>Successful Uploads: {uploadResult.successful_uploads}</p>
+                <p>Duplicates Skipped: {uploadResult.duplicates_skipped}</p>
+                <p className="text-red-600 mt-2">Errors: {uploadResult.errors.length}</p>
+              </div>
+            )}
+            </div>
 
-              <input type="text" name="branch_id" defaultValue="3" className="border p-2 rounded w-full" placeholder="Branch ID" />
+
+              <select name="branch_id" required className="border p-2 rounded w-full">
+                <option value="">Select Branch</option>
+                {branches.map(branch => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
               <input type="text" name="lead_source_id" defaultValue="1" className="border p-2 rounded w-full" placeholder="Lead Source ID" />
               <input type="text" name="employee_code" defaultValue="" className="border p-2 rounded w-full" placeholder="Employee Code" />
 
@@ -447,16 +591,6 @@ const LeadManage = () => {
                 {uploading ? "Uploading..." : "Upload CSV"}
               </button>
             </form>
-
-            {/* Upload Result */}
-            {uploadResult && (
-              <div className="mt-4 p-3 border rounded bg-gray-50">
-                <p>Total Rows: {uploadResult.total_rows}</p>
-                <p>Successful Uploads: {uploadResult.successful_uploads}</p>
-                <p>Duplicates Skipped: {uploadResult.duplicates_skipped}</p>
-                <p className="text-red-600 mt-2">Errors: {uploadResult.errors.length}</p>
-              </div>
-            )}
           </div>
         </div>
       )}

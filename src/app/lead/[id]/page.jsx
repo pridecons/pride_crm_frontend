@@ -158,8 +158,7 @@ const Lead = () => {
       const { data } = await axiosInstance.get(`/recordings/lead/${id}`);
       setRecordings(data);
     } catch (err) {
-      console.error("Error fetching recordings:", err);
-      toast.error("Failed to load recordings");
+      console.warn("No recordings available or failed to fetch.");
     } finally {
       setLoadingRecordings(false);
     }
@@ -957,16 +956,20 @@ const Lead = () => {
             <select
               value={selectedTemplateId}
               onChange={(e) => {
-                const templateId = Number(e.target.value);
-                setSelectedTemplateId(templateId);
-                const selectedTemplate = templates.find((t) => t.id === templateId);
-                if (selectedTemplate) {
-                  const combinedText = `${selectedTemplate.subject || ""} ${selectedTemplate.body || ""}`;
-                  const placeholders = extractPlaceholders(combinedText);
-                  setContextFields(placeholders);
-                  setEmailContext({});
-                }
-              }}
+              const templateId = Number(e.target.value);
+              setSelectedTemplateId(templateId);
+              const selectedTemplate = templates.find((t) => t.id === templateId);
+              if (selectedTemplate) {
+                const combinedText =
+                  `${selectedTemplate.subject || ""} ${selectedTemplate.body || ""}`;
+                // dedupe any repeated placeholders
+                const placeholders = Array.from(
+                  new Set(extractPlaceholders(combinedText))
+                );
+                setContextFields(placeholders);
+                setEmailContext({});
+             }
+            }}
               className="w-full px-3 py-2 border rounded"
             >
               <option value="">-- Select Template --</option>

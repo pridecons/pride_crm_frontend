@@ -1,49 +1,53 @@
-  import axios from "axios";
-  import Cookies from "js-cookie";
+import axios from "axios";
+import Cookies from "js-cookie";
 
-  export const BASE_URL = "https://crm.24x7techelp.com";
-  export const BASE_URL_full = "https://crm.24x7techelp.com/api/v1";
+export const BASE_URL = "https://crm.24x7techelp.com";
+export const BASE_URL_full = "https://crm.24x7techelp.com/api/v1";
 
-  export const authAxiosInstance = axios.create({
-    baseURL: BASE_URL_full,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      "Pragma": "no-cache",
-      "Expires": "0",
-      "Surrogate-Control": "no-store",
-    },
-    maxRedirects: 5,
-  });
-
-  export const authAxiosInstanceMultipart = axios.create({
-    baseURL: BASE_URL_full,
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    maxRedirects: 5,
-  });
+// export const BASE_URL = "http://192.168.1.7:8004";
+// export const BASE_URL_full = "http://192.168.1.7:8004/api/v1";
 
 
-  export const axiosInstance = axios.create({
-    baseURL: BASE_URL_full,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+export const authAxiosInstance = axios.create({
+  baseURL: BASE_URL_full,
+  headers: {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store",
+  },
+  maxRedirects: 5,
+});
 
-  // automatically attach access token
-  axiosInstance.interceptors.request.use((config) => {
-    const access_token = Cookies.get("access_token");
-    if (access_token) {
-      // ensure headers object exists
-      config.headers = config.headers || {};
-      config.headers["Authorization"] = `Bearer ${access_token}`;
-    }
-    return config;
-  });
+export const authAxiosInstanceMultipart = axios.create({
+  baseURL: BASE_URL_full,
+  headers: {
+    "Content-Type": "multipart/form-data",
+  },
+  maxRedirects: 5,
+});
 
-  // on 401, refresh and retry
+
+export const axiosInstance = axios.create({
+  baseURL: BASE_URL_full,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// automatically attach access token
+axiosInstance.interceptors.request.use((config) => {
+  const access_token = Cookies.get("access_token");
+  if (access_token) {
+    // ensure headers object exists
+    config.headers = config.headers || {};
+    config.headers["Authorization"] = `Bearer ${access_token}`;
+  }
+  return config;
+});
+
+// on 401, refresh and retry
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {

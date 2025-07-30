@@ -258,94 +258,97 @@ export default function RationalPage() {
       : true;
     return stockMatch && dateMatch;
   });
+  const statusOptions = [
+    { label: 'OPEN', value: 'OPEN' },
+    { label: 'TARGET1', value: 'TARGET1_HIT' },
+    { label: 'TARGET2', value: 'TARGET2_HIT' },
+    { label: 'TARGET3', value: 'TARGET3_HIT' },
+    { label: 'STOP_LOSS', value: 'STOP_LOSS_HIT' },
+    { label: 'CLOSED', value: 'CLOSED' },
+  ];
+
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
-          {/* Left Side: Search + Date */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 w-full sm:w-auto space-y-3 sm:space-y-0">
-            {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-4.35-4.35M16.65 10.5a6.15 6.15 0 11-12.3 0 6.15 6.15 0 0112.3 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by stock name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
+        {/* Header */}
+       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+  {/* Search + Date */}
+  <div className="flex flex-wrap sm:flex-row sm:items-center gap-4 w-full">
+    {/* Search */}
+    <div className="relative w-full sm:w-64">
+      <svg
+        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M21 21l-4.35-4.35M16.65 10.5a6.15 6.15 0 11-12.3 0 6.15 6.15 0 0112.3 0z"
+        />
+      </svg>
+      <input
+        type="text"
+        placeholder="Search by stock name..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+      />
+    </div>
 
-            {/* Date Filter */}
-            <div className="flex flex-col space-y-1 w-full sm:w-64">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {selectedDate && (
-                <span className="text-sm text-gray-600">
-                  Selected: {new Date(selectedDate).toLocaleDateString('en-IN', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
-                  })}
-                </span>
-              )}
-            </div>
-          </div>
+    {/* Date Picker */}
+    <div className="w-full sm:w-64">
+      <input
+        type="date"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+        className="py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {selectedDate && (
+        <span className="text-sm text-gray-600 mt-1 block">
+          Selected:{" "}
+          {new Date(selectedDate).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </span>
+      )}
+    </div>
+  </div>
 
-          {/* Right Side: Buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 w-full sm:w-auto space-y-3 sm:space-y-0 sm:justify-end">
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Export
-            </button>
+  {/* Buttons */}
+  <div className="flex flex-row flex-wrap gap-3 w-full sm:w-auto sm:justify-end">
+    <button
+      onClick={handleExport}
+      className="inline-flex items-center px-5 py-2 md:py-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-xl shadow-md hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
+    >
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+      Export
+    </button>
 
-            <button
-              onClick={() => openModal()}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add New Rational
-            </button>
-          </div>
-        </div>
+    <button
+      onClick={() => openModal()}
+      className="inline-flex items-center px-6 py-2 md:py-1 bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-semibold rounded-xl shadow-md hover:from-green-700 hover:to-green-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
+    >
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+      Add New Rational
+    </button>
+  </div>
+</div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6 mb-8">
           <CardContent
             label="Total Stocks"
             value={rationalList.length}
@@ -375,7 +378,7 @@ export default function RationalPage() {
         {/* Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="min-w-full">
               <thead>
                 <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
                   <th className="text-left py-4 px-6">Stock Name</th>
@@ -431,39 +434,34 @@ export default function RationalPage() {
                         }}
                         className="text-sm text-blue-600 hover:underline focus:outline-none"
                       >
-                        {item.status || 'N/A'}
+                        {
+                          statusOptions.find(opt => opt.value === item.status)?.label || item.status || 'N/A'
+                        }
                       </button>
 
                       {openStatusDropdown === item.id && item.status === "OPEN" && (
                         <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
-                          {[
-                            'OPEN',
-                            'TARGET1',
-                            'TARGET2',
-                            'TARGET3',
-                            'STOP_LOSS',
-                            'CLOSED',
-                          ].map((status) => (
+                          {statusOptions.map(({ label, value }) => (
                             <div
-                              key={status}
+                              key={value}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('Dropdown option clicked:', status);
-                                handleStatusChange(item.id, status);
-                                setOpenStatusDropdown(null); // Close dropdown after selection                               
+                                handleStatusChange(item.id, value); // Send backend value
+                                setOpenStatusDropdown(null);
                               }}
-                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === status
-                                  ? 'bg-blue-50 text-blue-600 font-medium'
-                                  : 'text-gray-700 hover:text-blue-600'
+                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === value
+                                ? 'bg-blue-50 text-blue-600 font-medium'
+                                : 'text-gray-700 hover:text-blue-600'
                                 }`}
                             >
-                              {status}
-                              {item.status === status && <span className="ml-2">✓</span>}
+                              {label}
+                              {item.status === value && <span className="ml-2">✓</span>}
                             </div>
                           ))}
                         </div>
                       )}
                     </td>
+
 
                     <td className="py-4 px-6 text-center">
                       {item.graph ? (
@@ -488,8 +486,7 @@ export default function RationalPage() {
                 <p className="text-slate-600 mb-4">Add your first stock rational</p>
                 <button
                   onClick={() => openModal()}
-                  className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
-                >
+                  className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
                   Add First Rational
                 </button>
               </div>
@@ -500,8 +497,8 @@ export default function RationalPage() {
 
       {/* Image Modal */}
       {modalImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl overflow-hidden shadow-lg max-w-3xl w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl overflow-hidden shadow-lg max-w-3xl w-full mx-auto">
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="text-lg font-semibold">Graph Preview</h2>
               <button
@@ -524,8 +521,8 @@ export default function RationalPage() {
 
       {/* Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl mx-auto relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-2 right-3 text-gray-500 text-2xl" onClick={() => setIsModalOpen(false)}>
               &times;
             </button>
@@ -582,7 +579,7 @@ export default function RationalPage() {
                   disabled={isEditMode}
                 />
               </div>
-   <div className="flex flex-col md:col-span-2">
+              <div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
                 <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode}>
                   <option value="">Select Recommendation Type</option>
@@ -596,7 +593,7 @@ export default function RationalPage() {
                 </select>
               </div>
 
-              
+
               {isEditMode && (<div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Status</label>
                 <select
@@ -652,8 +649,7 @@ export default function RationalPage() {
                     <label
                       htmlFor="rationalImageUpload"
                       className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
-                      title="Upload image"
-                    >
+                      title="Upload image">
                       Upload Image {!editId && <span className="text-red-300">*</span>}
                     </label>
                   </div>

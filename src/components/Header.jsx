@@ -88,96 +88,94 @@ export default function Header({ onMenuClick, onSearch }) {
   };
 
 
- return (
-  <header className="bg-white border-b border-gray-100 px-4 py-2 lg:px-4 relative">
-    <div className="absolute inset-0 pointer-events-none" />
-    <div className="flex items-center justify-between relative z-10">
-      
-      {/* Logo + Menu */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onMenuClick}
-          className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150"
-        >
-          <Menu size={20} />
-        </button>
-        <div className="relative">
-          <img
-            src="/pride.png"
-            alt="Logo"
-            width={130}
-            height={55}
-            className="transition-transform duration-200 hover:scale-105"
-          />
-          <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
-        </div>
-      </div>
+  return (
+    <header className="bg-white border-b border-gray-100 px-4 py-2 lg:px-4 relative">
+      <div className="absolute inset-0 pointer-events-none" />
+      <div className="flex items-center justify-between relative z-10">
 
-      {/* Search Bar */}
-      <div className="flex-1 max-w-md mx-3">
-        <div className="relative group">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
-            size={16}
-          />
-          <input
-            type="text"
-            placeholder="Search anything..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-50 focus:bg-white shadow-sm hover:shadow-md"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-          />
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
-        </div>
-      </div>
-
-      {/* Clock + Notifications + Profile */}
-      <div className="flex items-center gap-4">
-        <ShowNotifications setIsConnect={setIsConnect} />
-    
-
-        {/* Notifications + Profile with no space */}
-        <div className="flex items-center gap-4">
-          
-    {/* Clock */}
-        <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-100 rounded-full p-1">
-              <Clock size={14} className="text-blue-600" />
-            </div>
-            <div className="text-sm">
-              <div className="font-semibold text-gray-900">{currentTime}</div>
-              <div className="text-xs text-gray-500">{currentDate}</div>
-            </div>
+        {/* Logo + Menu */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onMenuClick}
+            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="relative">
+            <img
+              src="/pride.png"
+              alt="Logo"
+              width={130}
+              height={55}
+              className="transition-transform duration-200 hover:scale-105"
+            />
+            <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
           </div>
         </div>
-          {/* Profile */}
-          <div className="relative"  ref={profileRef}>
-            <button
-              onClick={toggleProfileMenu}
-              className="flex items-center space-x-1 px-1 py-1 rounded-xl hover:bg-gray-100 transition-all duration-200 group"
-            >
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                  <User size={18} className="text-white" />
+
+        {/* Search Bar */}
+        <div className="flex-1 max-w-md mx-3">
+          <div className="relative group">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
+              size={16}
+            />
+            <input
+              type="text"
+              placeholder="Search anything..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-50 focus:bg-white shadow-sm hover:shadow-md"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+            />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Clock + Notifications + Profile */}
+        <div className="flex items-center gap-6">
+          <ShowNotifications setIsConnect={setIsConnect} />
+
+
+          {/* Notifications + Profile with no space */}
+          <div className="flex items-center gap-6">
+
+            {/* Clock */}
+            <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="bg-blue-100 rounded-full p-1">
+                  <Clock size={14} className="text-blue-600" />
                 </div>
-                <div
-                  className={`absolute -bottom-1 -right-1 w-3 h-3 ${
-                    isConnect ? "bg-green-500" : "bg-red-500"
-                  } rounded-full border-2 border-white`}
-                ></div>
+                <div className="text-sm">
+                  <div className="font-semibold text-gray-900">{currentTime}</div>
+                  <div className="text-xs text-gray-500">{currentDate}</div>
+                </div>
               </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
-                <p className="text-xs text-gray-500">{user?.role || "Role"}</p>
+            </div>
+            {/* Profile */}
+            <div className="relative" ref={profileRef}>
+              <div
+                className="flex items-center space-x-1 px-1 py-1 rounded-xl transition-all duration-200 group cursor-default"
+              >
+                <div className="relative">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                    <User size={18} className="text-white" />
+                  </div>
+                  <div
+                    className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"
+                      } rounded-full border-2 border-white`}
+                  ></div>
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
+                  <p className="text-xs text-gray-500">{user?.role || "Role"}</p>
+                </div>
               </div>
-            </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </header>
-);
+    </header>
+  );
 }
 const ShowNotifications = ({ setIsConnect }) => {
   const [showNotifications, setShowNotifications] = useState(false);

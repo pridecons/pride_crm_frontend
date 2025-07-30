@@ -48,12 +48,13 @@ export default function LoginPage() {
 
       toast.success('Login successful')
 
-      // Redirect based on role
-      if (decoded.role === 'SUPERADMIN') {
-        router.push('/dashboard')
+      // ✅ Redirect based on role
+      if (decoded.role === 'SUPERADMIN' || decoded.role === 'BRANCH MANAGER') {
+        router.push('/dashboard/super')
       } else {
-        router.push('/dashboard') // change to your appropriate route
+        router.push('/dashboard')
       }
+
     } catch (err) {
       console.error('Login error:', err)
       setError('Invalid credentials')

@@ -97,11 +97,11 @@ export default function RationalPage() {
 
 
   const handleExport = async () => {
-    
+
     try {
       const response = await axiosInstance.get('/recommendations');
       const data = response.data;
-    
+
 
       // Convert JSON to Excel worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
@@ -115,32 +115,29 @@ export default function RationalPage() {
     }
   };
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const response = await axiosInstance.put(`/recommendations/status/${id}?status=${newStatus}`);
+      console.log('Updated:', response.data);
 
-const handleStatusChange = async (id, newStatus) => {
-  try {
-    const response = await axiosInstance.put(`/recommendations/status/${id}?status=${newStatus}`);
-    console.log('Updated:', response.data);
-
-    // Refetch the recommendations data
-    await fetchRecommendations(); // Call your data fetching function
-    
-    setOpenStatusDropdown(null);
-  } catch (err) {
-    console.error('Status update error:', err);
-  }
-};
-
-// Add this useEffect to handle outside clicks
-useEffect(() => {
-  const handleClickOutside = () => {
-    setOpenStatusDropdown(null);
+      await fetchRationals();
+      setOpenStatusDropdown(null);
+    } catch (err) {
+      console.error('Status update error:', err);
+    }
   };
 
-  if (openStatusDropdown) {
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }
-}, [openStatusDropdown]);
+  // Add this useEffect to handle outside clicks
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenStatusDropdown(null);
+    };
+
+    if (openStatusDropdown) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openStatusDropdown]);
 
 
   const openImageModal = (path) => {
@@ -150,89 +147,89 @@ useEffect(() => {
   const closeModal = () => {
     setModalImage(null);
   };
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setImageError('');
-  setIsEditMode(false)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setImageError('');
+    setIsEditMode(false)
 
-  const {
-    stock_name,
-    entry_price,
-    stop_loss,
-    targets,
-    targets2,
-    targets3,
-    rational,
-    recommendation_type,
-    graph,
-    status,
-  } = formData;
+    const {
+      stock_name,
+      entry_price,
+      stop_loss,
+      targets,
+      targets2,
+      targets3,
+      rational,
+      recommendation_type,
+      graph,
+      status,
+    } = formData;
 
-  // Validate required fields
-  if (!editId && !graph) {
-    setImageError('Please select an image to upload');
-    return;
-  }
-
-  try {
-    let dataToSend;
-    let headers = {};
-
-    // Always normalize numbers
-    const cleanedData = {
-      stock_name: stock_name?.trim() || '',
-      entry_price: Number(entry_price),
-      stop_loss: Number(stop_loss),
-      targets: Number(targets),
-      targets2: Number(targets2),
-      targets3: Number(targets3),
-      rational: rational?.trim() || '',
-      recommendation_type: recommendation_type?.trim() || '',
-      status: status || 'OPEN',
-    };
-
-    const isGraphFile = graph instanceof File;
-
-    if (isGraphFile || (!editId && graph)) {
-      // Use FormData when there's an image
-      dataToSend = new FormData();
-      Object.entries(cleanedData).forEach(([key, value]) => {
-        dataToSend.append(key, value);
-      });
-      if (isGraphFile) dataToSend.append('graph', graph);
-      headers['Content-Type'] = 'multipart/form-data';
-    } else {
-      // Use JSON otherwise
-      dataToSend = { ...cleanedData, graph }; // include graph path string if already uploaded
-      headers['Content-Type'] = 'application/json';
+    // Validate required fields
+    if (!editId && !graph) {
+      setImageError('Please select an image to upload');
+      return;
     }
 
-    // DEBUG: Log the payload
-    if (dataToSend instanceof FormData) {
-      for (let [key, value] of dataToSend.entries()) {
-        console.log(`${key}:`, value);
+    try {
+      let dataToSend;
+      let headers = {};
+
+      // Always normalize numbers
+      const cleanedData = {
+        stock_name: stock_name?.trim() || '',
+        entry_price: Number(entry_price),
+        stop_loss: Number(stop_loss),
+        targets: Number(targets),
+        targets2: Number(targets2),
+        targets3: Number(targets3),
+        rational: rational?.trim() || '',
+        recommendation_type: recommendation_type?.trim() || '',
+        status: status || 'OPEN',
+      };
+
+      const isGraphFile = graph instanceof File;
+
+      if (isGraphFile || (!editId && graph)) {
+        // Use FormData when there's an image
+        dataToSend = new FormData();
+        Object.entries(cleanedData).forEach(([key, value]) => {
+          dataToSend.append(key, value);
+        });
+        if (isGraphFile) dataToSend.append('graph', graph);
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        // Use JSON otherwise
+        dataToSend = { ...cleanedData, graph }; // include graph path string if already uploaded
+        headers['Content-Type'] = 'application/json';
       }
-    } else {
-      console.log('Payload:', dataToSend);
-    }
 
-    // Send to API
-    if (editId) {
-      await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
-    } else {
-      await axiosInstance.post(API_URL, dataToSend, { headers });
-    }
+      // DEBUG: Log the payload
+      if (dataToSend instanceof FormData) {
+        for (let [key, value] of dataToSend.entries()) {
+          console.log(`${key}:`, value);
+        }
+      } else {
+        console.log('Payload:', dataToSend);
+      }
 
-    setIsModalOpen(false);
-    fetchRationals();
-  } catch (err) {
-    if (err.response?.status === 422) {
-      console.error('Validation error:', err.response.data);
-    } else {
-      console.error('Submit failed:', err);
+      // Send to API
+      if (editId) {
+        await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
+      } else {
+        await axiosInstance.post(API_URL, dataToSend, { headers });
+      }
+
+      setIsModalOpen(false);
+      fetchRationals();
+    } catch (err) {
+      if (err.response?.status === 422) {
+        console.error('Validation error:', err.response.data);
+      } else {
+        console.error('Submit failed:', err);
+      }
     }
-  }
-};
+  };
 
 
   const getRecommendationBadge = (type) => {
@@ -261,94 +258,97 @@ const handleSubmit = async (e) => {
       : true;
     return stockMatch && dateMatch;
   });
+  const statusOptions = [
+    { label: 'OPEN', value: 'OPEN' },
+    { label: 'TARGET1', value: 'TARGET1_HIT' },
+    { label: 'TARGET2', value: 'TARGET2_HIT' },
+    { label: 'TARGET3', value: 'TARGET3_HIT' },
+    { label: 'STOP_LOSS', value: 'STOP_LOSS_HIT' },
+    { label: 'CLOSED', value: 'CLOSED' },
+  ];
+
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
-          {/* Left Side: Search + Date */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 w-full sm:w-auto space-y-3 sm:space-y-0">
-            {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-4.35-4.35M16.65 10.5a6.15 6.15 0 11-12.3 0 6.15 6.15 0 0112.3 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by stock name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
+        {/* Header */}
+       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+  {/* Search + Date */}
+  <div className="flex flex-wrap sm:flex-row sm:items-center gap-4 w-full">
+    {/* Search */}
+    <div className="relative w-full sm:w-64">
+      <svg
+        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M21 21l-4.35-4.35M16.65 10.5a6.15 6.15 0 11-12.3 0 6.15 6.15 0 0112.3 0z"
+        />
+      </svg>
+      <input
+        type="text"
+        placeholder="Search by stock name..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+      />
+    </div>
 
-            {/* Date Filter */}
-            <div className="flex flex-col space-y-1 w-full sm:w-64">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {selectedDate && (
-                <span className="text-sm text-gray-600">
-                  Selected: {new Date(selectedDate).toLocaleDateString('en-IN', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
-                  })}
-                </span>
-              )}
-            </div>
-          </div>
+    {/* Date Picker */}
+    <div className="w-full sm:w-64">
+      <input
+        type="date"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+        className="py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {selectedDate && (
+        <span className="text-sm text-gray-600 mt-1 block">
+          Selected:{" "}
+          {new Date(selectedDate).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </span>
+      )}
+    </div>
+  </div>
 
-          {/* Right Side: Buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 w-full sm:w-auto space-y-3 sm:space-y-0 sm:justify-end">
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Export
-            </button>
+  {/* Buttons */}
+  <div className="flex flex-row flex-wrap gap-3 w-full sm:w-auto sm:justify-end">
+    <button
+      onClick={handleExport}
+      className="inline-flex items-center px-5 py-2 md:py-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-xl shadow-md hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
+    >
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+      Export
+    </button>
 
-            <button
-              onClick={() => openModal()}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add New Rational
-            </button>
-          </div>
-        </div>
+    <button
+      onClick={() => openModal()}
+      className="inline-flex items-center px-6 py-2 md:py-1 bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-semibold rounded-xl shadow-md hover:from-green-700 hover:to-green-800 transform hover:scale-105 transition-all duration-200 w-full sm:w-auto justify-center"
+    >
+      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+      Add New Rational
+    </button>
+  </div>
+</div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6 mb-8">
           <CardContent
             label="Total Stocks"
             value={rationalList.length}
@@ -378,7 +378,7 @@ const handleSubmit = async (e) => {
         {/* Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="min-w-full">
               <thead>
                 <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
                   <th className="text-left py-4 px-6">Stock Name</th>
@@ -426,48 +426,42 @@ const handleSubmit = async (e) => {
                       )}
                     </td>
 
-                  <td className="py-4 px-6 text-center relative">                       
-  <button                         
-    onClick={(e) => {                           
-      e.stopPropagation();                           
-      setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);                         
-    }}                         
-    className="text-sm text-blue-600 hover:underline focus:outline-none"                       
-  >                         
-    {item.status || 'N/A'}                       
-  </button>                        
+                    <td className="py-4 px-6 text-center relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
+                        }}
+                        className="text-sm text-blue-600 hover:underline focus:outline-none"
+                      >
+                        {
+                          statusOptions.find(opt => opt.value === item.status)?.label || item.status || 'N/A'
+                        }
+                      </button>
 
-  {openStatusDropdown === item.id && (                         
-    <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">                           
-      {[
-        'OPEN',
-        'TARGET1', 
-        'TARGET2',
-        'TARGET3',
-        'STOP_LOSS',
-        'CLOSED',
-      ].map((status) => (                             
-        <div                               
-          key={status}                               
-          onClick={(e) => {                                 
-            e.stopPropagation();
-            console.log('Dropdown option clicked:', status);                                 
-            handleStatusChange(item.id, status);
-            setOpenStatusDropdown(null); // Close dropdown after selection                               
-          }}                               
-          className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-            item.status === status
-              ? 'bg-blue-50 text-blue-600 font-medium'
-              : 'text-gray-700 hover:text-blue-600'
-          }`}                             
-        >                               
-          {status}
-          {item.status === status && <span className="ml-2">✓</span>}                             
-        </div>                           
-      ))}                         
-    </div>                       
-  )}                     
-</td>
+                      {openStatusDropdown === item.id && item.status === "OPEN" && (
+                        <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
+                          {statusOptions.map(({ label, value }) => (
+                            <div
+                              key={value}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(item.id, value); // Send backend value
+                                setOpenStatusDropdown(null);
+                              }}
+                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === value
+                                ? 'bg-blue-50 text-blue-600 font-medium'
+                                : 'text-gray-700 hover:text-blue-600'
+                                }`}
+                            >
+                              {label}
+                              {item.status === value && <span className="ml-2">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
 
                     <td className="py-4 px-6 text-center">
                       {item.graph ? (
@@ -492,8 +486,7 @@ const handleSubmit = async (e) => {
                 <p className="text-slate-600 mb-4">Add your first stock rational</p>
                 <button
                   onClick={() => openModal()}
-                  className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
-                >
+                  className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
                   Add First Rational
                 </button>
               </div>
@@ -504,8 +497,8 @@ const handleSubmit = async (e) => {
 
       {/* Image Modal */}
       {modalImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl overflow-hidden shadow-lg max-w-3xl w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl overflow-hidden shadow-lg max-w-3xl w-full mx-auto">
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="text-lg font-semibold">Graph Preview</h2>
               <button
@@ -528,8 +521,8 @@ const handleSubmit = async (e) => {
 
       {/* Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl mx-auto relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-2 right-3 text-gray-500 text-2xl" onClick={() => setIsModalOpen(false)}>
               &times;
             </button>
@@ -545,7 +538,7 @@ const handleSubmit = async (e) => {
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode}/>
+                <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode} />
               </div>
               <div className="flex flex-col">
                 <label className="mb-1 text-gray-700 text-sm">
@@ -586,21 +579,22 @@ const handleSubmit = async (e) => {
                   disabled={isEditMode}
                 />
               </div>
-
               <div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
-                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required  disabled={isEditMode}>
+                <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode}>
                   <option value="">Select Recommendation Type</option>
-                  <option value="Buy">Equity Cash</option>
-                  <option value="Buy">Stock Future</option>
-                  <option value="Buy">Index Future</option>
-                  <option value="Buy">Stock Option</option>
-                  <option value="Buy">MCX Bullion</option>
-                  <option value="Buy">MCX Base Metal</option>
-                  <option value="Buy">MCX Energy</option>
+                  <option value="Equity Cash">Equity Cash</option>
+                  <option value="Stock Future">Stock Future</option>
+                  <option value="Index Future">Index Future</option>
+                  <option value="Stock Option">Stock Option</option>
+                  <option value="MCX Bullion">MCX Bullion</option>
+                  <option value="MCX Base Metal">MCX Base Metal</option>
+                  <option value="MCX Energy">MCX Energy</option>
                 </select>
               </div>
-{isEditMode && (<div className="flex flex-col md:col-span-2">
+
+
+              {isEditMode && (<div className="flex flex-col md:col-span-2">
                 <label className="mb-1 text-gray-700 text-sm">Status</label>
                 <select
                   name="status"
@@ -608,7 +602,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   className="p-3 border rounded"
                   required
-                  
+
                 >
                   <option value="">Select Status</option>
                   <option value="OPEN">OPEN</option>
@@ -619,7 +613,7 @@ const handleSubmit = async (e) => {
                   <option value="CLOSED">CLOSED</option>
                 </select>
               </div>)}
-              
+
 
 
               <div className="flex flex-col md:col-span-2 relative">
@@ -655,8 +649,7 @@ const handleSubmit = async (e) => {
                     <label
                       htmlFor="rationalImageUpload"
                       className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
-                      title="Upload image"
-                    >
+                      title="Upload image">
                       Upload Image {!editId && <span className="text-red-300">*</span>}
                     </label>
                   </div>

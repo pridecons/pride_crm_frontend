@@ -133,7 +133,7 @@ export default function BranchMainPage({
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-    {hasPermission("internal_mailing") &&  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Branch Management</h1>
           <p className="mt-2 text-sm text-gray-600">
@@ -153,10 +153,10 @@ export default function BranchMainPage({
             ))}
           </select>
         </div>
-      </div>}
+      </div>
 
       {/* Stats Cards */}
-     {hasPermission("stats_card") && <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
           title="Branch Name"
           value={branchStats.branchName}
@@ -181,7 +181,7 @@ export default function BranchMainPage({
           icon={TrendingUp}
           color="bg-orange-500"
         />
-      </div>}
+      </div>
 
       {/* Tabs */}
       <div className="bg-white shadow rounded-lg">

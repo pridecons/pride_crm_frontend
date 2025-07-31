@@ -97,8 +97,7 @@ export default function Header({ onMenuClick, onSearch }) {
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150"
-          >
+            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150"  >
             <Menu size={20} />
           </button>
           <div className="relative">

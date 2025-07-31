@@ -135,7 +135,7 @@ const menu = [
 if (!hasMounted) return null
 
   return (
-    <aside className="flex flex-col h-full bg-gray-50 shadow-md">
+    <aside className="flex flex-col h-full  bg-gray-50 shadow-md">
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-5" role="navigation">
         {menu.map((section, idx) => (

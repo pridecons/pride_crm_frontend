@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef, lazy } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { DropdownCheckboxButton, InputField } from "@/components/common/InputField";
+import LoadingState from "@/components/LoadingState";
 
 const PAYMENT_METHODS = [
     { code: "cc", label: "Credit Card", icon: "💳", category: "card" },
@@ -36,7 +37,7 @@ const TAB_OPTIONS = [
     { name: "Generate Payment Link", value: "generate_link", icon: "🔗" },
 ];
 
-const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"];``
+const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"]; ``
 
 export default function PaymentPage({
     name = "",
@@ -590,14 +591,17 @@ const QRCodeSection = ({ orderId }) => {
         <div className="bg-blue-50 rounded-lg p-4">
             <h4 className="text-blue-800 font-medium mb-3">📷 QR Code Payment</h4>
             {!qrData ? (
-                <button
-                    type="button"
-                    onClick={fetchQR}
-                    disabled={loading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                    {loading ? "Generating..." : "Generate QR Code"}
-                </button>
+                loading ? (
+                    <LoadingState message="Generating QR code..." />
+                ) : (
+                    <button
+                        type="button"
+                        onClick={fetchQR}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                        Generate QR Code
+                    </button>
+                )
             ) : (
                 <div className="flex flex-col items-center space-y-2">
                     <img
@@ -654,14 +658,17 @@ const UPIRequestSection = ({ orderId }) => {
                         onChange={(e) => setUpiId(e.target.value)}
                         className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
                     />
-                    <button
-                        type="button"
-                        onClick={handleGenerateUPI}
-                        disabled={loading}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                    >
-                        {loading ? "Sending..." : "Send Request"}
-                    </button>
+                    {loading ? (
+                        <LoadingState message="Sending UPI request..." />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={handleGenerateUPI}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                            Send Request
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div className="text-green-700 font-semibold mt-2">
@@ -766,12 +773,7 @@ const CheckPayment = () => {
                 </div>
             </div>
 
-            {loading && (
-                <div className="flex items-center justify-center py-12">
-                    <span className="animate-spin text-2xl mr-3">⏳</span>
-                    <span className="text-gray-600">Loading payment history...</span>
-                </div>
-            )}
+            {loading && <LoadingState message="Loading payment history..." />}
 
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">

@@ -9,6 +9,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-hot-toast";
 import { Plus, Pencil, Trash, Eye, X } from "lucide-react";
+import LoadingState from "@/components/LoadingState";
 
 // Dynamically import EditorContent (SSR safe)
 const EditorContent = dynamic(
@@ -239,8 +240,8 @@ export default function EmailTemplates() {
                     <tbody className="divide-y divide-gray-200">
                         {loading ? (
                             <tr>
-                                <td colSpan="4" className="text-center py-6">
-                                    Loading templates...
+                                <td colSpan="4">
+                                    <LoadingState message="Loading templates..." />
                                 </td>
                             </tr>
                         ) : templates.length === 0 ? (
@@ -353,20 +354,20 @@ export default function EmailTemplates() {
                             </div>
 
                             {/* Body */}
-<div>
-  <label className="block text-sm font-medium mb-1">Body</label>
-  <Toolbar editor={editor} />
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Body</label>
+                                <Toolbar editor={editor} />
 
-  {/* Drop the wrapper div, and put classes directly on EditorContent */}
-  <EditorContent
-    editor={editor}
-    className="
+                                {/* Drop the wrapper div, and put classes directly on EditorContent */}
+                                <EditorContent
+                                    editor={editor}
+                                    className="
       border rounded p-2
       min-h-[200px]
       focus:outline-none focus:ring focus:border-blue-300
     "
-  />
-</div>
+                                />
+                            </div>
 
                             {/* Actions */}
                             <div className="flex justify-end gap-3">

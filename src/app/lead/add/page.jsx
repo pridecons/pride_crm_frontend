@@ -50,7 +50,7 @@ export default function LeadForm() {
   };
 
   useEffect(() => {
-    axiosInstance.get('/lead-config/sources/?skip=0-h&limit=100')
+    axiosInstance.get('/lead-config/sources/?skip=0&limit=100')
       .then(res => setLeadSources(res.data || []))
     axiosInstance.get('/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
@@ -62,18 +62,31 @@ export default function LeadForm() {
     if (name === "segment") {
       setFormData(prev => ({ ...prev, [name]: value.split(",").map(v => v.trim()) }));
     } else if (name === "comment") {
-      setFormData(prev => ({ ...prev, [name]: { text: value } })); // convert to dict
+      setFormData(prev => ({ ...prev, [name]: { text: value } }));
+    } else if (name === "pan") {
+      setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
+    } else if (name === "call_back_date" || name === "dob") {
+      // Strictly allow DD-MM-YYYY
+      if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       // Step 1: Create Lead
-      const { data } = await axiosInstance.post('/leads/', formData);
+      const payload = {
+        ...formData,
+        dob: formatForInput(formData.dob),
+        call_back_date: formatForInput(formData.call_back_date),
+      };
+
+      const { data } = await axiosInstance.post('/leads/', payload);
+
       const leadId = data.id;
 
       // Step 2: Upload Documents
@@ -166,11 +179,22 @@ export default function LeadForm() {
   }
 
   const formatDob = (dobString) => {
-    if (!dobString) return '';
-    const [day, month, year] = dobString.split('-'); // "07-12-2001" → ["07","12","2001"]
-    return `${year}-${month}-${day}`; // → "2001-12-07"
+    return dobString || '';
   };
 
+  // Convert "DD-MM-YYYY" → "YYYY-MM-DD" (for input type="date")
+  const formatForInput = (ddmmyyyy) => {
+    const [dd, mm, yyyy] = ddmmyyyy.split("-");
+    if (!dd || !mm || !yyyy) return "";
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Convert "YYYY-MM-DD" → "DD-MM-YYYY"
+  const formatToDDMMYYYY = (yyyymmdd) => {
+    const [yyyy, mm, dd] = yyyymmdd.split("-");
+    if (!dd || !mm || !yyyy) return "";
+    return `${dd}-${mm}-${yyyy}`;
+  };
 
   return (
     <form onSubmit={handleSubmit} className="max-w-7xl mx-auto p-6 bg-white rounded shadow">
@@ -179,52 +203,99 @@ export default function LeadForm() {
         Basic Details
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-t-0 rounded-b">
-        <input name="full_name" value={formData.full_name} onChange={handleChange} placeholder="Full Name" className="p-2 border rounded" />
-        <input name="father_name" value={formData.father_name} onChange={handleChange} placeholder="Father Name" className="p-2 border rounded" />
-        <input name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Mobile" className="p-2 border rounded" />
-        <input name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="p-2 border rounded" />
-        <input name="state" value={formData.state} onChange={handleChange} placeholder="State" className="p-2 border rounded" />
-        <input name="district" value={formData.district} onChange={handleChange} placeholder="District" className="p-2 border rounded" />
-        <input name="city" value={formData.city} onChange={handleChange} placeholder="City" className="p-2 border rounded" />
-        <input name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} placeholder="Alternate Mobile" className="p-2 border rounded" />
-        <input
-          name="dob"
-          type="text"
-          value={formData.dob}
-          onChange={(e) => {
-            // Validate input like DD-MM-YYYY
-            const value = e.target.value;
-            if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
-              setFormData((prev) => ({ ...prev, dob: value }));
-            }
-          }}
-          placeholder="DD-MM-YYYY"
-          className="p-2 border rounded"
-        />
-        <input name="aadhaar" value={formData.aadhaar} onChange={handleChange} placeholder="Aadhaar Number" className="p-2 border rounded" />
-
-        {/* PAN with Verify Button */}
-        <div className="flex gap-2">
-          <input
-            name="pan"
-            value={formData.pan}
-            onChange={handleChange}
-            placeholder="PAN Number"
-            className="p-2 border rounded flex-1"
-          />
-          <button
-            type="button"
-            onClick={handleVerifyPan}
-            disabled={loadingPan}
-            className="bg-blue-600 text-white px-4 rounded hover:bg-blue-700"
-          >
-            {loadingPan ? 'Verifying...' : 'Verify PAN'}
-          </button>
+        <div>
+          <label className="block mb-1 font-medium">Full Name</label>
+          <input name="full_name" value={formData.full_name} onChange={handleChange} placeholder="Full Name" className="p-2 border rounded w-full" />
         </div>
 
-        <input name="gstin" value={formData.gstin} onChange={handleChange} placeholder="GST Number" className="p-2 border rounded" />
-        <input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Occupation" className="p-2 border rounded" />
-        <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" className="p-2 border rounded col-span-2" />
+        <div>
+          <label className="block mb-1 font-medium">Father Name</label>
+          <input name="father_name" value={formData.father_name} onChange={handleChange} placeholder="Father Name" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Mobile</label>
+          <input name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Mobile" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Email</label>
+          <input name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">State</label>
+          <input name="state" value={formData.state} onChange={handleChange} placeholder="State" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">District</label>
+          <input name="district" value={formData.district} onChange={handleChange} placeholder="District" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">City</label>
+          <input name="city" value={formData.city} onChange={handleChange} placeholder="City" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Alternate Mobile</label>
+          <input name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} placeholder="Alternate Mobile" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Date of Birth (DD-MM-YYYY)</label>
+          <input
+            name="dob"
+            type="text"
+            placeholder="DD-MM-YYYY"
+            value={formData.dob}
+            onChange={handleChange}
+            pattern="\d{2}-\d{2}-\d{4}"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Aadhaar Number</label>
+          <input name="aadhaar" value={formData.aadhaar} onChange={handleChange} placeholder="Aadhaar Number" className="p-2 border rounded w-full" />
+        </div>
+
+        <div className="col-span-2 md:col-span-1">
+          <label className="block mb-1 font-medium">PAN Number</label>
+          <div className="flex gap-2">
+            <input
+              name="pan"
+              value={formData.pan}
+              onChange={handleChange}
+              placeholder="PAN Number"
+              className="p-2 border rounded w-full"
+            />
+            <button
+              type="button"
+              onClick={handleVerifyPan}
+              disabled={loadingPan}
+              className="bg-blue-600 text-white px-4 rounded hover:bg-blue-700 whitespace-nowrap"
+            >
+              {loadingPan ? 'Verifying...' : 'Verify PAN'}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">GST Number</label>
+          <input name="gstin" value={formData.gstin} onChange={handleChange} placeholder="GST Number" className="p-2 border rounded w-full" />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Occupation</label>
+          <input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Occupation" className="p-2 border rounded w-full" />
+        </div>
+
+        <div className="col-span-2">
+          <label className="block mb-1 font-medium">Address</label>
+          <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Address" className="p-2 border rounded w-full" />
+        </div>
       </div>
 
       <div className="bg-gradient-to-r from-blue-900 to-blue-400 text-white px-4 py-2 mt-8 rounded-t font-bold">
@@ -276,38 +347,116 @@ export default function LeadForm() {
       <div className="bg-gradient-to-r from-blue-900 to-blue-400 text-white px-4 py-2 mt-8 rounded-t font-bold">
         Investment Details
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-t-0 rounded-b">
-        <input
-          name="segment"
-          value={formData.segment.join(", ")}
-          onChange={handleChange}
-          placeholder="Enter segments separated by comma e.g. cash,equity"
-          className="p-2 border rounded"
-        />
-        <input name="investment" value={formData.investment} onChange={handleChange} placeholder="Investment" className="p-2 border rounded" />
-        <input name="experience" value={formData.experience} onChange={handleChange} placeholder="Experience" className="p-2 border rounded" />
-        <input name="profile" value={formData.profile} onChange={handleChange} placeholder="Profile" className="p-2 border rounded" />
-        <select name="lead_response_id" value={formData.lead_response_id} onChange={handleChange} className="p-2 border rounded">
-          <option value="">Select Response</option>
-          {leadResponses.map((res) => (
-            <option key={res.id} value={res.id}>{res.name}</option>
-          ))}
-        </select>
-        <select name="lead_source_id" value={formData.lead_source_id} onChange={handleChange} className="p-2 border rounded">
-          <option value="">Select Source</option>
-          {leadSources.map((src) => (
-            <option key={src.id} value={src.id}>{src.name}</option>
-          ))}
-        </select>
-        <input name="lead_status" value={formData.lead_status} onChange={handleChange} placeholder="Lead Status" className="p-2 border rounded" />
-        <input name="call_back_date" type="date" value={formData.call_back_date} onChange={handleChange} className="p-2 border rounded" />
-        <textarea
-          name="comment"
-          value={formData.comment.text || ""}
-          onChange={handleChange}
-          placeholder="Description"
-          className="p-2 border rounded col-span-2"
-        />
+        <div>
+          <label className="block mb-1 font-medium">Segments (comma separated)</label>
+          <input
+            name="segment"
+            value={formData.segment.join(", ")}
+            onChange={handleChange}
+            placeholder="e.g. cash, equity, future"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Investment</label>
+          <input
+            name="investment"
+            value={formData.investment}
+            onChange={handleChange}
+            placeholder="Investment"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Experience</label>
+          <input
+            name="experience"
+            value={formData.experience}
+            onChange={handleChange}
+            placeholder="Experience"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Profile</label>
+          <input
+            name="profile"
+            value={formData.profile}
+            onChange={handleChange}
+            placeholder="Profile"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Lead Response</label>
+          <select
+            name="lead_response_id"
+            value={formData.lead_response_id}
+            onChange={handleChange}
+            className="p-2 border rounded w-full"
+          >
+            <option value="">Select Response</option>
+            {leadResponses.map((res) => (
+              <option key={res.id} value={res.id}>{res.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Lead Source</label>
+          <select
+            name="lead_source_id"
+            value={formData.lead_source_id}
+            onChange={handleChange}
+            className="p-2 border rounded w-full"
+          >
+            <option value="">Select Source</option>
+            {leadSources.map((src) => (
+              <option key={src.id} value={src.id}>{src.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Lead Status</label>
+          <input
+            name="lead_status"
+            value={formData.lead_status}
+            onChange={handleChange}
+            placeholder="Lead Status"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-medium">Call Back Date (DD-MM-YYYY)</label>
+          <input
+            name="call_back_date"
+            type="text"
+            placeholder="DD-MM-YYYY"
+            value={formData.call_back_date}
+            onChange={handleChange}
+            pattern="\d{2}-\d{2}-\d{4}"
+            className="p-2 border rounded w-full"
+          />
+        </div>
+
+        <div className="col-span-2">
+          <label className="block mb-1 font-medium">Comment / Description</label>
+          <textarea
+            name="comment"
+            value={formData.comment.text || ""}
+            onChange={handleChange}
+            placeholder="Description"
+            className="p-2 border rounded w-full"
+          />
+        </div>
       </div>
       <div className="text-center mt-6">
         <button type="submit" className="bg-green-600 text-white px-8 py-2 rounded hover:bg-green-700">

@@ -7,16 +7,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 
-export default function NewLeadsTable() {
+export default function OldLeadsTable() {
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
   const [sources, setSources] = useState([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
-  const [total, setTotal] = useState(0);
   const [editId, setEditId] = useState(null);
+  const [total, setTotal] = useState(0);
   const [userId, setUserId] = useState(null);
-
+  const [activeResponseId, setActiveResponseId] = useState(null);
+  const [fullScreenDocUrl, setFullScreenDocUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftLead, setFTLead] = useState(null);
@@ -39,26 +40,27 @@ export default function NewLeadsTable() {
   }, []);
 
   const fetchLeads = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.get("/leads/assignments/my");
-      const items = data.assignments || [];
+  setLoading(true);
+  try {
+    const { data } = await axiosInstance.get("/leads/assignments/my");
+    const items = data.assignments || [];
 
-      const leadsWithIds = items.map((item) => ({
+    const leadsWithIds = items
+      .map((item) => ({
         ...item.lead,
         assignment_id: item.assignment_id,
-        tempComment: "",
-      }));
+      }))
+      .filter((lead) => lead.lead_response_id !== null); // ✅ Filter here
 
-      setLeads(leadsWithIds);
-      setTotal(data.total_count || leadsWithIds.length);
-    } catch (error) {
-      console.error("Error fetching leads:", error);
-      toast.error("Failed to load leads!");
-    } finally {
-      setLoading(false);
-    }
-  };
+    setLeads(leadsWithIds);
+    setTotal(leadsWithIds.length);
+  } catch (error) {
+    console.error("Error fetching leads:", error);
+    toast.error("Failed to load leads!");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchResponses = async () => {
     try {
@@ -78,20 +80,6 @@ export default function NewLeadsTable() {
     }
   };
 
-  // ✅ Fetch New Leads Button
-  const handleFetchLeads = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.post("/leads/fetch");
-      toast.success(`${data.fetched_count} new leads fetched`);
-      await fetchLeads(); // refresh full table
-    } catch (error) {
-      console.error("Error fetching leads:", error);
-      toast.error("Failed to fetch new leads!");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ✅ Save comment
   const handleSaveComment = async (lead) => {
@@ -162,6 +150,8 @@ export default function NewLeadsTable() {
             l.id === lead.id ? { ...l, lead_response_id: parseInt(newResponseId) } : l
           )
         );
+
+        setActiveTab("Old Leads");
       } catch (error) {
         console.error("Error updating response:", error);
         toast.error("Failed to update response!");
@@ -180,100 +170,51 @@ export default function NewLeadsTable() {
   };
 
 
-  const filteredLeads = leads
-    .filter((lead) => !lead.lead_response_id)
-    .slice((page - 1) * limit, page * limit);
-  const filteredtotal = leads.filter((lead) => !lead.lead_response_id).length;
+  // ✅ Pagination
   const totalPages = Math.ceil(total / limit);
+  const paginatedLeads = leads.slice((page - 1) * limit, page * limit);
 
-  const renderFTModal = () => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
-        <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">From Date</label>
-            <input
-              type="date"
-              value={ftFromDate}
-              onChange={(e) => setFTFromDate(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">To Date</label>
-            <input
-              type="date"
-              value={ftToDate}
-              onChange={(e) => setFTToDate(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            />
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={() => setShowFTModal(false)}
-            className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              if (!ftFromDate || !ftToDate) {
-                toast.error("Both dates required");
-                return;
-              }
-
-              try {
-                await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-                  lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                  ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                  ft_to_date: ftToDate.split("-").reverse().join("-"),
-                });
-
-                toast.success("FT response and dates saved!");
-
-                setLeads((prev) =>
-                  prev.map((l) =>
-                    l.id === ftLead.id
-                      ? {
-                          ...l,
-                          lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                          ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                          ft_to_date: ftToDate.split("-").reverse().join("-"),
-                        }
-                      : l
-                  )
-                );
-                setShowFTModal(false);
-              } catch (err) {
-                console.error(err);
-                toast.error("Failed to save FT response");
-              }
-            }}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+  // ✅ Filter based on tab
+  const responseNameMap = useMemo(
+    () => Object.fromEntries(responses.map((r) => [r.id, r.name.toLowerCase()])),
+    [responses]
   );
-};
+
+  const filteredLeads = paginatedLeads.filter(
+    (lead) => activeResponseId === null || lead.lead_response_id === activeResponseId
+  );
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="flex justify-end mb-4">
-      <button
-        onClick={handleFetchLeads}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-700 transition"
-      >
-        <Download size={16} /> Fetch Leads
-      </button>
-      </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-7xl mx-auto overflow-hidden">
+        {/* ✅ Top Bar */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex gap-2 flex-wrap">
+            {/* Dynamic Tabs including ALL */}
+            <button
+              onClick={() => setActiveResponseId(null)}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeResponseId === null
+                  ? "bg-green-500 text-white shadow-md"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+            >
+              ALL
+            </button>
 
-      <div className="bg-white rounded-xl border-b border-gray-200 max-w-7xl mx-auto overflow-hidden">
+            {responses.map((response) => (
+              <button
+                key={response.id}
+                onClick={() => setActiveResponseId(response.id)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeResponseId === response.id
+                    ? "bg-green-500 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+              >
+                {response.name}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* ✅ Table Container */}
         {loading ? (
@@ -345,7 +286,7 @@ export default function NewLeadsTable() {
                     {/* Response */}
                     <td className="px-4 py-3">
                       {(() => {
-                        const responseName = responses.find((r) => r.id === lead.lead_response_id)?.name?.toLowerCase() || "";
+                        const responseName = responseNameMap[lead.lead_response_id] || "";
                         if (responseName === "ft") {
                           return (
                             <div className="flex flex-col gap-1 text-xs text-gray-700">
@@ -452,7 +393,7 @@ export default function NewLeadsTable() {
         {/* ✅ Pagination */}
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between text-sm">
           <span className="text-gray-600">
-            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, filteredtotal)} of {filteredtotal} entries
+            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} entries
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -479,9 +420,81 @@ export default function NewLeadsTable() {
           </div>
         </div>
       </div>
+      {showFTModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+            <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">From Date</label>
+                <input
+                  type="date"
+                  value={ftFromDate}
+                  onChange={(e) => setFTFromDate(e.target.value)}
+                  className="w-full border px-3 py-2 rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">To Date</label>
+                <input
+                  type="date"
+                  value={ftToDate}
+                  onChange={(e) => setFTToDate(e.target.value)}
+                  className="w-full border px-3 py-2 rounded"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowFTModal(false)}
+                className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!ftFromDate || !ftToDate) {
+                    toast.error("Both dates required");
+                    return;
+                  }
 
-      {showFTModal && renderFTModal()}
+                  try {
+                    await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+                      lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                      ft_from_date: ftFromDate.split("-").reverse().join("-"), // DD-MM-YYYY
+                      ft_to_date: ftToDate.split("-").reverse().join("-"),
+                    });
 
+                    toast.success("FT response and dates saved!");
+
+                    setLeads((prev) =>
+                      prev.map((l) =>
+                        l.id === ftLead.id
+                          ? {
+                            ...l,
+                            lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                            ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                            ft_to_date: ftToDate.split("-").reverse().join("-"),
+                          }
+                          : l
+                      )
+                    );
+
+                    setActiveTab("FT Leads");
+                    setShowFTModal(false);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to save FT response");
+                  }
+                }}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

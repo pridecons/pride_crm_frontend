@@ -154,7 +154,7 @@ export default function Header({ onMenuClick, onSearch }) {
             {/* Profile */}
             <div className="relative" ref={profileRef}>
               <div
-                className="flex items-center space-x-1 px-1 py-1 rounded-xl transition-all duration-200 group cursor-default"
+                className="flex items-center space-x-1.5 px-1 py-1 rounded-xl transition-all duration-200 group cursor-default"
               >
                 <div className="relative">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">

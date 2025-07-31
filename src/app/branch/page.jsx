@@ -5,6 +5,7 @@ import { axiosInstance } from "@/api/Axios";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { toast } from "react-toastify";
+import LoadingState from "@/components/LoadingState";
 
 const BranchesPage = () => {
   const [branches, setBranches] = useState([]);
@@ -118,7 +119,7 @@ const BranchesPage = () => {
       </div>
 
       {loading ? (
-        <p>Loading branches…</p>
+        <LoadingState message="Loading branches..." />
       ) : branches.length === 0 ? (
         <p>No branches found</p>
       ) : (

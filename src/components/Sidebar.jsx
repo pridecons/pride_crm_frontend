@@ -90,7 +90,8 @@ const menu = [
     section: 'leads',
     icon: FileText,
     items: [
-      { href: '/lead', icon: Target, label: 'Lead' },
+      { href: '/lead', icon: Target, label: 'New Lead' },
+      { href: '/lead/old', icon: Target, label: 'Old Lead' },
       { href: '/lead/add', icon: Plus, label: 'Add Lead' },
       { href: '/lead/manage', icon: FileText, label: 'Manage Leads' },
     ],
@@ -120,6 +121,12 @@ const menu = [
     title: 'Email',
     items: [
       { href: '/email', icon: FileText, label: 'Email' },
+    ],
+  },
+  {
+    title: 'Clients',
+    items: [
+      { href: '/client', icon: Users, label: 'Client' },
     ],
   },
 ]

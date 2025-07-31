@@ -16,6 +16,7 @@ import {
   Legend,
 } from 'chart.js'
 import { Line, Bar, Pie } from 'react-chartjs-2'
+import LoadingState from '@/components/LoadingState'
 
 ChartJS.register(
   LineElement,
@@ -68,12 +69,7 @@ export default function EmployeeDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="text-slate-600 font-medium">Loading your dashboard...</p>
-        </div>
-      </div>
+      <LoadingState/>
     )
   }
 

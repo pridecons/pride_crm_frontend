@@ -32,6 +32,7 @@ import toast from "react-hot-toast";
 // import "@react-pdf-viewer/core/lib/styles/index.css";
 // import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import Cookies from "js-cookie";
+import LoadingState from "@/components/LoadingState";
 
 
 
@@ -45,16 +46,11 @@ const Lead = () => {
   const [isOpenResponse, setIsOpenResponse] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editFormData, setEditFormData] = useState({});
-  // const [assignments, setAssignments] = useState([]);
+
   const [leadSources, setLeadSources] = useState([]);
   const [leadResponses, setLeadResponses] = useState([]);
   const [uncalledCount, setUncalledCount] = useState(0);
-  // const [navigationInfo, setNavigationInfo] = useState({
-  //   position: 1,
-  //   total_count: 0,
-  //   has_next: false,
-  //   has_previous: false,
-  // });
+
   const [aadharFront, setAadharFront] = useState(null);
   const [aadharBack, setAadharBack] = useState(null);
   const [panPic, setPanPic] = useState(null);
@@ -1410,16 +1406,16 @@ export const Modal = ({ isOpen, onClose, title, children, actions }) => {
 // ==============================================
 // LoadingState Component
 // ==============================================
-export const LoadingState = () => {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading lead information...</p>
-      </div>
-    </div>
-  );
-};
+// export const LoadingState = () => {
+//   return (
+//     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+//       <div className="text-center">
+//         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+//         <p className="mt-4 text-gray-600">Loading lead information...</p>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ==============================================
 // ErrorState Component

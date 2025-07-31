@@ -140,6 +140,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
       daily_call_limit: cfg.daily_call_limit.toString(),
       assignment_ttl_hours: cfg.assignment_ttl_hours.toString(),
       last_fetch_limit: cfg.last_fetch_limit.toString(),
+      old_lead_remove_days: cfg.old_lead_remove_days?.toString() ?? ""
     });
     setIsCreateNew(true);
   };
@@ -472,6 +473,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Per Request</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Daily Limit</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Fetch</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Old Lead Remove (Days)
+                    </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">TTL (hrs)</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Branch</th>
                     <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -515,6 +519,16 @@ const FetchLimitModel = ({ open, setOpen }) => {
                             <Download className="w-3 h-3 text-amber-600" />
                           </div>
                           <span className="text-sm font-semibold text-gray-900">{cfg.last_fetch_limit}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-yellow-100 rounded-full p-1">
+                            <Clock className="w-3 h-3 text-yellow-600" />
+                          </div>
+                          <span className="text-sm text-gray-900">
+                            {cfg.old_lead_remove_days}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

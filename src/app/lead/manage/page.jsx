@@ -19,6 +19,7 @@ import {
 import SourceModel from "@/components/Lead/Source";
 import ResponseModel from "@/components/Lead/Response";
 import FetchLimitModel from "@/components/Lead/FetchLimit";
+import LoadingState from "@/components/LoadingState";
 
 const LeadManage = () => {
   const router = useRouter();
@@ -400,10 +401,7 @@ const LeadManage = () => {
       {/* Enhanced Table */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
         {loading ? (
-          <div className="flex flex-col justify-center items-center h-64">
-            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500 font-medium">Loading leads...</p>
-          </div>
+          <LoadingState message="Loading leads..." />
         ) : filteredLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64">
             <div className="bg-gray-50 rounded-full p-6 mb-4">
@@ -526,50 +524,50 @@ const LeadManage = () => {
 
               {/* Mapping Fields */}
               <div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name Column</label>
-                  <input type="number" name="name_column"  required className="border p-2 rounded w-full" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name Column</label>
+                    <input type="number" name="name_column" required className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Column</label>
+                    <input type="number" name="mobile_column" required className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Column</label>
+                    <input type="number" name="email_column" required className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Column</label>
+                    <input type="number" name="address_column" className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City Column</label>
+                    <input type="number" name="city_column" className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Segment Column</label>
+                    <input type="number" name="segment_column" className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Occupation Column</label>
+                    <input type="number" name="occupation_column" className="border p-2 rounded w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Investment Column</label>
+                    <input type="number" name="investment_column" className="border p-2 rounded w-full" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Column</label>
-                  <input type="number" name="mobile_column"  required className="border p-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Column</label>
-                  <input type="number" name="email_column"  required className="border p-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address Column</label>
-                  <input type="number" name="address_column"  className="border p-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City Column</label>
-                  <input type="number" name="city_column"  className="border p-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Segment Column</label>
-                  <input type="number" name="segment_column"  className="border p-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Occupation Column</label>
-                  <input type="number" name="occupation_column" className="border p-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Investment Column</label>
-                  <input type="number" name="investment_column" className="border p-2 rounded w-full" />
-                </div>
+                {/* Upload Result */}
+                {uploadResult && (
+                  <div className="mt-4 p-3 border rounded bg-gray-50">
+                    <p>Total Rows: {uploadResult.total_rows}</p>
+                    <p>Successful Uploads: {uploadResult.successful_uploads}</p>
+                    <p>Duplicates Skipped: {uploadResult.duplicates_skipped}</p>
+                    <p className="text-red-600 mt-2">Errors: {uploadResult.errors.length}</p>
+                  </div>
+                )}
               </div>
-              {/* Upload Result */}
-            {uploadResult && (
-              <div className="mt-4 p-3 border rounded bg-gray-50">
-                <p>Total Rows: {uploadResult.total_rows}</p>
-                <p>Successful Uploads: {uploadResult.successful_uploads}</p>
-                <p>Duplicates Skipped: {uploadResult.duplicates_skipped}</p>
-                <p className="text-red-600 mt-2">Errors: {uploadResult.errors.length}</p>
-              </div>
-            )}
-            </div>
 
 
               <select name="branch_id" required className="border p-2 rounded w-full">

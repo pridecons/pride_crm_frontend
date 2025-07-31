@@ -9,13 +9,18 @@ import EditUserModal from "@/components/User/EditUserModal";
 import UserDetailsModal from "@/components/User/UserDetailsModal";
 import UserPermissionsModal from "@/components/User/UserPermissionsModal";
 import UserTable from "@/components/User/UserTable";
+import { usePermissions } from "@/context/PermissionsContext"; 
 
 export default function BranchMainPage({
   branches: initialBranches = [],
   roles:    initialRoles    = [],
   users:    initialUsers    = [],
-  currentUser = {}                       // ← default to {} so branch_id never crashes
+  currentUser = {}
 }) {
+
+  const { hasPermission } = usePermissions();
+
+  // console.log("hasPermission(internal_mailing) : ",hasPermission("internal_mailing"))
   // Rename prop arrays so they don’t collide
   const [branchList, setBranchList] = useState(initialBranches);
   const [roleList,   setRoleList]   = useState(initialRoles);
@@ -128,7 +133,7 @@ export default function BranchMainPage({
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    {hasPermission("internal_mailing") &&  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Branch Management</h1>
           <p className="mt-2 text-sm text-gray-600">
@@ -148,10 +153,10 @@ export default function BranchMainPage({
             ))}
           </select>
         </div>
-      </div>
+      </div>}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+     {hasPermission("stats_card") && <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
           title="Branch Name"
           value={branchStats.branchName}
@@ -176,7 +181,7 @@ export default function BranchMainPage({
           icon={TrendingUp}
           color="bg-orange-500"
         />
-      </div>
+      </div>}
 
       {/* Tabs */}
       <div className="bg-white shadow rounded-lg">

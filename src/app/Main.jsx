@@ -5,6 +5,7 @@ import Header from "@/components/Header"
 import Sidebar from "@/components/Sidebar"
 import { usePathname } from 'next/navigation'
 import { Toaster } from 'react-hot-toast'
+import { PermissionsProvider } from '@/context/PermissionsContext' 
 
 export default function Main({ children }) {
   const pathname = usePathname()
@@ -13,6 +14,7 @@ export default function Main({ children }) {
   const headerHeight = 64 // Adjust based on your Header height in px (e.g., h-16 = 64px)
 
   return (
+    <PermissionsProvider>
     <div className="min-h-screen bg-gray-50">
       <Toaster
         position="bottom-center"
@@ -43,5 +45,6 @@ export default function Main({ children }) {
         {children}
       </main>
     </div>
+    </PermissionsProvider>
   )
 }

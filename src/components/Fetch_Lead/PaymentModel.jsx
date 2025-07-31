@@ -533,7 +533,7 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => { } }) => {
         WebkitScrollbar: { display: "none" },
       }}
     >
-      {service_plan.map((service) => (
+      {Array.isArray(service_plan) && service_plan?.map((service) => (
         <div
           key={service.id}
           onClick={() => handleSelect(service)}

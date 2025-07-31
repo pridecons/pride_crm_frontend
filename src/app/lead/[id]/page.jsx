@@ -27,10 +27,10 @@ import {
 } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
 import toast from "react-hot-toast";
-import { Viewer, Worker } from "@react-pdf-viewer/core";
-import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
-import "@react-pdf-viewer/core/lib/styles/index.css";
-import "@react-pdf-viewer/default-layout/lib/styles/index.css";
+// import { Viewer, Worker } from "@react-pdf-viewer/core";
+// import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
+// import "@react-pdf-viewer/core/lib/styles/index.css";
+// import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import Cookies from "js-cookie";
 
 
@@ -85,70 +85,70 @@ const Lead = () => {
   const [kycUrl, setKycUrl] = useState(null);
 
 
-  const defaultLayoutPluginInstance = defaultLayoutPlugin({
-    renderToolbar: (Toolbar) => (
-      <Toolbar>
-        {(slots) => {
-          const {
-            CurrentPageInput,
-            GoToNextPage,
-            GoToPreviousPage,
-            ZoomIn,
-            ZoomOut,
-            Zoom,
-            Download,
-            Print,
-          } = slots;
+  // const defaultLayoutPluginInstance = defaultLayoutPlugin({
+  //   renderToolbar: (Toolbar) => (
+  //     <Toolbar>
+  //       {(slots) => {
+  //         const {
+  //           CurrentPageInput,
+  //           GoToNextPage,
+  //           GoToPreviousPage,
+  //           ZoomIn,
+  //           ZoomOut,
+  //           Zoom,
+  //           Download,
+  //           Print,
+  //         } = slots;
 
-          // ✅ Fetch role from Cookies (set during login)
-          const tokenUserInfo = Cookies.get("user_info");
-          let userRole = "";
-          if (tokenUserInfo) {
-            try {
-              userRole = JSON.parse(tokenUserInfo)?.role?.toUpperCase() || "";
-            } catch (e) {
-              console.error("Invalid user_info cookie", e);
-            }
-          }
+  //         // ✅ Fetch role from Cookies (set during login)
+  //         const tokenUserInfo = Cookies.get("user_info");
+  //         let userRole = "";
+  //         if (tokenUserInfo) {
+  //           try {
+  //             userRole = JSON.parse(tokenUserInfo)?.role?.toUpperCase() || "";
+  //           } catch (e) {
+  //             console.error("Invalid user_info cookie", e);
+  //           }
+  //         }
 
-          return (
-            <div className="rpv-toolbar flex items-center">
-              <div className="rpv-toolbar__item">
-                <GoToPreviousPage />
-              </div>
-              <div className="rpv-toolbar__item">
-                <CurrentPageInput /> / {slots.NumberOfPages()}
-              </div>
-              <div className="rpv-toolbar__item">
-                <GoToNextPage />
-              </div>
-              <div className="rpv-toolbar__item">
-                <ZoomOut />
-              </div>
-              <div className="rpv-toolbar__item">
-                <Zoom />
-              </div>
-              <div className="rpv-toolbar__item">
-                <ZoomIn />
-              </div>
+  //         return (
+  //           <div className="rpv-toolbar flex items-center">
+  //             <div className="rpv-toolbar__item">
+  //               <GoToPreviousPage />
+  //             </div>
+  //             <div className="rpv-toolbar__item">
+  //               <CurrentPageInput /> / {slots.NumberOfPages()}
+  //             </div>
+  //             <div className="rpv-toolbar__item">
+  //               <GoToNextPage />
+  //             </div>
+  //             <div className="rpv-toolbar__item">
+  //               <ZoomOut />
+  //             </div>
+  //             <div className="rpv-toolbar__item">
+  //               <Zoom />
+  //             </div>
+  //             <div className="rpv-toolbar__item">
+  //               <ZoomIn />
+  //             </div>
 
-              {/* ✅ Show only if SUPERADMIN */}
-              {userRole === "SUPERADMIN" && (
-                <>
-                  <div className="rpv-toolbar__item">
-                    <Download />
-                  </div>
-                  <div className="rpv-toolbar__item">
-                    <Print />
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        }}
-      </Toolbar>
-    ),
-  });
+  //             {/* ✅ Show only if SUPERADMIN */}
+  //             {userRole === "SUPERADMIN" && (
+  //               <>
+  //                 <div className="rpv-toolbar__item">
+  //                   <Download />
+  //                 </div>
+  //                 <div className="rpv-toolbar__item">
+  //                   <Print />
+  //                 </div>
+  //               </>
+  //             )}
+  //           </div>
+  //         );
+  //       }}
+  //     </Toolbar>
+  //   ),
+  // });
 
 
 
@@ -700,7 +700,7 @@ const Lead = () => {
             {/* Horizontal Layout */}
             <div className="flex h-[600px]">
               {/* PDF Section */}
-              <div className="flex-1 bg-gray-100 overflow-auto">
+              {/* <div className="flex-1 bg-gray-100 overflow-auto">
                 {kycUrl ? (
                   <div className="h-full w-full">
                     <Worker workerUrl="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js">
@@ -710,7 +710,7 @@ const Lead = () => {
                 ) : (
                   <p className="text-center text-gray-500 mt-20">Loading PDF...</p>
                 )}
-              </div>
+              </div> */}
 
               {/* Documents Section */}
               <div className="w-[300px] bg-white p-4 border-l overflow-y-auto">
@@ -799,7 +799,7 @@ const Lead = () => {
             <p className="text-gray-500">Loading comments...</p>
           ) : (
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {comments.map((c) => (
+              {comments?.length>0 && Array.isArray(comments)  && comments?.map((c) => (
                 <div
                   key={c.id}
                   className={`p-3 rounded-lg ${c.user_id === "You" ? "bg-blue-100" : "bg-gray-100"}`}
@@ -852,7 +852,7 @@ const Lead = () => {
             <p className="text-gray-500">No recordings found.</p>
           ) : (
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {recordings.map((rec) => (
+              {Array.isArray(recordings) &&  recordings?.map((rec) => (
                 <div key={rec.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <audio controls className="w-3/4">
                     <source

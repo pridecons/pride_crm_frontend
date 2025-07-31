@@ -165,8 +165,7 @@ export default function AttendancePage() {
                   <button
                     key={status}
                     onClick={() => handleBulkMark(status)}
-                    className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/30 hover:scale-105"
-                  >
+                    className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 border border-white/30 hover:scale-105" >
                     {status}
                   </button>
                 ))}

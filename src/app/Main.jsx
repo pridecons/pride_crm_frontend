@@ -22,7 +22,7 @@ export default function Main({ children }) {
       />
       {/* Header */}
       {pathname !== "/login" && (
-        <div className="fixed top-0 left-0 right-0 h-8 bg-white shadow-md z-50">
+        <div className="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-50">
           <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
         </div>
       )}
@@ -30,16 +30,31 @@ export default function Main({ children }) {
       {/* Sidebar */}
       {pathname !== "/login" && (
         <div
-          className="fixed left-0 top-16 w-64 bg-white border-r border-gray-200 shadow-md h-[calc(100vh-64px)] z-40"
+          className="fixed left-0 top-16 w-64 bg-white border-r border-gray-200 shadow-md h-[calc(100vh-64px)] z-40 hidden lg:block"
         >
-          <Sidebar onClose={() => setSidebarOpen(false)} />
+          <Sidebar onClose={() => setSidebarOpen(false)}  />
         </div>
       )}
+      {pathname !== "/login" && sidebarOpen && (
+  <div className="fixed inset-0 z-50 flex lg:hidden">
+    {/* Overlay */}
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50"
+      onClick={() => setSidebarOpen(false)}
+    ></div>
+
+    {/* Sidebar panel */}
+    <div className="relative w-64 bg-white h-full shadow-md z-50">
+      <Sidebar onClose={() => setSidebarOpen(false)} />
+    </div>
+  </div>
+)}
+
 
       {/* Main Content */}
       <main
         className={`${
-          pathname !== "/login" ? 'ml-64 mt-16' : ''
+          pathname !== "/login" ? 'lg:ml-64 mt-16' : ''
         } px-2`}
       >
         {children}

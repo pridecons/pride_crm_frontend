@@ -322,7 +322,7 @@ export default function RationalPage() {
           </div>
 
           {/* Buttons */}
-          <div className="flex flex-row gap-3">
+          <div className="flex flex-row gap-3 sm:pt-4">
             <div >
               <ExportPdfModal />
             </div>
@@ -920,7 +920,7 @@ function RationalTable({
   );
 }
 
-function DownloadPDF({ id }) {
+function DownloadPDF({ id, userId }) {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -929,7 +929,8 @@ function DownloadPDF({ id }) {
     setLoading(true);
     try {
       const res = await axiosInstance.get(`/recommendations/${id}/pdf`, {
-        responseType: 'blob', // IMPORTANT!
+        responseType: 'blob',
+        params: { userId },
       });
 
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
@@ -942,7 +943,6 @@ function DownloadPDF({ id }) {
     }
   };
 
-
   const closeModal = () => {
     setIsModalOpen(false);
     setPdfUrl(null);
@@ -950,15 +950,13 @@ function DownloadPDF({ id }) {
 
   return (
     <div className="p-4">
-
       <button
-        onClick={() => fetchPdf()}
+        onClick={fetchPdf}
         className="text-blue-600 hover:underline text-sm"
       >
         {loading ? 'Loading...' : 'View'}
       </button>
 
-      {/* Modal */}
       {isModalOpen && pdfUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
           <div className="relative bg-white w-[90%] max-w-4xl rounded-lg shadow-lg overflow-hidden">
@@ -1004,6 +1002,8 @@ function DownloadPDF({ id }) {
 function ExportPdfModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [researchers, setResearchers] = useState([]);
+
   const [filters, setFilters] = useState({
     user_id: "",
     stock_name: "",
@@ -1021,6 +1021,37 @@ function ExportPdfModal() {
     }));
   };
 
+  // 🔽 Fetch researcher list when modal opens
+  useEffect(() => {
+    const fetchResearchers = async () => {
+      try {
+        const res = await fetch(
+          "https://crm.24x7techelp.com/api/v1/users/?skip=0&limit=100&active_only=false&role=RESEARCHER",
+          {
+            headers: {
+              accept: "application/json",
+            },
+          }
+        );
+        const data = await res.json();
+
+        if (Array.isArray(data.data)) {
+          setResearchers(data.data);
+        } else {
+          setResearchers([]);
+          console.warn("Unexpected researcher response shape:", data);
+        }
+      } catch (error) {
+        console.error("Failed to load researchers:", error);
+        setResearchers([]);
+      }
+    };
+
+    if (isOpen) {
+      fetchResearchers();
+    }
+  }, [isOpen]);
+
   const handleExport = async () => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -1030,23 +1061,26 @@ function ExportPdfModal() {
     });
 
     try {
-      const res = await fetch(`https://crm.24x7techelp.com/api/v1/recommendations/pdfs/export?${params}`, {
-        method: 'GET',
-        headers: {
-          'Accept': '*/*'
+      const res = await fetch(
+        `https://crm.24x7techelp.com/api/v1/recommendations/pdfs/export?${params}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "*/*"
+          }
         }
-      });
+      );
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'recommendations.zip';
+      a.download = "recommendations.zip";
       document.body.appendChild(a);
       a.click();
       a.remove();
     } catch (error) {
-      console.error('Export failed:', error);
+      console.error("Export failed:", error);
     } finally {
       setLoading(false);
       setIsOpen(false);
@@ -1059,17 +1093,15 @@ function ExportPdfModal() {
         onClick={() => setIsOpen(true)}
         className="px-2 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
       >
-        <div className='flex  items-center gap-1'>
-          <div><ArrowDownToLine className=" h-4" /> </div>
-          <div>PDF</div>
+        <div className="flex items-center gap-1">
+          <ArrowDownToLine className="h-4" />
+          <span>PDF</span>
         </div>
       </button>
-
 
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 max-w-3xl w-full shadow-lg relative">
-            {/* Close Button */}
             <button
               onClick={() => setIsOpen(false)}
               className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
@@ -1077,19 +1109,24 @@ function ExportPdfModal() {
               &times;
             </button>
 
-            <h2 className="text-lg font-semibold mb-4">
-              Export Recommendations PDF
-            </h2>
+            <h2 className="text-lg font-semibold mb-4">Export Recommendations PDF</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <input
-                type="text"
+              {/* 🔽 Researcher Dropdown */}
+              <select
                 name="user_id"
                 value={filters.user_id}
                 onChange={handleChange}
-                placeholder="User ID"
                 className="border rounded px-3 py-2 text-sm"
-              />
+              >
+                <option value="">All Researchers</option>
+                {researchers.map((user) => (
+                  <option key={user.employee_code} value={user.employee_code}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+
 
               <input
                 type="text"
@@ -1160,7 +1197,7 @@ function ExportPdfModal() {
                 className="px-4 py-2 bg-green-600 text-white rounded-md"
                 disabled={loading}
               >
-                {loading ? 'Exporting...' : 'Export'}
+                {loading ? "Exporting..." : "Export"}
               </button>
             </div>
           </div>
@@ -1173,6 +1210,7 @@ function ExportPdfModal() {
 function ExportXlsxModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [researchers, setResearchers] = useState([]);
   const [filters, setFilters] = useState({
     user_id: '',
     stock_name: '',
@@ -1180,7 +1218,7 @@ function ExportXlsxModal() {
     recommendation_type: '',
     date_from: '',
     date_to: '',
-    sort_order: '', // now controlled
+    sort_order: '',
   });
 
   const handleChange = (e) => {
@@ -1190,6 +1228,35 @@ function ExportXlsxModal() {
       [name]: value,
     }));
   };
+
+  // 🔽 Fetch researcher list
+  useEffect(() => {
+    const fetchResearchers = async () => {
+      try {
+        const res = await fetch(
+          "https://crm.24x7techelp.com/api/v1/users/?skip=0&limit=100&active_only=false&role=RESEARCHER",
+          {
+            headers: {
+              accept: "application/json",
+            },
+          }
+        );
+        const data = await res.json();
+        if (Array.isArray(data?.data)) {
+          setResearchers(data.data);
+        } else {
+          setResearchers([]);
+        }
+      } catch (error) {
+        console.error("Failed to load researchers:", error);
+        setResearchers([]);
+      }
+    };
+
+    if (isOpen) {
+      fetchResearchers();
+    }
+  }, [isOpen]);
 
   const handleExport = async () => {
     if (!filters.sort_order) {
@@ -1202,11 +1269,7 @@ function ExportXlsxModal() {
 
     Object.entries(filters).forEach(([key, value]) => {
       if (value) {
-        if (key === 'columns') {
-          value.forEach(v => params.append('columns', v)); // if you add support later
-        } else {
-          params.append(key, value);
-        }
+        params.append(key, value);
       }
     });
 
@@ -1243,8 +1306,8 @@ function ExportXlsxModal() {
         onClick={() => setIsOpen(true)}
         className="px-4 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
       >
-        <div className='flex  items-center gap-1'>
-          <div><ArrowDownToLine className=" h-4" /> </div>
+        <div className='flex items-center gap-1'>
+          <ArrowDownToLine className="h-4" />
           <div>XLSX</div>
         </div>
       </button>
@@ -1252,7 +1315,6 @@ function ExportXlsxModal() {
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 max-w-3xl w-full shadow-lg relative">
-            {/* Close Button */}
             <button
               onClick={() => setIsOpen(false)}
               className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
@@ -1265,14 +1327,20 @@ function ExportXlsxModal() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <input
-                type="text"
+              {/* ✅ Researcher Dropdown */}
+              <select
                 name="user_id"
                 value={filters.user_id}
                 onChange={handleChange}
-                placeholder="User ID"
                 className="border rounded px-3 py-2 text-sm"
-              />
+              >
+                <option value="">All Researchers</option>
+                {researchers.map((user) => (
+                  <option key={user.employee_code} value={user.employee_code}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
 
               <input
                 type="text"
@@ -1282,6 +1350,7 @@ function ExportXlsxModal() {
                 placeholder="Stock Name"
                 className="border rounded px-3 py-2 text-sm"
               />
+
               <select
                 name="status"
                 value={filters.status}
@@ -1296,7 +1365,6 @@ function ExportXlsxModal() {
                 <option value="STOP_LOSS_HIT">STOP_LOSS_HIT</option>
                 <option value="CLOSED">CLOSED</option>
               </select>
-
 
               <select
                 name="recommendation_type"
@@ -1337,7 +1405,6 @@ function ExportXlsxModal() {
                 className="border rounded px-3 py-2 text-sm"
                 required
               >
-                <option value="">-- Select Sort Order --</option>
                 <option value="asc">asc</option>
                 <option value="desc">desc</option>
               </select>

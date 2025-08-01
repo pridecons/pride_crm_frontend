@@ -8,6 +8,7 @@ import { jwtDecode } from 'jwt-decode'
 import { axiosInstance } from '@/api/Axios'
 import toast from 'react-hot-toast'
 
+
 export default function Header({ onMenuClick, onSearch }) {
   const router = useRouter()
   const [showProfileMenu, setShowProfileMenu] = useState(false)
@@ -97,7 +98,8 @@ export default function Header({ onMenuClick, onSearch }) {
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150"  >
+            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150" 
+             >
             <Menu size={20} />
           </button>
           <div className="relative">
@@ -113,7 +115,7 @@ export default function Header({ onMenuClick, onSearch }) {
         </div>
 
         {/* Search Bar */}
-        <div className="flex-1 max-w-md mx-3">
+        <div className="flex-1 max-w-md mx-3 hidden sm:block">
           <div className="relative group">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"
@@ -151,18 +153,14 @@ export default function Header({ onMenuClick, onSearch }) {
               </div>
             </div>
             {/* Profile */}
-            <div className="relative" ref={profileRef}>
-              <div
-                className="flex items-center space-x-1.5 px-1 py-1 rounded-xl transition-all duration-200 group cursor-default"
-              >
+            {/* Profile – only on md+ screens */}
+            <div className="relative hidden md:block" ref={profileRef}>
+              <div className="flex items-center space-x-1.5 px-1 py-1 rounded-xl transition-all duration-200 group cursor-default">
                 <div className="relative">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
                     <User size={18} className="text-white" />
                   </div>
-                  <div
-                    className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"
-                      } rounded-full border-2 border-white`}
-                  ></div>
+                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"} rounded-full border-2 border-white`}></div>
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
@@ -170,18 +168,22 @@ export default function Header({ onMenuClick, onSearch }) {
                 </div>
               </div>
             </div>
+
+
           </div>
         </div>
       </div>
     </header>
   );
 }
+
+
 const ShowNotifications = ({ setIsConnect }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [messages, setMessages] = useState([]);
   const retryCountRef = useRef(0);
   const socketRef = useRef(null);
-  const wrapperRef = useRef(null); // 🔹 Added
+  const wrapperRef = useRef(null);
 
   useEffect(() => {
     const connect = () => {
@@ -233,7 +235,7 @@ const ShowNotifications = ({ setIsConnect }) => {
     };
   }, []);
 
-  // 🔹 Outside click to close notification panel
+  // Handle click outside to close notification panel
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
@@ -247,21 +249,17 @@ const ShowNotifications = ({ setIsConnect }) => {
   }, []);
 
   return (
-    <div className="relative" ref={wrapperRef}> {/* 🔹 Attach ref here */}
+    <div className="relative" ref={wrapperRef}>
       <button
         onClick={() => setShowNotifications(!showNotifications)}
         className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
       >
         <Bell size={20} />
-        {messages.length > 0 ? (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow">
+
+        {messages.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
             {messages.length}
           </span>
-        ) : (
-          <>
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse"></span>
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-400 rounded-full animate-ping"></span>
-          </>
         )}
       </button>
 
@@ -288,7 +286,7 @@ const ShowNotifications = ({ setIsConnect }) => {
             {messages?.map((val, index) => (
               <div
                 key={index}
-                className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 word-break"
+                className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100"
               >
                 <div className="bg-blue-100 rounded-full p-2">
                   <Bell size={16} className="text-blue-600" />
@@ -316,4 +314,6 @@ const ShowNotifications = ({ setIsConnect }) => {
     </div>
   );
 };
+
+
 

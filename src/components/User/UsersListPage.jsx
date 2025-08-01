@@ -2,9 +2,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
-import { toast } from "react-toastify";
 import { Users } from "lucide-react";
-
 import StatsCards from "./StatsCards";
 import UserFilters from "./UserFilters";
 import UserTable from "./UserTable";
@@ -12,6 +10,7 @@ import AddUserModal from "./AddUserModal";
 import EditUserModal from "./EditUserModal";
 import UserDetailsModal from "./UserDetailsModal";
 import UserPermissionsModal from "./UserPermissionsModal";
+import toast from "react-hot-toast";
 
 export default function UsersListPage() {
     const { branchId } = useParams();
@@ -100,7 +99,7 @@ export default function UsersListPage() {
                     </div>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 flex items-center gap-2"
+                        className="bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2"
                     >
                         + Add User
                     </button>

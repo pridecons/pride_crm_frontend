@@ -267,20 +267,24 @@ const CreatePaymentLink = ({
 
                             <div>
                                 <label
-                                    for="countries"
-                                    class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+                                    htmlFor="service-select"
+                                    className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
                                 >
                                     Select Service
                                 </label>
                                 <select
-                                    id="countries"
-                                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                    id="service-select"
+                                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                                     value={selectService}
                                     onChange={(e) => setSelectService(e.target.value)}
                                 >
-                                    <option selected>Choose a Service</option>
+                                    <option value="" disabled>
+                                        Choose a Service
+                                    </option>
                                     {serviceOption.map((val) => (
-                                        <option value={val}>{val}</option>
+                                        <option key={val} value={val}>
+                                            {val}
+                                        </option>
                                     ))}
                                 </select>
                             </div>

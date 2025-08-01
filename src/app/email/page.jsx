@@ -9,13 +9,8 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-hot-toast";
 import { Plus, Pencil, Trash, Eye, X } from "lucide-react";
-import JoditEditor from "jodit-react";
 
-// Dynamically import EditorContent (SSR safe)
-const EditorContent = dynamic(
-  () => import("@tiptap/react").then((mod) => mod.EditorContent),
-  { ssr: false }
-);
+const JoditEditor = dynamic(() => import("jodit-react"), { ssr: false });
 
 // Custom FontSize extension
 const FontSize = TextStyle.extend({
@@ -46,45 +41,40 @@ export default function EmailTemplates() {
 
    const textEditor = useRef(null);
   
-    const config = useMemo(() => ({
-      readonly: false,
-      toolbar: true,
-      toolbarSticky: false,
-      toolbarAdaptive: false,
-      buttons: [
-        'bold',
-        'italic',
-        'underline',
-        'strikethrough',
-        'eraser',
-        '|',
-        'ul',
-        'ol',
-        '|',
-        'font',
-        'fontsize',
-        'brush',
-        'highlight',
-        '|',
-        'align',
-        'undo',
-        'redo',
-      ],
-      removeButtons: ['file', 'video'],
-      defaultFont: 'Arial',
-      defaultFontSizePoints: '14',
-      controls: {
+    const config = useMemo(() => {
+  if (typeof window === "undefined") return {};
+
+  const { Jodit } = require("jodit"); // SSR-safe require
+
+  return {
+    readonly: false,
+    toolbar: true,
+    toolbarSticky: false,
+    toolbarAdaptive: false,
+    buttons: [
+      'bold', 'italic', 'underline', 'strikethrough', 'eraser',
+      '|', 'ul', 'ol', '|',
+      'font', 'fontsize', 'brush', 'highlight',
+      '|', 'align', 'undo', 'redo',
+    ],
+    removeButtons: ['file', 'video'],
+    defaultFont: 'Arial',
+    defaultFontSizePoints: '14',
+    controls: {
       fontsize: {
-        list: Jodit.atom(['8px','10px', '12px', '14px', '16px', '18px', '20px', '24px', '36px','40px'])
+        list: Jodit.atom([
+          '8px','10px', '12px', '14px', '16px',
+          '18px', '20px', '24px', '36px','40px'
+        ])
       }
     },
-      style: {
-        fontFamily: 'Arial',
-        color: '#333333',
-        maxHeight:350
-      },
-    }), []);
-
+    style: {
+      fontFamily: 'Arial',
+      color: '#333333',
+      maxHeight: 350,
+    },
+  };
+}, []);
 
   const fetchTemplates = async () => {
     try {

@@ -17,6 +17,23 @@ export default function ClientsPage() {
     const [myClients, setMyClients] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // ✅ Move userInfo here so it's accessible everywhere
+    const userInfo = JSON.parse(Cookies.get("user_info") || "{}");
+
+    useEffect(() => {
+        setRole(userInfo.role);
+        setBranchId(userInfo.branch_id);
+
+        if (userInfo.role === "SUPERADMIN") {
+            fetchBranches();
+            fetchClients(); // all clients
+        } else if (userInfo.role === "BRANCH MANAGER") {
+            fetchClients(userInfo.branch_id); // filtered by branch
+        } else {
+            fetchMyClients();
+        }
+    }, []);
+
     useEffect(() => {
         const userInfo = JSON.parse(Cookies.get("user_info") || "{}");
         setRole(userInfo.role);
@@ -44,6 +61,7 @@ export default function ClientsPage() {
     const fetchClients = async (branch = null) => {
         try {
             setLoading(true);
+            console.log("User Info:", userInfo);
             const res = await axiosInstance.get(
                 `/clients/?page=1&limit=100${branch ? `&branch_id=${branch}` : ""}`
             );
@@ -157,32 +175,32 @@ export default function ClientsPage() {
                 ) : (
                     /* Table View for Regular Users */
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-hidden">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Name
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Email
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Mobile
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             City
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Occupation
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Investment
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Services
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Last Payment
                                         </th>
                                     </tr>
@@ -193,25 +211,25 @@ export default function ClientsPage() {
                                             key={client.id}
                                             className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
                                         >
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {client.full_name}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 {client.email}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 {client.mobile}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 {client.city}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 {client.occupation}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                                                 ₹{client.investment}
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-700">
+                                            <td className="px-5 py-4 text-sm text-gray-700">
                                                 <div className="flex flex-wrap gap-1">
                                                     {client.services?.map((service, idx) => (
                                                         <span
@@ -223,7 +241,7 @@ export default function ClientsPage() {
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 {new Date(client.last_payment).toLocaleDateString("en-US", {
                                                     year: "numeric",
                                                     month: "short",

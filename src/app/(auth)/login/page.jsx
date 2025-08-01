@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from "js-cookie";
-import { toast } from "react-toastify";
+
 import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from '@/api/Axios';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')

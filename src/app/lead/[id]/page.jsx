@@ -564,6 +564,7 @@ const Lead = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
+
         <LeadHeader
           uncalledCount={uncalledCount}
           currentLead={currentLead}
@@ -781,21 +782,12 @@ const Lead = () => {
           isOpen={isCommentsModalOpen}
           onClose={() => setIsCommentsModalOpen(false)}
           title="Lead Comments"
-          actions={[
-            <button
-              key="close"
-              onClick={() => setIsCommentsModalOpen(false)}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-            >
-              Close
-            </button>,
-          ]}
         >
           {loadingComments ? (
             <p className="text-gray-500">Loading comments...</p>
           ) : (
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {comments?.length>0 && Array.isArray(comments)  && comments?.map((c) => (
+              {comments?.length > 0 && Array.isArray(comments) && comments?.map((c) => (
                 <div
                   key={c.id}
                   className={`p-3 rounded-lg ${c.user_id === "You" ? "bg-blue-100" : "bg-gray-100"}`}
@@ -822,7 +814,7 @@ const Lead = () => {
               onClick={handleAddComment}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
             >
-              Send
+              Add
             </button>
           </div>
         </Modal>
@@ -848,7 +840,7 @@ const Lead = () => {
             <p className="text-gray-500">No recordings found.</p>
           ) : (
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {Array.isArray(recordings) &&  recordings?.map((rec) => (
+              {Array.isArray(recordings) && recordings?.map((rec) => (
                 <div key={rec.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <audio controls className="w-3/4">
                     <source
@@ -952,20 +944,20 @@ const Lead = () => {
             <select
               value={selectedTemplateId}
               onChange={(e) => {
-              const templateId = Number(e.target.value);
-              setSelectedTemplateId(templateId);
-              const selectedTemplate = templates.find((t) => t.id === templateId);
-              if (selectedTemplate) {
-                const combinedText =
-                  `${selectedTemplate.subject || ""} ${selectedTemplate.body || ""}`;
-                // dedupe any repeated placeholders
-                const placeholders = Array.from(
-                  new Set(extractPlaceholders(combinedText))
-                );
-                setContextFields(placeholders);
-                setEmailContext({});
-             }
-            }}
+                const templateId = Number(e.target.value);
+                setSelectedTemplateId(templateId);
+                const selectedTemplate = templates.find((t) => t.id === templateId);
+                if (selectedTemplate) {
+                  const combinedText =
+                    `${selectedTemplate.subject || ""} ${selectedTemplate.body || ""}`;
+                  // dedupe any repeated placeholders
+                  const placeholders = Array.from(
+                    new Set(extractPlaceholders(combinedText))
+                  );
+                  setContextFields(placeholders);
+                  setEmailContext({});
+                }
+              }}
               className="w-full px-3 py-2 border rounded"
             >
               <option value="">-- Select Template --</option>
@@ -1448,27 +1440,20 @@ export const ErrorState = ({ error, onRetry }) => {
 
 export const LeadHeader = ({ navigationInfo, uncalledCount, currentLead, onStoryClick }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Lead Management
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {uncalledCount} uncalled leads
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex items-center space-x-2">
-          <button
-            onClick={onStoryClick}
-            className="px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 text-sm"
-          >
-            View Story
-          </button>
-          <StatusBadge status={currentLead?.is_call} type="call" />
-          <StatusBadge status={currentLead?.kyc} type="kyc" />
-          <StatusBadge status={currentLead?.is_old_lead} type="old" />
-        </div>
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <h3 className="text-2xl font-bold text-gray-800">
+        Lead Details {currentLead?.id ? `- ID #${currentLead.id}` : ""}
+      </h3>
+      <div className="sm:mt-0 flex items-center space-x-4">
+        <StatusBadge status={currentLead?.is_call} type="call" />
+        <StatusBadge status={currentLead?.kyc} type="kyc" />
+        <StatusBadge status={currentLead?.is_old_lead} type="old" />
+        <button
+          onClick={onStoryClick}
+          className="px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 text-sm"
+        >
+          View Story
+        </button>
       </div>
     </div>
   );
@@ -1562,13 +1547,13 @@ export const ActionButtons = ({
 
         <button
           onClick={onPaymentClick}
-          className="flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           Payment
         </button>
         <button
           onClick={onSendEmailClick}
-          className="flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
         >
           Send Email
         </button>
@@ -1628,7 +1613,7 @@ export const ViewAndEditLead = ({
     }));
   }, [setEditFormData]);
 
-  
+
 
   // Field definitions
   const personalFields = [

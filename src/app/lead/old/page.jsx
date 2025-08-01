@@ -1,6 +1,7 @@
 "use client";
 
 import { axiosInstance } from "@/api/Axios";
+import LeadCommentSection from "@/components/Lead/LeadCommentSection";
 import LoadingState from "@/components/LoadingState";
 import { Pencil, Phone, MessageSquare, User, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -40,27 +41,27 @@ export default function OldLeadsTable() {
   }, []);
 
   const fetchLeads = async () => {
-  setLoading(true);
-  try {
-    const { data } = await axiosInstance.get("/leads/assignments/my");
-    const items = data.assignments || [];
+    setLoading(true);
+    try {
+      const { data } = await axiosInstance.get("/leads/assignments/my");
+      const items = data.assignments || [];
 
-    const leadsWithIds = items
-      .map((item) => ({
-        ...item.lead,
-        assignment_id: item.assignment_id,
-      }))
-      .filter((lead) => lead.lead_response_id !== null); // ✅ Filter here
+      const leadsWithIds = items
+        .map((item) => ({
+          ...item.lead,
+          assignment_id: item.assignment_id,
+        }))
+        .filter((lead) => lead.lead_response_id !== null); // ✅ Filter here
 
-    setLeads(leadsWithIds);
-    setTotal(leadsWithIds.length);
-  } catch (error) {
-    console.error("Error fetching leads:", error);
-    toast.error("Failed to load leads!");
-  } finally {
-    setLoading(false);
-  }
-};
+      setLeads(leadsWithIds);
+      setTotal(leadsWithIds.length);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      toast.error("Failed to load leads!");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchResponses = async () => {
     try {
@@ -185,7 +186,7 @@ export default function OldLeadsTable() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50 p-4 ">
       <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-7xl mx-auto overflow-hidden">
         {/* ✅ Top Bar */}
         <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
@@ -194,8 +195,8 @@ export default function OldLeadsTable() {
             <button
               onClick={() => setActiveResponseId(null)}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeResponseId === null
-                  ? "bg-green-500 text-white shadow-md"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-green-500 text-white shadow-md"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
             >
               ALL
@@ -206,8 +207,8 @@ export default function OldLeadsTable() {
                 key={response.id}
                 onClick={() => setActiveResponseId(response.id)}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeResponseId === response.id
-                    ? "bg-green-500 text-white shadow-md"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-green-500 text-white shadow-md"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
               >
                 {response.name}
@@ -332,38 +333,19 @@ export default function OldLeadsTable() {
 
                     {/* Comment */}
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        {/* Show saved comment */}
-                        {lead.comment ? (
-                          <div className="text-sm text-gray-700 italic">{lead.comment}</div>
-                        ) : (
-                          <div className="text-xs text-gray-400 italic">No comment</div>
-                        )}
-
-                        {/* Input to add new comment */}
-                        <div className="flex gap-1 items-center">
-                          <input
-                            type="text"
-                            placeholder="Add comment"
-                            className="px-2 py-1 border border-gray-300 rounded text-xs w-full"
-                            value={lead.tempComment || ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setLeads((prev) =>
-                                prev.map((l) =>
-                                  l.id === lead.id ? { ...l, tempComment: val } : l
-                                )
-                              );
-                            }}
-                          />
-                          <button
-                            onClick={() => handleSaveComment(lead)}
-                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
+                      <LeadCommentSection
+                        leadId={lead.id}
+                        tempComment={lead.tempComment || ""}
+                        savedComment={lead.comment}
+                        onCommentChange={(val) =>
+                          setLeads((prev) =>
+                            prev.map((l) =>
+                              l.id === lead.id ? { ...l, tempComment: val } : l
+                            )
+                          )
+                        }
+                        onSave={() => handleSaveComment(lead)}
+                      />
                     </td>
 
                     {/* Source */}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Loader2, RefreshCw, Save } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 
 const PERMISSION_LABELS = {
   add_user: "Add User",

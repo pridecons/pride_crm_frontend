@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { axiosInstance } from '@/api/Axios';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import toast from 'react-hot-toast';
 
 export default function FetchLeadsButton({ onSuccess }) {
   const [loading, setLoading] = useState(false);

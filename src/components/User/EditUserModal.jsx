@@ -13,7 +13,7 @@ import {
     User
 } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 
 export default function EditUserModal({
     isOpen,

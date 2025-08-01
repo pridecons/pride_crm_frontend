@@ -3,7 +3,7 @@
 import PropTypes from "prop-types";
 import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
 import { axiosInstance } from "@/api/Axios"; // ✅ Using your axiosInstance
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 
 export default function UserTable({ users = [], branchMap = {}, onEdit, onDetails, refreshUsers }) {
   const getRoleColorClass = (role) => {

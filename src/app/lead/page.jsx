@@ -1,6 +1,7 @@
 "use client";
 
 import { axiosInstance } from "@/api/Axios";
+import LeadCommentSection from "@/components/Lead/LeadCommentSection";
 import LoadingState from "@/components/LoadingState";
 import { Pencil, Phone, MessageSquare, User, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -48,6 +49,9 @@ export default function NewLeadsTable() {
         ...item.lead,
         assignment_id: item.assignment_id,
         tempComment: "",
+        showComments: false,
+        fetchedComments: false,
+        allComments: [], // to store fetched comment history
       }));
 
       setLeads(leadsWithIds);
@@ -58,6 +62,43 @@ export default function NewLeadsTable() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleComments = async (leadId) => {
+    setLeads((prevLeads) =>
+      prevLeads.map((lead) => {
+        if (lead.id === leadId) {
+          if (!lead.fetchedComments) {
+            // First time fetching comments
+            axiosInstance
+              .get(`/leads/${leadId}/comments`)
+              .then((res) => {
+                setLeads((updated) =>
+                  updated.map((l) =>
+                    l.id === leadId
+                      ? {
+                        ...l,
+                        allComments: res.data || [],
+                        showComments: true,
+                        fetchedComments: true,
+                      }
+                      : l
+                  )
+                );
+              })
+              .catch((err) => {
+                console.error("Error fetching comments:", err);
+                toast.error("Failed to load comments");
+              });
+            return { ...lead, showComments: true }; // Temporary state change while loading
+          } else {
+            // Toggle visibility
+            return { ...lead, showComments: !lead.showComments };
+          }
+        }
+        return lead;
+      })
+    );
   };
 
   const fetchResponses = async () => {
@@ -187,90 +228,90 @@ export default function NewLeadsTable() {
   const totalPages = Math.ceil(total / limit);
 
   const renderFTModal = () => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
-        <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">From Date</label>
-            <input
-              type="date"
-              value={ftFromDate}
-              onChange={(e) => setFTFromDate(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            />
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+          <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">From Date</label>
+              <input
+                type="date"
+                value={ftFromDate}
+                onChange={(e) => setFTFromDate(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">To Date</label>
+              <input
+                type="date"
+                value={ftToDate}
+                onChange={(e) => setFTToDate(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">To Date</label>
-            <input
-              type="date"
-              value={ftToDate}
-              onChange={(e) => setFTToDate(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            />
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={() => setShowFTModal(false)}
-            className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              if (!ftFromDate || !ftToDate) {
-                toast.error("Both dates required");
-                return;
-              }
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              onClick={() => setShowFTModal(false)}
+              className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                if (!ftFromDate || !ftToDate) {
+                  toast.error("Both dates required");
+                  return;
+                }
 
-              try {
-                await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-                  lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                  ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                  ft_to_date: ftToDate.split("-").reverse().join("-"),
-                });
+                try {
+                  await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+                    lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                    ft_to_date: ftToDate.split("-").reverse().join("-"),
+                  });
 
-                toast.success("FT response and dates saved!");
+                  toast.success("FT response and dates saved!");
 
-                setLeads((prev) =>
-                  prev.map((l) =>
-                    l.id === ftLead.id
-                      ? {
+                  setLeads((prev) =>
+                    prev.map((l) =>
+                      l.id === ftLead.id
+                        ? {
                           ...l,
                           lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
                           ft_from_date: ftFromDate.split("-").reverse().join("-"),
                           ft_to_date: ftToDate.split("-").reverse().join("-"),
                         }
-                      : l
-                  )
-                );
-                setShowFTModal(false);
-              } catch (err) {
-                console.error(err);
-                toast.error("Failed to save FT response");
-              }
-            }}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Save
-          </button>
+                        : l
+                    )
+                  );
+                  setShowFTModal(false);
+                } catch (err) {
+                  console.error(err);
+                  toast.error("Failed to save FT response");
+                }
+              }}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   return (
     <div className="min-h-screen p-4">
       <div className="flex justify-end mb-4">
-      <button
-        onClick={handleFetchLeads}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-700 transition"
-      >
-        <Download size={16} /> Fetch Leads
-      </button>
+        <button
+          onClick={handleFetchLeads}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-700 transition"
+        >
+          <Download size={16} /> Fetch Leads
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border-b border-gray-200 max-w-7xl mx-auto overflow-hidden">
@@ -391,39 +432,21 @@ export default function NewLeadsTable() {
 
                     {/* Comment */}
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        {/* Show saved comment */}
-                        {lead.comment ? (
-                          <div className="text-sm text-gray-700 italic">{lead.comment}</div>
-                        ) : (
-                          <div className="text-xs text-gray-400 italic">No comment</div>
-                        )}
-
-                        {/* Input to add new comment */}
-                        <div className="flex gap-1 items-center">
-                          <input
-                            type="text"
-                            placeholder="Add comment"
-                            className="px-2 py-1 border border-gray-300 rounded text-xs w-full"
-                            value={lead.tempComment || ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setLeads((prev) =>
-                                prev.map((l) =>
-                                  l.id === lead.id ? { ...l, tempComment: val } : l
-                                )
-                              );
-                            }}
-                          />
-                          <button
-                            onClick={() => handleSaveComment(lead)}
-                            className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
+                      <LeadCommentSection
+                        leadId={lead.id}
+                        tempComment={lead.tempComment || ""}
+                        savedComment={lead.comment}
+                        onCommentChange={(val) =>
+                          setLeads((prev) =>
+                            prev.map((l) =>
+                              l.id === lead.id ? { ...l, tempComment: val } : l
+                            )
+                          )
+                        }
+                        onSave={() => handleSaveComment(lead)}
+                      />
                     </td>
+
 
                     {/* Source */}
                     <td className="px-4 py-3">

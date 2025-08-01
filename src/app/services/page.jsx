@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { axiosInstance } from '@/api/Axios'
-import { toast } from 'react-toastify'
+
 import axios from 'axios'
 import LoadingState from '@/components/LoadingState'
+import toast from 'react-hot-toast'
 
 export default function ServicesPage() {
   const [services, setServices] = useState([])
@@ -22,7 +23,7 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const SERVICE_API = '/services/'
+  const SERVICE_API = '/services'
   const BILLING_CYCLE_API = '/services/billing-cycles'
 
 
@@ -69,38 +70,45 @@ export default function ServicesPage() {
 
   // ✅ Handle Create / Update
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    const { name, description, price, billing_cycle, discount_percent } = formData
+    e.preventDefault();
+    const { name, description, price, billing_cycle, discount_percent } = formData;
 
     if (!name || !description || !price || !billing_cycle) {
-      toast.error('Please fill all required fields')
-      return
+      toast.error('Please fill all required fields');
+      return;
     }
 
     if (discount_percent > 100) {
-      toast.error('Discount cannot be more than 100%')
-      return
+      toast.error('Discount cannot be more than 100%');
+      return;
     }
 
     try {
-      setLoading(true)
+      setLoading(true);
       if (editId) {
-        const res = await axiosInstance.patch(`${SERVICE_API}/${editId}`, formData)
-        toast.success(`Service "${res.data.name}" updated!`)
+        const res = await axiosInstance.patch(`${SERVICE_API}/${editId}`, formData);
+        toast.success(`Service "${res.data.name}" updated!`);
       } else {
-        const res = await axiosInstance.post(SERVICE_API, formData)
-        toast.success(`Service "${res.data.name}" created!`)
+        const res = await axiosInstance.post(SERVICE_API, formData);
+        toast.success(`Service "${res.data.name}" created!`);
       }
 
-      resetForm()
-      fetchServices()
+      resetForm();
+      fetchServices();
     } catch (err) {
-      console.error(err)
-      toast.error('Failed to save service')
+      const message = err?.response?.data?.detail;
+
+      // ✅ Handle known conflict error (already exists)
+      if (err.response?.status === 409 && message === "Service already exists") {
+        toast.error("This service already exists!");
+      } else {
+        // ✅ Hide noisy logs, just show toast for other errors
+        toast.error(message || "Failed to save service");
+      }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // ✅ Reset Form
   const resetForm = () => {
@@ -176,7 +184,7 @@ export default function ServicesPage() {
               resetForm()
               setIsModalOpen(true)
             }}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
           >
             + Create Service
           </button>
@@ -197,9 +205,9 @@ export default function ServicesPage() {
                 className="group relative bg-white rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
               >
                 {/* ✅ Card Header */}
-                <div className="relative p-6 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white">
+                <div className="relative p-3 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white">
                   <div className="relative z-10">
-                    <h3 className="text-xl font-bold line-clamp-2">{srv.name}</h3>
+                    <h3 className="text-lg font-bold line-clamp-2">{srv.name}</h3>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getBadgeColor(srv.billing_cycle)}`}>
                         {srv.billing_cycle}
@@ -214,11 +222,11 @@ export default function ServicesPage() {
                 </div>
 
                 {/* ✅ Card Body */}
-                <div className="p-4">
+                <div className="p-2.5">
                   <p className="text-gray-600 mb-4 line-clamp-3">{srv.description}</p>
                   <div className="mb-6">
                     <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-3xl font-bold text-gray-900">
+                      <span className="text-xl font-bold text-gray-900">
                         ₹{srv.discounted_price || srv.price}
                       </span>
                       {srv.discount_percent > 0 && (
@@ -234,16 +242,16 @@ export default function ServicesPage() {
                 </div>
 
                 {/* ✅ Actions */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+                <div className="px-6 py-2 bg-gray-50 border-t border-gray-200 flex gap-3">
                   <button
                     onClick={() => handleEdit(srv)}
-                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+                    className="flex-1 bg-blue-600 text-white py-1 px-1 rounded-lg hover:bg-blue-700"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(srv.id)}
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700"
+                    className="flex-1 bg-red-600 text-white py-1 px-1 rounded-lg hover:bg-red-700"
                   >
                     Delete
                   </button>

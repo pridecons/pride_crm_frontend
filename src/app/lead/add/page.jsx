@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { toast } from 'react-toastify'
 import { axiosInstance } from '@/api/Axios'
+import toast from 'react-hot-toast';
 
 export default function LeadForm() {
   const [formData, setFormData] = useState({

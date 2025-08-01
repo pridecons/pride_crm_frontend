@@ -106,6 +106,12 @@ const menu = [
     ],
   },
   {
+    title: 'Payment',
+    items: [
+      { href: '/payment', icon: BarChart3, label: 'Payment' },
+    ],
+  },
+  {
     title: 'Rationals',
     items: [
       { href: '/rational', icon: BarChart3, label: 'Rationals' },

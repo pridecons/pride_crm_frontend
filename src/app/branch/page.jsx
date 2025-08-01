@@ -4,8 +4,8 @@ import React, { useEffect, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { toast } from "react-toastify";
 import LoadingState from "@/components/LoadingState";
+import toast from "react-hot-toast";
 
 const BranchesPage = () => {
   const [branches, setBranches] = useState([]);

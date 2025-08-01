@@ -20,8 +20,11 @@ import SourceModel from "@/components/Lead/Source";
 import ResponseModel from "@/components/Lead/Response";
 import FetchLimitModel from "@/components/Lead/FetchLimit";
 import LoadingState from "@/components/LoadingState";
+import { usePermissions } from "@/context/PermissionsContext";
+import BulkUploadModal from "@/components/Lead/BulkUploadModal";
 
 const LeadManage = () => {
+  const { hasPermission } = usePermissions();
   const router = useRouter();
   const [leadData, setLeadData] = useState([]);
   const [filteredLeads, setFilteredLeads] = useState([]);
@@ -492,107 +495,12 @@ const LeadManage = () => {
       <SourceModel open={isOpenSource} setOpen={setIsOpenSource} />
       <ResponseModel open={isOpenResponse} setOpen={setIsOpenResponse} />
       <FetchLimitModel open={isOpenFetchLimit} setOpen={setIsOpenFetchLimit} />
-      {isBulkUploadOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Bulk Lead Upload</h2>
-              <button onClick={() => setIsBulkUploadOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
-            </div>
-
-            {/* Upload Form */}
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                try {
-                  setUploading(true);
-                  const { data } = await axiosInstance.post("/bulk-leads/upload", formData, {
-                    headers: { "Content-Type": "multipart/form-data" }
-                  });
-                  setUploadResult(data);
-                } catch (error) {
-                  console.error("Upload failed", error);
-                  alert("Failed to upload CSV");
-                } finally {
-                  setUploading(false);
-                }
-              }}
-              className="space-y-4"
-            >
-              <input type="file" name="csv_file" accept=".csv" required className="w-full border p-2 rounded" />
-
-              {/* Mapping Fields */}
-              <div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name Column</label>
-                    <input type="number" name="name_column" required className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Column</label>
-                    <input type="number" name="mobile_column" required className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Column</label>
-                    <input type="number" name="email_column" required className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Column</label>
-                    <input type="number" name="address_column" className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City Column</label>
-                    <input type="number" name="city_column" className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Segment Column</label>
-                    <input type="number" name="segment_column" className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Occupation Column</label>
-                    <input type="number" name="occupation_column" className="border p-2 rounded w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Investment Column</label>
-                    <input type="number" name="investment_column" className="border p-2 rounded w-full" />
-                  </div>
-                </div>
-                {/* Upload Result */}
-                {uploadResult && (
-                  <div className="mt-4 p-3 border rounded bg-gray-50">
-                    <p>Total Rows: {uploadResult.total_rows}</p>
-                    <p>Successful Uploads: {uploadResult.successful_uploads}</p>
-                    <p>Duplicates Skipped: {uploadResult.duplicates_skipped}</p>
-                    <p className="text-red-600 mt-2">Errors: {uploadResult.errors.length}</p>
-                  </div>
-                )}
-              </div>
-
-
-              <select name="branch_id" required className="border p-2 rounded w-full">
-                <option value="">Select Branch</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-              <input type="text" name="lead_source_id" defaultValue="1" className="border p-2 rounded w-full" placeholder="Lead Source ID" />
-              <input type="text" name="employee_code" defaultValue="" className="border p-2 rounded w-full" placeholder="Employee Code" />
-
-              <button
-                type="submit"
-                disabled={uploading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
-              >
-                {uploading ? "Uploading..." : "Upload CSV"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
+      <BulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        branches={branches}
+      />
+      
     </div>
   );
 };

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { X, Building2, CreditCard, MapPin, Loader2, Check, Upload } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
+
 
 export default function AddBranchModal({ isOpen, onClose }) {
     const [branch, setBranch] = useState({

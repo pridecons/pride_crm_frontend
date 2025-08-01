@@ -320,25 +320,6 @@ export default function EmployeeDashboard() {
           </div>
         </div>
 
-        {/* Targets vs Achievement */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Monthly Goals Progress</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ProgressBar
-              label="Leads Target"
-              current={targets_vs_achievement.monthly_leads_achieved || 0}
-              target={targets_vs_achievement.monthly_lead_target || 1}
-              color="indigo"
-            />
-            <ProgressBar
-              label="Revenue Target"
-              current={targets_vs_achievement.monthly_revenue_achieved || 0}
-              target={targets_vs_achievement.monthly_revenue_target || 1}
-              color="green"
-            />
-          </div>
-        </div>
-
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Daily Activity Line Chart */}

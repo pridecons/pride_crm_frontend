@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
-import { toast } from "react-toastify";
+
 import {
   Shield,
   RefreshCw,
@@ -32,6 +31,7 @@ import {
   Square
 } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
+import toast from "react-hot-toast";
 
 const PERMISSION_LIST = [
   "add_user", "edit_user", "delete_user",

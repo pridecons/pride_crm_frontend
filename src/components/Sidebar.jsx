@@ -1,10 +1,10 @@
-'use client'
+'use client';
 
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
-import { LogOut } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
 import {
   Users,
@@ -138,10 +138,13 @@ const menu = [
 ]
 
 
-if (!hasMounted) return null
+  if (!hasMounted) return null
 
   return (
     <aside className="flex flex-col h-full  bg-gray-50 shadow-md">
+      {/* Profile - visible only on mobile */}
+      <MobileProfile />
+
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-5" role="navigation">
         {menu.map((section, idx) => (
@@ -193,20 +196,52 @@ if (!hasMounted) return null
       </nav>
 
       {/* Footer */}
-<footer className="p-4 border-t bg-white text-center text-xs text-gray-500">
-  <div className="w-full flex justify-center">
-    <button
-      onClick={handleLogout}
-      className="flex items-center space-x-3 px-3  rounded-xl hover:bg-red-50 text-left transition-all duration-200 group"
-    >
-      <div className="bg-red-100 rounded-full p-2 group-hover:bg-red-200 transition-colors">
-        <LogOut size={16} className="text-red-600" />
-      </div>
-      <span className="text-sm font-medium text-red-600">Logout</span>
-    </button>
-  </div>
-</footer>
+      <footer className="p-4 border-t bg-white text-center text-xs text-gray-500">
+        <div className="w-full flex justify-center">
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-3 px-3  rounded-xl hover:bg-red-50 text-left transition-all duration-200 group"
+          >
+            <div className="bg-red-100 rounded-full p-2 group-hover:bg-red-200 transition-colors">
+              <LogOut size={16} className="text-red-600" />
+            </div>
+            <span className="text-sm font-medium text-red-600">Logout</span>
+          </button>
+        </div>
+      </footer>
 
     </aside>
   )
+}
+
+
+
+// components/MobileProfile.tsx
+function MobileProfile() {
+  const [user, setUser] = useState(null);
+  const [isConnect, setIsConnect] = useState(false);
+
+  useEffect(() => {
+    const accessToken = Cookies.get('access_token');
+    const userInfo = Cookies.get('user_info');
+    if (accessToken && userInfo) {
+      const decoded = jwtDecode(accessToken);
+      setUser({ ...JSON.parse(userInfo), role: decoded.role });
+    }
+  }, []);
+
+  return (
+    <div className="flex items-center gap-3 p-4 border-t border-gray-100 md:hidden">
+      <div className="relative">
+        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+          <User size={18} className="text-white" />
+        </div>
+        <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"} rounded-full border-2 border-white`} />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-gray-900">{user?.name || 'User'}</p>
+        <p className="text-xs text-gray-500">{user?.role || 'Role'}</p>
+      </div>
+    </div>
+  );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
 import { jwtDecode } from 'jwt-decode'
-import axios from 'axios'
 import {
   Chart as ChartJS,
   LineElement,
@@ -17,6 +16,7 @@ import {
 } from 'chart.js'
 import { Line, Bar, Pie } from 'react-chartjs-2'
 import LoadingState from '@/components/LoadingState'
+import { axiosInstance } from '@/api/Axios'
 
 ChartJS.register(
   LineElement,
@@ -51,8 +51,8 @@ export default function EmployeeDashboard() {
       if (!token) return
 
       try {
-        const res = await axios.get(
-          'https://crm.24x7techelp.com/api/v1/analytics/leads/employee/dashboard?days=30',
+        const res = await axiosInstance.get(
+          '/analytics/leads/employee/dashboard?days=30',
           { headers: { Authorization: `Bearer ${token}` } }
         )
         setData(res.data)

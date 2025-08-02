@@ -42,6 +42,19 @@ export default function Sidebar({ branchId, onClose }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!user) return;
+    if (pathname === '/dashboard') {
+      if (
+        user.role === 'SUPERADMIN' ||
+        user.role === 'BRANCH MANAGER'
+      ) {
+        router.replace('/dashboard/super');
+      }
+    }
+  }, [user, pathname, router])
+
+
   const toggleProfileMenu = () => setShowProfileMenu((prev) => !prev)
 
   const handleLogout = () => {
@@ -58,7 +71,13 @@ export default function Sidebar({ branchId, onClose }) {
     }))
   }
 
-  const isActive = (path) => pathname === path
+  const isActive = (path) => {
+    // Home: highlight for either /dashboard or /dashboard/super
+    if (path === '/dashboard' || path === '/dashboard/super') {
+      return pathname === '/dashboard' || pathname === '/dashboard/super'
+    }
+    return pathname === path
+  }
 
   const NavItem = ({ href, icon: Icon, label }) => (
     <Link
@@ -78,64 +97,76 @@ export default function Sidebar({ branchId, onClose }) {
     </Link>
   )
 
-const menu = [
-  {
-    title: 'Main',
-    items: [
-      { href: '/dashboard', icon: BarChart3, label: 'Home' },
-    ],
-  },
-  {
-    title: 'Leads',
-    section: 'leads',
-    icon: FileText,
-    items: [
-      { href: '/lead', icon: Target, label: 'New Lead' },
-      { href: '/lead/old', icon: Target, label: 'Old Lead' },
-      { href: '/lead/add', icon: Plus, label: 'Add Lead' },
-      { href: '/lead/manage', icon: FileText, label: 'Manage Leads' },
-    ],
-  },
-  {
-    title: 'Configuration',
-    section: 'configuration',
-    icon: Settings,
-    items: [
-      { href: '/user', icon: Users, label: 'Users' },
-      { href: '/permission', icon: Users, label: 'Permissions' },
-    ],
-  },
-  {
-    title: 'Payment',
-    items: [
-      { href: '/payment', icon: BarChart3, label: 'Payment' },
-    ],
-  },
-  {
-    title: 'Rationals',
-    items: [
-      { href: '/rational', icon: BarChart3, label: 'Rationals' },
-    ],
-  },
-  {
-    title: 'Services',
-    items: [
-      { href: '/services', icon: BarChart3, label: 'Services' },
-    ],
-  },
-  {
-    title: 'Email',
-    items: [
-      { href: '/email', icon: FileText, label: 'Email' },
-    ],
-  },
-  {
-    title: 'Clients',
-    items: [
-      { href: '/client', icon: Users, label: 'Client' },
-    ],
-  },
-]
+  const menu = [
+    {
+      title: 'Main',
+      items: [
+        {
+          href:
+            user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
+              ? '/dashboard/super'
+              : '/dashboard',
+          icon: BarChart3,
+          label: 'Home'
+        },
+      ],
+    },
+    {
+      items: [
+        { href: '/branch', icon: BarChart3, label: 'Branch' },
+      ],
+    },
+    {
+      title: 'Leads',
+      section: 'leads',
+      icon: FileText,
+      items: [
+        { href: '/lead', icon: Target, label: 'New Lead' },
+        { href: '/lead/old', icon: Target, label: 'Old Lead' },
+        { href: '/lead/add', icon: Plus, label: 'Add Lead' },
+        { href: '/lead/manage', icon: FileText, label: 'Manage Leads' },
+      ],
+    },
+    {
+      title: 'Configuration',
+      section: 'configuration',
+      icon: Settings,
+      items: [
+        { href: '/user', icon: Users, label: 'Users' },
+        { href: '/permission', icon: Users, label: 'Permissions' },
+      ],
+    },
+    {
+      title: 'Payment',
+      items: [
+        { href: '/payment', icon: BarChart3, label: 'Payment' },
+      ],
+    },
+    {
+      title: 'Rationals',
+      items: [
+        { href: '/rational', icon: BarChart3, label: 'Rationals' },
+      ],
+    },
+    {
+      title: 'Services',
+      items: [
+        { href: '/services', icon: BarChart3, label: 'Services' },
+      ],
+    },
+    {
+      title: 'Email',
+      items: [
+        { href: '/email', icon: FileText, label: 'Email' },
+      ],
+    },
+    {
+      title: 'Clients',
+      items: [
+        { href: '/client', icon: Users, label: 'Client' },
+      ],
+    },
+  ]
 
 
   if (!hasMounted) return null

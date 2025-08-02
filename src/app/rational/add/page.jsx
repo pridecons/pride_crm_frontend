@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import axios from 'axios';
+import { axiosInstance } from '@/api/Axios';
 
 const API_URL = '/recommendations';
 
@@ -24,7 +24,7 @@ export default function RationalFormPage() {
 
     useEffect(() => {
         if (id) {
-            axios.get(`${API_URL}${id}`)
+            axiosInstance.get(`${API_URL}${id}`)
                 .then((res) => setFormData(res.data))
                 .catch((err) => console.error("Failed to load rational:", err));
         }
@@ -39,9 +39,9 @@ export default function RationalFormPage() {
         e.preventDefault();
         try {
             if (id) {
-                await axios.put(`${API_URL}${id}`, formData);
+                await axiosInstance.put(`${API_URL}${id}`, formData);
             } else {
-                await axios.post(API_URL, formData);
+                await axiosInstance.post(API_URL, formData);
             }
             router.push('/rational');
         } catch (err) {

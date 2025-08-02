@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { Users, CheckCircle, XCircle, Clock, DivideCircle, Calendar, Search, Filter } from 'lucide-react'
+import { axiosInstance } from '@/api/Axios'
 
 const API_URL = '/attendance/'
-
 
 export default function AttendancePage() {
   const [employees, setEmployees] = useState([])
@@ -33,7 +33,7 @@ export default function AttendancePage() {
 
   const fetchEmployees = async () => {
     try {
-      const res = await axios.get(API_URL)
+      const res = await axiosInstance.get(API_URL)
       setEmployees(res.data)
       setFilteredEmployees(res.data)
     } catch (err) {
@@ -89,7 +89,7 @@ export default function AttendancePage() {
           status: attendance[emp.employee_code]
         }
 
-        await axios.post(API_URL, payload)
+        await axiosInstance.post(API_URL, payload)
       }
       toast.success('Attendance saved successfully!')
     } catch (error) {

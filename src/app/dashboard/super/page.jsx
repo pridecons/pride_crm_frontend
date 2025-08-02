@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import Cookies from 'js-cookie'
-import axios from 'axios'
 import { useRouter } from 'next/navigation'
 import {
     Chart as ChartJS,
@@ -18,6 +17,7 @@ import {
 } from 'chart.js'
 import { Pie, Line, Bar } from 'react-chartjs-2'
 import LoadingState from '@/components/LoadingState'
+import { axiosInstance } from '@/api/Axios'
 
 ChartJS.register(
     LineElement,
@@ -57,8 +57,8 @@ export default function SuperDashboard() {
 
         // Fetch branches if superadmin
         if (userRole === 'SUPERADMIN') {
-            axios
-                .get('https://crm.24x7techelp.com/api/v1/branches/', {
+            axiosInstance
+                .get('/branches/', {
                     headers: { Authorization: `Bearer ${token}` },
                 })
                 .then((res) => {
@@ -77,7 +77,7 @@ export default function SuperDashboard() {
                 setError(null)
 
                 const token = Cookies.get('access_token')
-                let url = 'https://crm.24x7techelp.com/api/v1/analytics/leads/admin/dashboard?days=30'
+                let url = '/analytics/leads/admin/dashboard?days=30'
 
                 if (role === 'BRANCH MANAGER' && branchId) {
                     url += `&branch_id=${branchId}`
@@ -87,7 +87,7 @@ export default function SuperDashboard() {
                     url += `&branch_id=${branchId}`
                 }
 
-                const res = await axios.get(url, {
+                const res = await axiosInstance.get(url, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -108,7 +108,7 @@ export default function SuperDashboard() {
 
     if (loading) {
         return (
-            <LoadingState/>
+            <LoadingState />
         )
     }
 

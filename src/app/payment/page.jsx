@@ -239,7 +239,7 @@ const CreatePaymentLink = ({
                                         : val?.billing_cycle === "YEARLY"
                                             ? 365
                                             : 0
-                                );
+                                );  
                             }}
                         />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">

@@ -251,6 +251,7 @@ export default function PaymentHistoryPage() {
                         <thead>
                             <tr>
                                 <th className="py-2 px-3 border-b font-semibold">#</th>
+                                <th className="py-2 px-3 border-b font-semibold">Raised By</th>
                                 <th className="py-2 px-3 border-b font-semibold">Order ID</th>
                                 <th className="py-2 px-3 border-b font-semibold">Name</th>
                                 <th className="py-2 px-3 border-b font-semibold">Email</th>
@@ -259,13 +260,25 @@ export default function PaymentHistoryPage() {
                                 <th className="py-2 px-3 border-b font-semibold">Plan(s)</th>
                                 <th className="py-2 px-3 border-b font-semibold">Amount</th>
                                 <th className="py-2 px-3 border-b font-semibold">Status</th>
+                                <th className="py-2 px-3 border-b font-semibold">Mode</th>
                                 <th className="py-2 px-3 border-b font-semibold">Date</th>
                             </tr>
                         </thead>
+
                         <tbody>
                             {payments.map((p, idx) => (
                                 <tr key={p.id} className="hover:bg-gray-50">
                                     <td className="py-2 px-3">{offset + idx + 1}</td>
+                                    <td className="py-2 px-3">
+                                        <div>
+                                            <span className="font-semibold">{p.raised_by}</span>
+                                            <span className="ml-1 text-xs text-gray-500">({p.raised_by_role})</span>
+                                            <br />
+                                            <span className="text-xs text-gray-400">{p.raised_by_email}</span>
+                                            <br />
+                                            <span className="text-xs text-gray-400">{p.raised_by_phone}</span>
+                                        </div>
+                                    </td>
                                     <td className="py-2 px-3">{p.order_id}</td>
                                     <td className="py-2 px-3">{p.name}</td>
                                     <td className="py-2 px-3">{p.email}</td>
@@ -289,17 +302,18 @@ export default function PaymentHistoryPage() {
                                     <td className="py-2 px-3">
                                         <span
                                             className={`px-2 py-1 rounded text-xs font-semibold ${p.status === "PAID"
-                                                    ? "bg-green-100 text-green-700"
-                                                    : p.status === "ACTIVE"
-                                                        ? "bg-blue-100 text-blue-700"
-                                                        : p.status === "PENDING"
-                                                            ? "bg-yellow-100 text-yellow-800"
-                                                            : "bg-gray-100 text-gray-600"
+                                                ? "bg-green-100 text-green-700"
+                                                : p.status === "ACTIVE"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : p.status === "PENDING"
+                                                        ? "bg-yellow-100 text-yellow-800"
+                                                        : "bg-gray-100 text-gray-600"
                                                 }`}
                                         >
                                             {p.status}
                                         </span>
                                     </td>
+                                    <td className="py-2 px-3">{p.mode}</td>
                                     <td className="py-2 px-3">
                                         {new Date(p.created_at).toLocaleString()}
                                     </td>

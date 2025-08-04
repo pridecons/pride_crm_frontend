@@ -1,3 +1,4 @@
+import { usePermissions } from "@/context/PermissionsContext";
 import { Search, Filter, Building2 } from "lucide-react";
 
 export default function UserFilters({
@@ -5,7 +6,9 @@ export default function UserFilters({
   selectedRole, setSelectedRole,
   selectedBranch, setSelectedBranch,
   roles, branches
-}) {
+}) 
+{
+  const { hasPermission } = usePermissions();
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100 flex flex-col lg:flex-row justify-between gap-4">
       <div className="relative flex-1 max-w-md">
@@ -23,10 +26,10 @@ export default function UserFilters({
           <option value="All">All Roles</option>
           {roles.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
-        <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="border rounded-xl px-4 py-3">
+        {hasPermission("user_branch_filter") && <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="border rounded-xl px-4 py-3">
           <option value="All">All Branches</option>
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+        </select>}
       </div>
     </div>
   );

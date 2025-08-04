@@ -36,7 +36,6 @@ const TAB_OPTIONS = [
   { name: "Generate Payment Link", value: "generate_link", icon: "🔗" },
 ];
 
-const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"];
 export default function PaymentModal({
   open,
   setOpen,
@@ -137,6 +136,7 @@ const CreatePaymentLink = ({
   const [description, setDescription] = useState("");
   const [call, setCall] = useState(2);
   const [duration_day, setDuration_day] = useState(0);
+  const [selectedServiceTypes, setSelectedServiceTypes] = useState([]);
 
   const toggleMethod = (code) => {
     setSelectedMethods((prev) => {
@@ -191,6 +191,7 @@ const CreatePaymentLink = ({
         service_id: service_plan?.id,
         description: description,
         lead_id: lead_id,
+        service_types: selectedServiceTypes,
       };
 
       const { data } = await axiosInstance.post(
@@ -291,25 +292,24 @@ const CreatePaymentLink = ({
                 placeholder="10-digit number"
                 type="number"
               />
-              <div>
-                <label
-                  htmlFor="countries"
-                  className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-                >
-                  Select Service
-                </label>
-                <select
-                  id="countries"
-                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                  value={selectService}
-                  onChange={(e) => setSelectService(e.target.value)}
-                >
-                  <option value=''>Choose a Service</option>
-                  {serviceOption.map((val, index) => (
-                    <option key={index} value={val}>{val}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Service Types (shown as checkboxes, from selected service) */}
+              {Array.isArray(service_plan?.service_type) && service_plan?.service_type.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Types Available
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    {service_plan.service_type.map((stype) => (
+                      <span
+                        key={stype}
+                        className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 text-blue-800 text-xs font-semibold border border-blue-100"
+                      >
+                        {stype}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <InputField
                 label="Description"
                 value={description}

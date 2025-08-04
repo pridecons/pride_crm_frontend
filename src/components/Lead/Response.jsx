@@ -105,8 +105,13 @@ const ResponseModel = ({ open, setOpen }) => {
     resp.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalLeadLimit = responses.reduce((sum, resp) => sum + resp.lead_limit, 0);
-  const averageLeadLimit = responses.length > 0 ? Math.round(totalLeadLimit / responses.length) : 0;
+  const totalLeadLimit = responses.reduce(
+    (sum, resp) => sum + (Number(resp.lead_limit) || 0), 0
+  );
+  const averageLeadLimit =
+    responses.length > 0 && !isNaN(totalLeadLimit)
+      ? Math.round(totalLeadLimit / responses.length)
+      : 0;
 
   if (!open) return null;
 
@@ -155,7 +160,7 @@ const ResponseModel = ({ open, setOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-100 rounded-full p-2">
@@ -163,11 +168,13 @@ const ResponseModel = ({ open, setOpen }) => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-blue-600">Total Lead Limit</p>
-                  <p className="text-2xl font-bold text-blue-900">{totalLeadLimit}</p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {isNaN(totalLeadLimit) ? "0" : totalLeadLimit}
+                  </p>
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-green-50 rounded-xl p-4 border border-green-100">
               <div className="flex items-center gap-3">
                 <div className="bg-green-100 rounded-full p-2">
@@ -175,11 +182,13 @@ const ResponseModel = ({ open, setOpen }) => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-green-600">Average Limit</p>
-                  <p className="text-2xl font-bold text-green-900">{averageLeadLimit}</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {isNaN(averageLeadLimit) ? "0" : averageLeadLimit}
+                  </p>
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
               <div className="flex items-center gap-3">
                 <div className="bg-amber-100 rounded-full p-2">
@@ -249,7 +258,6 @@ const ResponseModel = ({ open, setOpen }) => {
                     onClick={resetForm}
                     className="flex items-center gap-2 px-6 py-3 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200"
                   >
-                    <Cancel className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -371,7 +379,7 @@ const ResponseModel = ({ open, setOpen }) => {
                             {searchTerm ? "No responses found" : "No responses available"}
                           </h3>
                           <p className="text-gray-500 text-center max-w-sm">
-                            {searchTerm 
+                            {searchTerm
                               ? `No responses match "${searchTerm}". Try adjusting your search.`
                               : "Get started by creating your first response configuration."
                             }

@@ -120,7 +120,7 @@ const BranchesPage = () => {
     }
     setDetailsLoading(false);
   };
-  
+
   // Form handlers
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -371,7 +371,7 @@ const BranchesPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Branch PAN *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">PAN NUMBER *</label>
                           <input
                             name="branch_pan"
                             value={formData.branch_pan}
@@ -382,7 +382,7 @@ const BranchesPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Branch Aadhaar *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Aadhaar NUMBER *</label>
                           <input
                             name="branch_aadhaar"
                             value={formData.branch_aadhaar}

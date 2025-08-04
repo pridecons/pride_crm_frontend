@@ -1,9 +1,11 @@
 "use client";
 
 import { axiosInstance } from "@/api/Axios";
+import CallBackModal from "@/components/Lead/CallBackModal";
+import FTModal from "@/components/Lead/FTModal";
 import LeadCommentSection from "@/components/Lead/LeadCommentSection";
 import LoadingState from "@/components/LoadingState";
-import { Pencil, Phone, MessageSquare, User, Download } from "lucide-react";
+import { Pencil, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -23,6 +25,9 @@ export default function NewLeadsTable() {
   const [ftLead, setFTLead] = useState(null);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
+  const [showCallBackModal, setShowCallBackModal] = useState(false);
+  const [callBackLead, setCallBackLead] = useState(null);
+  const [callBackDate, setCallBackDate] = useState("");
 
   const router = useRouter();
 
@@ -185,13 +190,18 @@ export default function NewLeadsTable() {
     const responseName = selectedResponse?.name?.toLowerCase();
 
     if (responseName === "ft") {
-      // open modal for FT date input
+      // FT flow (already implemented)
       setFTLead(lead);
       setFTFromDate("");
       setFTToDate("");
       setShowFTModal(true);
+    } else if (responseName === "call back" || responseName === "callback") {
+      // Show call back modal
+      setCallBackLead(lead);
+      setCallBackDate("");
+      setShowCallBackModal(true);
     } else {
-      // Non-FT response, update directly
+      // Direct PATCH for all other responses
       try {
         await axiosInstance.patch(`/leads/${lead.id}/response`, {
           lead_response_id: parseInt(newResponseId),
@@ -210,98 +220,20 @@ export default function NewLeadsTable() {
     }
   };
 
-
-  const getValidFTDates = () => {
-    const today = new Date();
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      return d.toISOString().split("T")[0];
-    });
-  };
-
+  // const getValidFTDates = () => {
+  //   const today = new Date();
+  //   return Array.from({ length: 6 }, (_, i) => {
+  //     const d = new Date(today);
+  //     d.setDate(d.getDate() + i);
+  //     return d.toISOString().split("T")[0];
+  //   });
+  // };
 
   const filteredLeads = leads
     .filter((lead) => !lead.lead_response_id)
     .slice((page - 1) * limit, page * limit);
   const filteredtotal = leads.filter((lead) => !lead.lead_response_id).length;
   const totalPages = Math.ceil(total / limit);
-
-  const renderFTModal = () => {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
-          <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">From Date</label>
-              <input
-                type="date"
-                value={ftFromDate}
-                onChange={(e) => setFTFromDate(e.target.value)}
-                className="w-full border px-3 py-2 rounded"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">To Date</label>
-              <input
-                type="date"
-                value={ftToDate}
-                onChange={(e) => setFTToDate(e.target.value)}
-                className="w-full border px-3 py-2 rounded"
-              />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={() => setShowFTModal(false)}
-              className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={async () => {
-                if (!ftFromDate || !ftToDate) {
-                  toast.error("Both dates required");
-                  return;
-                }
-
-                try {
-                  await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-                    lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                    ft_to_date: ftToDate.split("-").reverse().join("-"),
-                  });
-
-                  toast.success("FT response and dates saved!");
-
-                  setLeads((prev) =>
-                    prev.map((l) =>
-                      l.id === ftLead.id
-                        ? {
-                          ...l,
-                          lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                          ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                          ft_to_date: ftToDate.split("-").reverse().join("-"),
-                        }
-                        : l
-                    )
-                  );
-                  setShowFTModal(false);
-                } catch (err) {
-                  console.error(err);
-                  toast.error("Failed to save FT response");
-                }
-              }}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-screen p-4">
@@ -385,49 +317,18 @@ export default function NewLeadsTable() {
 
                     {/* Response */}
                     <td className="px-4 py-3">
-                      {(() => {
-                        const responseName = responses.find((r) => r.id === lead.lead_response_id)?.name?.toLowerCase() || "";
-                        if (responseName === "ft") {
-                          return (
-                            <div className="flex flex-col gap-1 text-xs text-gray-700">
-                              <div className="flex justify-between items-center">
-                                <span><strong>From:</strong> {lead.ft_from_date || "N/A"}</span>
-                                <button
-                                  className="text-blue-600 hover:underline text-[11px]"
-                                  onClick={() => {
-                                    setFTLead(lead);
-                                    setFTFromDate(lead.ft_from_date?.split("-").reverse().join("-") || "");
-                                    setFTToDate(lead.ft_to_date?.split("-").reverse().join("-") || "");
-                                    setShowFTModal(true);
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                              </div>
-                              <div>
-                                <strong>To:</strong> {lead.ft_to_date || "N/A"}
-                              </div>
-                              <div className="text-green-600 italic">
-                                {lead.comment || "FT assigned"}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return (
-                          <select
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
-                            value={lead.lead_response_id || ""}
-                            onChange={(e) => handleResponseChange(lead, e.target.value)}
-                          >
-                            <option value="">Select Response</option>
-                            {responses.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.name}
-                              </option>
-                            ))}
-                          </select>
-                        );
-                      })()}
+                      <select
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+                        value={lead.lead_response_id || ""}
+                        onChange={(e) => handleResponseChange(lead, e.target.value)}
+                      >
+                        <option value="">Select Response</option>
+                        {responses.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
                     </td>
 
                     {/* Comment */}
@@ -503,8 +404,82 @@ export default function NewLeadsTable() {
         </div>
       </div>
 
-      {showFTModal && renderFTModal()}
-
+      <FTModal
+        open={showFTModal}
+        onClose={() => setShowFTModal(false)}
+        onSave={async () => {
+          if (!ftFromDate || !ftToDate) {
+            toast.error("Both dates required");
+            return;
+          }
+          try {
+            await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+              lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+              ft_from_date: ftFromDate.split("-").reverse().join("-"),
+              ft_to_date: ftToDate.split("-").reverse().join("-"),
+            });
+            toast.success("FT response and dates saved!");
+            setLeads((prev) =>
+              prev.map((l) =>
+                l.id === ftLead.id
+                  ? {
+                    ...l,
+                    lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                    ft_to_date: ftToDate.split("-").reverse().join("-"),
+                  }
+                  : l
+              )
+            );
+            setShowFTModal(false);
+          } catch (err) {
+            console.error(err);
+            toast.error("Failed to save FT response");
+          }
+        }}
+        fromDate={ftFromDate}
+        toDate={ftToDate}
+        setFromDate={setFTFromDate}
+        setToDate={setFTToDate}
+      />
+      <CallBackModal
+        open={showCallBackModal}
+        onClose={() => setShowCallBackModal(false)}
+        onSave={async () => {
+          if (!callBackDate) {
+            toast.error("Call back date is required");
+            return;
+          }
+          try {
+            await axiosInstance.patch(`/leads/${callBackLead.id}/response`, {
+              lead_response_id: responses.find(
+                (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
+              )?.id,
+              call_back_date: new Date(callBackDate).toISOString(),
+            });
+            toast.success("Call Back response and date saved!");
+            setLeads((prev) =>
+              prev.map((l) =>
+                l.id === callBackLead.id
+                  ? {
+                    ...l,
+                    lead_response_id: responses.find(
+                      (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
+                    )?.id,
+                    call_back_date: callBackDate,
+                  }
+                  : l
+              )
+            );
+            setShowCallBackModal(false);
+          } catch (err) {
+            console.error(err);
+            toast.error("Failed to save Call Back response");
+          }
+        }}
+        dateValue={callBackDate}
+        setDateValue={setCallBackDate}
+      />
 
     </div>
   );

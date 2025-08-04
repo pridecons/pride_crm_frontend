@@ -34,6 +34,28 @@ export default function EmployeeDashboard() {
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
   const [userName, setUserName] = useState('')
+  const [user, setUser] = useState(null);
+
+useEffect(() => {
+  const accessToken = Cookies.get('access_token');
+  const userInfo = Cookies.get('user_info');
+  if (accessToken && userInfo) {
+    const decoded = jwtDecode(accessToken);
+    setUser({
+      ...JSON.parse(userInfo),
+      role: decoded.role,
+    });
+  }
+}, []);
+
+    function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 5) return "Good night";
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  if (hour < 21) return "Good evening";
+  return "Hello";
+}
 
   useEffect(() => {
     // Get user name from JWT token
@@ -46,6 +68,8 @@ export default function EmployeeDashboard() {
         console.error('Failed to decode token', err)
       }
     }
+
+    // At the top of your file, after your imports
 
     const fetchData = async () => {
       if (!token) return
@@ -69,7 +93,7 @@ export default function EmployeeDashboard() {
 
   if (loading) {
     return (
-      <LoadingState/>
+      <LoadingState />
     )
   }
 
@@ -258,26 +282,11 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
       <div className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="w-fit">
               <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {userName}
+                {getGreeting()}, {user.name || "User"}!
               </h1>
               <p className="text-gray-600 mt-1">Here's your performance overview for the last 30 days</p>
-            </div>
-            <div className="hidden sm:flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-500">Last updated</p>
-                <p className="text-sm font-medium text-gray-900">{new Date().toLocaleString()}</p>
-              </div>
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                <span className="text-lg font-bold text-indigo-600">
-                  {userName.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Employee Stats */}

@@ -252,7 +252,7 @@ const LeadManage = () => {
 
       {/* Enhanced Action Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div
+        {hasPermission("manage_add_lead") && <div
           onClick={() => router.push("/lead/add")}
           className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-300 hover:-translate-y-1"
         >
@@ -263,9 +263,9 @@ const LeadManage = () => {
             <p className="text-lg font-semibold text-gray-900 mb-1">Add Lead</p>
             <p className="text-sm text-gray-500">Create new lead entry</p>
           </div>
-        </div>
+        </div>}
 
-        <div
+        {hasPermission("manage_source_lead") && <div
           onClick={() => setIsOpenSource(true)}
           className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-300 hover:-translate-y-1"
         >
@@ -276,9 +276,9 @@ const LeadManage = () => {
             <p className="text-lg font-semibold text-gray-900 mb-1">Source</p>
             <p className="text-sm text-gray-500">Manage lead sources</p>
           </div>
-        </div>
+        </div>}
 
-        <div
+        {hasPermission("manage_response_lead") && <div
           onClick={() => setIsOpenResponse(true)}
           className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-300 hover:-translate-y-1"
         >
@@ -289,9 +289,9 @@ const LeadManage = () => {
             <p className="text-lg font-semibold text-gray-900 mb-1">Response</p>
             <p className="text-sm text-gray-500">Configure responses</p>
           </div>
-        </div>
+        </div>}
 
-        <div
+        {hasPermission("manage_fetch_limit") && <div
           onClick={() => setIsOpenFetchLimit(true)}
           className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-300 hover:-translate-y-1"
         >
@@ -302,8 +302,9 @@ const LeadManage = () => {
             <p className="text-lg font-semibold text-gray-900 mb-1">Fetch Limit</p>
             <p className="text-sm text-gray-500">Set data limits</p>
           </div>
-        </div>
-        <div
+        </div>}
+
+        {hasPermission("manage_bulk_upload") && <div
           onClick={() => setIsBulkUploadOpen(true)}
           className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-red-300 hover:-translate-y-1"
         >
@@ -314,7 +315,7 @@ const LeadManage = () => {
             <p className="text-lg font-semibold text-gray-900 mb-1">Bulk Upload</p>
             <p className="text-sm text-gray-500">Upload leads from CSV</p>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Enhanced Search & Filters */}

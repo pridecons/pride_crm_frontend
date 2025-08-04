@@ -11,8 +11,10 @@ import EditUserModal from "./EditUserModal";
 import UserDetailsModal from "./UserDetailsModal";
 import UserPermissionsModal from "./UserPermissionsModal";
 import toast from "react-hot-toast";
+import { usePermissions } from "@/context/PermissionsContext";
 
 export default function UsersListPage() {
+    const { hasPermission } = usePermissions();
     const { branchId } = useParams();
     const [users, setUsers] = useState([]);
     const [branches, setBranches] = useState([]);
@@ -97,12 +99,12 @@ export default function UsersListPage() {
                             <Users className="w-4 h-4" /> Manage and track all users
                         </p>
                     </div>
-                    <button
+                    {hasPermission("user_add") && <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2"
                     >
                         + Add User
-                    </button>
+                    </button>}
                 </div>
 
                 {/* Stats */}

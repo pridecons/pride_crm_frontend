@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { axiosInstance } from '@/api/Axios'
 
 import axios from 'axios'
 import LoadingState from '@/components/LoadingState'
 import toast from 'react-hot-toast'
+import { usePermissions } from '@/context/PermissionsContext'
 
 export default function ServicesPage() {
+  const { hasPermission } = usePermissions();
   const [services, setServices] = useState([])
   const [billingCycles, setBillingCycles] = useState([])
   const [formData, setFormData] = useState({
@@ -22,10 +24,34 @@ export default function ServicesPage() {
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [serviceTypeOptions, setServiceTypeOptions] = useState([]);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const allCheckboxRef = useRef(null);
+
+  useEffect(() => {
+    fetchServiceTypeOptions();
+    fetchServices()
+    fetchBillingCycles()
+  }, []);
+  useEffect(() => {
+    if (!allCheckboxRef.current) return;
+    allCheckboxRef.current.indeterminate =
+      formData.service_type.length > 0 &&
+      formData.service_type.length < serviceTypeOptions.length;
+  }, [formData.service_type, serviceTypeOptions]);
 
   const SERVICE_API = '/services'
   const BILLING_CYCLE_API = '/services/billing-cycles'
 
+
+  const fetchServiceTypeOptions = async () => {
+    try {
+      const res = await axiosInstance.get('/profile-role/recommendation-type');
+      setServiceTypeOptions(res.data || []);
+    } catch (err) {
+      toast.error('Failed to fetch service types');
+    }
+  };
 
   // ✅ Fetch Services
   const fetchServices = async () => {
@@ -49,23 +75,20 @@ export default function ServicesPage() {
     }
   }
 
-  useEffect(() => {
-    fetchServices()
-    fetchBillingCycles()
-  }, [])
-
   // ✅ Handle Input Change
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => {
-      if (name === 'billing_cycle' && value !== 'CALL') {
-        return { ...prev, [name]: value, CALL: 0 }
-      }
-      return {
+    const { name, value } = e.target;
+    if (name === 'service_type') {
+      setFormData((prev) => ({
+        ...prev,
+        service_type: value.split(',').map(s => s.trim()).filter(Boolean),
+      }));
+    } else {
+      setFormData((prev) => ({
         ...prev,
         [name]: name === 'CALL' ? parseInt(value) || 0 : value,
-      }
-    })
+      }));
+    }
   }
 
   // ✅ Handle Create / Update
@@ -119,7 +142,7 @@ export default function ServicesPage() {
       discount_percent: '',
       billing_cycle: '',
       CALL: 0,
-      service_type: '',
+      service_type: [],
     })
     setEditId(null)
     setIsModalOpen(false)
@@ -134,7 +157,9 @@ export default function ServicesPage() {
       discount_percent: parseFloat(srv.discount_percent),
       billing_cycle: srv.billing_cycle,
       CALL: srv.CALL || 0,
-      service_type: srv.service_type || '',
+      service_type: Array.isArray(srv.service_type)
+        ? srv.service_type
+        : (srv.service_type ? [srv.service_type] : []),
     })
     setEditId(srv.id)
     setIsModalOpen(true)
@@ -167,6 +192,18 @@ export default function ServicesPage() {
     }
   }
 
+  useEffect(() => {
+    if (!showTypeDropdown) return;
+    const handleClick = (e) => {
+      // If the dropdown or button isn't clicked, close it
+      if (!e.target.closest('.relative.md\\:col-span-2')) {
+        setShowTypeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showTypeDropdown]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8">
       <div className="max-w-7xl mx-auto px-6">
@@ -179,7 +216,7 @@ export default function ServicesPage() {
             </h1>
             <p className="text-gray-600 text-lg">Manage and organize your service offerings</p>
           </div>
-          <button
+          {hasPermission("service_create") && <button
             onClick={() => {
               resetForm()
               setIsModalOpen(true)
@@ -187,7 +224,7 @@ export default function ServicesPage() {
             className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
           >
             + Create Service
-          </button>
+          </button>}
         </div>
         {loading ? (
           <LoadingState message="Loading services..." />
@@ -227,7 +264,7 @@ export default function ServicesPage() {
                   <div className="mb-6">
                     <div className="flex items-baseline gap-2 mb-2">
                       <span className="text-xl font-bold text-gray-900">
-                        ₹{srv.discounted_price || srv.price}
+                        ₹{srv.discounted_price !== undefined && srv.discounted_price !== null ? srv.discounted_price : srv.price}
                       </span>
                       {srv.discount_percent > 0 && (
                         <span className="text-lg text-gray-500 line-through">₹{srv.price}</span>
@@ -243,18 +280,18 @@ export default function ServicesPage() {
 
                 {/* ✅ Actions */}
                 <div className="px-6 py-2 bg-gray-50 border-t border-gray-200 flex gap-3">
-                  <button
+                  {hasPermission("service_edit") && <button
                     onClick={() => handleEdit(srv)}
                     className="flex-1 bg-blue-600 text-white py-1 px-1 rounded-lg hover:bg-blue-700"
                   >
                     Edit
-                  </button>
-                  <button
+                  </button>}
+                  {hasPermission("service_delete") && <button
                     onClick={() => handleDelete(srv.id)}
                     className="flex-1 bg-red-600 text-white py-1 px-1 rounded-lg hover:bg-red-700"
                   >
                     Delete
-                  </button>
+                  </button>}
                 </div>
               </div>
             ))}
@@ -299,8 +336,68 @@ export default function ServicesPage() {
                     <input type="number" name="CALL" placeholder="CALL Limit" value={formData.CALL} onChange={handleChange} className="p-4 border rounded-xl" required />
                   )}
 
-                  {/* Service Type */}
-                  <input type="text" name="service_type" placeholder="Service Type" value={formData.service_type} onChange={handleChange} className="p-4 border rounded-xl" />
+                  {/* Service Type (multi-select dropdown with checkboxes + ALL) */}
+                  <div className="relative md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Service Type <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="w-full text-left bg-white border p-4 rounded-xl focus:outline-none flex justify-between items-center"
+                      onClick={() => setShowTypeDropdown((v) => !v)}
+                    >
+                      <span>
+                        {formData.service_type.length === 0
+                          ? "Select Service Type(s)"
+                          : (formData.service_type.length === serviceTypeOptions.length
+                            ? "All"
+                            : formData.service_type.join(", "))}
+                      </span>
+                      <svg className={`w-4 h-4 ml-2 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showTypeDropdown && (
+                      <div className="absolute z-20 bg-white border rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
+                        {/* All Checkbox */}
+                        <label className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer border-b">
+                          <input
+                            ref={allCheckboxRef}
+                            type="checkbox"
+                            checked={formData.service_type.length === serviceTypeOptions.length}
+                            onChange={() => {
+                              if (formData.service_type.length === serviceTypeOptions.length) {
+                                setFormData(prev => ({ ...prev, service_type: [] }));
+                              } else {
+                                setFormData(prev => ({ ...prev, service_type: [...serviceTypeOptions] }));
+                              }
+                            }}
+                            className="form-checkbox mr-2 accent-indigo-600"
+                          />
+                          <span className="font-semibold">All</span>
+                        </label>
+                        {/* Individual service types */}
+                        {serviceTypeOptions.map((type) => (
+                          <label key={type} className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.service_type.includes(type)}
+                              onChange={() => {
+                                setFormData((prev) => {
+                                  const selected = prev.service_type.includes(type)
+                                    ? prev.service_type.filter((t) => t !== type)
+                                    : [...prev.service_type, type];
+                                  return { ...prev, service_type: selected };
+                                });
+                              }}
+                              className="form-checkbox mr-2 accent-indigo-600"
+                            />
+                            <span>{type}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Description */}
                   <textarea name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="p-4 border rounded-xl md:col-span-2" rows="3" required />

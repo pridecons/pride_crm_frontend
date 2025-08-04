@@ -1,6 +1,8 @@
 "use client";
 
 import { axiosInstance } from "@/api/Axios";
+import CallBackModal from "@/components/Lead/CallBackModal";
+import FTModal from "@/components/Lead/FTModal";
 import LeadCommentSection from "@/components/Lead/LeadCommentSection";
 import LoadingState from "@/components/LoadingState";
 import { Pencil, Phone, MessageSquare, User, Download } from "lucide-react";
@@ -24,6 +26,9 @@ export default function OldLeadsTable() {
   const [ftLead, setFTLead] = useState(null);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
+  const [showCallBackModal, setShowCallBackModal] = useState(false);
+  const [callBackLead, setCallBackLead] = useState(null);
+  const [callBackDate, setCallBackDate] = useState("");
 
   const router = useRouter();
 
@@ -43,18 +48,13 @@ export default function OldLeadsTable() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      const { data } = await axiosInstance.get("/leads/assignments/my");
-      const items = data.assignments || [];
+      // ⬇️ Use the new endpoint
+      const { data } = await axiosInstance.get("/old-leads/my-assigned");
+      const items = data.assigned_old_leads || [];
 
-      const leadsWithIds = items
-        .map((item) => ({
-          ...item.lead,
-          assignment_id: item.assignment_id,
-        }))
-        .filter((lead) => lead.lead_response_id !== null); // ✅ Filter here
-
-      setLeads(leadsWithIds);
-      setTotal(leadsWithIds.length);
+      // No filter on lead_response_id here, as old leads always have a response
+      setLeads(items);
+      setTotal(items.length);
     } catch (error) {
       console.error("Error fetching leads:", error);
       toast.error("Failed to load leads!");
@@ -185,6 +185,31 @@ export default function OldLeadsTable() {
     (lead) => activeResponseId === null || lead.lead_response_id === activeResponseId
   );
 
+  function isFTOver(ftToDate) {
+    if (!ftToDate) return false;
+
+    // Normalize both to YYYY-MM-DD
+    let ftToISO;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ftToDate)) {
+      ftToISO = ftToDate;
+    } else if (/^\d{2}-\d{2}-\d{4}$/.test(ftToDate)) {
+      const [dd, mm, yyyy] = ftToDate.split("-");
+      ftToISO = `${yyyy}-${mm}-${dd}`;
+    } else {
+      return false;
+    }
+
+    // Today's date as YYYY-MM-DD
+    const todayISO = new Date();
+    const yyyy = todayISO.getFullYear();
+    const mm = String(todayISO.getMonth() + 1).padStart(2, "0");
+    const dd = String(todayISO.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    // FT is over if FT 'to' date < today
+    return ftToISO < todayStr;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 ">
       <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-7xl mx-auto overflow-hidden">
@@ -229,7 +254,6 @@ export default function OldLeadsTable() {
                   {[
                     "S.No.",
                     "Lead ID",
-                    "Owner",
                     "Client Name",
                     "Mobile",
                     "Response",
@@ -259,9 +283,6 @@ export default function OldLeadsTable() {
                     {/* Lead ID */}
                     <td className="px-4 py-3">{lead.id}</td>
 
-                    {/* Owner */}
-                    <td className="px-4 py-3">{lead.created_by_name}</td>
-
                     {/* Client Name */}
                     <td className="px-4 py-3">
                       {editId === lead.id ? (
@@ -288,13 +309,20 @@ export default function OldLeadsTable() {
                     <td className="px-4 py-3">
                       {(() => {
                         const responseName = responseNameMap[lead.lead_response_id] || "";
+                        const showResponseDropdown = true; // Always show dropdown for all rows
+
+                        // FT details with Edit button
                         if (responseName === "ft") {
                           return (
                             <div className="flex flex-col gap-1 text-xs text-gray-700">
-                              <div className="flex justify-between items-center">
-                                <span><strong>From:</strong> {lead.ft_from_date || "N/A"}</span>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <strong>From:</strong> {lead.ft_from_date || "N/A"}
+                                  {"  "}
+                                  <strong>To:</strong> {lead.ft_to_date || "N/A"}
+                                </div>
                                 <button
-                                  className="text-blue-600 hover:underline text-[11px]"
+                                  className="text-blue-600 hover:underline text-[11px] ml-3"
                                   onClick={() => {
                                     setFTLead(lead);
                                     setFTFromDate(lead.ft_from_date?.split("-").reverse().join("-") || "");
@@ -305,15 +333,83 @@ export default function OldLeadsTable() {
                                   Edit
                                 </button>
                               </div>
-                              <div>
-                                <strong>To:</strong> {lead.ft_to_date || "N/A"}
-                              </div>
-                              <div className="text-green-600 italic">
-                                {lead.comment || "FT assigned"}
+                              {/* --- Always show the response dropdown even for FT: --- */}
+                              {showResponseDropdown && (
+                                <select
+                                  className="mt-2 w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+                                  value={lead.lead_response_id || ""}
+                                  onChange={(e) => handleResponseChange(lead, e.target.value)}
+                                >
+                                  <option value="">Select Response</option>
+                                  {responses.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                      {r.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              <div className={`italic ${isFTOver(lead.ft_to_date) ? "text-red-600" : "text-green-600"}`}>
+                                {isFTOver(lead.ft_to_date)
+                                  ? "FT Over"
+                                  : (lead.comment || "FT assigned")}
                               </div>
                             </div>
                           );
                         }
+
+                        // Call Back details with Edit button
+                        if (responseName === "call back" || responseName === "callback") {
+                          return (
+                            <div className="flex flex-col gap-1 text-xs text-gray-700">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs font-medium">
+                                  <strong>Call Back Date:</strong>{" "}
+                                  {lead.call_back_date
+                                    ? new Date(lead.call_back_date).toLocaleString()
+                                    : "N/A"}
+                                </span>
+                                <button
+                                  className="text-blue-600 hover:underline text-[11px]"
+                                  onClick={() => {
+                                    setCallBackLead(lead);
+                                    // If there's a call_back_date, format for datetime-local input
+                                    let inputDate = "";
+                                    if (lead.call_back_date) {
+                                      const dt = new Date(lead.call_back_date);
+                                      const yyyy = dt.getFullYear();
+                                      const mm = String(dt.getMonth() + 1).padStart(2, "0");
+                                      const dd = String(dt.getDate()).padStart(2, "0");
+                                      const hh = String(dt.getHours()).padStart(2, "0");
+                                      const min = String(dt.getMinutes()).padStart(2, "0");
+                                      inputDate = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+                                    }
+                                    setCallBackDate(inputDate);
+                                    setShowCallBackModal(true);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                              {/* --- Always show the response dropdown even for Call Back: --- */}
+                              {showResponseDropdown && (
+                                <select
+                                  className="mt-2 w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+                                  value={lead.lead_response_id || ""}
+                                  onChange={(e) => handleResponseChange(lead, e.target.value)}
+                                >
+                                  <option value="">Select Response</option>
+                                  {responses.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                      {r.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // For all other responses
                         return (
                           <select
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
@@ -402,81 +498,82 @@ export default function OldLeadsTable() {
           </div>
         </div>
       </div>
-      {showFTModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
-            <h2 className="text-lg font-semibold mb-4">Set FT Date Range</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">From Date</label>
-                <input
-                  type="date"
-                  value={ftFromDate}
-                  onChange={(e) => setFTFromDate(e.target.value)}
-                  className="w-full border px-3 py-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">To Date</label>
-                <input
-                  type="date"
-                  value={ftToDate}
-                  onChange={(e) => setFTToDate(e.target.value)}
-                  className="w-full border px-3 py-2 rounded"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setShowFTModal(false)}
-                className="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!ftFromDate || !ftToDate) {
-                    toast.error("Both dates required");
-                    return;
+      <FTModal
+        open={showFTModal}
+        onClose={() => setShowFTModal(false)}
+        onSave={async () => {
+          if (!ftFromDate || !ftToDate) {
+            toast.error("Both dates required");
+            return;
+          }
+          try {
+            await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+              lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+              ft_from_date: ftFromDate.split("-").reverse().join("-"),
+              ft_to_date: ftToDate.split("-").reverse().join("-"),
+            });
+            toast.success("FT response and dates saved!");
+            setLeads((prev) =>
+              prev.map((l) =>
+                l.id === ftLead.id
+                  ? {
+                    ...l,
+                    lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                    ft_to_date: ftToDate.split("-").reverse().join("-"),
                   }
-
-                  try {
-                    await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-                      lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                      ft_from_date: ftFromDate.split("-").reverse().join("-"), // DD-MM-YYYY
-                      ft_to_date: ftToDate.split("-").reverse().join("-"),
-                    });
-
-                    toast.success("FT response and dates saved!");
-
-                    setLeads((prev) =>
-                      prev.map((l) =>
-                        l.id === ftLead.id
-                          ? {
-                            ...l,
-                            lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                            ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                            ft_to_date: ftToDate.split("-").reverse().join("-"),
-                          }
-                          : l
-                      )
-                    );
-
-                    setActiveTab("FT Leads");
-                    setShowFTModal(false);
-                  } catch (err) {
-                    console.error(err);
-                    toast.error("Failed to save FT response");
+                  : l
+              )
+            );
+            setShowFTModal(false);
+          } catch (err) {
+            console.error(err);
+            toast.error("Failed to save FT response");
+          }
+        }}
+        fromDate={ftFromDate}
+        toDate={ftToDate}
+        setFromDate={setFTFromDate}
+        setToDate={setFTToDate}
+      />
+      <CallBackModal
+        open={showCallBackModal}
+        onClose={() => setShowCallBackModal(false)}
+        onSave={async () => {
+          if (!callBackDate) {
+            toast.error("Call back date is required");
+            return;
+          }
+          try {
+            await axiosInstance.patch(`/leads/${callBackLead.id}/response`, {
+              lead_response_id: responses.find(
+                (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
+              )?.id,
+              call_back_date: new Date(callBackDate).toISOString(),
+            });
+            toast.success("Call Back response and date saved!");
+            setLeads((prev) =>
+              prev.map((l) =>
+                l.id === callBackLead.id
+                  ? {
+                    ...l,
+                    lead_response_id: responses.find(
+                      (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
+                    )?.id,
+                    call_back_date: callBackDate,
                   }
-                }}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                  : l
+              )
+            );
+            setShowCallBackModal(false);
+          } catch (err) {
+            console.error(err);
+            toast.error("Failed to save Call Back response");
+          }
+        }}
+        dateValue={callBackDate}
+        setDateValue={setCallBackDate}
+      />
 
     </div>
   );

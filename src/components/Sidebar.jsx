@@ -113,7 +113,7 @@ export default function Sidebar({ branchId, onClose }) {
     },
     {
       items: [
-        { href: '/branch', icon: BarChart3, label: 'Branch' },
+        { href: '/branch', icon: BarChart3, label: 'Branch', access:["SUPERADMIN"] },
       ],
     },
     {
@@ -121,10 +121,10 @@ export default function Sidebar({ branchId, onClose }) {
       section: 'leads',
       icon: FileText,
       items: [
-        { href: '/lead', icon: Target, label: 'New Lead' },
-        { href: '/lead/old', icon: Target, label: 'Old Lead' },
-        { href: '/lead/add', icon: Plus, label: 'Add Lead' },
-        { href: '/lead/manage', icon: FileText, label: 'Manage Leads' },
+        { href: '/lead', icon: Target, label: 'New Lead' , access:[""] },
+        { href: '/lead/old', icon: Target, label: 'Old Lead', access:[""] },
+        { href: '/lead/add', icon: Plus, label: 'Add Lead', access:[""] },
+        { href: '/lead/manage', icon: FileText, label: 'Manage Leads', access:["BRANCH MANAGER","SUPERADMIN"] },
       ],
     },
     {
@@ -132,14 +132,21 @@ export default function Sidebar({ branchId, onClose }) {
       section: 'configuration',
       icon: Settings,
       items: [
-        { href: '/user', icon: Users, label: 'Users' },
-        { href: '/permission', icon: Users, label: 'Permissions' },
+        { href: '/user', icon: Users, label: 'Users', access:["BRANCH MANAGER","SUPERADMIN"] },
+        { href: '/permission', icon: Users, label: 'Permissions', access:["BRANCH MANAGER","SUPERADMIN"] },
       ],
     },
     {
       title: 'Payment',
       items: [
-        { href: '/payment', icon: BarChart3, label: 'Payment' },
+        {
+          href:
+            user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
+              ? '/admin-payment'
+              : '/payment',
+          icon: BarChart3,
+          label: 'Payment'
+        },
       ],
     },
     {

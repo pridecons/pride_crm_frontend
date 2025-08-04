@@ -1,10 +1,19 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { jwtDecode } from "jwt-decode";
+import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
 import { axiosInstance } from "@/api/Axios";
 
 const DEFAULT_LIMIT = 100;
 
 export default function PaymentHistoryPage() {
+    // Role/branch state
+    const [role, setRole] = useState(null);
+    const [branchId, setBranchId] = useState("");
+    const [branches, setBranches] = useState([]);
+    const router = useRouter();
+
     // Filters
     const [service, setService] = useState("");
     const [plan, setPlan] = useState("");
@@ -14,7 +23,6 @@ export default function PaymentHistoryPage() {
     const [status, setStatus] = useState("");
     const [mode, setMode] = useState("");
     const [user_id, setUserId] = useState("");
-    const [branch_id, setBranchId] = useState("");
     const [lead_id, setLeadId] = useState("");
     const [order_id, setOrderId] = useState("");
     const [date_from, setDateFrom] = useState("");
@@ -27,24 +35,36 @@ export default function PaymentHistoryPage() {
     const [payments, setPayments] = useState([]);
     const [total, setTotal] = useState(0);
     const [error, setError] = useState("");
-    const [branches, setBranches] = useState([]);
 
+    // 1. Extract role and branch info from JWT, fetch branches if SUPERADMIN
     useEffect(() => {
-        // Fetch branches only once on mount
-        async function fetchBranches() {
-            try {
-                const { data } = await axiosInstance.get("/branches/");
-                // Adjust if your API returns data in a different structure
-                setBranches(data.branches || data || []);
-            } catch (err) {
-                setBranches([]);
-            }
+        const token = Cookies.get("access_token");
+        if (!token) {
+            router.push("/login");
+            return;
         }
-        fetchBranches();
-    }, []);
+        const decoded = jwtDecode(token);
+        const userRole = decoded.role;
+        setRole(userRole);
 
+        // Set branchId for branch manager or default
+        if (userRole === "BRANCH MANAGER") {
+            setBranchId(decoded.branch_id?.toString() || "");
+        }
 
-    // Fetch payments
+        // Fetch branches for SUPERADMIN
+        if (userRole === "SUPERADMIN") {
+            axiosInstance
+                .get("/branches/")
+                .then((res) => {
+                    // Adjust for your API response shape if needed
+                    setBranches(res.data.branches || res.data || []);
+                })
+                .catch(() => setBranches([]));
+        }
+    }, [router]);
+
+    // 2. Fetch payments
     const fetchPayments = async () => {
         setLoading(true);
         setError("");
@@ -58,7 +78,7 @@ export default function PaymentHistoryPage() {
                 status,
                 mode,
                 user_id,
-                branch_id,
+                branch_id: branchId, // always use the branchId from state!
                 lead_id: lead_id ? Number(lead_id) : undefined,
                 order_id,
                 date_from,
@@ -91,16 +111,20 @@ export default function PaymentHistoryPage() {
         }
     };
 
+    // 3. Re-fetch when filters or branchId change
     useEffect(() => {
-        fetchPayments();
+        if (role) fetchPayments();
         // eslint-disable-next-line
-    }, []);
+    }, [role, branchId]);
 
     const handleSearch = (e) => {
         e.preventDefault();
         setOffset(0);
         fetchPayments();
     };
+
+    // For branch dropdown: Only enable for SUPERADMIN
+    const isBranchDropdownDisabled = role === "BRANCH MANAGER";
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -167,18 +191,35 @@ export default function PaymentHistoryPage() {
                     value={user_id}
                     onChange={(e) => setUserId(e.target.value)}
                 />
-                <select
-                    className="input"
-                    value={branch_id}
-                    onChange={(e) => setBranchId(e.target.value)}
-                >
-                    <option value="">All Branches</option>
-                    {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                            {b.name || b.branch_name || `Branch ${b.id}`}
-                        </option>
-                    ))}
-                </select>
+                {/* Branch Dropdown */}
+                {(role === "SUPERADMIN" || role === "BRANCH MANAGER") && (
+                    <select
+                        className="input"
+                        value={branchId}
+                        onChange={(e) => setBranchId(e.target.value)}
+                        disabled={isBranchDropdownDisabled}
+                    >
+                        {role === "SUPERADMIN" && (
+                            <option value="">All Branches</option>
+                        )}
+                        {/* SUPERADMIN: all branches; BRANCH MANAGER: only own branch */}
+                        {role === "SUPERADMIN"
+                            ? branches.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                    {b.name || b.branch_name || `Branch ${b.id}`}
+                                </option>
+                            ))
+                            : (
+                                <option value={branchId}>
+                                    {/* This will show only branch manager's branch */}
+                                    {branches.find((b) => b.id.toString() === branchId)
+                                        ? branches.find((b) => b.id.toString() === branchId).name
+                                        : `Branch ${branchId}`}
+                                </option>
+                            )
+                        }
+                    </select>
+                )}
                 <input
                     className="input"
                     type="number"
@@ -264,7 +305,6 @@ export default function PaymentHistoryPage() {
                                 <th className="py-2 px-3 border-b font-semibold">Date</th>
                             </tr>
                         </thead>
-
                         <tbody>
                             {payments.map((p, idx) => (
                                 <tr key={p.id} className="hover:bg-gray-50">
@@ -302,15 +342,13 @@ export default function PaymentHistoryPage() {
                                     <td className="py-2 px-3">
                                         <span
                                             className={`px-2 py-1 rounded text-xs font-semibold ${p.status === "PAID"
-                                                ? "bg-green-100 text-green-700"
-                                                : p.status === "ACTIVE"
-                                                    ? "bg-blue-100 text-blue-700"
-                                                    : p.status === "PENDING"
+                                                    ? "bg-green-100 text-green-700"
+                                                    : p.status === "ACTIVE" || p.status === "PENDING"
                                                         ? "bg-yellow-100 text-yellow-800"
                                                         : "bg-gray-100 text-gray-600"
                                                 }`}
                                         >
-                                            {p.status}
+                                            {p.status === "ACTIVE" ? "PENDING" : p.status}
                                         </span>
                                     </td>
                                     <td className="py-2 px-3">{p.mode}</td>

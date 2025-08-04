@@ -2,13 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-hot-toast";
 import { Plus, Pencil, Trash, Eye, X } from "lucide-react";
+import { usePermissions } from "@/context/PermissionsContext";
 
 const JoditEditor = dynamic(() => import("jodit-react"), { ssr: false });
 
@@ -27,6 +25,7 @@ const FontSize = TextStyle.extend({
 });
 
 export default function EmailTemplates() {
+  const { hasPermission } = usePermissions();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,42 +38,43 @@ export default function EmailTemplates() {
     body: "",
   });
 
-   const textEditor = useRef(null);
-  
-    const config = useMemo(() => {
-  if (typeof window === "undefined") return {};
+  const textEditor = useRef(null);
 
-  const { Jodit } = require("jodit"); // SSR-safe require
+  const config = useMemo(() => {
+    if (typeof window === "undefined") return {};
 
-  return {
-    readonly: false,
-    toolbar: true,
-    toolbarSticky: false,
-    toolbarAdaptive: false,
-    buttons: [
-      'bold', 'italic', 'underline', 'strikethrough', 'eraser',
-      '|', 'ul', 'ol', '|',
-      'font', 'fontsize', 'brush', 'highlight',
-      '|', 'align', 'undo', 'redo',
-    ],
-    removeButtons: ['file', 'video'],
-    defaultFont: 'Arial',
-    defaultFontSizePoints: '14',
-    controls: {
-      fontsize: {
-        list: Jodit.atom([
-          '8px','10px', '12px', '14px', '16px',
-          '18px', '20px', '24px', '36px','40px'
-        ])
-      }
-    },
-    style: {
-      fontFamily: 'Arial',
-      color: '#333333',
-      maxHeight: 350,
-    },
-  };
-}, []);
+
+    const { Jodit } = require("jodit"); // SSR-safe require
+
+    return {
+      readonly: false,
+      toolbar: true,
+      toolbarSticky: false,
+      toolbarAdaptive: false,
+      buttons: [
+        'bold', 'italic', 'underline', 'strikethrough', 'eraser',
+        '|', 'ul', 'ol', '|',
+        'font', 'fontsize', 'brush', 'highlight',
+        '|', 'align', 'undo', 'redo',
+      ],
+      removeButtons: ['file', 'video'],
+      defaultFont: 'Arial',
+      defaultFontSizePoints: '14',
+      controls: {
+        fontsize: {
+          list: Jodit.atom([
+            '8px', '10px', '12px', '14px', '16px',
+            '18px', '20px', '24px', '36px', '40px'
+          ])
+        }
+      },
+      style: {
+        fontFamily: 'Arial',
+        color: '#333333',
+        maxHeight: 350,
+      },
+    };
+  }, []);
 
   const fetchTemplates = async () => {
     try {
@@ -156,6 +156,29 @@ export default function EmailTemplates() {
     setIsModalOpen(true);
   };
 
+  // Utility function to insert placeholder at cursor position in Jodit
+  const insertPlaceholder = (placeholder) => {
+    if (textEditor.current) {
+      // Jodit ref may be in .current.__jodit or .current
+      const editorInstance =
+        textEditor.current.__jodit || textEditor.current;
+      if (editorInstance && editorInstance.selection) {
+        // Insert at cursor
+        editorInstance.selection.insertHTML(placeholder);
+        setFormData((prev) => ({
+          ...prev,
+          body: editorInstance.value,
+        }));
+      } else {
+        // fallback: append at end
+        setFormData((prev) => ({
+          ...prev,
+          body: prev.body + " " + placeholder,
+        }));
+      }
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -163,7 +186,7 @@ export default function EmailTemplates() {
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           Email Templates
         </h1>
-        <button
+        {hasPermission("email_add_temp") && <button
           onClick={() => {
             setEditTemplate(null);
             setFormData({
@@ -177,7 +200,7 @@ export default function EmailTemplates() {
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
         >
           <Plus size={18} /> Add Template
-        </button>
+        </button>}
       </div>
 
       {/* Templates Table */}
@@ -213,24 +236,24 @@ export default function EmailTemplates() {
                   </td>
                   <td className="px-4 py-3">{template.subject}</td>
                   <td className="px-4 py-3 text-center flex justify-center gap-3">
-                    <button
+                    {hasPermission("email_edit_temp") && <button
                       onClick={() => openEditModal(template)}
                       className="text-blue-500 hover:text-blue-700"
                     >
                       <Pencil size={18} />
-                    </button>
-                    <button
+                    </button>}
+                    {hasPermission("email_view_temp") && <button
                       onClick={() => setPreviewMode(template.body)}
                       className="text-indigo-500 hover:text-indigo-700"
                     >
                       <Eye size={18} />
-                    </button>
-                    <button
+                    </button>}
+                    {hasPermission("email_delete_temp") && <button
                       onClick={() => handleDelete(template.id)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash size={18} />
-                    </button>
+                    </button>}
                   </td>
                 </tr>
               ))
@@ -290,7 +313,6 @@ export default function EmailTemplates() {
                 >
                   <option value="admin">Admin</option>
                   <option value="employee">Employee</option>
-                  <option value="customer">Customer</option>
                   {/* add more types here as your backend supports them */}
                 </select>
               </div>
@@ -317,10 +339,29 @@ export default function EmailTemplates() {
               {/* Body */}
               <div>
                 <label className="block text-sm font-medium mb-1">Body</label>
+                {/* Placeholder Insert Buttons */}
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 border text-sm"
+                    onClick={() => insertPlaceholder("{{username}}")}
+                    tabIndex={-1}
+                  >
+                    Insert Username
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 border text-sm"
+                    onClick={() => insertPlaceholder("{{company_name}}")}
+                    tabIndex={-1}
+                  >
+                    Insert Company Name
+                  </button>
+                </div>
                 <JoditEditor
                   ref={textEditor}
                   value={formData.body}
-                  onChange={(value)=>setFormData((prev) => ({ ...prev, "body": value }))}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, "body": value }))}
                   config={config}
                 />
               </div>

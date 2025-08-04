@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useState } from 'react';
 import { axiosInstance, BASE_URL } from '@/api/Axios';
 import { Calendar, BarChart3, PieChart, Target, TrendingUp, Users, ArrowDownToLine } from 'lucide-react';
+import { usePermissions } from '@/context/PermissionsContext';
 
 
 const API_URL = '/recommendations/';
@@ -12,6 +13,7 @@ const API_URL = '/recommendations/';
 
 
 export default function RationalPage() {
+  const { hasPermission } = usePermissions();
   const [openStatusDropdown, setOpenStatusDropdown] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [rationalList, setRationalList] = useState([]);
@@ -331,7 +333,7 @@ export default function RationalPage() {
               <ExportXlsxModal />
             </div>
 
-            <div >
+            {hasPermission("rational_add_filter") && <div >
               <button
                 onClick={() => openModal()}
                 className="bg-gradient-to-r from-green-600 to-green-700 px-4 py-2 flex justify-center items-center text-white rounded-md w-auto whitespace-nowrap"
@@ -341,7 +343,7 @@ export default function RationalPage() {
                 </svg>
                 Rational
               </button>
-            </div>
+            </div>}
           </div>
 
         </div>
@@ -1000,6 +1002,7 @@ function DownloadPDF({ id, userId }) {
 }
 
 function ExportPdfModal() {
+  const { hasPermission } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [researchers, setResearchers] = useState([]);
@@ -1089,7 +1092,7 @@ function ExportPdfModal() {
 
   return (
     <>
-      <button
+      {hasPermission("rational_export_pdf") && <button
         onClick={() => setIsOpen(true)}
         className="px-2 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
       >
@@ -1097,7 +1100,7 @@ function ExportPdfModal() {
           <ArrowDownToLine className="h-4" />
           <span>PDF</span>
         </div>
-      </button>
+      </button>}
 
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
@@ -1208,6 +1211,7 @@ function ExportPdfModal() {
 }
 
 function ExportXlsxModal() {
+  const { hasPermission } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [researchers, setResearchers] = useState([]);
@@ -1302,7 +1306,7 @@ function ExportXlsxModal() {
 
   return (
     <>
-      <button
+      {hasPermission("rational_export_xls") && <button
         onClick={() => setIsOpen(true)}
         className="px-4 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
       >
@@ -1310,7 +1314,7 @@ function ExportXlsxModal() {
           <ArrowDownToLine className="h-4" />
           <div>XLSX</div>
         </div>
-      </button>
+      </button>}
 
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">

@@ -33,10 +33,12 @@ import toast from "react-hot-toast";
 // import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import Cookies from "js-cookie";
 import LoadingState from "@/components/LoadingState";
+import { usePermissions } from "@/context/PermissionsContext";
 
 
 
 const Lead = () => {
+  const { hasPermission } = usePermissions();
   const { id } = useParams();
   const [isOpenPayment, setIsOpenPayment] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
@@ -79,74 +81,7 @@ const Lead = () => {
   const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [kycUrl, setKycUrl] = useState(null);
-
-
-  // const defaultLayoutPluginInstance = defaultLayoutPlugin({
-  //   renderToolbar: (Toolbar) => (
-  //     <Toolbar>
-  //       {(slots) => {
-  //         const {
-  //           CurrentPageInput,
-  //           GoToNextPage,
-  //           GoToPreviousPage,
-  //           ZoomIn,
-  //           ZoomOut,
-  //           Zoom,
-  //           Download,
-  //           Print,
-  //         } = slots;
-
-  //         // ✅ Fetch role from Cookies (set during login)
-  //         const tokenUserInfo = Cookies.get("user_info");
-  //         let userRole = "";
-  //         if (tokenUserInfo) {
-  //           try {
-  //             userRole = JSON.parse(tokenUserInfo)?.role?.toUpperCase() || "";
-  //           } catch (e) {
-  //             console.error("Invalid user_info cookie", e);
-  //           }
-  //         }
-
-  //         return (
-  //           <div className="rpv-toolbar flex items-center">
-  //             <div className="rpv-toolbar__item">
-  //               <GoToPreviousPage />
-  //             </div>
-  //             <div className="rpv-toolbar__item">
-  //               <CurrentPageInput /> / {slots.NumberOfPages()}
-  //             </div>
-  //             <div className="rpv-toolbar__item">
-  //               <GoToNextPage />
-  //             </div>
-  //             <div className="rpv-toolbar__item">
-  //               <ZoomOut />
-  //             </div>
-  //             <div className="rpv-toolbar__item">
-  //               <Zoom />
-  //             </div>
-  //             <div className="rpv-toolbar__item">
-  //               <ZoomIn />
-  //             </div>
-
-  //             {/* ✅ Show only if SUPERADMIN */}
-  //             {userRole === "SUPERADMIN" && (
-  //               <>
-  //                 <div className="rpv-toolbar__item">
-  //                   <Download />
-  //                 </div>
-  //                 <div className="rpv-toolbar__item">
-  //                   <Print />
-  //                 </div>
-  //               </>
-  //             )}
-  //           </div>
-  //         );
-  //       }}
-  //     </Toolbar>
-  //   ),
-  // });
-
-
+  const [kycLoading, setKycLoading] = useState(false);
 
   const fetchRecordings = async () => {
     try {
@@ -254,13 +189,27 @@ const Lead = () => {
 
 
   const fetchKycUserDetails = async () => {
+    if (!currentLead?.mobile) {
+      toast.error("Mobile number not found for this lead.");
+      return;
+    }
+    setKycLoading(true);
     const formData = { mobile: currentLead?.mobile };
-    await axiosInstance.post("/kyc_user_details", formData, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-    });
+    try {
+      await axiosInstance.post("/kyc_user_details", formData, {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+      });
+      toast.success("KYC initiated successfully!");
+      // Optionally refresh data
+      // await fetchCurrentLead();
+    } catch (err) {
+      toast.error("Failed to initiate KYC: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setKycLoading(false);
+    }
   };
 
   const handleFileChange = (e, setter, previewSetter) => {
@@ -375,37 +324,6 @@ const Lead = () => {
       setLoadingStories(false);
     }
   };
-
-  // const handleNavigation = async (direction) => {
-  //   if (!currentLead) return;
-
-  //   const canNavigate =
-  //     direction === "next"
-  //       ? navigationInfo.has_next
-  //       : navigationInfo.has_previous;
-  //   if (!canNavigate) return;
-
-  //   try {
-  //     setLoading(true);
-  //     const response = await apiCall(
-  //       "GET",
-  //       `/leads/navigation/${direction}?current_assignment_id=${currentLead.assignment_id}`
-  //     );
-  //     setCurrentLead(response);
-  //     setEditFormData(response);
-  //     setNavigationInfo({
-  //       position: response.position,
-  //       total_count: response.total_count,
-  //       has_next: response.has_next,
-  //       has_previous: response.has_previous,
-  //     });
-  //     setIsEditMode(false);
-  //   } catch (err) {
-  //     setError(err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const handleUpdateLead = async () => {
     try {
@@ -599,6 +517,7 @@ const Lead = () => {
           onEditClick={() => isEditMode ? handleCancelEdit() : setIsEditMode(true)}
           onSaveClick={handleUpdateLead}
           onKycClick={fetchKycUserDetails}
+          kycLoading={kycLoading}
           onPaymentClick={() => setIsOpenPayment(true)}
           onSendEmailClick={() => setIsEmailModalOpen(true)}
           onViewEmailLogsClick={fetchEmailLogs}
@@ -626,15 +545,6 @@ const Lead = () => {
           setAadharBackPreview={setAadharBackPreview}
           setPanPicPreview={setPanPicPreview}
         />
-
-
-
-        {/* Assignments Summary */}
-        {/* <AssignmentsSummary
-          assignments={assignments}
-          currentLead={currentLead}
-          uncalledCount={uncalledCount}
-        /> */}
 
         {/* Modals */}
         <Modal
@@ -750,7 +660,6 @@ const Lead = () => {
           </div>
         </Modal>
 
-
         <Modal
           isOpen={isOpenResponse}
           onClose={() => setIsOpenResponse(false)}
@@ -857,7 +766,7 @@ const Lead = () => {
           )}
 
           {/* Upload */}
-          <div className="mt-4">
+          {hasPermission("lead_recording_upload") && <div className="mt-4">
             <input
               type="file"
               accept="audio/*"
@@ -866,7 +775,7 @@ const Lead = () => {
               className="w-full border rounded p-2"
             />
             {uploadingRecording && <p className="text-blue-500 mt-2 text-sm">Uploading...</p>}
-          </div>
+          </div>}
         </Modal>
       </div>
 
@@ -968,18 +877,6 @@ const Lead = () => {
               ))}
             </select>
           </div>
-
-
-          {/* Recipient Email
-          <div>
-            <label className="block text-sm font-medium mb-1">Recipient Email</label>
-            <input
-              type="email"
-              value={currentLead?.email || ""}
-              readOnly
-              className="w-full px-3 py-2 border rounded bg-gray-100"
-            />
-          </div> */}
 
           {/* Context */}
           {contextFields.length > 0 && (
@@ -1165,47 +1062,6 @@ export const InputField = ({
   </div>
 );
 
-// ==============================================
-// AssignmentsSummary Component
-// ==============================================
-
-// export const AssignmentsSummary = ({ assignments, currentLead, uncalledCount }) => {
-//   return (
-//     <div className="bg-white rounded-lg shadow-sm p-6">
-//       <h3 className="text-lg font-semibold text-gray-900 mb-6">
-//         Assignment Summary
-//       </h3>
-//       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-//         <div className="text-center p-4 bg-blue-50 rounded-lg">
-//           <div className="text-3xl font-bold text-blue-600 mb-2">
-//             {assignments.length}
-//           </div>
-//           <div className="text-sm text-gray-600">Total Assignments</div>
-//         </div>
-//         <div className="text-center p-4 bg-green-50 rounded-lg">
-//           <div className="text-3xl font-bold text-green-600 mb-2">
-//             {
-//               assignments.filter(
-//                 (a) => a.assignment_id === currentLead?.assignment_id
-//               ).length
-//             }
-//           </div>
-//           <div className="text-sm text-gray-600">Current Assignment</div>
-//         </div>
-//         <div className="text-center p-4 bg-yellow-50 rounded-lg">
-//           <div className="text-3xl font-bold text-yellow-600 mb-2">
-//             {uncalledCount}
-//           </div>
-//           <div className="text-sm text-gray-600">Uncalled Leads</div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// ==============================================
-// Additional Utility Components
-// ==============================================
 
 // ErrorAlert Component
 export const ErrorAlert = ({ error, onClose }) => {
@@ -1226,35 +1082,6 @@ export const ErrorAlert = ({ error, onClose }) => {
     </div>
   );
 };
-
-// NavigationButtons Component
-// export const NavigationButtons = ({
-//   navigationInfo,
-//   loading,
-//   onNavigation
-// }) => {
-//   return (
-//     <div className="flex gap-3">
-//       <button
-//         onClick={() => onNavigation("previous")}
-//         disabled={!navigationInfo.has_previous || loading}
-//         className="flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-//       >
-//         <ArrowLeft size={16} className="mr-2" />
-//         Previous
-//       </button>
-
-//       <button
-//         onClick={() => onNavigation("next")}
-//         disabled={!navigationInfo.has_next || loading}
-//         className="flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-//       >
-//         Next
-//         <ArrowRight size={16} className="ml-2" />
-//       </button>
-//     </div>
-//   );
-// };
 
 // LeadActionButton Component
 export const LeadActionButton = ({
@@ -1395,19 +1222,6 @@ export const Modal = ({ isOpen, onClose, title, children, actions }) => {
   );
 };
 
-// ==============================================
-// LoadingState Component
-// ==============================================
-// export const LoadingState = () => {
-//   return (
-//     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-//       <div className="text-center">
-//         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-//         <p className="mt-4 text-gray-600">Loading lead information...</p>
-//       </div>
-//     </div>
-//   );
-// };
 
 // ==============================================
 // ErrorState Component
@@ -1471,6 +1285,7 @@ export const ActionButtons = ({
   onEditClick,
   onSaveClick,
   onKycClick,
+  kycLoading = false,
   onPaymentClick,
   onSendEmailClick,
   onViewEmailLogsClick,
@@ -1538,9 +1353,31 @@ export const ActionButtons = ({
         {!currentLead?.kyc ? (
           <button
             onClick={onKycClick}
-            disabled={!currentLead?.email}
-            className="flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={kycLoading || !currentLead?.email}
+            className={`flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
           >
+            {kycLoading && (
+              <svg
+                className="animate-spin h-4 w-4 mr-2 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                ></path>
+              </svg>
+            )}
             KYC
           </button>
         ) : null}
@@ -1572,12 +1409,12 @@ export const ActionButtons = ({
           Comments
         </button>
 
-        <button
+        {hasPermission("lead_recording_view") && <button
           onClick={onRecordingsClick}
           className="flex items-center px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
         >
           Recordings
-        </button>
+        </button>}
       </div>
     </div>
   );

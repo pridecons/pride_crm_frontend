@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import {
   Shield,
   RefreshCw,
   CheckCircle,
   XCircle,
-  Loader2,
   Save,
-  Users,  
+  Users,
   Settings,
   User,
   Lock,
@@ -26,22 +24,59 @@ import {
   Target,
   BarChart3,
   Download,
-  Activity,
   CheckSquare,
-  Square
 } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
+import LoadingState from "@/components/LoadingState"; // Adjust the import path if needed
 
-const PERMISSION_LIST = [
-  "add_user", "edit_user", "delete_user",
-  "add_lead", "edit_lead", "delete_lead",
-  "view_users", "view_lead", "view_branch",
-  "view_accounts", "view_research", "view_client",
-  "view_payment", "view_invoice", "view_kyc",
-  "approval", "internal_mailing", "chatting",
-  "targets", "reports", "fetch_lead",
-];
+// Get permission keys, filter out meta fields
+const getPermissionKeys = (permObj) =>
+  Object.keys(permObj || {}).filter(
+    (k) => !["user_id", "user", "id"].includes(k)
+  );
+
+// Permission Icon helper
+const getPermissionIcon = (perm) => {
+  const iconMap = {
+    add_user: Plus,
+    edit_user: Edit,
+    delete_user: Trash2,
+    add_lead: Plus,
+    edit_lead: Edit,
+    delete_lead: Trash2,
+    view_users: Users,
+    view_lead: Eye,
+    view_branch: Building,
+    view_accounts: DollarSign,
+    view_research: BarChart3,
+    view_client: UserCheck,
+    view_payment: DollarSign,
+    view_invoice: FileText,
+    view_kyc: Shield,
+    approval: CheckCircle,
+    internal_mailing: MessageSquare,
+    chatting: MessageSquare,
+    targets: Target,
+    reports: BarChart3,
+    fetch_lead: Download,
+  };
+  return iconMap[perm] || Settings;
+};
+
+// Categorize dynamically
+const getPermissionCategory = (perm) => {
+  if (perm.includes("user")) return "User Management";
+  if (perm.includes("lead")) return "Lead Management";
+  if (perm.includes("view_")) return "View Access";
+  if (
+    perm.includes("payment") ||
+    perm.includes("invoice") ||
+    perm.includes("accounts")
+  )
+    return "Financial";
+  return "General";
+};
 
 export default function PermissionsPage() {
   const [permissions, setPermissions] = useState([]);
@@ -57,9 +92,7 @@ export default function PermissionsPage() {
   const fetchAllPermissions = async () => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get(
-        "/permissions/?skip=0&limit=100"
-      );
+      const res = await axiosInstance.get("/permissions/?skip=0&limit=100");
       setPermissions(res.data);
     } catch (err) {
       toast.error("Failed to load permissions list");
@@ -72,9 +105,7 @@ export default function PermissionsPage() {
     try {
       setSelectedUser(userId);
       setLoading(true);
-      const res = await axiosInstance.get(
-        `/permissions/user/${userId}`
-      );
+      const res = await axiosInstance.get(`/permissions/user/${userId}`);
       setSelectedUserPermissions(res.data);
     } catch (err) {
       toast.error(`Could not load user permissions for ${userId}`);
@@ -130,50 +161,24 @@ export default function PermissionsPage() {
     }));
   };
 
-  const getPermissionIcon = (perm) => {
-    const iconMap = {
-      add_user: Plus,
-      edit_user: Edit,
-      delete_user: Trash2,
-      add_lead: Plus,
-      edit_lead: Edit,
-      delete_lead: Trash2,
-      view_users: Users,
-      view_lead: Eye,
-      view_branch: Building,
-      view_accounts: DollarSign,
-      view_research: BarChart3,
-      view_client: UserCheck,
-      view_payment: DollarSign,
-      view_invoice: FileText,
-      view_kyc: Shield,
-      approval: CheckCircle,
-      internal_mailing: MessageSquare,
-      chatting: MessageSquare,
-      targets: Target,
-      reports: BarChart3,
-      fetch_lead: Download,
-    };
-    return iconMap[perm] || Settings;
-  };
-
-  const getPermissionCategory = (perm) => {
-    if (perm.includes('user')) return 'User Management';
-    if (perm.includes('lead')) return 'Lead Management';
-    if (perm.includes('view_')) return 'View Access';
-    if (perm.includes('payment') || perm.includes('invoice') || perm.includes('accounts')) return 'Financial';
-    return 'General';
-  };
-
-  const groupedPermissions = PERMISSION_LIST.reduce((acc, perm) => {
-    const category = getPermissionCategory(perm);
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(perm);
-    return acc;
-  }, {});
+  // Group permissions by category
+  const groupedPermissions = selectedUserPermissions
+    ? getPermissionKeys(selectedUserPermissions).reduce((acc, perm) => {
+        const category = getPermissionCategory(perm);
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(perm);
+        return acc;
+      }, {})
+    : {};
 
   const enabledPermissions = selectedUserPermissions
-    ? Object.keys(selectedUserPermissions).filter(key => selectedUserPermissions[key]).length
+    ? getPermissionKeys(selectedUserPermissions).filter(
+        (key) => selectedUserPermissions[key]
+      ).length
+    : 0;
+
+  const totalPermissions = selectedUserPermissions
+    ? getPermissionKeys(selectedUserPermissions).length
     : 0;
 
   return (
@@ -210,7 +215,9 @@ export default function PermissionsPage() {
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
                   Total Users
                 </p>
-                <p className="text-3xl font-bold text-gray-900">{permissions.length}</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {permissions.length}
+                </p>
               </div>
               <div className="bg-blue-50 rounded-full p-3">
                 <Users className="w-6 h-6 text-blue-600" />
@@ -224,7 +231,9 @@ export default function PermissionsPage() {
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
                   Total Permissions
                 </p>
-                <p className="text-3xl font-bold text-gray-900">{PERMISSION_LIST.length}</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {totalPermissions}
+                </p>
               </div>
               <div className="bg-green-50 rounded-full p-3">
                 <Shield className="w-6 h-6 text-green-600" />
@@ -255,7 +264,7 @@ export default function PermissionsPage() {
                   Enabled Permissions
                 </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {enabledPermissions}/{PERMISSION_LIST.length}
+                  {enabledPermissions}/{totalPermissions}
                 </p>
               </div>
               <div className="bg-amber-50 rounded-full p-3">
@@ -273,16 +282,15 @@ export default function PermissionsPage() {
                 <div className="bg-white/20 rounded-full p-2">
                   <Users className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-xl font-semibold text-white">Users with Permissions</h2>
+                <h2 className="text-xl font-semibold text-white">
+                  Users with Permissions
+                </h2>
               </div>
             </div>
 
             <div className="p-6">
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
-                  <p className="text-gray-500">Loading users...</p>
-                </div>
+                <LoadingState message="Loading users..." />
               ) : (
                 <div className="max-h-[500px] overflow-auto">
                   <div className="space-y-2">
@@ -290,35 +298,57 @@ export default function PermissionsPage() {
                       <div
                         key={user.user_id}
                         onClick={() => loadUserPermissions(user.user_id)}
-                        className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border ${selectedUser === user.user_id
-                          ? "bg-blue-50 border-blue-200 text-blue-700"
-                          : "hover:bg-gray-50 border-gray-100 hover:border-gray-200"
-                          }`}
+                        className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
+                          selectedUser === user.user_id
+                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                            : "hover:bg-gray-50 border-gray-100 hover:border-gray-200"
+                        }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`rounded-full p-2 ${selectedUser === user.user_id
-                            ? "bg-blue-100"
-                            : "bg-gray-100 group-hover:bg-gray-200"
-                            }`}>
-                            <User className={`w-4 h-4 ${selectedUser === user.user_id
-                              ? "text-blue-600"
-                              : "text-gray-600"
-                              }`} />
+                          <div
+                            className={`rounded-full p-2 ${
+                              selectedUser === user.user_id
+                                ? "bg-blue-100"
+                                : "bg-gray-100 group-hover:bg-gray-200"
+                            }`}
+                          >
+                            <User
+                              className={`w-4 h-4 ${
+                                selectedUser === user.user_id
+                                  ? "text-blue-600"
+                                  : "text-gray-600"
+                              }`}
+                            />
                           </div>
                           <div className="flex-1">
-                            <p className={`text-xs ${selectedUser === user.user_id
-                              ? "text-blue-900"
-                              : "text-gray-900"
-                              }`}>
+                            <p
+                              className={`text-xs ${
+                                selectedUser === user.user_id
+                                  ? "text-blue-900"
+                                  : "text-gray-900"
+                              }`}
+                            >
                               {user.user_id}
                             </p>
                             <div className="flex justify-between">
-                            <p className={`font-medium ${selectedUser === user.user_id ? "text-blue-900" : "text-gray-900"}`}>
-                              {user.user?.name || user.user_id}
-                            </p>
-                            <p className={`text-sm ${selectedUser === user.user_id ? "text-blue-600" : "text-gray-500"}`}>
-                              {user.user?.role || "Role not assigned"}
-                            </p>
+                              <p
+                                className={`font-medium ${
+                                  selectedUser === user.user_id
+                                    ? "text-blue-900"
+                                    : "text-gray-900"
+                                }`}
+                              >
+                                {user.user?.name || user.user_id}
+                              </p>
+                              <p
+                                className={`text-sm ${
+                                  selectedUser === user.user_id
+                                    ? "text-blue-600"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                {user.user?.role || "Role not assigned"}
+                              </p>
                             </div>
                             <p className="text-xs text-gray-500 truncate">
                               {user.user?.email || "Email not available"}
@@ -340,7 +370,11 @@ export default function PermissionsPage() {
 
           {/* Enhanced Permissions Editor */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            {selectedUserPermissions ? (
+            {loading && selectedUser && (
+              <LoadingState message="Loading user permissions..." />
+            )}
+
+            {!loading && selectedUserPermissions ? (
               <>
                 <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex justify-between items-center">
                   <div className="flex items-center gap-3">
@@ -355,12 +389,11 @@ export default function PermissionsPage() {
                         Editing:
                         <span className="font-medium">
                           {selectedUserPermissions?.user?.name || selectedUser}
-                          ({selectedUserPermissions?.user?.role || 'Role N/A'})
+                          ({selectedUserPermissions?.user?.role || "Role N/A"})
                         </span>
                       </p>
                     </div>
                   </div>
-
                   {/* Close Button */}
                   <button
                     onClick={() => {
@@ -374,75 +407,112 @@ export default function PermissionsPage() {
                   </button>
                 </div>
 
-
                 <div className="p-6">
                   <div className="max-h-[450px] overflow-auto mb-6">
                     <div className="space-y-6">
-                      {Object.entries(groupedPermissions).map(([category, perms]) => (
-                        <div key={category} className="space-y-3">
-                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2">
-                            <div className="bg-blue-50 rounded-full p-1">
-                              <Shield className="w-4 h-4 text-blue-600" />
-                            </div>
-                            {category}
-                          </h3>
-                          <div className="grid grid-cols-1 gap-3">
-                            {perms.map((perm) => {
-                              const IconComponent = getPermissionIcon(perm);
-                              const isChecked = selectedUserPermissions[perm] || false;
+                      {Object.entries(groupedPermissions).map(
+                        ([category, perms]) => (
+                          <div key={category} className="space-y-3">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2">
+                              <div className="bg-blue-50 rounded-full p-1">
+                                <Shield className="w-4 h-4 text-blue-600" />
+                              </div>
+                              {category}
+                            </h3>
+                            <div className="grid grid-cols-1 gap-3">
+                              {perms.map((perm) => {
+                                const IconComponent = getPermissionIcon(perm);
+                                const isChecked =
+                                  selectedUserPermissions[perm] || false;
 
-                              return (
-                                <label
-                                  key={perm}
-                                  className={`group flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${isChecked
-                                    ? "bg-green-50 border-green-200 hover:bg-green-100"
-                                    : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                                return (
+                                  <label
+                                    key={perm}
+                                    className={`group flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
+                                      isChecked
+                                        ? "bg-green-50 border-green-200 hover:bg-green-100"
+                                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
                                     }`}
-                                >
-                                  <div className="relative">
-                                    <input
-                                      type="checkbox"
-                                      className="sr-only"
-                                      checked={isChecked}
-                                      onChange={() => handleCheckboxChange(perm)}
-                                    />
-                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${isChecked
-                                      ? "bg-green-500 border-green-500"
-                                      : "bg-white border-gray-300 group-hover:border-gray-400"
-                                      }`}>
-                                      {isChecked && (
-                                        <CheckSquare className="w-3 h-3 text-white" />
+                                  >
+                                    <div className="relative">
+                                      <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={isChecked}
+                                        onChange={() =>
+                                          handleCheckboxChange(perm)
+                                        }
+                                      />
+                                      <div
+                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
+                                          isChecked
+                                            ? "bg-green-500 border-green-500"
+                                            : "bg-white border-gray-300 group-hover:border-gray-400"
+                                        }`}
+                                      >
+                                        {isChecked && (
+                                          <CheckSquare className="w-3 h-3 text-white" />
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div
+                                      className={`rounded-full p-2 ${
+                                        isChecked
+                                          ? "bg-green-100"
+                                          : "bg-gray-100 group-hover:bg-gray-200"
+                                      }`}
+                                    >
+                                      <IconComponent
+                                        className={`w-4 h-4 ${
+                                          isChecked
+                                            ? "text-green-600"
+                                            : "text-gray-600"
+                                        }`}
+                                      />
+                                    </div>
+
+                                    <div className="flex-1">
+                                      <span
+                                        className={`font-medium capitalize ${
+                                          isChecked
+                                            ? "text-green-900"
+                                            : "text-gray-900"
+                                        }`}
+                                      >
+                                        {perm.replace(/_/g, " ")}
+                                      </span>
+                                      <p
+                                        className={`text-sm ${
+                                          isChecked
+                                            ? "text-green-600"
+                                            : "text-gray-500"
+                                        }`}
+                                      >
+                                        {isChecked ? "Enabled" : "Disabled"}
+                                      </p>
+                                    </div>
+
+                                    <div
+                                      className={`${
+                                        isChecked
+                                          ? "text-green-600"
+                                          : "text-gray-400"
+                                      }`}
+                                    >
+                                      {isChecked ? (
+                                        <Unlock className="w-4 h-4" />
+                                      ) : (
+                                        <Lock className="w-4 h-4" />
                                       )}
                                     </div>
-                                  </div>
-
-                                  <div className={`rounded-full p-2 ${isChecked ? "bg-green-100" : "bg-gray-100 group-hover:bg-gray-200"
-                                    }`}>
-                                    <IconComponent className={`w-4 h-4 ${isChecked ? "text-green-600" : "text-gray-600"
-                                      }`} />
-                                  </div>
-
-                                  <div className="flex-1">
-                                    <span className={`font-medium capitalize ${isChecked ? "text-green-900" : "text-gray-900"
-                                      }`}>
-                                      {perm.replace(/_/g, " ")}
-                                    </span>
-                                    <p className={`text-sm ${isChecked ? "text-green-600" : "text-gray-500"
-                                      }`}>
-                                      {isChecked ? "Enabled" : "Disabled"}
-                                    </p>
-                                  </div>
-
-                                  <div className={`${isChecked ? "text-green-600" : "text-gray-400"
-                                    }`}>
-                                    {isChecked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                                  </div>
-                                </label>
-                              );
-                            })}
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
 
@@ -461,8 +531,7 @@ export default function PermissionsPage() {
                     >
                       {saving ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving...
+                          <LoadingState message="Saving..." />
                         </>
                       ) : (
                         <>
@@ -475,17 +544,21 @@ export default function PermissionsPage() {
                 </div>
               </>
             ) : (
-              <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-white/20 rounded-full p-2">
-                    <Settings className="w-5 h-5 text-white" />
+              !loading && (
+                <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-full p-2">
+                      <Settings className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-white">
+                      Permissions Editor
+                    </h2>
                   </div>
-                  <h2 className="text-xl font-semibold text-white">Permissions Editor</h2>
                 </div>
-              </div>
+              )
             )}
 
-            {!selectedUserPermissions && (
+            {!selectedUserPermissions && !loading && (
               <div className="p-6 flex flex-col items-center justify-center py-24">
                 <div className="bg-gray-100 rounded-full p-6 mb-6">
                   <User className="w-12 h-12 text-gray-400" />

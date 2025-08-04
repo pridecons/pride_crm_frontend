@@ -112,12 +112,14 @@ export default function AddUserModal({
             return;
         }
         setLoadingPan(true);
+        toast.loading("Verifying PAN...");
         try {
             const res = await axiosInstance.post(
                 "/micro-pan-verification",
                 new URLSearchParams({ pannumber: newUser.pan }),
                 { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
             );
+            toast.dismiss();
 
             if (res.data.success && res.data.data?.result) {
                 const result = res.data.data.result;
@@ -130,12 +132,13 @@ export default function AddUserModal({
                     city: result.user_address?.city || prev.city,
                     state: result.user_address?.state || prev.state,
                 }));
-                setIsPanVerified(true); // ✅ Mark PAN as verified
+                setIsPanVerified(true);
                 toast.success("PAN verified and details autofilled!");
             } else {
                 toast.error("PAN verification failed");
             }
         } catch (err) {
+            toast.dismiss();
             console.error(err);
             toast.error("Error verifying PAN");
         } finally {
@@ -146,7 +149,19 @@ export default function AddUserModal({
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // ✅ Validation before anything
+        // Field validations
+        if (!/^\d{12}$/.test(newUser.aadhaar)) {
+            toast.error("Aadhaar must be exactly 12 digits.");
+            return;
+        }
+        if (!/^\d{10}$/.test(newUser.phone_number)) {
+            toast.error("Phone number must be exactly 10 digits.");
+            return;
+        }
+        if (!passwordRegex.test(newUser.password)) {
+            toast.error("Password must be at least 6 chars and contain a number & special character.");
+            return;
+        }
         if (newUser.role === "TL" && !newUser.sales_manager_id) {
             toast.error("Sales Manager is required for TL role");
             return;
@@ -158,6 +173,7 @@ export default function AddUserModal({
 
         setIsSubmitting(true);
         try {
+            toast.loading("Adding user...");
             const { data } = await axiosInstance.post("/users/", {
                 ...newUser,
                 branch_id: newUser.branch_id ? Number(newUser.branch_id) : null,
@@ -167,33 +183,16 @@ export default function AddUserModal({
                 is_active: true,
             });
 
+            toast.dismiss(); // dismiss loading
             toast.success("User added successfully!");
             onUserAdded(data);
             onClose();
 
-            // ✅ Reset form
             setNewUser({
-                name: "",
-                email: "",
-                phone_number: "",
-                father_name: "",
-                password: "",
-                pan: "",
-                aadhaar: "",
-                address: "",
-                city: "",
-                state: "",
-                pincode: "",
-                comment: "",
-                experience: "",
-                date_of_joining: "",
-                date_of_birth: "",
-                role: "",
-                branch_id: "",
-                sales_manager_id: "",
-                tl_id: "",
+                name: "", email: "", phone_number: "", father_name: "", password: "", pan: "", aadhaar: "", address: "", city: "", state: "", pincode: "", comment: "", experience: "", date_of_joining: "", date_of_birth: "", role: "", branch_id: "", sales_manager_id: "", tl_id: "",
             });
         } catch (err) {
+            toast.dismiss();
             console.error(err);
             toast.error("Failed to add user");
         } finally {
@@ -202,6 +201,18 @@ export default function AddUserModal({
     };
 
     if (!isOpen) return null;
+
+    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
+    // at least one number, one special char, min 6 chars
+
+    // Place inside your component, above return
+    const aadhaarError = newUser.aadhaar.length > 0 && newUser.aadhaar.length !== 12
+        ? "Aadhaar number must be exactly 12 digits"
+        : "";
+
+    const phoneError = newUser.phone_number.length > 0 && newUser.phone_number.length !== 10
+        ? "Phone number must be exactly 10 digits"
+        : "";
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -235,7 +246,19 @@ export default function AddUserModal({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                                    <input className="w-full p-3 border rounded-xl" value={newUser.phone_number} onChange={(e) => setNewUser({ ...newUser, phone_number: e.target.value })} required />
+                                    {phoneError && (
+                                        <div className="mb-1 text-xs text-red-600 font-medium">{phoneError}</div>
+                                    )}
+                                    <input
+                                        className="w-full p-3 border rounded-xl"
+                                        maxLength={10}
+                                        value={newUser.phone_number}
+                                        onChange={e => {
+                                            const digits = e.target.value.replace(/\D/g, "");
+                                            setNewUser({ ...newUser, phone_number: digits.slice(0, 10) });
+                                        }}
+                                        required
+                                    />
                                 </div>
 
                                 <div>
@@ -271,7 +294,18 @@ export default function AddUserModal({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Aadhaar Number</label>
-                                    <input className="w-full p-3 border rounded-xl" maxLength={12} value={newUser.aadhaar} onChange={(e) => setNewUser({ ...newUser, aadhaar: e.target.value.replace(/\D/g, "") })} />
+                                    {aadhaarError && (
+                                        <div className="mb-1 text-xs text-red-600 font-medium">{aadhaarError}</div>
+                                    )}
+                                    <input
+                                        className="w-full p-3 border rounded-xl"
+                                        maxLength={12}
+                                        value={newUser.aadhaar}
+                                        onChange={e => {
+                                            const digits = e.target.value.replace(/\D/g, "");
+                                            setNewUser({ ...newUser, aadhaar: digits.slice(0, 12) });
+                                        }}
+                                    />
                                 </div>
 
                                 <div>

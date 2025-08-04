@@ -15,6 +15,7 @@ import {
   AlertCircle,
   CheckCircle
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const SourceModel = ({ open, setOpen }) => {
   const [sources, setSources] = useState([]);
@@ -27,7 +28,7 @@ const SourceModel = ({ open, setOpen }) => {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   useEffect(() => {
     if (open) fetchSources();
   }, [open]);
@@ -51,12 +52,7 @@ const SourceModel = ({ open, setOpen }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // 1) Ask before creating/updating
-    const action = editingId ? "update this source" : "create this source";
-    if (!window.confirm(`Are you sure you want to ${action}?`)) {
-      return;
-    }
-
+    // 1) Ask before creating/updating  
     setIsSubmitting(true);
     try {
       if (editingId) {
@@ -64,26 +60,21 @@ const SourceModel = ({ open, setOpen }) => {
           name: form.name,
           description: form.description,
         });
-        // after update just close
+        toast.success("Source updated successfully!");
         setOpen(false);
       } else {
         await axiosInstance.post("/lead-config/sources/", form);
-        // 2) After create, ask if they want to create another
-        const again = window.confirm(
-          "Source created successfully! Would you like to create another one?"
-        );
-        if (again) {
-          resetForm();
-          await fetchSources();
-          return; // stay open, fresh form
-        }
-        // if not, close modal
+        toast.success("Source created successfully!");
+        resetForm();
         setOpen(false);
+        await fetchSources();
+
       }
       // in both cases, refresh list
       await fetchSources();
       setIsCreateNew(false);
     } catch (err) {
+      toast.error("Save failed! Please try again.");
       console.error("Save failed:", err);
     } finally {
       setIsSubmitting(false);
@@ -101,13 +92,14 @@ const SourceModel = ({ open, setOpen }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this source?")) return;
     try {
       await axiosInstance.delete(
         `/lead-config/sources/${id}?force=false`
       );
+      toast.success("Source deleted successfully!");
       await fetchSources();
     } catch (err) {
+      toast.error("Delete failed! Please try again.");
       console.error("Delete failed:", err);
     }
   };
@@ -165,7 +157,7 @@ const SourceModel = ({ open, setOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-green-50 rounded-xl p-4 border border-green-100">
               <div className="flex items-center gap-3">
                 <div className="bg-green-100 rounded-full p-2">
@@ -177,7 +169,7 @@ const SourceModel = ({ open, setOpen }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
               <div className="flex items-center gap-3">
                 <div className="bg-purple-100 rounded-full p-2">
@@ -391,7 +383,7 @@ const SourceModel = ({ open, setOpen }) => {
                             {searchTerm ? "No sources found" : "No sources available"}
                           </h3>
                           <p className="text-gray-500 text-center max-w-sm">
-                            {searchTerm 
+                            {searchTerm
                               ? `No sources match "${searchTerm}". Try adjusting your search.`
                               : "Get started by creating your first source."
                             }

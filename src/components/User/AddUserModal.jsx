@@ -214,6 +214,11 @@ export default function AddUserModal({
         ? "Phone number must be exactly 10 digits"
         : "";
 
+    const passwordError =
+        newUser.password.length > 0 && !passwordRegex.test(newUser.password)
+            ? "Password must be at least 6 characters, include a number and a special character."
+            : "";
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -268,6 +273,9 @@ export default function AddUserModal({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                                    {passwordError && (
+                                        <div className="mb-1 text-xs text-red-600 font-medium">{passwordError}</div>
+                                    )}
                                     <input className="w-full p-3 border rounded-xl" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required />
                                 </div>
                             </div>

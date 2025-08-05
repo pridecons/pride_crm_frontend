@@ -124,20 +124,37 @@ export default function EditUserModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // --- Field Validations ---
+        if (formData.aadhaar && !/^\d{12}$/.test(formData.aadhaar)) {
+            toast.error("Aadhaar must be exactly 12 digits.");
+            return;
+        }
+        if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number)) {
+            toast.error("Phone number must be exactly 10 digits.");
+            return;
+        }
+        if (formData.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan)) {
+            toast.error("Invalid PAN format. Example: ABCDE1234F");
+            return;
+        }
+
         setIsSubmitting(true);
+        toast.loading("Updating user...");
         try {
             const payload = {
                 ...formData,
                 experience: Number(formData.experience) || 0,
                 date_of_joining: formatToISO(formData.date_of_joining),
-                date_of_birth: formatToISO(formData.date_of_birth)
+                date_of_birth: formatToISO(formData.date_of_birth),
             };
-
             const { data } = await axiosInstance.put(`/users/${formData.employee_code}`, payload);
+            toast.dismiss();
             toast.success(`User ${formData.employee_code} updated successfully!`);
-            onUserUpdated(data); // Pass updated user to parent
-            onClose(); // Close edit modal
+            onUserUpdated(data);
+            onClose();
         } catch (err) {
+            toast.dismiss();
             console.error(err);
             toast.error("Failed to update user");
         } finally {
@@ -146,6 +163,24 @@ export default function EditUserModal({
     };
 
     if (!isOpen || !user) return null;
+
+    // Aadhaar
+    const aadhaarError =
+        formData.aadhaar?.length > 0 && formData.aadhaar.length !== 12
+            ? "Aadhaar number must be exactly 12 digits"
+            : "";
+
+    // Phone
+    const phoneError =
+        formData.phone_number?.length > 0 && formData.phone_number.length !== 10
+            ? "Phone number must be exactly 10 digits"
+            : "";
+
+    // PAN
+    const panError =
+        formData.pan?.length > 0 && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan)
+            ? "Invalid PAN format"
+            : "";
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -192,13 +227,21 @@ export default function EditUserModal({
                                     onChange={handleInputChange}
                                     placeholder="Email"
                                 />
-                                <input
-                                    className="w-full p-3 border rounded-xl"
-                                    name="phone_number"
-                                    value={formData.phone_number || ""}
-                                    onChange={handleInputChange}
-                                    placeholder="Phone"
-                                />
+                                <div>
+                                    {phoneError && (
+                                        <div className="mb-1 text-xs text-red-600 font-medium">{phoneError}</div>
+                                    )}
+                                    <input
+                                        className="w-full p-3 border rounded-xl"
+                                        name="phone_number"
+                                        value={formData.phone_number || ""}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/\D/g, "");
+                                            setFormData((prev) => ({ ...prev, phone_number: digits.slice(0, 10) }));
+                                        }}
+                                        placeholder="Phone"
+                                    />
+                                </div>
                                 <input
                                     className="w-full p-3 border rounded-xl"
                                     name="father_name"
@@ -215,11 +258,19 @@ export default function EditUserModal({
                                 </h4>
                                 {/* PAN */}
                                 <div className="flex gap-2">
+                                    {panError && (
+                                        <div className="mb-1 text-xs text-red-600 font-medium">{panError}</div>
+                                    )}
                                     <input
                                         className="flex-1 p-3 border rounded-xl"
                                         name="pan"
                                         value={formData.pan || ""}
-                                        onChange={handleInputChange}
+                                        onChange={(e) =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                pan: e.target.value.toUpperCase(),
+                                            }))
+                                        }
                                         placeholder="PAN Number"
                                     />
                                     <button
@@ -236,13 +287,21 @@ export default function EditUserModal({
                                         {loadingPan ? "Verifying..." : "Verify"}
                                     </button>
                                 </div>
-                                <input
-                                    className="w-full p-3 border rounded-xl"
-                                    name="aadhaar"
-                                    value={formData.aadhaar || ""}
-                                    onChange={handleInputChange}
-                                    placeholder="Aadhaar"
-                                />
+                                <div>
+                                    {aadhaarError && (
+                                        <div className="mb-1 text-xs text-red-600 font-medium">{aadhaarError}</div>
+                                    )}
+                                    <input
+                                        className="w-full p-3 border rounded-xl"
+                                        name="aadhaar"
+                                        value={formData.aadhaar || ""}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/\D/g, "");
+                                            setFormData((prev) => ({ ...prev, aadhaar: digits.slice(0, 12) }));
+                                        }}
+                                        placeholder="Aadhaar"
+                                    />
+                                </div>
                                 {/* Role */}
                                 <select
                                     className="w-full p-3 border rounded-xl bg-white"

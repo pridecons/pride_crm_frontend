@@ -75,9 +75,8 @@ const LeadManage = () => {
     ...branches.map(b => ({ value: b.id.toString(), label: b.name }))
   ];
   const employeeOptions = ["All", ...employees.map(e => ({ value: e.employee_code, label: e.name }))];
-  const sourceOptions = ["All", ...sourcesList.map(s => ({ value: s.name, label: s.name }))];
-  const responseOptions = ["All", ...responsesList.map(r => ({ value: r.name, label: r.name }))];
-
+  const sourceOptions = ["All", ...sourcesList.map(s => ({ value: s.id, label: s.name }))];
+  const responseOptions = ["All", ...responsesList.map(r => ({ value: r.id, label: r.name }))];
 
   useEffect(() => {
     fetchLeadData();
@@ -103,17 +102,17 @@ const LeadManage = () => {
 
     // … your search + status logic …
 
-    if (branchFilter !== "All") {
-      updated = updated.filter(lead => lead.branch_id?.toString() === branchFilter);
-    }
-    if (employeeFilter !== "All") {
-      updated = updated.filter(lead => lead.employee_code === employeeFilter);
-    }
     if (sourceFilter !== "All") {
-      updated = updated.filter(lead => lead.source === sourceFilter);
+      updated = updated.filter((lead) => String(lead.lead_source_id) === String(sourceFilter));
     }
     if (responseFilter !== "All") {
-      updated = updated.filter(lead => lead.response === responseFilter);
+      updated = updated.filter((lead) => String(lead.lead_response_id) === String(responseFilter));
+    }
+    if (branchFilter !== "All") {
+      updated = updated.filter((lead) => String(lead.branch_id) === String(branchFilter));
+    }
+    if (employeeFilter !== "All") {
+      updated = updated.filter((lead) => lead.assigned_to_user === employeeFilter);
     }
 
     setFilteredLeads(updated);
@@ -127,7 +126,27 @@ const LeadManage = () => {
     responseFilter,   // ← and here
   ]);
 
-  const columns = leadData.length > 0 ? Object.keys(leadData[0]) : [];
+  const columns = [
+    "id",
+    "full_name",
+    "email",
+    "mobile",
+    "alternate_mobile",
+    "pan",
+    "state",
+    "city",
+    "segment",
+    "investment",
+    "lead_response_id",    // will show as Response Name
+    "lead_source_id",      // will show as Source Name
+    "branch_id",           // will show as Branch Name
+    "created_by_name",
+    "assigned_to_user",    // will show as Employee Name
+    "response_changed_at",
+    "conversion_deadline",
+    "created_at"
+  ];
+
 
   // Quick Stats
   const totalLeads = leadData.length;
@@ -144,6 +163,40 @@ const LeadManage = () => {
     };
 
     return statusStyles[status] || "bg-gray-100 text-gray-800 border-gray-200";
+  };
+
+  // Lookup helpers
+  const getSourceName = (id) =>
+    sourcesList.find((s) => s.id === id)?.name || (id == null ? "—" : id);
+
+  const getResponseName = (id) =>
+    responsesList.find((r) => r.id === id)?.name || (id == null ? "—" : id);
+
+  const getBranchName = (id) =>
+    branches.find((b) => b.id === id)?.name || (id == null ? "—" : id);
+
+  const getEmployeeName = (code) =>
+    employees.find((e) => e.employee_code === code)?.name || (code == null ? "—" : code);
+
+  const prettyHeaders = {
+    id: "ID",
+    full_name: "Full Name",
+    email: "Email",
+    mobile: "Mobile",
+    alternate_mobile: "Alt. Mobile",
+    pan: "PAN",
+    state: "State",
+    city: "City",
+    segment: "Segment",
+    investment: "Investment",
+    lead_response_id: "Response",
+    lead_source_id: "Source",
+    branch_id: "Branch",
+    created_by_name: "Created By",
+    assigned_to_user: "Assign To User",
+    response_changed_at: "Response Changed",
+    conversion_deadline: "Conversion Deadline",
+    created_at: "Created At",
   };
 
   return (
@@ -424,7 +477,7 @@ const LeadManage = () => {
                       key={col}
                       className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                     >
-                      {col.replace(/_/g, " ")}
+                      {prettyHeaders[col] || col.replace(/_/g, " ")}
                     </th>
                   ))}
                   <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -433,31 +486,31 @@ const LeadManage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredLeads.map((lead, index) => (
-                  <tr
-                    key={lead.id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
+                {filteredLeads.map((lead) => (
+                  <tr key={lead.id} className="hover:bg-gray-50 transition-colors duration-150">
                     {columns.map((col) => {
                       let value = lead[col];
-                      if (value && typeof value === "object") {
-                        value = JSON.stringify(value);
+
+                      // Special render logic
+                      if (col === "lead_source_id") value = getSourceName(lead.lead_source_id);
+                      if (col === "lead_response_id") value = getResponseName(lead.lead_response_id);
+                      if (col === "branch_id") value = getBranchName(lead.branch_id);
+                      if (col === "assigned_to_user") value = getEmployeeName(lead.assigned_to_user);
+                      if (col === "segment" && Array.isArray(value)) value = value.join(", ");
+
+                      // Format date strings (optional)
+                      if (
+                        ["created_at", "response_changed_at", "conversion_deadline"].includes(col) &&
+                        value
+                      ) {
+                        value = new Date(value).toLocaleString("en-IN");
                       }
 
                       return (
-                        <td
-                          key={col}
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                        >
-                          {col === 'status' && value ? (
-                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(value)}`}>
-                              {value}
-                            </span>
-                          ) : (
-                            <span className={value == null ? "text-gray-400" : ""}>
-                              {value == null ? "—" : value}
-                            </span>
-                          )}
+                        <td key={col} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <span className={value == null ? "text-gray-400" : ""}>
+                            {value == null || value === "" ? "—" : value}
+                          </span>
                         </td>
                       );
                     })}
@@ -501,7 +554,7 @@ const LeadManage = () => {
         onClose={() => setIsBulkUploadOpen(false)}
         branches={branches}
       />
-      
+
     </div>
   );
 };

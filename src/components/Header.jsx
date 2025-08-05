@@ -114,7 +114,7 @@ export default function Header({ onMenuClick, onSearch }) {
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar
         <div className="flex-1 max-w-md mx-3 hidden sm:block">
           <div className="relative group">
             <Search
@@ -130,7 +130,7 @@ export default function Header({ onMenuClick, onSearch }) {
             />
             <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
           </div>
-        </div>
+        </div> */}
 
         {/* Clock + Notifications + Profile */}
         <div className="flex items-center gap-6">

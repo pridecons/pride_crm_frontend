@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-hot-toast";
-import { Plus, Pencil, Trash, Eye, X } from "lucide-react";
+import { Plus, Pencil, Trash, Eye, X, ChevronDown } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 
 const JoditEditor = dynamic(() => import("jodit-react"), { ssr: false });
@@ -31,9 +31,10 @@ export default function EmailTemplates() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState(null);
   const [previewMode, setPreviewMode] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    template_type: "employee",
+    template_type: "[]", // ← now an array
     subject: "",
     body: "",
   });
@@ -42,7 +43,6 @@ export default function EmailTemplates() {
 
   const config = useMemo(() => {
     if (typeof window === "undefined") return {};
-
 
     const { Jodit } = require("jodit"); // SSR-safe require
 
@@ -76,6 +76,20 @@ export default function EmailTemplates() {
     };
   }, []);
 
+  const [roleOptions, setRoleOptions] = useState([]);
+
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const { data } = await axiosInstance.get("/profile-role/");
+        setRoleOptions(data);
+      } catch (err) {
+        toast.error("Failed to load template types");
+      }
+    };
+    loadRoles();
+  }, []);
+
   const fetchTemplates = async () => {
     try {
       setLoading(true);
@@ -95,6 +109,28 @@ export default function EmailTemplates() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle checkbox changes for template_type
+  const handleTypeChange = (roleType) => {
+    setFormData((prev) => {
+      const currentTypes = Array.isArray(prev.template_type) ? prev.template_type : [];
+      const isSelected = currentTypes.includes(roleType);
+      
+      if (isSelected) {
+        // Remove the type
+        return {
+          ...prev,
+          template_type: currentTypes.filter(type => type !== roleType)
+        };
+      } else {
+        // Add the type
+        return {
+          ...prev,
+          template_type: [...currentTypes, roleType]
+        };
+      }
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -124,11 +160,12 @@ export default function EmailTemplates() {
       setEditTemplate(null);
       setFormData({
         name: "",
-        template_type: "admin", // you can default to whatever makes sense
+        template_type: "[]", // reset to empty array
         subject: "",
         body: "",
       });
       setIsModalOpen(false);
+      setIsDropdownOpen(false);
     } catch (error) {
       toast.error("Failed to save template");
     }
@@ -149,7 +186,7 @@ export default function EmailTemplates() {
     setEditTemplate(template);
     setFormData({
       name: template.name,
-      template_type: template.template_type,
+      template_type: Array.isArray(template.template_type) ? template.template_type : [template.template_type],
       subject: template.subject,
       body: template.body,
     });
@@ -179,6 +216,16 @@ export default function EmailTemplates() {
     }
   };
 
+  // Format selected types for display
+  const getSelectedTypesDisplay = () => {
+    if (!Array.isArray(formData.template_type) || formData.template_type.length === 0) {
+      return "Select types";
+    }
+    if (formData.template_type.length === 1) {
+      return formData.template_type[0].charAt(0).toUpperCase() + formData.template_type[0].slice(1);
+    }
+    return `${formData.template_type.length} types selected`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -191,7 +238,7 @@ export default function EmailTemplates() {
             setEditTemplate(null);
             setFormData({
               name: "",
-              template_type: "employee",
+              template_type: "[]",
               subject: "",
               body: "",
             });
@@ -232,7 +279,9 @@ export default function EmailTemplates() {
                 <tr key={template.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">{template.name}</td>
                   <td className="px-4 py-3 capitalize">
-                    {template.template_type}
+                    {Array.isArray(template.template_type) 
+                      ? template.template_type.join(", ") 
+                      : template.template_type}
                   </td>
                   <td className="px-4 py-3">{template.subject}</td>
                   <td className="px-4 py-3 text-center flex justify-center gap-3">
@@ -265,9 +314,12 @@ export default function EmailTemplates() {
       {/* Create/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-3xl p-6">
+          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
             <button
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                setIsDropdownOpen(false);
+              }}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
             >
               <X size={20} />
@@ -295,26 +347,54 @@ export default function EmailTemplates() {
                 />
               </div>
 
-              {/* Template Type */}
-              <div>
-                <label
-                  htmlFor="template_type"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Type
+              {/* Template Type - Multi-Select Dropdown */}
+              <div className="relative">
+                <label htmlFor="template_type" className="block text-sm font-medium mb-1">
+                  Type *
                 </label>
-                <select
-                  id="template_type"
-                  name="template_type"
-                  value={formData.template_type}
-                  onChange={handleChange}
-                  className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-300"
-                  required
-                >
-                  <option value="admin">Admin</option>
-                  <option value="employee">Employee</option>
-                  {/* add more types here as your backend supports them */}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full border rounded px-3 py-2 text-left bg-white focus:outline-none focus:ring focus:border-blue-300 flex justify-between items-center"
+                  >
+                    <span className={formData.template_type.length === 0 ? "text-gray-400" : ""}>
+                      {getSelectedTypesDisplay()}
+                    </span>
+                    <ChevronDown size={16} className={`transform transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {isDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      {roleOptions.map((roleType) => (
+                        <div
+                          key={roleType}
+                          className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleTypeChange(roleType)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.template_type.includes(roleType)}
+                            onChange={() => handleTypeChange(roleType)}
+                            className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <label className="flex-1 cursor-pointer">
+                            {roleType.charAt(0).toUpperCase() + roleType.slice(1)}
+                          </label>
+                        </div>
+                      ))}
+                      {roleOptions.length === 0 && (
+                        <div className="px-3 py-2 text-gray-500">
+                          No types available
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {formData.template_type.length === 0 && (
+                  <p className="text-red-500 text-sm mt-1">Please select at least one type</p>
+                )}
               </div>
 
               {/* Subject */}
@@ -370,14 +450,18 @@ export default function EmailTemplates() {
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setIsDropdownOpen(false);
+                  }}
                   className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  disabled={formData.template_type.length === 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {editTemplate ? "Update" : "Create"}
                 </button>
@@ -406,6 +490,14 @@ export default function EmailTemplates() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Click outside to close dropdown */}
+      {isDropdownOpen && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setIsDropdownOpen(false)}
+        />
       )}
     </div>
   );

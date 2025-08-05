@@ -248,71 +248,75 @@ const ShowNotifications = ({ setIsConnect }) => {
     };
   }, []);
 
-  return (
-    <div className="relative" ref={wrapperRef}>
-      <button
-        onClick={() => setShowNotifications(!showNotifications)}
-        className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-      >
-        <Bell size={20} />
+return (
+  <div className="relative" ref={wrapperRef}>
+    <button
+      onClick={() => setShowNotifications(!showNotifications)}
+      className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
+    >
+      <Bell size={20} />
 
-        {messages.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
-            {messages.length}
-          </span>
-        )}
-      </button>
+      {messages.length > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
+          {messages.length}
+        </span>
+      )}
+    </button>
 
-      {showNotifications && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
-              <div className="flex items-center space-x-2">
-                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{messages?.length}</span>
-                {messages.length > 0 && (
-                  <button
-                    onClick={() => setMessages([])}
-                    className="text-xs text-blue-600 hover:underline hover:text-blue-800"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
+    {showNotifications && (
+      <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Notifications</h3>
+            <div className="flex items-center space-x-2">
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{messages?.length}</span>
+              {messages.length > 0 && (
+                <button
+                  onClick={() => setMessages([])}
+                  className="text-xs text-blue-600 hover:underline hover:text-blue-800"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
           </div>
-
-          <div className="p-4 max-h-60 overflow-y-auto space-y-3">
-            {messages?.map((val, index) => (
-              <div
-                key={index}
-                className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100"
-              >
-                <div className="bg-blue-100 rounded-full p-2">
-                  <Bell size={16} className="text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{val?.title}</p>
-                  <p className="text-xs text-gray-500 break-words" dangerouslySetInnerHTML={{ __html: val.message }} />
-                </div>
-                <button
-                  onClick={() => {
-                    const updatedMessages = [...messages];
-                    updatedMessages.splice(index, 1);
-                    setMessages(updatedMessages);
-                  }}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
-                  title="Delete"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
-      )}
-    </div>
-  );
+
+        <div className="p-4 max-h-60 overflow-y-auto space-y-3">
+          {messages?.map((val, index) => (
+            <div
+              key={index}
+              className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 max-w-full"
+            >
+              <div className="bg-blue-100 rounded-full p-2">
+                <Bell size={16} className="text-blue-600" />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium text-gray-900">{val?.title}</p>
+                <p
+                  className="text-xs text-gray-500 break-words whitespace-normal w-full overflow-hidden"
+                  dangerouslySetInnerHTML={{ __html: val.message }}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  const updatedMessages = [...messages];
+                  updatedMessages.splice(index, 1);
+                  setMessages(updatedMessages);
+                }}
+                className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                title="Delete"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+);
+
 };
 
 

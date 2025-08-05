@@ -314,33 +314,53 @@ export default function ServicesPage() {
               {/* Modal Body */}
               <div className="p-6">
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Name */}
-                  <input type="text" name="name" placeholder="Service Name" value={formData.name} onChange={handleChange} className="p-4 border rounded-xl" required />
+
+                  {/* Service Name */}
+                  <div>
+                    <label className="block mb-2 font-medium text-gray-700">Service Name</label>
+                    <input type="text" name="name" placeholder="Service Name" value={formData.name} onChange={handleChange} className="p-4 border rounded-xl w-full" required />
+                  </div>
 
                   {/* Price */}
-                  <input type="number" name="price" placeholder="Price (₹)" value={formData.price} onChange={handleChange} className="p-4 border rounded-xl" required />
+                  <div>
+                    <label className="block mb-2 font-medium text-gray-700">Price (₹)</label>
+                    <input type="number" name="price" placeholder="Price (₹)" value={formData.price} onChange={handleChange} className="p-4 border rounded-xl w-full" required />
+                  </div>
 
                   {/* Discount */}
-                  <input type="number" name="discount_percent" placeholder="Discount (%)" value={formData.discount_percent} onChange={handleChange} className="p-4 border rounded-xl" />
+                  <div>
+                    <label className="block mb-2 font-medium text-gray-700">Discount (%)</label>
+                    <input type="number" name="discount_percent" placeholder="Discount (%)" value={formData.discount_percent} onChange={handleChange} className="p-4 border rounded-xl w-full" />
+                  </div>
 
                   {/* Billing Cycle */}
-                  <select name="billing_cycle" value={formData.billing_cycle} onChange={handleChange} className="p-4 border rounded-xl" required>
-                    <option value="">Select Billing Cycle</option>
-                    {billingCycles.map((cycle) => (
-                      <option key={cycle} value={cycle}>{cycle}</option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block mb-2 font-medium text-gray-700">Billing Cycle</label>
+                    <select name="billing_cycle" value={formData.billing_cycle} onChange={handleChange} className="p-4 border rounded-xl w-full" required>
+                      <option value="">Select Billing Cycle</option>
+                      {billingCycles.map((cycle) => (
+                        <option key={cycle} value={cycle}>{cycle}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                  {/* CALL Limit */}
+                  {/* CALL Limit (Conditional) */}
                   {formData.billing_cycle === 'CALL' && (
-                    <input type="number" name="CALL" placeholder="CALL Limit" value={formData.CALL} onChange={handleChange} className="p-4 border rounded-xl" required />
+                    <div>
+                      <label className="block mb-2 font-medium text-gray-700">CALL Limit</label>
+                      <input type="number" name="CALL" placeholder="CALL Limit" value={formData.CALL} onChange={handleChange} className="p-4 border rounded-xl w-full" required />
+                    </div>
                   )}
 
-                  {/* Service Type (multi-select dropdown with checkboxes + ALL) */}
+                  {/* Level Name */}
+                  <div>
+                    <label className="block mb-2 font-medium text-gray-700">Level Name</label>
+                    <input type="text" name="level_name" placeholder="Level Name" value={formData.level_name} onChange={handleChange} className="p-4 border rounded-xl w-full" required />
+                  </div>
+
+                  {/* Service Type */}
                   <div className="relative md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Service Type <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block mb-2 font-medium text-gray-700">Service Type <span className="text-red-500">*</span></label>
                     <button
                       type="button"
                       className="w-full text-left bg-white border p-4 rounded-xl focus:outline-none flex justify-between items-center"
@@ -359,7 +379,6 @@ export default function ServicesPage() {
                     </button>
                     {showTypeDropdown && (
                       <div className="absolute z-20 bg-white border rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
-                        {/* All Checkbox */}
                         <label className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer border-b">
                           <input
                             ref={allCheckboxRef}
@@ -376,7 +395,6 @@ export default function ServicesPage() {
                           />
                           <span className="font-semibold">All</span>
                         </label>
-                        {/* Individual service types */}
                         {serviceTypeOptions.map((type) => (
                           <label key={type} className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer">
                             <input
@@ -400,7 +418,10 @@ export default function ServicesPage() {
                   </div>
 
                   {/* Description */}
-                  <textarea name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="p-4 border rounded-xl md:col-span-2" rows="3" required />
+                  <div className="md:col-span-2">
+                    <label className="block mb-2 font-medium text-gray-700">Description</label>
+                    <textarea name="description" placeholder="Description" value={formData.description} onChange={handleChange} className="p-4 border rounded-xl w-full" rows="3" required />
+                  </div>
 
                   {/* Buttons */}
                   <div className="flex gap-4 md:col-span-2">
@@ -411,6 +432,7 @@ export default function ServicesPage() {
                   </div>
                 </form>
               </div>
+
             </div>
           </div>
         )}

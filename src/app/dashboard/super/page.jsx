@@ -159,29 +159,50 @@ export default function SuperDashboard() {
             <div className="max-w-7xl mx-auto p-6 space-y-8">
                 {/* Header */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-6 md:space-y-0">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
                             <p className="text-gray-600 mt-1">Monitor your business performance and insights</p>
                         </div>
 
                         {role === 'SUPERADMIN' && (
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-sm font-medium text-gray-700">
-                                    Branch Filter
+                            <div className="flex flex-col space-y-2 w-full md:w-auto">
+                                <label className="text-sm font-semibold text-gray-700 mb-1">
+                                    Select Branch
                                 </label>
-                                <select
-                                    value={branchId || ''}
-                                    onChange={(e) => setBranchId(e.target.value)}
-                                    className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-48"
-                                >
-                                    <option value="">All Branches</option>
-                                    {branches.map((branch) => (
-                                        <option key={branch.id} value={branch.id}>
-                                            {branch.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="flex flex-wrap gap-3">
+                                    <button
+                                        onClick={() => setBranchId(null)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 bg-gradient-to-r from-blue-500 to-blue-700 text-white border-blue-700 hover:brightness-110 ${!branchId ? 'shadow-md ring-2 ring-blue-300' : ''
+                                            }`}
+                                    >
+                                        All Branches
+                                    </button>
+                                    {branches.map((branch, index) => {
+                                        const colors = [
+                                            'from-pink-500 to-pink-700 border-pink-700',
+                                            'from-green-500 to-green-700 border-green-700',
+                                            'from-purple-500 to-purple-700 border-purple-700',
+                                            'from-yellow-500 to-yellow-600 border-yellow-600',
+                                            'from-indigo-500 to-indigo-700 border-indigo-700',
+                                            'from-teal-500 to-teal-700 border-teal-700',
+                                            'from-rose-500 to-rose-700 border-rose-700',
+                                        ]
+                                        const colorClass = colors[index % colors.length]
+                                        const isActive = branchId == branch.id
+
+                                        return (
+                                            <button
+                                                key={branch.id}
+                                                onClick={() => setBranchId(branch.id)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-semibold border text-white transition-all duration-200 bg-gradient-to-r ${colorClass} hover:brightness-110 ${isActive ? 'shadow-md ring-2 ring-offset-1 ring-white' : ''
+                                                    }`}
+                                            >
+                                                {branch.name}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -215,7 +236,7 @@ export default function SuperDashboard() {
                             <StatCard
                                 key={key}
                                 title={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                value={value}
+                                value={Number(value).toFixed(2)}  // ✅ format to 2 decimal places
                                 icon={
                                     <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -227,145 +248,11 @@ export default function SuperDashboard() {
                     </div>
                 </div>
 
+
                 {/* Charts Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Daily Trends Chart */}
-                    {data.daily_trends && data.daily_trends.length > 0 && (
-                        <div className="lg:col-span-2">
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-xl font-semibold text-gray-900">Daily Performance Trends</h2>
-                                    <div className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full font-medium">
-                                        Last 30 Days
-                                    </div>
-                                </div>
-                                <div className="h-80">
-                                    <Line
-                                        data={{
-                                            labels: data.daily_trends.map(item => item.date),
-                                            datasets: [
-                                                {
-                                                    label: 'Leads Created',
-                                                    data: data.daily_trends.map(item => item.leads_created),
-                                                    borderColor: '#3b82f6',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#3b82f6',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                },
-                                                {
-                                                    label: 'Leads Called',
-                                                    data: data.daily_trends.map(item => item.leads_called),
-                                                    borderColor: '#f59e0b',
-                                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#f59e0b',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                },
-                                                {
-                                                    label: 'Payments Made',
-                                                    data: data.daily_trends.map(item => item.payments_made),
-                                                    borderColor: '#10b981',
-                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#10b981',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                },
-                                                {
-                                                    label: 'Revenue',
-                                                    data: data.daily_trends.map(item => item.revenue),
-                                                    borderColor: '#ef4444',
-                                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#ef4444',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                    yAxisID: 'revenueAxis',
-                                                },
-                                            ],
-                                        }}
-                                        options={{
-                                            responsive: true,
-                                            maintainAspectRatio: false,
-                                            interaction: {
-                                                mode: 'index',
-                                                intersect: false,
-                                            },
-                                            plugins: {
-                                                legend: {
-                                                    position: 'top',
-                                                    labels: {
-                                                        usePointStyle: true,
-                                                        padding: 20,
-                                                    },
-                                                },
-                                                tooltip: {
-                                                    mode: 'index',
-                                                    intersect: false,
-                                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                                    titleColor: '#ffffff',
-                                                    bodyColor: '#ffffff',
-                                                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                                                    borderWidth: 1,
-                                                },
-                                            },
-                                            scales: {
-                                                y: {
-                                                    beginAtZero: true,
-                                                    title: {
-                                                        display: true,
-                                                        text: 'Counts',
-                                                        font: { weight: 'bold' },
-                                                    },
-                                                    ticks: {
-                                                        precision: 0,
-                                                    },
-                                                    grid: {
-                                                        color: 'rgba(0, 0, 0, 0.05)',
-                                                    },
-                                                },
-                                                revenueAxis: {
-                                                    position: 'right',
-                                                    beginAtZero: true,
-                                                    title: {
-                                                        display: true,
-                                                        text: 'Revenue (₹)',
-                                                        font: { weight: 'bold' },
-                                                    },
-                                                    grid: {
-                                                        drawOnChartArea: false,
-                                                    },
-                                                    ticks: {
-                                                        precision: 0,
-                                                    },
-                                                },
-                                                x: {
-                                                    grid: {
-                                                        color: 'rgba(0, 0, 0, 0.05)',
-                                                    },
-                                                },
-                                            },
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                 
 
                     {/* Lead Source Performance Table */}
                     {data.source_analytics && data.source_analytics.length > 0 && (
@@ -665,6 +552,143 @@ export default function SuperDashboard() {
                         </div>
                     </div>
                 </div>
+
+                   {data.daily_trends && data.daily_trends.length > 0 && (
+                        <div className="lg:col-span-2">
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-xl font-semibold text-gray-900">Daily Performance Trends</h2>
+                                    <div className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full font-medium">
+                                        Last 30 Days
+                                    </div>
+                                </div>
+                                <div className="h-80">
+                                    <Line
+                                        data={{
+                                            labels: data.daily_trends.map(item => item.date),
+                                            datasets: [
+                                                {
+                                                    label: 'Leads Created',
+                                                    data: data.daily_trends.map(item => item.leads_created),
+                                                    borderColor: '#3b82f6',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    tension: 0.4,
+                                                    fill: true,
+                                                    pointRadius: 4,
+                                                    pointHoverRadius: 8,
+                                                    pointBackgroundColor: '#3b82f6',
+                                                    pointBorderColor: '#ffffff',
+                                                    pointBorderWidth: 2,
+                                                },
+                                                {
+                                                    label: 'Leads Called',
+                                                    data: data.daily_trends.map(item => item.leads_called),
+                                                    borderColor: '#f59e0b',
+                                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                                    tension: 0.4,
+                                                    fill: true,
+                                                    pointRadius: 4,
+                                                    pointHoverRadius: 8,
+                                                    pointBackgroundColor: '#f59e0b',
+                                                    pointBorderColor: '#ffffff',
+                                                    pointBorderWidth: 2,
+                                                },
+                                                {
+                                                    label: 'Payments Made',
+                                                    data: data.daily_trends.map(item => item.payments_made),
+                                                    borderColor: '#10b981',
+                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                    tension: 0.4,
+                                                    fill: true,
+                                                    pointRadius: 4,
+                                                    pointHoverRadius: 8,
+                                                    pointBackgroundColor: '#10b981',
+                                                    pointBorderColor: '#ffffff',
+                                                    pointBorderWidth: 2,
+                                                },
+                                                {
+                                                    label: 'Revenue',
+                                                    data: data.daily_trends.map(item => item.revenue),
+                                                    borderColor: '#ef4444',
+                                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                                    tension: 0.4,
+                                                    fill: true,
+                                                    pointRadius: 4,
+                                                    pointHoverRadius: 8,
+                                                    pointBackgroundColor: '#ef4444',
+                                                    pointBorderColor: '#ffffff',
+                                                    pointBorderWidth: 2,
+                                                    yAxisID: 'revenueAxis',
+                                                },
+                                            ],
+                                        }}
+                                        options={{
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            interaction: {
+                                                mode: 'index',
+                                                intersect: false,
+                                            },
+                                            plugins: {
+                                                legend: {
+                                                    position: 'top',
+                                                    labels: {
+                                                        usePointStyle: true,
+                                                        padding: 20,
+                                                    },
+                                                },
+                                                tooltip: {
+                                                    mode: 'index',
+                                                    intersect: false,
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                                    titleColor: '#ffffff',
+                                                    bodyColor: '#ffffff',
+                                                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                                                    borderWidth: 1,
+                                                },
+                                            },
+                                            scales: {
+                                                y: {
+                                                    beginAtZero: true,
+                                                    title: {
+                                                        display: true,
+                                                        text: 'Counts',
+                                                        font: { weight: 'bold' },
+                                                    },
+                                                    ticks: {
+                                                        precision: 0,
+                                                    },
+                                                    grid: {
+                                                        color: 'rgba(0, 0, 0, 0.05)',
+                                                    },
+                                                },
+                                                revenueAxis: {
+                                                    position: 'right',
+                                                    beginAtZero: true,
+                                                    title: {
+                                                        display: true,
+                                                        text: 'Revenue (₹)',
+                                                        font: { weight: 'bold' },
+                                                    },
+                                                    grid: {
+                                                        drawOnChartArea: false,
+                                                    },
+                                                    ticks: {
+                                                        precision: 0,
+                                                    },
+                                                },
+                                                x: {
+                                                    grid: {
+                                                        color: 'rgba(0, 0, 0, 0.05)',
+                                                    },
+                                                },
+                                            },
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                 {/* Footer */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

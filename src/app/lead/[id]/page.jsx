@@ -1453,6 +1453,7 @@ export const ActionButtons = ({
   onViewKycClick,
   onDocumentsClick,
 }) => {
+
   const { hasPermission } = usePermissions();
 
   return (

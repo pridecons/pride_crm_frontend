@@ -258,9 +258,6 @@ export default function NewLeadsTable() {
               <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white sticky top-0 z-10">
                 <tr>
                   {[
-                    "S.No.",
-                    "Lead ID",
-                    "Owner",
                     "Client Name",
                     "Mobile",
                     "Response",
@@ -284,14 +281,6 @@ export default function NewLeadsTable() {
                     className={`hover:bg-blue-50 transition-colors duration-150 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
                       }`}
                   >
-                    {/* S.No */}
-                    <td className="px-4 py-3 font-medium">{(page - 1) * limit + index + 1}</td>
-
-                    {/* Lead ID */}
-                    <td className="px-4 py-3">{lead.id}</td>
-
-                    {/* Owner */}
-                    <td className="px-4 py-3">{lead.created_by_name}</td>
 
                     {/* Client Name */}
                     <td className="px-4 py-3">

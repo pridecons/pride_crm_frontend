@@ -75,21 +75,24 @@ export default function ServicesPage() {
     }
   }
 
-  // ✅ Handle Input Change
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name === 'service_type') {
-      setFormData((prev) => ({
-        ...prev,
-        service_type: value.split(',').map(s => s.trim()).filter(Boolean),
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: name === 'CALL' ? parseInt(value) || 0 : value,
-      }));
-    }
+const handleChange = (e) => {
+  const { name, value } = e.target;
+
+  if (name === 'service_type') {
+    setFormData((prev) => ({
+      ...prev,
+      service_type: value.split(',').map(s => s.trim()).filter(Boolean),
+    }));
+  } else {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'CALL'
+        ? value === '' ? '' : parseInt(value)
+        : value,
+    }));
   }
+};
+
 
   // ✅ Handle Create / Update
   const handleSubmit = async (e) => {
@@ -347,16 +350,18 @@ export default function ServicesPage() {
                   {/* CALL Limit (Conditional) */}
                   {formData.billing_cycle === 'CALL' && (
                     <div>
-                      <label className="block mb-2 font-medium text-gray-700">CALL Limit</label>
-                      <input type="number" name="CALL" placeholder="CALL Limit" value={formData.CALL} onChange={handleChange} className="p-4 border rounded-xl w-full" required />
+                    <input
+  type="number"
+  name="CALL"
+  placeholder="CALL Limit"
+  value={formData.CALL}
+  onChange={handleChange}
+  className="p-4 border rounded-xl w-full"
+  required
+/>
+
                     </div>
                   )}
-
-                  {/* Level Name */}
-                  <div>
-                    <label className="block mb-2 font-medium text-gray-700">Level Name</label>
-                    <input type="text" name="level_name" placeholder="Level Name" value={formData.level_name} onChange={handleChange} className="p-4 border rounded-xl w-full" required />
-                  </div>
 
                   {/* Service Type */}
                   <div className="relative md:col-span-2">

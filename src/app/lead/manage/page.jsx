@@ -70,13 +70,10 @@ const LeadManage = () => {
 
 
   // once leadData is loaded, build your dropdown options:
-  const branchOptions = [
-    { value: "All", label: "All Branches" },
-    ...branches.map(b => ({ value: b.id.toString(), label: b.name }))
-  ];
-  const employeeOptions = ["All", ...employees.map(e => ({ value: e.employee_code, label: e.name }))];
-  const sourceOptions = ["All", ...sourcesList.map(s => ({ value: s.id, label: s.name }))];
-  const responseOptions = ["All", ...responsesList.map(r => ({ value: r.id, label: r.name }))];
+  const branchOptions = [{ value: "All", label: "All Branches" }, ...branches.map(b => ({ value: String(b.id), label: b.name }))];
+  const employeeOptions = [{ value: "All", label: "All Employees" }, ...employees.map(e => ({ value: String(e.employee_code), label: e.name }))];
+  const sourceOptions = [{ value: "All", label: "All Sources" }, ...sourcesList.map(s => ({ value: String(s.id), label: s.name }))];
+  const responseOptions = [{ value: "All", label: "All Responses" }, ...responsesList.map(r => ({ value: String(r.id), label: r.name }))];
 
   useEffect(() => {
     fetchLeadData();
@@ -100,19 +97,38 @@ const LeadManage = () => {
   useEffect(() => {
     let updated = [...leadData];
 
-    // … your search + status logic …
+    // Search logic: check full_name, email, mobile, alternate_mobile, pan
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      updated = updated.filter(
+        (lead) =>
+          (lead.full_name && lead.full_name.toLowerCase().includes(q)) ||
+          (lead.email && lead.email.toLowerCase().includes(q)) ||
+          (lead.mobile && lead.mobile.toLowerCase().includes(q)) ||
+          (lead.alternate_mobile && lead.alternate_mobile.toLowerCase().includes(q)) ||
+          (lead.pan && lead.pan.toLowerCase().includes(q))
+      );
+    }
 
+    // Status logic (if you have a lead_status or similar)
+    if (statusFilter !== "All") {
+      // Update this to your actual status field
+      updated = updated.filter(
+        (lead) => String(lead.lead_status || lead.status) === statusFilter
+      );
+    }
+
+    if (branchFilter !== "All") {
+      updated = updated.filter((lead) => String(lead.branch_id) === String(branchFilter));
+    }
+    if (employeeFilter !== "All") {
+      updated = updated.filter(lead => String(lead.assigned_to_user) === String(employeeFilter));
+    }
     if (sourceFilter !== "All") {
       updated = updated.filter((lead) => String(lead.lead_source_id) === String(sourceFilter));
     }
     if (responseFilter !== "All") {
       updated = updated.filter((lead) => String(lead.lead_response_id) === String(responseFilter));
-    }
-    if (branchFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.branch_id) === String(branchFilter));
-    }
-    if (employeeFilter !== "All") {
-      updated = updated.filter((lead) => lead.assigned_to_user === employeeFilter);
     }
 
     setFilteredLeads(updated);
@@ -120,10 +136,10 @@ const LeadManage = () => {
     leadData,
     searchQuery,
     statusFilter,
-    branchFilter,     // ← add here
-    employeeFilter,   // ← and here
-    sourceFilter,     // ← and here
-    responseFilter,   // ← and here
+    branchFilter,
+    employeeFilter,
+    sourceFilter,
+    responseFilter,
   ]);
 
   const columns = [
@@ -411,16 +427,9 @@ const LeadManage = () => {
             </select>
 
             {/* Employee */}
-            <select
-              value={employeeFilter}
-              onChange={e => setEmployeeFilter(e.target.value)}
-              className="px-4 py-3 "
-            >
+            <select value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)} className="px-4 py-3 ">
               {employeeOptions.map(opt =>
-                <option key={opt === "All" ? "All" : opt.value}
-                  value={opt === "All" ? "All" : opt.value}>
-                  {opt === "All" ? "All Employees" : opt.label}
-                </option>
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               )}
             </select>
 

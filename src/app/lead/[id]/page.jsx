@@ -35,6 +35,59 @@ import Cookies from "js-cookie";
 import LoadingState from "@/components/LoadingState";
 import { usePermissions } from "@/context/PermissionsContext";
 
+// --- After all your imports, add this function ---
+export const getFileUrl = (path) => {
+  if (!path) return null;
+  const cleanPath = path.startsWith("/") ? path : `/static/lead_documents/${path}`;
+  const baseURL = axiosInstance.defaults.baseURL.replace("/api/v1", "");
+  return `${baseURL}${cleanPath}`;
+};
+
+const verifyPan = async (pan) => {
+  try {
+    const res = await axiosInstance.post("/pan/verify", { pan });
+    return res.data; // Adjust if your API returns data in a different shape
+  } catch (error) {
+    throw error?.response?.data?.detail || error?.message || "PAN verification failed";
+  }
+};
+
+// Utility: calculate age from dob string (yyyy-mm-dd or dd-mm-yyyy)
+function calculateAge(dob) {
+  if (!dob) return "";
+  let [day, month, year] = ["", "", ""];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    // yyyy-mm-dd
+    [year, month, day] = dob.split("-");
+  } else if (/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
+    // dd-mm-yyyy
+    [day, month, year] = dob.split("-");
+  } else {
+    return "";
+  }
+  const dobDate = new Date(`${year}-${month}-${day}`);
+  const diffMs = Date.now() - dobDate.getTime();
+  const ageDt = new Date(diffMs);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+}
+
+// Utility: format date as DD-MM-YYYY (for view)
+function formatDDMMYYYY(dob) {
+  if (!dob) return "";
+  let d = new Date(dob);
+  if (isNaN(d)) {
+    // maybe already dd-mm-yyyy
+    const parts = dob.split("-");
+    if (parts.length === 3) {
+      return dob;
+    }
+    return "";
+  }
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
 
 
 const Lead = () => {
@@ -82,6 +135,8 @@ const Lead = () => {
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
   const [kycUrl, setKycUrl] = useState(null);
   const [kycLoading, setKycLoading] = useState(false);
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+
 
   const fetchRecordings = async () => {
     try {
@@ -266,8 +321,13 @@ const Lead = () => {
   };
   const handleViewKyc = async () => {
     try {
-      const response = await axiosInstance.post(`/agreement/view/${currentLead?.id}`);
-      const signedUrl = response?.complete_signed_url || response?.data?.complete_signed_url;
+      const { data } = await axiosInstance.post(`/agreement/view/${currentLead?.id}`);
+      // Log to confirm!
+      console.log("KYC view API response:", data);
+
+      // Pick best available
+      const signedUrl =
+        data.complete_signed_url || data.signed_url || data.latest_signed_url;
 
       if (!signedUrl) {
         toast.error("Failed to get KYC document link!");
@@ -451,19 +511,6 @@ const Lead = () => {
   }
   const displaySegment = parsedSegment.join(", ");
 
-  const getFileUrl = (path) => {
-    if (!path) return null;
-
-    // Remove leading slashes if any
-    const cleanPath = path.startsWith("/") ? path : `/static/lead_documents/${path}`;
-
-    // Get base URL (without /api/v1)
-    const baseURL = axiosInstance.defaults.baseURL.replace("/api/v1", "");
-
-    return `${baseURL}${cleanPath}`;
-  };
-
-
   // Loading State
   if (loading && !currentLead) {
     return <LoadingState />;
@@ -524,6 +571,7 @@ const Lead = () => {
           onCommentsClick={() => setIsCommentsModalOpen(true)}
           onRecordingsClick={() => setIsRecordingsModalOpen(true)}
           onViewKycClick={handleViewKyc}
+          onDocumentsClick={() => setIsDocumentsModalOpen(true)}
         />
 
         {/* Lead Details */}
@@ -547,6 +595,146 @@ const Lead = () => {
         />
 
         {/* Modals */}
+        {/* Upload Documents Modal */}
+        <Modal
+          isOpen={isDocumentsModalOpen}
+          onClose={() => setIsDocumentsModalOpen(false)}
+          title="Upload Lead Documents"
+          actions={[
+            <button
+              key="close"
+              onClick={() => setIsDocumentsModalOpen(false)}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+            >
+              Close
+            </button>,
+            <button
+              key="upload"
+              onClick={async () => {
+                if (!aadharFront && !aadharBack && !panPic) {
+                  toast.error("Please select at least one file to upload.");
+                  return;
+                }
+                try {
+                  const formData = new FormData();
+                  if (aadharFront) formData.append("aadhar_front", aadharFront);
+                  if (aadharBack) formData.append("aadhar_back", aadharBack);
+                  if (panPic) formData.append("pan_pic", panPic);
+
+                  await axiosInstance.post(`/leads/${currentLead.id}/upload-documents`, formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                  });
+                  toast.success("Documents uploaded successfully!");
+                  setIsDocumentsModalOpen(false);
+                  // Optionally: refresh lead data to show updated docs
+                  fetchCurrentLead();
+                } catch (err) {
+                  toast.error("Error uploading documents");
+                }
+              }}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Upload
+            </button>,
+          ]}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Aadhaar Front */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Aadhaar Front</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => handleFileChange(e, setAadharFront, setAadharFrontPreview)}
+                className="w-full border rounded p-2"
+              />
+              {aadharFrontPreview ? (
+                <img
+                  src={aadharFrontPreview}
+                  alt="Aadhaar Front Preview"
+                  className="mt-2 w-32 h-24 object-cover border rounded"
+                />
+              ) : currentLead?.aadhar_front_pic ? (
+                <a
+                  href={getFileUrl(currentLead.aadhar_front_pic)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={getFileUrl(currentLead.aadhar_front_pic)}
+                    alt="Aadhaar Front"
+                    className="mt-2 w-32 h-24 object-cover border rounded hover:shadow-lg transition"
+                  />
+                </a>
+              ) : (
+                <p className="text-gray-400 text-xs">Not uploaded</p>
+              )}
+            </div>
+            {/* Aadhaar Back */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Aadhaar Back</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => handleFileChange(e, setAadharBack, setAadharBackPreview)}
+                className="w-full border rounded p-2"
+              />
+              {aadharBackPreview ? (
+                <img
+                  src={aadharBackPreview}
+                  alt="Aadhaar Back Preview"
+                  className="mt-2 w-32 h-24 object-cover border rounded"
+                />
+              ) : currentLead?.aadhar_back_pic ? (
+                <a
+                  href={getFileUrl(currentLead.aadhar_back_pic)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={getFileUrl(currentLead.aadhar_back_pic)}
+                    alt="Aadhaar Back"
+                    className="mt-2 w-32 h-24 object-cover border rounded hover:shadow-lg transition"
+                  />
+                </a>
+              ) : (
+                <p className="text-gray-400 text-xs">Not uploaded</p>
+              )}
+            </div>
+            {/* PAN Card */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">PAN Card</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={e => handleFileChange(e, setPanPic, setPanPicPreview)}
+                className="w-full border rounded p-2"
+              />
+              {panPicPreview ? (
+                <img
+                  src={panPicPreview}
+                  alt="PAN Card Preview"
+                  className="mt-2 w-32 h-24 object-cover border rounded"
+                />
+              ) : currentLead?.pan_pic ? (
+                <a
+                  href={getFileUrl(currentLead.pan_pic)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={getFileUrl(currentLead.pan_pic)}
+                    alt="PAN Card"
+                    className="mt-2 w-32 h-24 object-cover border rounded hover:shadow-lg transition"
+                  />
+                </a>
+              ) : (
+                <p className="text-gray-400 text-xs">Not uploaded</p>
+              )}
+            </div>
+          </div>
+        </Modal>
+
         <Modal
           isOpen={isOpenSource}
           onClose={() => setIsOpenSource(false)}
@@ -607,56 +795,18 @@ const Lead = () => {
             {/* Horizontal Layout */}
             <div className="flex h-[600px]">
               {/* PDF Section */}
-              {/* <div className="flex-1 bg-gray-100 overflow-auto">
-                {kycUrl ? (
-                  <div className="h-full w-full">
-                    <Worker workerUrl="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js">
-                      <Viewer fileUrl={kycUrl} plugins={[defaultLayoutPluginInstance]} />
-                    </Worker>
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500 mt-20">Loading PDF...</p>
-                )}
-              </div> */}
-
-              {/* Documents Section */}
-              <div className="w-[300px] bg-white p-4 border-l overflow-y-auto">
-                <h4 className="text-lg font-semibold mb-4">Uploaded Documents</h4>
-                <div className="flex flex-col gap-4">
-                  {currentLead?.aadhar_front_pic && (
-                    <div className="text-center">
-                      <img
-                        src={getFileUrl(currentLead.aadhar_front_pic)}
-                        alt="Aadhaar Front"
-                        className="w-32 h-24 object-cover border rounded mx-auto"
-                      />
-                      <p className="mt-2 text-sm text-gray-700">Aadhaar Front</p>
-                    </div>
-                  )}
-                  {currentLead?.aadhar_back_pic && (
-                    <div className="text-center">
-                      <img
-                        src={getFileUrl(currentLead.aadhar_back_pic)}
-                        alt="Aadhaar Back"
-                        className="w-32 h-24 object-cover border rounded mx-auto"
-                      />
-                      <p className="mt-2 text-sm text-gray-700">Aadhaar Back</p>
-                    </div>
-                  )}
-                  {currentLead?.pan_pic && (
-                    <div className="text-center">
-                      <img
-                        src={getFileUrl(currentLead.pan_pic)}
-                        alt="PAN Card"
-                        className="w-32 h-24 object-cover border rounded mx-auto"
-                      />
-                      <p className="mt-2 text-sm text-gray-700">PAN Card</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {kycUrl ? (
+                <iframe
+                  src={kycUrl}
+                  title="KYC PDF"
+                  width="100%"
+                  height="100%"
+                  className="rounded shadow border min-h-[500px]"
+                />
+              ) : (
+                <p className="text-center text-gray-500 mt-20">Loading PDF...</p>
+              )}
             </div>
-
           </div>
         </Modal>
 
@@ -1050,11 +1200,14 @@ export const InputField = ({
           </span>
         ) : (
           <span className="text-gray-900 break-words">
-            {Array.isArray(value)
-              ? value.join(", ")
-              : typeof value === 'object' && value !== null
-                ? value.text || JSON.stringify(value)
-                : value || "Not provided"}
+            {name === "gstin"
+              ? (!value || value.trim().toUpperCase() === "NOT PROVIDED" ? "URP" : value)
+              : Array.isArray(value)
+                ? value.join(", ")
+                : typeof value === 'object' && value !== null
+                  ? value.text || JSON.stringify(value)
+                  : value || "NOT PROVIDED"
+            }
           </span>
         )}
       </div>
@@ -1235,7 +1388,13 @@ export const ErrorState = ({ error, onRetry }) => {
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Error Loading Lead
         </h3>
-        <p className="text-gray-600 mb-4">{error}</p>
+        <p className="text-gray-600 mb-4">
+  {typeof error === "string"
+    ? error
+    : error?.message
+    ? error.message
+    : JSON.stringify(error)}
+</p>
         <button
           onClick={onRetry}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -1291,11 +1450,11 @@ export const ActionButtons = ({
   onViewEmailLogsClick,
   onCommentsClick,
   onRecordingsClick,
-  onViewKycClick
+  onViewKycClick,
+  onDocumentsClick,
 }) => {
 
-  const {hasPermission} = usePermissions();
-
+  const { hasPermission } = usePermissions();
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -1416,6 +1575,14 @@ export const ActionButtons = ({
         >
           Recordings
         </button>}
+
+        <button
+          onClick={onDocumentsClick}
+          className="flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+        >
+          <FileText size={16} className="mr-2" />
+          Documents
+        </button>
       </div>
     </div>
   );
@@ -1443,188 +1610,149 @@ export const ViewAndEditLead = ({
   setAadharBackPreview,
   setPanPicPreview
 }) => {
-  const handleInputChange = useCallback((e) => {
+  // PAN verification states
+  const [panLoading, setPanLoading] = useState(false);
+  const [panError, setPanError] = useState(null);
+  const [panVerifiedData, setPanVerifiedData] = useState(null);
+
+  // PAN verification function
+  // Helper: Format date to YYYY-MM-DD
+  function formatDob(dob) {
+    if (!dob) return "";
+    // If already in YYYY-MM-DD just return
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) return dob;
+    // Try DD-MM-YYYY
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
+      const [d, m, y] = dob.split("-");
+      return `${y}-${m}-${d}`;
+    }
+    return dob;
+  }
+
+  // PAN verification function (micro-pan-verification)
+  const verifyPan = async (pan) => {
+    try {
+      const res = await axiosInstance.post(
+        '/micro-pan-verification',
+        new URLSearchParams({ pannumber: pan }),
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      );
+      return res.data;
+    } catch (error) {
+      throw error?.response?.data?.detail || error?.message || "PAN verification failed";
+    }
+  };
+
+  // On any input change
+  const handleInputChange = useCallback(async (e) => {
     const { name, value, type, checked } = e.target;
     setEditFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+
+    // PAN verify logic
+    if (name === "pan") {
+      setPanVerifiedData(null);
+      setPanError(null);
+
+      // Only check when 10 chars and not blank
+      if (value && value.length === 10) {
+        setPanLoading(true);
+        try {
+          const data = await verifyPan(value.toUpperCase());
+          if (data.success && data.data?.result) {
+            const result = data.data.result;
+
+            // Autofill all fields from PAN API (except phone & email)
+            setEditFormData((prev) => ({
+              ...prev,
+              full_name: result.user_full_name || prev.full_name,
+              father_name: result.user_father_name || prev.father_name,
+              dob: result.user_dob ? formatDob(result.user_dob) : prev.dob,
+              address: result.user_address?.full || prev.address,
+              city: result.user_address?.city || prev.city,
+              state: result.user_address?.state || prev.state,
+              pincode: result.user_address?.zip || prev.pincode,
+              country: result.user_address?.country || prev.country,
+              aadhaar: result.masked_aadhaar || prev.aadhaar,
+              gender: result.user_gender === "M" ? "Male" : result.user_gender === "F" ? "Female" : prev.gender,
+              // Optionally, add more fields if you have them in your form:
+              // district: result.user_address?.district || prev.district,
+              // director_name: result.director_name || prev.director_name,
+            }));
+            setPanVerifiedData(result);
+            toast.success("PAN verified and details autofilled!");
+          } else {
+            setPanError("PAN verification failed");
+            toast.error("PAN verification failed");
+          }
+        } catch (err) {
+          setPanError(err);
+          toast.error(typeof err === "string" ? err : "Error verifying PAN");
+        } finally {
+          setPanLoading(false);
+        }
+      }
+    }
   }, [setEditFormData]);
-
-
 
   // Field definitions
   const personalFields = [
+    { name: "pan", label: "PAN Number", icon: CreditCard, placeholder: "Enter PAN number" },
+    { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar number" },
+    { name: "full_name", label: "Full Name", icon: User, placeholder: "Enter full name" },
+    { name: "father_name", label: "Father Name", icon: User, placeholder: "Enter father name" },
+    { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile number" },
+    { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email address" },
+    { name: "director_name", label: "Director Name", icon: User, placeholder: "Enter director name" },
     {
-      name: "full_name",
-      label: "Full Name",
-      icon: User,
-      placeholder: "Enter full name",
+      name: "gender", label: "Gender", icon: User, type: "select",
+      options: [{ value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }]
     },
     {
-      name: "father_name",
-      label: "Father Name",
-      icon: User,
-      placeholder: "Enter father name",
-    },
-    {
-      name: "director_name",
-      label: "Director Name",
-      icon: User,
-      placeholder: "Enter director name",
-    },
-    {
-      name: "gender",
-      label: "Gender",
-      icon: User,
-      type: "select",
-      options: [
-        { value: "Male", label: "Male" },
-        { value: "Female", label: "Female" },
-        { value: "Other", label: "Other" },
-      ],
-    },
-    {
-      name: "marital_status",
-      label: "Marital Status",
-      icon: User,
-      type: "select",
+      name: "marital_status", label: "Marital Status", icon: User, type: "select",
       options: [
         { value: "Single", label: "Single" },
         { value: "Married", label: "Married" },
         { value: "Divorced", label: "Divorced" },
         { value: "Widowed", label: "Widowed" },
-      ],
+      ]
     },
     { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
+    { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
   ];
 
   const contactFields = [
-    {
-      name: "email",
-      label: "Email",
-      icon: Mail,
-      type: "email",
-      placeholder: "Enter email address",
-    },
-    {
-      name: "mobile",
-      label: "Mobile",
-      icon: Phone,
-      type: "tel",
-      placeholder: "Enter mobile number",
-    },
-    {
-      name: "alternate_mobile",
-      label: "Alternate Mobile",
-      icon: Phone,
-      type: "tel",
-      placeholder: "Enter alternate mobile",
-    },
-    {
-      name: "address",
-      label: "Address",
-      icon: MapPin,
-      type: "textarea",
-      placeholder: "Enter full address",
-    },
+    { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
+    { name: "address", label: "Address", icon: MapPin, type: "textarea", placeholder: "Enter full address" },
     { name: "city", label: "City", icon: MapPin, placeholder: "Enter city" },
     { name: "state", label: "State", icon: MapPin, placeholder: "Enter state" },
-    {
-      name: "district",
-      label: "District",
-      icon: MapPin,
-      placeholder: "Enter district",
-    },
-    {
-      name: "pincode",
-      label: "Pincode",
-      icon: MapPin,
-      placeholder: "Enter pincode",
-    },
-    {
-      name: "country",
-      label: "Country",
-      icon: Globe,
-      placeholder: "Enter country",
-    },
+    { name: "district", label: "District", icon: MapPin, placeholder: "Enter district" },
+    { name: "pincode", label: "Pincode", icon: MapPin, placeholder: "Enter pincode" },
+    { name: "country", label: "Country", icon: Globe, placeholder: "Enter country" },
   ];
 
   const professionalFields = [
-    {
-      name: "occupation",
-      label: "Occupation",
-      icon: Briefcase,
-      placeholder: "Enter occupation",
-    },
+    { name: "occupation", label: "Occupation", icon: Briefcase, placeholder: "Enter occupation" },
     {
       name: "experience",
       label: "Experience",
       icon: Briefcase,
-      placeholder: "Enter experience",
-    },
-    {
-      name: "investment",
-      label: "Investment",
-      icon: Briefcase,
-      placeholder: "Enter investment details",
-    },
-    {
-      name: "segment",
-      label: "Segment",
-      icon: Briefcase,
-      placeholder: "Enter segment (comma-separated if multiple)",
-    },
-    {
-      name: "aadhaar",
-      label: "Aadhaar Number",
-      icon: CreditCard,
-      placeholder: "Enter Aadhaar number",
-    },
-    {
-      name: "pan",
-      label: "PAN Number",
-      icon: CreditCard,
-      placeholder: "Enter PAN number",
-    },
-    {
-      name: "gstin",
-      label: "GSTIN",
-      icon: Building,
-      placeholder: "Enter GSTIN",
-    },
-    {
-      name: "lead_source_id",
-      label: "Lead Source",
-      icon: Building,
       type: "select",
-      options: leadSources,
+      options: [
+        { value: "0-1", label: "0-1 year" },
+        { value: "1-5", label: "1-5 years" },
+        { value: "5-10", label: "5-10 years" },
+        { value: "10-15", label: "10-15 years" },
+        { value: "15+", label: "15+ years" },
+      ]
     },
-    {
-      name: "lead_response_id",
-      label: "Lead Response",
-      icon: Building,
-      type: "select",
-      options: leadResponses,
-    },
-    {
-      name: "lead_status",
-      label: "Lead Status",
-      icon: FileText,
-      placeholder: "Enter lead status",
-    },
-    {
-      name: "profile",
-      label: "Profile",
-      icon: FileText,
-      placeholder: "Enter profile details",
-    },
-    {
-      name: "call_back_date",
-      label: "Callback Date",
-      icon: Calendar,
-      type: "datetime-local",
-    },
+    { name: "segment", label: "Segment", icon: Briefcase, placeholder: "Enter segment (comma-separated if multiple)" },
+    { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
+    { name: "lead_source_id", label: "Lead Source", icon: Building, type: "select", options: leadSources },
+    { name: "lead_response_id", label: "Lead Response", icon: Building, type: "select", options: leadResponses },
+    { name: "call_back_date", label: "Callback Date", icon: Calendar, type: "datetime-local" },
   ];
 
   if (!currentLead) return null;
@@ -1639,15 +1767,69 @@ export const ViewAndEditLead = ({
           Personal Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {personalFields.map((field) => (
-            <InputField
-              key={field.name}
-              {...field}
-              value={editFormData[field.name]}
-              isEditMode={isEditMode}
-              onInputChange={handleInputChange}
-            />
-          ))}
+          {personalFields.map((field) => {
+            if (field.name === "dob") {
+              return (
+                <InputField
+                  key={field.name}
+                  {...field}
+                  value={editFormData[field.name]}
+                  isEditMode={isEditMode}
+                  onInputChange={handleInputChange}
+                  // Show as dd-mm-yyyy in view, as date input in edit
+                  renderValue={(value) => formatDDMMYYYY(value)}
+                />
+              );
+            }
+            if (field.name === "age") {
+              // Age is always readonly, not editable
+              return (
+                <InputField
+                  key={field.name}
+                  {...field}
+                  value={calculateAge(editFormData.dob)}
+                  isEditMode={false}
+                  icon={Calendar}
+                />
+              );
+            }
+            if (field.name === "pan") {
+              return (
+                <div key={field.name} className="relative">
+                  <InputField
+                    {...field}
+                    value={editFormData[field.name]}
+                    isEditMode={isEditMode}
+                    onInputChange={handleInputChange}
+                  />
+                  {isEditMode && (
+                    <div className="mt-1">
+                      {panLoading && (
+                        <span className="text-xs text-blue-500">Verifying PAN...</span>
+                      )}
+                      {panError && (
+                        <span className="text-xs text-red-500">{panError}</span>
+                      )}
+                      {panVerifiedData && (
+                        <span className="text-xs text-green-600">
+                          PAN Verified: {panVerifiedData?.name || "Success"}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <InputField
+                key={field.name}
+                {...field}
+                value={editFormData[field.name]}
+                isEditMode={isEditMode}
+                onInputChange={handleInputChange}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -1670,77 +1852,6 @@ export const ViewAndEditLead = ({
         </div>
       </div>
 
-      {/* Document Section */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <FileText className="mr-2 text-indigo-500" size={20} />
-          Documents
-        </h3>
-
-        {isEditMode ? (
-          // ✅ Edit Mode → Show Upload Inputs + Preview
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Aadhaar Front */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium">Aadhaar Front</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, setAadharFront, setAadharFrontPreview)}
-                className="w-full border rounded p-2"
-              />
-              {aadharFrontPreview && (
-                <img
-                  src={aadharFrontPreview}
-                  alt="Aadhaar Front"
-                  className="mt-2 w-32 h-24 object-cover border rounded"
-                />
-              )}
-            </div>
-
-            {/* Aadhaar Back */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium">Aadhaar Back</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, setAadharBack, setAadharBackPreview)}
-                className="w-full border rounded p-2"
-              />
-              {aadharBackPreview && (
-                <img
-                  src={aadharBackPreview}
-                  alt="Aadhaar Back"
-                  className="mt-2 w-32 h-24 object-cover border rounded"
-                />
-              )}
-            </div>
-
-            {/* PAN Card */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium">PAN Card</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, setPanPic, setPanPicPreview)}
-                className="w-full border rounded p-2"
-              />
-              {panPicPreview && (
-                <img
-                  src={panPicPreview}
-                  alt="PAN Card"
-                  className="mt-2 w-32 h-24 object-cover border rounded"
-                />
-              )}
-            </div>
-          </div>
-        ) : (
-          // ✅ View Mode → Hide documents (nothing to show here)
-          <p className="text-gray-500">Uploaded documents can be viewed in KYC modal.</p>
-        )}
-      </div>
-
-
       {/* Professional & Documentation */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
@@ -1748,18 +1859,43 @@ export const ViewAndEditLead = ({
           Professional & Documentation
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {professionalFields.map((field) => (
-            <InputField
-              key={field.name}
-              {...field}
-              value={editFormData[field.name]}
-              isEditMode={isEditMode}
-              onInputChange={handleInputChange}
-            />
-          ))}
+          {professionalFields.map((field) =>
+            field.name === "pan" ? (
+              <div key={field.name} className="relative">
+                <InputField
+                  {...field}
+                  value={editFormData[field.name]}
+                  isEditMode={isEditMode}
+                  onInputChange={handleInputChange}
+                />
+                {isEditMode && (
+                  <div className="mt-1">
+                    {panLoading && (
+                      <span className="text-xs text-blue-500">Verifying PAN...</span>
+                    )}
+                    {panError && (
+                      <span className="text-xs text-red-500">{panError}</span>
+                    )}
+                    {panVerifiedData && (
+                      <span className="text-xs text-green-600">
+                        PAN Verified: {panVerifiedData?.name || "Success"}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <InputField
+                key={field.name}
+                {...field}
+                value={editFormData[field.name]}
+                isEditMode={isEditMode}
+                onInputChange={handleInputChange}
+              />
+            )
+          )}
         </div>
       </div>
-
     </div>
   );
 };

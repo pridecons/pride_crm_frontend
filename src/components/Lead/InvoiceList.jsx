@@ -1,0 +1,163 @@
+// components/Lead/InvoiceModal.jsx
+import React, { useEffect, useState } from "react";
+import { CreditCard, FileText, Loader2 } from "lucide-react";
+import { axiosInstance } from "@/api/Axios";
+import { Modal } from "./Modal";
+import toast from "react-hot-toast";
+
+/**
+ * InvoiceModal - Show all invoices for a lead in a modal
+ *
+ * Props:
+ *   isOpen (bool) - show/hide modal
+ *   onClose (fn) - close modal callback
+ *   leadId (number|string) - Lead ID
+ */
+const InvoiceModal = ({ isOpen, onClose, leadId }) => {
+    const [invoices, setInvoices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState(null);
+
+    useEffect(() => {
+        if (!isOpen || !leadId) return;
+        setLoading(true);
+        setErr(null);
+        axiosInstance
+            .get(`/invoices/lead/${leadId}`)
+            .then((res) => setInvoices(res.data || []))
+            .catch(() => {
+                setErr("Failed to fetch invoices");
+                setInvoices([]);
+            })
+            .finally(() => setLoading(false));
+    }, [isOpen, leadId]);
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Invoices"
+            contentClassName="w-[80vw] max-w-4xl rounded-xl shadow-2xl bg-white flex flex-col"
+            actions={[
+                <button
+                    key="close"
+                    onClick={onClose}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                    Close
+                </button>,
+            ]}
+        >
+            <div className="bg-white rounded-lg p-1">
+                <div className="flex items-center mb-4 gap-2">
+                    <FileText className="text-indigo-500" size={20} />
+                    <h3 className="text-lg font-semibold text-gray-900">Invoices</h3>
+                </div>
+
+                {loading ? (
+                    <div className="flex justify-center py-6">
+                        <Loader2 className="animate-spin text-indigo-500" />
+                    </div>
+                ) : invoices.length === 0 ? (
+                    // Show a formal message if there are no invoices
+                    <div className="text-gray-500 py-8 text-center text-lg font-medium">
+                        No invoices found for this lead.<br />
+                        <span className="text-gray-400 text-sm font-normal">
+                            Once a payment is made and an invoice is generated, it will appear here.
+                        </span>
+                    </div>
+                ) : err ? (
+                    // Show error only if actual error (not empty)
+                    <div className="text-red-600 py-3">{err}</div>
+                ) : (
+                    <div className="overflow-y-auto" style={{ maxHeight: "45vh" }}>
+                        <table className="w-full border rounded text-sm table-auto">
+                            <thead>
+                                <tr className="bg-gray-50 text-gray-700">
+                                    <th className="py-2 px-3 text-left">#</th>
+                                    <th className="py-2 px-3 text-left">Invoice No</th>
+                                    <th className="py-2 px-3 text-left">Amount</th>
+                                    <th className="py-2 px-3 text-left">Status</th>
+                                    <th className="py-2 px-3 text-left">Created</th>
+                                    <th className="py-2 px-3 text-left">Download</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {invoices.map((inv, i) => (
+                                    <tr key={inv.id} className="border-b last:border-b-0">
+                                        <td className="py-2 px-3">{i + 1}</td>
+                                        <td className="py-2 px-3">{inv.invoice_no || <span className="text-gray-400">N/A</span>}</td>
+                                        <td className="py-2 px-3">
+                                            <span className="inline-flex items-center font-medium text-green-700">
+                                                <CreditCard size={14} className="mr-1" />
+                                                ₹{inv.paid_amount}
+                                            </span>
+                                        </td>
+                                        <td className="py-2 px-3">
+                                            {inv.status === "PAID" ? (
+                                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Paid</span>
+                                            ) : (
+                                                <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs">{inv.status}</span>
+                                            )}
+                                        </td>
+                                        <td className="py-2 px-3">{formatDate(inv.created_at)}</td>
+                                        <td className="py-2 px-3">
+                                            {inv.invoice_path && inv.invoice_path !== "false" ? (
+                                                <a
+                                                    href={getInvoiceUrl(inv.invoice_path)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:underline"
+                                                    download
+                                                >
+                                                    PDF
+                                                </a>
+                                            ) : (
+                                                <span className="text-gray-400">N/A</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+};
+
+// Util: format ISO date as DD-MM-YYYY, fallback to time string if invalid
+function formatDate(dt) {
+    if (!dt) return "-";
+    const date = new Date(dt);
+    if (isNaN(date)) return dt;
+    return `${date.getDate().toString().padStart(2, "0")}-${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${date.getFullYear()}`;
+}
+
+// Util: resolve invoice download url
+function getInvoiceUrl(path) {
+    if (!path || path === "false") return null;
+    if (path.startsWith("http")) return path;
+
+    // Get only the root domain (no /api/v1, no /static, nothing extra)
+    let base = axiosInstance.defaults.baseURL;
+    if (base.endsWith("/api/v1")) base = base.slice(0, -7);
+    if (base.endsWith("/api")) base = base.slice(0, -4);
+    if (base.endsWith("/")) base = base.slice(0, -1);
+
+    // Always remove any leading slash from path for joining
+    let filename = path.replace(/^\/+/, "");
+
+    // Remove "static/invoices/" if already present at the beginning of filename
+    if (filename.startsWith("static/invoices/")) {
+        filename = filename.slice("static/invoices/".length);
+    }
+
+    // Final absolute url
+    return `${base}/static/invoices/${filename}`;
+}
+
+export default InvoiceModal;

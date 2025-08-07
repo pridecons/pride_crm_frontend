@@ -9,3 +9,13 @@ export default function LoadingState({ message = "Loading..." }) {
   );
 }
 
+// Small inline loader for inputs, like in PAN field
+export function MiniLoader({ className = "" }) {
+  return (
+    <div
+      className={`animate-spin h-4 w-4 border-b-2 border-blue-500 rounded-full ${className}`}
+      style={{ minWidth: "1rem", minHeight: "1rem" }}
+      aria-label="loading"
+    />
+  );
+}

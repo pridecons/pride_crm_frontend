@@ -162,9 +162,12 @@ export default function Sidebar({ branchId, onClose }) {
       ],
     },
     {
-      title: 'Email',
+      title: 'Template',
+      section: 'Template',
+      icon: FileText,
       items: [
-        { href: '/email', icon: FileText, label: 'Email' },
+        { href: '/email', icon: Target, label: 'Email' , access:[""] },
+        { href: '/sms', icon: Target, label: 'sms', access:[""] },
       ],
     },
     {

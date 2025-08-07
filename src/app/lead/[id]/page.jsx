@@ -1,6 +1,6 @@
 // Main Lead Component
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useParams } from "next/navigation";
 import {
@@ -15,15 +15,17 @@ import {
   X,
   Eye,
   PhoneCall,
-  ArrowLeft,
-  ArrowRight,
   Calendar,
   CheckCircle,
   XCircle,
   AlertCircle,
   CreditCard,
+  IndianRupee,
   Building,
   Globe,
+  MessageCircle,
+  Mic,
+  BookOpenText,
 } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
 import toast from "react-hot-toast";
@@ -31,9 +33,16 @@ import toast from "react-hot-toast";
 // import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 // import "@react-pdf-viewer/core/lib/styles/index.css";
 // import "@react-pdf-viewer/default-layout/lib/styles/index.css";
-import Cookies from "js-cookie";
-import LoadingState from "@/components/LoadingState";
+import LoadingState, { MiniLoader } from "@/components/LoadingState";
 import { usePermissions } from "@/context/PermissionsContext";
+import { Modal } from "@/components/Lead/Modal";
+import StoryModal from "@/components/Lead/StoryModal";
+import CommentModal from "@/components/Lead/CommentModal";
+import EmailModalWithLogs from "@/components/Lead/EmailModalWithTabs";
+import InvoiceList from "@/components/Lead/InvoiceList";
+import CallBackModal from "@/components/Lead/CallBackModal";
+import FTModal from "@/components/Lead/FTModal";
+import { useFTAndCallbackPatch } from "@/components/Lead/useFTAndCallbackPatch";
 
 // --- After all your imports, add this function ---
 export const getFileUrl = (path) => {
@@ -43,14 +52,6 @@ export const getFileUrl = (path) => {
   return `${baseURL}${cleanPath}`;
 };
 
-const verifyPan = async (pan) => {
-  try {
-    const res = await axiosInstance.post("/pan/verify", { pan });
-    return res.data; // Adjust if your API returns data in a different shape
-  } catch (error) {
-    throw error?.response?.data?.detail || error?.message || "PAN verification failed";
-  }
-};
 
 // Utility: calculate age from dob string (yyyy-mm-dd or dd-mm-yyyy)
 function calculateAge(dob) {
@@ -88,6 +89,77 @@ function formatDDMMYYYY(dob) {
   const year = d.getFullYear();
   return `${day}-${month}-${year}`;
 }
+
+// --- MultiSelectWithCheckboxes.jsx ---
+
+export const MultiSelectWithCheckboxes = ({
+  options = [],
+  value = [],
+  onChange,
+  placeholder = "Select...",
+  disabled = false
+}) => {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleToggle = (optionValue) => {
+    let newValue;
+    if (value.includes(optionValue)) {
+      newValue = value.filter((v) => v !== optionValue);
+    } else {
+      newValue = [...value, optionValue];
+    }
+    onChange(newValue);
+  };
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <div
+        className={`border px-3 py-2 rounded-lg bg-white cursor-pointer min-h-[38px] flex items-center justify-between ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""
+          }`}
+        onClick={() => !disabled && setOpen((v) => !v)}
+      >
+        <span className="truncate">
+          {value.length === 0
+            ? <span className="text-gray-400">Select segment(s)</span>
+            : options
+              .filter((opt) => value.includes(opt.value))
+              .map((opt) => opt.label)
+              .join(", ")
+          }
+        </span>
+        <span className="ml-2 text-gray-500">&#9662;</span>
+      </div>
+      {open && (
+        <div className="absolute mt-1 left-0 z-50 w-full bg-white border rounded shadow max-h-52 overflow-auto">
+          {options.map((opt) => (
+            <label key={opt.value} className="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={value.includes(opt.value)}
+                onChange={() => handleToggle(opt.value)}
+                className="mr-2 accent-blue-500"
+                disabled={disabled}
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 
 const Lead = () => {
@@ -136,7 +208,48 @@ const Lead = () => {
   const [kycUrl, setKycUrl] = useState(null);
   const [kycLoading, setKycLoading] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
+  const fetchCurrentLead = async () => {
+    try {
+      setLoading(true);
+      const response = await apiCall("GET", `/leads/${id}`);
+      setCurrentLead(response);
+      setEditFormData(response);
+
+      setError(null);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const responseListForHook = leadResponses.map(r => ({
+    id: r.value,
+    name: r.label,
+  }));
+
+  const {
+    showFTModal,
+    setShowFTModal,
+    ftLead,
+    ftFromDate,
+    setFTFromDate,
+    ftToDate,
+    setFTToDate,
+    showCallBackModal,
+    setShowCallBackModal,
+    callBackLead,
+    callBackDate,
+    setCallBackDate,
+    handleResponseChange,
+    saveFT,
+    saveCallBack,
+  } = useFTAndCallbackPatch({
+    responses: responseListForHook,
+    onPatched: fetchCurrentLead,
+  });
 
   const fetchRecordings = async () => {
     try {
@@ -305,20 +418,6 @@ const Lead = () => {
     }
   };
 
-  const fetchCurrentLead = async () => {
-    try {
-      setLoading(true);
-      const response = await apiCall("GET", `/leads/${id}`);
-      setCurrentLead(response);
-      setEditFormData(response);
-
-      setError(null);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
-    }
-  };
   const handleViewKyc = async () => {
     try {
       const { data } = await axiosInstance.post(`/agreement/view/${currentLead?.id}`);
@@ -533,10 +632,6 @@ const Lead = () => {
         <LeadHeader
           uncalledCount={uncalledCount}
           currentLead={currentLead}
-          onStoryClick={() => {
-            fetchStories();
-            setIsStoryModalOpen(true);
-          }}
         />
 
         {/* Error Alert */}
@@ -572,6 +667,11 @@ const Lead = () => {
           onRecordingsClick={() => setIsRecordingsModalOpen(true)}
           onViewKycClick={handleViewKyc}
           onDocumentsClick={() => setIsDocumentsModalOpen(true)}
+          onStoryClick={() => {
+            fetchStories();
+            setIsStoryModalOpen(true);
+          }}
+          onInvoiceClick={() => setIsInvoiceModalOpen(true)}
         />
 
         {/* Lead Details */}
@@ -592,6 +692,7 @@ const Lead = () => {
           setAadharFrontPreview={setAadharFrontPreview}
           setAadharBackPreview={setAadharBackPreview}
           setPanPicPreview={setPanPicPreview}
+          handleLeadResponseChange={handleResponseChange}
         />
 
         {/* Modals */}
@@ -837,46 +938,17 @@ const Lead = () => {
           </p>
         </Modal>
         {/* Comments Modal */}
-        <Modal
+        <CommentModal
           isOpen={isCommentsModalOpen}
           onClose={() => setIsCommentsModalOpen(false)}
-          title="Lead Comments"
-        >
-          {loadingComments ? (
-            <p className="text-gray-500">Loading comments...</p>
-          ) : (
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {comments?.length > 0 && Array.isArray(comments) && comments?.map((c) => (
-                <div
-                  key={c.id}
-                  className={`p-3 rounded-lg ${c.user_id === "You" ? "bg-blue-100" : "bg-gray-100"}`}
-                >
-                  <p className="text-sm">{c.comment}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(c.timestamp).toLocaleString()} • {c.user_id}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          leadId={currentLead?.id}
+        />
 
-          {/* Input */}
-          <div className="flex mt-4 gap-2">
-            <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="flex-1 px-3 py-2 border rounded-lg"
-            />
-            <button
-              onClick={handleAddComment}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
-            >
-              Add
-            </button>
-          </div>
-        </Modal>
+        <InvoiceList
+          isOpen={isInvoiceModalOpen}
+          onClose={() => setIsInvoiceModalOpen(false)}
+          leadId={currentLead?.id}
+        />
 
         {/* Recordings Modal */}
         <Modal
@@ -927,6 +999,25 @@ const Lead = () => {
             {uploadingRecording && <p className="text-blue-500 mt-2 text-sm">Uploading...</p>}
           </div>}
         </Modal>
+
+        <FTModal
+          open={showFTModal}
+          onClose={() => setShowFTModal(false)}
+          onSave={saveFT}
+          fromDate={ftFromDate}
+          toDate={ftToDate}
+          setFromDate={setFTFromDate}
+          setToDate={setFTToDate}
+        />
+        <CallBackModal
+          open={showCallBackModal}
+          onClose={() => setShowCallBackModal(false)}
+          onSave={saveCallBack}
+          dateValue={callBackDate}
+          setDateValue={setCallBackDate}
+        />
+
+
       </div>
 
       <PaymentModel
@@ -939,155 +1030,18 @@ const Lead = () => {
         lead_id={currentLead?.id}
       />
 
-      <Modal
+      <StoryModal
         isOpen={isStoryModalOpen}
         onClose={() => setIsStoryModalOpen(false)}
-        title="Lead Story"
-        actions={[
-          <button
-            key="close"
-            onClick={() => setIsStoryModalOpen(false)}
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-          >
-            Close
-          </button>,
-        ]}
-      >
-        {loadingStories ? (
-          <p className="text-gray-600">Loading stories...</p>
-        ) : stories.length === 0 ? (
-          <p className="text-gray-600">No story available for this lead.</p>
-        ) : (
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {stories.map((story) => (
-              <div key={story.id} className="border-b pb-2">
-                <p className="text-sm text-gray-800">{story.msg}</p>
-                <p className="text-xs text-gray-500">
-                  {new Date(story.timestamp).toLocaleString()} by {story.user_id}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
+        leadId={currentLead?.id}
+      />
+      <EmailModalWithLogs
+        open={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        leadEmail={currentLead?.email}
+        leadName={currentLead?.full_name}
+      />
 
-      <Modal
-        isOpen={isEmailModalOpen}
-        onClose={() => {
-          setIsEmailModalOpen(false);
-          setContextFields([]);
-          setEmailContext({});
-        }}
-        title="Send Email"
-        actions={[
-          <button
-            key="cancel"
-            onClick={() => setIsEmailModalOpen(false)}
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-          >
-            Cancel
-          </button>,
-          <button
-            key="send"
-            onClick={handleSendEmail}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-          >
-            Send
-          </button>,
-        ]}
-      >
-        <div className="space-y-4">
-          {/* Template Selection */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Select Email Template</label>
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => {
-                const templateId = Number(e.target.value);
-                setSelectedTemplateId(templateId);
-                const selectedTemplate = templates.find((t) => t.id === templateId);
-                if (selectedTemplate) {
-                  const combinedText =
-                    `${selectedTemplate.subject || ""} ${selectedTemplate.body || ""}`;
-                  // dedupe any repeated placeholders
-                  const placeholders = Array.from(
-                    new Set(extractPlaceholders(combinedText))
-                  );
-                  setContextFields(placeholders);
-                  setEmailContext({});
-                }
-              }}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">-- Select Template --</option>
-              {templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name} ({template.subject.replace(/{{.*?}}/g, '').trim()})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Context */}
-          {contextFields.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium mb-2">Fill Template Data</h4>
-              {contextFields.map((field) => (
-                <div key={field} className="mb-3">
-                  <label className="block text-xs font-medium mb-1 capitalize">{field}</label>
-                  <input
-                    type="text"
-                    value={emailContext[field] || ""}
-                    onChange={(e) =>
-                      setEmailContext((prev) => ({ ...prev, [field]: e.target.value }))
-                    }
-                    className="w-full px-3 py-2 border rounded"
-                    placeholder={`Enter ${field}`}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={isEmailLogsModalOpen}
-        onClose={() => setIsEmailLogsModalOpen(false)}
-        title="Email Logs"
-        actions={[
-          <button
-            key="close"
-            onClick={() => setIsEmailLogsModalOpen(false)}
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-          >
-            Close
-          </button>,
-        ]}
-      >
-        {emailLogs.length === 0 ? (
-          <p className="text-gray-600">No logs available for this recipient.</p>
-        ) : (
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {emailLogs.map((log) => (
-              <div
-                key={log.id}
-                className="p-3 border rounded hover:bg-gray-50 cursor-pointer"
-                onClick={async () => {
-                  const { data } = await axiosInstance.get(`/email/logs/${log.id}`);
-                  toast.info(`Subject: ${data.subject}\nSent: ${data.sent_at}`);
-                }}
-              >
-                <p className="text-sm font-medium text-gray-800">{log.subject}</p>
-                <p className="text-xs text-gray-500">
-                  Sent at: {new Date(log.sent_at).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
@@ -1108,22 +1062,40 @@ export const InputField = ({
   rows = 3,
   isEditMode,
   onInputChange,
+  suffix,
 }) => (
   <div className="space-y-2">
     <label className="flex items-center text-sm font-medium text-gray-700">
       {Icon && <Icon size={16} className="mr-2 text-gray-500" />}
       {label}
     </label>
-    {isEditMode ? (
+    {isEditMode && type !== "readonly" ? (
       type === "select" ? (
         <select
           name={name}
           value={value || ""}
           onChange={onInputChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
         >
           <option value="">Select {label}</option>
           {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : type === "multiselect" ? (
+        <select
+          name={name}
+          multiple
+          value={Array.isArray(value) ? value : value ? [value] : []}
+          onChange={e => {
+            const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+            onInputChange({ target: { name, value: selected } });
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        >
+          {options.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -1150,24 +1122,31 @@ export const InputField = ({
           <span className="ml-2 text-sm text-gray-700">{label}</span>
         </div>
       ) : (
-        <input
-          type={type}
-          name={name}
-          value={
-            type === "date"
-              ? value
-                ? new Date(value).toISOString().split("T")[0]
-                : ""
-              : type === "datetime-local"
+        <div className="relative">
+          <input
+            type={type}
+            name={name}
+            value={
+              type === "date"
                 ? value
-                  ? new Date(value).toISOString().slice(0, 16)
+                  ? new Date(value).toISOString().split("T")[0]
                   : ""
-                : value || ""
-          }
-          onChange={onInputChange}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-        />
+                : type === "datetime-local"
+                  ? value
+                    ? new Date(value).toISOString().slice(0, 16)
+                    : ""
+                  : value || ""}
+            onChange={onInputChange}
+            placeholder={placeholder}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+          />
+          {/* Suffix loader or icon (positioned right inside the input) */}
+          {suffix && (
+            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+              {suffix}
+            </div>
+          )}
+        </div>
       )
     ) : (
       <div className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] flex items-center">
@@ -1193,7 +1172,7 @@ export const InputField = ({
           <span className="text-gray-900">
             {value ? new Date(value).toLocaleString() : "Not set"}
           </span>
-        ) : type === "select" ? (
+        ) : type === "select" || type === "readonly" ? (
           <span className="text-gray-900">
             {options.find((opt) => opt.value === value)?.label ||
               "Not selected"}
@@ -1304,7 +1283,7 @@ export const StatusBadge = ({ status, type = "default" }) => {
           : "bg-yellow-100 text-yellow-800";
       case "kyc":
         return status
-          ? "bg-blue-100 text-blue-800"
+          ? "bg-green-100 text-green-800"
           : "bg-gray-100 text-gray-800";
       case "old":
         return status
@@ -1323,6 +1302,8 @@ export const StatusBadge = ({ status, type = "default" }) => {
         return status ? "KYC Completed" : "KYC Pending";
       case "old":
         return status ? "Old Lead" : "New Lead";
+      case "client":            
+        return "Client";
       default:
         return status ? "Active" : "Inactive";
     }
@@ -1350,33 +1331,6 @@ export const StatusBadge = ({ status, type = "default" }) => {
 };
 
 // ==============================================
-// Modal Component
-// ==============================================
-
-export const Modal = ({ isOpen, onClose, title, children, actions }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-transparent backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <div className="mb-6">{children}</div>
-        <div className="flex gap-2 justify-end">{actions}</div>
-      </div>
-    </div>
-  );
-};
-
-
-// ==============================================
 // ErrorState Component
 // ==============================================
 
@@ -1389,12 +1343,13 @@ export const ErrorState = ({ error, onRetry }) => {
           Error Loading Lead
         </h3>
         <p className="text-gray-600 mb-4">
-  {typeof error === "string"
-    ? error
-    : error?.message
-    ? error.message
-    : JSON.stringify(error)}
-</p>
+          {typeof error === "string"
+            ? error
+            : error?.message
+              ? error.message
+              : JSON.stringify(error)}
+        </p>
+
         <button
           onClick={onRetry}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -1411,7 +1366,7 @@ export const ErrorState = ({ error, onRetry }) => {
 // ==============================================
 
 
-export const LeadHeader = ({ navigationInfo, uncalledCount, currentLead, onStoryClick }) => {
+export const LeadHeader = ({ navigationInfo, uncalledCount, currentLead }) => {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
       <h3 className="text-2xl font-bold text-gray-800">
@@ -1420,13 +1375,10 @@ export const LeadHeader = ({ navigationInfo, uncalledCount, currentLead, onStory
       <div className="sm:mt-0 flex items-center space-x-4">
         <StatusBadge status={currentLead?.is_call} type="call" />
         <StatusBadge status={currentLead?.kyc} type="kyc" />
-        <StatusBadge status={currentLead?.is_old_lead} type="old" />
-        <button
-          onClick={onStoryClick}
-          className="px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 text-sm"
-        >
-          View Story
-        </button>
+        {currentLead?.is_client
+          ? <StatusBadge status={true} type="client" />
+          : <StatusBadge status={currentLead?.is_old_lead} type="old" />
+        }
       </div>
     </div>
   );
@@ -1447,144 +1399,157 @@ export const ActionButtons = ({
   kycLoading = false,
   onPaymentClick,
   onSendEmailClick,
-  onViewEmailLogsClick,
   onCommentsClick,
   onRecordingsClick,
   onViewKycClick,
   onDocumentsClick,
+  onStoryClick,
+  onInvoiceClick,
 }) => {
 
   const { hasPermission } = usePermissions();
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-      <div className="flex flex-wrap gap-3">
-        {/* Existing Buttons */}
-        <button
-          onClick={onCallClick}
-          disabled={!currentLead || currentLead?.is_call}
-          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${currentLead?.is_call
-            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-            : "bg-green-500 text-white hover:bg-green-600"
-            }`}
-        >
-          <PhoneCall size={16} className="mr-2" />
-          {currentLead?.is_call ? "Called" : "Call"}
-        </button>
 
+    <div className="flex justify-evenly flex-wrap gap-2 mb-5">
+      {/* Existing Buttons */}
+      <button
+        onClick={onCallClick}
+        disabled={!currentLead || currentLead?.is_call}
+        className={`flex items-center px-3 py-2 rounded-lg transition-colors ${currentLead?.is_call
+          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+          : "bg-green-500 text-white hover:bg-green-600"
+          }`}
+      >
+        <PhoneCall size={16} className="mr-2" />
+        {currentLead?.is_call ? "Called" : "Call"}
+      </button>
+
+      <button
+        onClick={onEditClick}
+        disabled={!currentLead}
+        className={`flex items-center px-3 py-2 rounded-lg transition-colors ${isEditMode
+          ? "bg-red-500 text-white hover:bg-red-600"
+          : "bg-indigo-500 text-white hover:bg-indigo-600"
+          }`}
+      >
+        {isEditMode ? (
+          <X size={16} className="mr-2" />
+        ) : (
+          <Edit3 size={16} className="mr-2" />
+        )}
+        {isEditMode ? "Cancel" : "Edit"}
+      </button>
+
+      {isEditMode && (
         <button
-          onClick={onEditClick}
-          disabled={!currentLead}
-          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${isEditMode
-            ? "bg-red-500 text-white hover:bg-red-600"
-            : "bg-indigo-500 text-white hover:bg-indigo-600"
-            }`}
+          onClick={onSaveClick}
+          disabled={loading}
+          className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isEditMode ? (
-            <X size={16} className="mr-2" />
-          ) : (
-            <Edit3 size={16} className="mr-2" />
+          <Save size={16} className="mr-2" />
+          {loading ? "Saving..." : "Save"}
+        </button>
+      )}
+
+      {/* ✅ Show KYC Button Only if KYC Completed */}
+      {currentLead?.kyc && (
+        <button
+          onClick={onViewKycClick}
+          className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          <Eye size={16} className="mr-2" />
+          Agreement
+        </button>
+      )}
+
+      {!currentLead?.kyc ? (
+        <button
+          onClick={onKycClick}
+          disabled={kycLoading || !currentLead?.email}
+          className={`flex items-center px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+        >
+          {kycLoading && (
+            <svg
+              className="animate-spin h-4 w-4 mr-2 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              ></path>
+            </svg>
           )}
-          {isEditMode ? "Cancel" : "Edit"}
+          KYC
         </button>
+      ) : null}
 
-        {isEditMode && (
-          <button
-            onClick={onSaveClick}
-            disabled={loading}
-            className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Save size={16} className="mr-2" />
-            {loading ? "Saving..." : "Save"}
-          </button>
-        )}
+      <button
+        onClick={onPaymentClick}
+        className="flex items-center px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <IndianRupee size={16} className="mr-2" />
+        Payment
+      </button>
+      <button
+        onClick={onSendEmailClick}
+        className="flex items-center px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+      >
+        <Mail size={16} className="mr-2" />
+        Email
+      </button>
 
-        {/* ✅ Show KYC Button Only if KYC Completed */}
-        {currentLead?.kyc && (
-          <button
-            onClick={onViewKycClick}
-            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            <Eye size={16} className="mr-2" />
-            View KYC
-          </button>
-        )}
+      <button
+        onClick={onCommentsClick}
+        className="flex items-center px-3 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+      >
+        <MessageCircle size={16} className="mr-2" />
+        Comments
+      </button>
 
-        {!currentLead?.kyc ? (
-          <button
-            onClick={onKycClick}
-            disabled={kycLoading || !currentLead?.email}
-            className={`flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-          >
-            {kycLoading && (
-              <svg
-                className="animate-spin h-4 w-4 mr-2 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                ></path>
-              </svg>
-            )}
-            KYC
-          </button>
-        ) : null}
+      {hasPermission("lead_recording_view") && <button
+        onClick={onRecordingsClick}
+        className="flex items-center px-3 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
+      >
+        <Mic size={16} className="mr-2" />
+        Recordings
+      </button>}
 
-        <button
-          onClick={onPaymentClick}
-          className="flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Payment
-        </button>
-        <button
-          onClick={onSendEmailClick}
-          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-        >
-          Send Email
-        </button>
+      <button
+        onClick={onDocumentsClick}
+        className="flex items-center px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+      >
+        <FileText size={16} className="mr-2" />
+        Documents
+      </button>
+      <button
+        onClick={onStoryClick}
+        className="flex items-center px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+      >
+        <BookOpenText size={16} className="mr-2" />
+        Story
+      </button>
+      <button
+        onClick={onInvoiceClick}
+        className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+      >
+        <FileText size={16} className="mr-2" />
+        Invoices
+      </button>
 
-        <button
-          onClick={onViewEmailLogsClick}
-          className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-        >
-          View Email Logs
-        </button>
-
-        <button
-          onClick={onCommentsClick}
-          className="flex items-center px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
-        >
-          Comments
-        </button>
-
-        {hasPermission("lead_recording_view") && <button
-          onClick={onRecordingsClick}
-          className="flex items-center px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
-        >
-          Recordings
-        </button>}
-
-        <button
-          onClick={onDocumentsClick}
-          className="flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
-        >
-          <FileText size={16} className="mr-2" />
-          Documents
-        </button>
-      </div>
     </div>
+
   );
 };
 
@@ -1608,20 +1573,42 @@ export const ViewAndEditLead = ({
   setPanPic,
   setAadharFrontPreview,
   setAadharBackPreview,
-  setPanPicPreview
+  setPanPicPreview,
+  handleLeadResponseChange
 }) => {
-  // PAN verification states
+  const [leadType, setLeadType] = useState(
+    editFormData?.lead_type || currentLead?.lead_type || "INDIVIDUAL"
+  );
   const [panLoading, setPanLoading] = useState(false);
   const [panError, setPanError] = useState(null);
   const [panVerifiedData, setPanVerifiedData] = useState(null);
+  const [segmentOptions, setSegmentOptions] = useState([]);
+  const [panFetched, setPanFetched] = useState(false);
 
-  // PAN verification function
+  useEffect(() => {
+    axiosInstance.get("/profile-role/recommendation-type")
+      .then(res => {
+        setSegmentOptions(
+          res.data.map((seg) => ({ value: seg, label: seg }))
+        );
+      })
+      .catch(() => setSegmentOptions([]));
+  }, []);
+
+  useEffect(() => {
+    if (isEditMode) {
+      setEditFormData(prev => ({
+        ...prev,
+        lead_type: leadType
+      }));
+    }
+    // eslint-disable-next-line
+  }, [leadType]);
+
   // Helper: Format date to YYYY-MM-DD
   function formatDob(dob) {
     if (!dob) return "";
-    // If already in YYYY-MM-DD just return
     if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) return dob;
-    // Try DD-MM-YYYY
     if (/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
       const [d, m, y] = dob.split("-");
       return `${y}-${m}-${d}`;
@@ -1629,7 +1616,7 @@ export const ViewAndEditLead = ({
     return dob;
   }
 
-  // PAN verification function (micro-pan-verification)
+  // PAN verification
   const verifyPan = async (pan) => {
     try {
       const res = await axiosInstance.post(
@@ -1643,69 +1630,56 @@ export const ViewAndEditLead = ({
     }
   };
 
-  // On any input change
   const handleInputChange = useCallback(async (e) => {
     const { name, value, type, checked } = e.target;
-    setEditFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-
-    // PAN verify logic
-    if (name === "pan") {
-      setPanVerifiedData(null);
-      setPanError(null);
-
-      // Only check when 10 chars and not blank
-      if (value && value.length === 10) {
-        setPanLoading(true);
-        try {
-          const data = await verifyPan(value.toUpperCase());
-          if (data.success && data.data?.result) {
-            const result = data.data.result;
-
-            // Autofill all fields from PAN API (except phone & email)
-            setEditFormData((prev) => ({
-              ...prev,
-              full_name: result.user_full_name || prev.full_name,
-              father_name: result.user_father_name || prev.father_name,
-              dob: result.user_dob ? formatDob(result.user_dob) : prev.dob,
-              address: result.user_address?.full || prev.address,
-              city: result.user_address?.city || prev.city,
-              state: result.user_address?.state || prev.state,
-              pincode: result.user_address?.zip || prev.pincode,
-              country: result.user_address?.country || prev.country,
-              aadhaar: result.masked_aadhaar || prev.aadhaar,
-              gender: result.user_gender === "M" ? "Male" : result.user_gender === "F" ? "Female" : prev.gender,
-              // Optionally, add more fields if you have them in your form:
-              // district: result.user_address?.district || prev.district,
-              // director_name: result.director_name || prev.director_name,
-            }));
-            setPanVerifiedData(result);
-            toast.success("PAN verified and details autofilled!");
-          } else {
-            setPanError("PAN verification failed");
-            toast.error("PAN verification failed");
-          }
-        } catch (err) {
-          setPanError(err);
-          toast.error(typeof err === "string" ? err : "Error verifying PAN");
-        } finally {
-          setPanLoading(false);
+    let newValue = value;
+    if (name === "pan") newValue = value.toUpperCase();
+    if (name === "pan" && value && value.length === 10) {
+      setPanLoading(true);
+      try {
+        const data = await verifyPan(value.toUpperCase());
+        if (data.success && data.data?.result) {
+          const result = data.data.result;
+          setEditFormData((prev) => ({
+            ...prev,
+            full_name: result.user_full_name || prev.full_name,
+            father_name: result.user_father_name || prev.father_name,
+            dob: result.user_dob ? formatDob(result.user_dob) : prev.dob,
+            address: result.user_address?.full || prev.address,
+            city: result.user_address?.city || prev.city,
+            state: result.user_address?.state || prev.state,
+            pincode: result.user_address?.zip || prev.pincode,
+            country: result.user_address?.country || prev.country,
+            aadhaar: result.masked_aadhaar || prev.aadhaar,
+            gender: result.user_gender === "M" ? "Male" : result.user_gender === "F" ? "Female" : prev.gender,
+          }));
+          setPanVerifiedData(result);
+          setPanFetched(true); // Mark PAN as fetched
+          toast.success("PAN verified and details autofilled!");
+        } else {
+          setPanError("PAN verification failed");
+          toast.error("PAN verification failed");
         }
+      } catch (err) {
+        setPanError(err);
+        toast.error(typeof err === "string" ? err : "Error verifying PAN");
+      } finally {
+        setPanLoading(false);
       }
     }
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : newValue,
+    }));
+    if (name === "lead_type") setLeadType(newValue);
   }, [setEditFormData]);
 
-  // Field definitions
-  const personalFields = [
+  // INDIVIDUAL fields
+  const personalFieldsIndividual = [
     { name: "pan", label: "PAN Number", icon: CreditCard, placeholder: "Enter PAN number" },
     { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar number" },
     { name: "full_name", label: "Full Name", icon: User, placeholder: "Enter full name" },
     { name: "father_name", label: "Father Name", icon: User, placeholder: "Enter father name" },
-    { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile number" },
-    { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email address" },
-    { name: "director_name", label: "Director Name", icon: User, placeholder: "Enter director name" },
     {
       name: "gender", label: "Gender", icon: User, type: "select",
       options: [{ value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }]
@@ -1721,16 +1695,31 @@ export const ViewAndEditLead = ({
     },
     { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
     { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
+    { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile number" },
+    { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
+    { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email address" },
+    { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
   ];
 
-  const contactFields = [
+  // COMPANY fields
+  const personalFieldsCompany = [
+    { name: "pan", label: "Company PAN", icon: CreditCard, placeholder: "Enter Company PAN" },
+    { name: "company_name", label: "Company Name", icon: User, placeholder: "Enter company name" },
+    { name: "director_name", label: "Director Name", icon: User, placeholder: "Enter director name" },
+    { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
+    { name: "mobile", label: "Company Mobile", icon: Phone, type: "tel", placeholder: "Enter company mobile number" },
     { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
-    { name: "address", label: "Address", icon: MapPin, type: "textarea", placeholder: "Enter full address" },
+    { name: "email", label: "Company Email", icon: Mail, type: "email", placeholder: "Enter company email address" },
+  ];
+
+  const addressFields = [
     { name: "city", label: "City", icon: MapPin, placeholder: "Enter city" },
     { name: "state", label: "State", icon: MapPin, placeholder: "Enter state" },
     { name: "district", label: "District", icon: MapPin, placeholder: "Enter district" },
     { name: "pincode", label: "Pincode", icon: MapPin, placeholder: "Enter pincode" },
     { name: "country", label: "Country", icon: Globe, placeholder: "Enter country" },
+    { name: "address", label: "Address", icon: MapPin, type: "textarea", placeholder: "Enter full address" },
+
   ];
 
   const professionalFields = [
@@ -1748,141 +1737,150 @@ export const ViewAndEditLead = ({
         { value: "15+", label: "15+ years" },
       ]
     },
-    { name: "segment", label: "Segment", icon: Briefcase, placeholder: "Enter segment (comma-separated if multiple)" },
-    { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
-    { name: "lead_source_id", label: "Lead Source", icon: Building, type: "select", options: leadSources },
+    { name: "segment", label: "Segment", type: "multiselect", options: segmentOptions, icon: Briefcase, placeholder: "Select segment(s)" },
+    { name: "lead_source_id", label: "Lead Source", icon: Building, type: "readonly", options: leadSources },
     { name: "lead_response_id", label: "Lead Response", icon: Building, type: "select", options: leadResponses },
-    { name: "call_back_date", label: "Callback Date", icon: Calendar, type: "datetime-local" },
   ];
 
   if (!currentLead) return null;
 
+  // Returns true if this field should be locked (non-editable)
+  const isPanLocked = (fieldName) => {
+    // These fields should be locked if lead has PAN (after save) or after PAN is fetched in this session
+    const panFields = [
+      "pan", "full_name", "father_name", "dob", "address",
+      "city", "state", "pincode", "country", "aadhaar", "gender"
+    ];
+    // If not in edit mode, lock all (readonly)
+    if (!isEditMode) return true;
+    // If lead already has PAN, lock pan fields
+    if (!!currentLead?.pan && panFields.includes(fieldName)) return true;
+    // If PAN was fetched in this session, lock those fields (except for editing other fields)
+    if (panFetched && panFields.includes(fieldName)) return true;
+    return false;
+  };
+
   return (
     <div className="flex flex-col gap-6 mb-6">
+      {/* Lead Type Switcher */}
+      <div className="bg-white rounded-lg shadow-sm p-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Lead Type
+        </label>
+        {isEditMode ? (
+          <select
+            name="lead_type"
+            value={leadType}
+            onChange={handleInputChange}
+            className="w-60 px-3 py-2 border rounded"
+          >
+            <option value="INDIVIDUAL">Individual</option>
+            <option value="COMPANY">Company</option>
+          </select>
+        ) : (
+          <span className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] inline-block">
+            {leadType === "COMPANY" ? "Company" : "Individual"}
+          </span>
+        )}
+      </div>
 
-      {/* Personal Information */}
+      {/* Personal Section */}
+      {/* Personal Section */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
           <User className="mr-2 text-blue-500" size={20} />
-          Personal Information
+          {leadType === "COMPANY" ? "Company Details" : "Personal Information"}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {personalFields.map((field) => {
-            if (field.name === "dob") {
-              return (
-                <InputField
-                  key={field.name}
-                  {...field}
-                  value={editFormData[field.name]}
-                  isEditMode={isEditMode}
-                  onInputChange={handleInputChange}
-                  // Show as dd-mm-yyyy in view, as date input in edit
-                  renderValue={(value) => formatDDMMYYYY(value)}
-                />
-              );
-            }
-            if (field.name === "age") {
-              // Age is always readonly, not editable
-              return (
-                <InputField
-                  key={field.name}
-                  {...field}
-                  value={calculateAge(editFormData.dob)}
-                  isEditMode={false}
-                  icon={Calendar}
-                />
-              );
-            }
-            if (field.name === "pan") {
-              return (
-                <div key={field.name} className="relative">
+          {(leadType === "COMPANY" ? personalFieldsCompany : personalFieldsIndividual)
+            .map((field) => {
+              // Age - always readonly
+              if (field.name === "age") {
+                return (
                   <InputField
+                    key={field.name}
+                    {...field}
+                    value={calculateAge(editFormData.dob)}
+                    isEditMode={false}
+                    icon={Calendar}
+                  />
+                );
+              }
+
+              // PAN field: locked after save or PAN present
+              if (field.name === "pan") {
+                return (
+                  <InputField
+                    key={field.name}
+                    {...field}
+                    value={editFormData[field.name]}
+                    isEditMode={!isPanLocked(field.name)}
+                    onInputChange={handleInputChange}
+                    suffix={isEditMode && panLoading ? <MiniLoader /> : null}
+                    autoCapitalize="characters"
+                  />
+                );
+              }
+
+              // For all PAN-fetched fields: lock as per isPanLocked
+              if (
+                ["full_name", "father_name", "dob", "address", "city", "state", "pincode", "country", "aadhaar", "gender"].includes(field.name)
+              ) {
+                return (
+                  <InputField
+                    key={field.name}
+                    {...field}
+                    value={editFormData[field.name]}
+                    isEditMode={!isPanLocked(field.name)}
+                    onInputChange={handleInputChange}
+                  />
+                );
+              }
+
+              // Marital status always editable
+              if (field.name === "marital_status") {
+                return (
+                  <InputField
+                    key={field.name}
                     {...field}
                     value={editFormData[field.name]}
                     isEditMode={isEditMode}
                     onInputChange={handleInputChange}
                   />
-                  {isEditMode && (
-                    <div className="mt-1">
-                      {panLoading && (
-                        <span className="text-xs text-blue-500">Verifying PAN...</span>
-                      )}
-                      {panError && (
-                        <span className="text-xs text-red-500">{panError}</span>
-                      )}
-                      {panVerifiedData && (
-                        <span className="text-xs text-green-600">
-                          PAN Verified: {panVerifiedData?.name || "Success"}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+                );
+              }
+
+              // Rest: Editable in edit mode
+              return (
+                <InputField
+                  key={field.name}
+                  {...field}
+                  value={editFormData[field.name]}
+                  isEditMode={isEditMode}
+                  onInputChange={handleInputChange}
+                />
               );
-            }
-            return (
-              <InputField
-                key={field.name}
-                {...field}
-                value={editFormData[field.name]}
-                isEditMode={isEditMode}
-                onInputChange={handleInputChange}
-              />
-            );
-          })}
+            })}
+
         </div>
       </div>
 
-      {/* Contact Information */}
+      {/* Address Section */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <Phone className="mr-2 text-green-500" size={20} />
-          Contact Information
+          <MapPin className="mr-2 text-green-500" size={20} />
+          Address Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {contactFields.map((field) => (
-            <InputField
-              key={field.name}
-              {...field}
-              value={editFormData[field.name]}
-              isEditMode={isEditMode}
-              onInputChange={handleInputChange}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Professional & Documentation */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <Briefcase className="mr-2 text-purple-500" size={20} />
-          Professional & Documentation
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {professionalFields.map((field) =>
-            field.name === "pan" ? (
-              <div key={field.name} className="relative">
+          {addressFields.map((field) => (
+            field.name === "address" ? (
+              <div key={field.name} className="col-span-1 md:col-span-4">
                 <InputField
                   {...field}
                   value={editFormData[field.name]}
                   isEditMode={isEditMode}
                   onInputChange={handleInputChange}
                 />
-                {isEditMode && (
-                  <div className="mt-1">
-                    {panLoading && (
-                      <span className="text-xs text-blue-500">Verifying PAN...</span>
-                    )}
-                    {panError && (
-                      <span className="text-xs text-red-500">{panError}</span>
-                    )}
-                    {panVerifiedData && (
-                      <span className="text-xs text-green-600">
-                        PAN Verified: {panVerifiedData?.name || "Success"}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
             ) : (
               <InputField
@@ -1893,11 +1891,171 @@ export const ViewAndEditLead = ({
                 onInputChange={handleInputChange}
               />
             )
-          )}
+          ))}
+        </div>
+      </div>
+
+      {/* Professional & Documentation Section */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+          <Briefcase className="mr-2 text-purple-500" size={20} />
+          Professional & Documentation
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {professionalFields.map((field) => {
+            // Lead Source stays readonly always
+            if (field.name === "lead_source_id") {
+              return (
+                <InputField
+                  key={field.name}
+                  {...field}
+                  value={editFormData[field.name]}
+                  isEditMode={false}
+                  options={leadSources}
+                />
+              );
+            }
+            // Segment multiselect
+            if (field.name === "segment") {
+              // ... your multiselect code unchanged ...
+              return (
+                <div key="segment">
+                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                    <Briefcase size={16} className="mr-2 text-purple-500" />
+                    Segment
+                  </label>
+                  {isEditMode ? (
+                    <MultiSelectWithCheckboxes
+                      options={segmentOptions}
+                      value={
+                        Array.isArray(editFormData.segment)
+                          ? editFormData.segment
+                          : (editFormData.segment
+                            ? String(editFormData.segment).split(",").map(s => s.trim()).filter(Boolean)
+                            : [])
+                      }
+                      onChange={(selected) => {
+                        setEditFormData((prev) => ({
+                          ...prev,
+                          segment: selected
+                        }));
+                      }}
+                      placeholder="Select segment(s)"
+                    />
+                  ) : (
+                    <div className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] flex items-center">
+                      <span className="text-gray-900 break-words">
+                        {Array.isArray(editFormData.segment) && editFormData.segment.length > 0
+                          ? editFormData.segment.join(", ")
+                          : "Select segment(s)"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            // Lead Response field + conditional display of FT or Call Back date
+            // Inside professionalFields.map (replace lead_response_id field block)
+
+            // … inside professionalFields.map((field) => { …
+
+            if (field.name === "lead_response_id") {
+              // determine which response is selected
+              const selectedId = editFormData.lead_response_id ?? currentLead.lead_response_id;
+              const resp = leadResponses.find(r => r.value === selectedId);
+              const label = resp?.label?.toLowerCase();
+
+              return (
+                <div key="lead_response_id" className="col-span-1 md:col-span-2">
+                  {/* Response selector */}
+                  <InputField
+                    {...field}
+                    value={selectedId}
+                    isEditMode={isEditMode}
+                    onInputChange={e => {
+                      const val = e.target.value;
+                      handleLeadResponseChange(currentLead, val);
+                      setEditFormData(prev => ({ ...prev, lead_response_id: val }));
+                    }}
+                    options={leadResponses}
+                  />
+
+                  {/* — Edit mode: show inline date inputs when FT or Call Back is selected — */}
+                  {isEditMode && label === "ft" && (
+                    <div className="flex gap-2 mt-2">
+                      <InputField
+                        label="FT From"
+                        name="ft_from_date"
+                        type="date"
+                        value={editFormData.ft_from_date || ""}
+                        isEditMode
+                        onInputChange={handleInputChange}
+                      />
+                      <InputField
+                        label="FT To"
+                        name="ft_to_date"
+                        type="date"
+                        value={editFormData.ft_to_date || ""}
+                        isEditMode
+                        onInputChange={handleInputChange}
+                      />
+                    </div>
+                  )}
+                  {isEditMode && label === "call back" && (
+                    <div className="mt-2">
+                      <InputField
+                        label="Call Back Date"
+                        name="call_back_date"
+                        type="datetime-local"
+                        value={editFormData.call_back_date || ""}
+                        isEditMode
+                        onInputChange={handleInputChange}
+                      />
+                    </div>
+                  )}
+
+                  {/* — View mode: always show saved FT/Callback dates — */}
+                  {!isEditMode && label === "ft" && (
+                    <div className="mt-1 text-xs text-blue-700 font-semibold">
+                      <div><strong>FT From:</strong> {currentLead.ft_from_date ? formatDDMMYYYY(currentLead.ft_from_date) : "N/A"}</div>
+                      <div><strong>FT To:</strong>   {currentLead.ft_to_date ? formatDDMMYYYY(currentLead.ft_to_date) : "N/A"}</div>
+                    </div>
+                  )}
+                  {!isEditMode && label === "call back" && (
+                    <div className="mt-1 text-xs text-indigo-700 font-semibold">
+                      <strong>Call Back Date:</strong>{" "}
+                      {currentLead.call_back_date
+                        ? new Date(currentLead.call_back_date).toLocaleString()
+                        : "N/A"}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // …rest of your map…
+
+            // … end professionalFields.map
+
+
+            // Rest: Editable in edit mode, always, even after panFetched
+            return (
+              <InputField
+                key={field.name}
+                {...field}
+                value={editFormData[field.name]}
+                isEditMode={isEditMode}
+                onInputChange={handleInputChange}
+                options={field.options || []}
+              />
+            );
+          })}
         </div>
       </div>
     </div>
   );
 };
+
+
 
 // ==============================================

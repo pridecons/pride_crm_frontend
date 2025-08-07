@@ -1,13 +1,15 @@
 "use client";
 
 import { axiosInstance } from "@/api/Axios";
+import StoryModal from "@/components/Lead/StoryModal";
+import CommentModal from "@/components/Lead/CommentModal";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
 import LeadCommentSection from "@/components/Lead/LeadCommentSection";
 import LoadingState from "@/components/LoadingState";
-import { Pencil, Download } from "lucide-react";
+import { Pencil,BookOpenText, MessageCircle, Eye, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 export default function NewLeadsTable() {
@@ -19,7 +21,10 @@ export default function NewLeadsTable() {
   const [total, setTotal] = useState(0);
   const [editId, setEditId] = useState(null);
   const [userId, setUserId] = useState(null);
-
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
+  const [storyLead, setStoryLead] = useState(null);
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftLead, setFTLead] = useState(null);
@@ -108,7 +113,9 @@ export default function NewLeadsTable() {
 
   const fetchResponses = async () => {
     try {
-      const { data } = await axiosInstance.get("/lead-config/responses/", { params: { skip: 0, limit: 100 } });
+      const { data } = await axiosInstance.get("/lead-config/responses/", {
+        params: { skip: 0, limit: 100 },
+      });
       setResponses(data);
     } catch (error) {
       console.error("Error fetching responses:", error);
@@ -117,7 +124,9 @@ export default function NewLeadsTable() {
 
   const fetchSources = async () => {
     try {
-      const { data } = await axiosInstance.get("/lead-config/sources/", { params: { skip: 0, limit: 100 } });
+      const { data } = await axiosInstance.get("/lead-config/sources/", {
+        params: { skip: 0, limit: 100 },
+      });
       setSources(data);
     } catch (error) {
       console.error("Error fetching sources:", error);
@@ -141,23 +150,15 @@ export default function NewLeadsTable() {
 
   // ✅ Save comment
   const handleSaveComment = async (lead) => {
-    if (!userId) {
-      toast.error("User not loaded!");
-      return;
-    }
-
-    if (!lead.tempComment || !lead.tempComment.trim()) {
-      toast.error("Comment cannot be empty!");
-      return;
-    }
+    if (!userId) return toast.error("User not loaded!");
+    if (!lead.tempComment || !lead.tempComment.trim())
+      return toast.error("Comment cannot be empty!");
 
     try {
       const { data } = await axiosInstance.post(
         `/leads/${lead.id}/comments`,
-        null, // no body
-        {
-          params: { comment: lead.tempComment },
-        }
+        null,
+        { params: { comment: lead.tempComment } }
       );
 
       toast.success("Comment saved!");
@@ -172,7 +173,6 @@ export default function NewLeadsTable() {
     }
   };
 
-  // ✅ Update name
   const handleUpdateName = async (lead) => {
     try {
       await axiosInstance.put(`/leads/${lead.id}`, lead);
@@ -184,24 +184,20 @@ export default function NewLeadsTable() {
     }
   };
 
-  // ✅ Update response & move lead to Old Leads
   const handleResponseChange = async (lead, newResponseId) => {
     const selectedResponse = responses.find((r) => r.id == newResponseId);
     const responseName = selectedResponse?.name?.toLowerCase();
 
     if (responseName === "ft") {
-      // FT flow (already implemented)
       setFTLead(lead);
       setFTFromDate("");
       setFTToDate("");
       setShowFTModal(true);
     } else if (responseName === "call back" || responseName === "callback") {
-      // Show call back modal
       setCallBackLead(lead);
       setCallBackDate("");
       setShowCallBackModal(true);
     } else {
-      // Direct PATCH for all other responses
       try {
         await axiosInstance.patch(`/leads/${lead.id}/response`, {
           lead_response_id: parseInt(newResponseId),
@@ -219,15 +215,6 @@ export default function NewLeadsTable() {
       }
     }
   };
-
-  // const getValidFTDates = () => {
-  //   const today = new Date();
-  //   return Array.from({ length: 6 }, (_, i) => {
-  //     const d = new Date(today);
-  //     d.setDate(d.getDate() + i);
-  //     return d.toISOString().split("T")[0];
-  //   });
-  // };
 
   const filteredLeads = leads
     .filter((lead) => !lead.lead_response_id)
@@ -247,31 +234,20 @@ export default function NewLeadsTable() {
       </div>
 
       <div className="bg-white rounded-xl border-b border-gray-200 max-w-7xl mx-auto overflow-hidden">
-
-        {/* ✅ Table Container */}
         {loading ? (
           <LoadingState message="Loading leads..." />
         ) : (
-
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse">
               <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white sticky top-0 z-10">
                 <tr>
-                  {[
-                    "Client Name",
-                    "Mobile",
-                    "Response",
-                    "Comment",
-                    "Source",
-                    "Actions",
-                  ].map((header, i) => (
-                    <th
-                      key={i}
-                      className="px-4 py-3 font-semibold uppercase tracking-wide text-xs"
-                    >
-                      {header}
-                    </th>
-                  ))}
+                  {["Client Name", "Mobile", "Response", "Source", "Actions"].map(
+                    (header, i) => (
+                      <th key={i} className="px-4 py-3 font-semibold uppercase tracking-wide text-xs">
+                        {header}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -290,7 +266,9 @@ export default function NewLeadsTable() {
                           value={lead.full_name}
                           onChange={(e) =>
                             setLeads((prev) =>
-                              prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
+                              prev.map((l) =>
+                                l.id === lead.id ? { ...l, full_name: e.target.value } : l
+                              )
                             )
                           }
                           onBlur={() => handleUpdateName(lead)}
@@ -321,21 +299,19 @@ export default function NewLeadsTable() {
                     </td>
 
                     {/* Comment */}
-                    <td className="px-4 py-3">
+                    {/* <td className="px-4 py-3">
                       <LeadCommentSection
                         leadId={lead.id}
                         tempComment={lead.tempComment || ""}
                         savedComment={lead.comment}
                         onCommentChange={(val) =>
                           setLeads((prev) =>
-                            prev.map((l) =>
-                              l.id === lead.id ? { ...l, tempComment: val } : l
-                            )
+                            prev.map((l) => (l.id === lead.id ? { ...l, tempComment: val } : l))
                           )
                         }
                         onSave={() => handleSaveComment(lead)}
                       />
-                    </td>
+                    </td> */}
 
 
                     {/* Source */}
@@ -347,13 +323,43 @@ export default function NewLeadsTable() {
 
                     {/* Actions */}
                     <td className="px-4 py-3 text-center ">
-                      <button
-                        onClick={() => router.push(`/lead/${lead.id}`)}
-                        className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
-                        title="Edit lead"
-                      >
-                        <Pencil size={14} />
-                      </button>
+                      <div className="flex gap-1">
+                        <div>
+                          <button
+                            onClick={() => router.push(`/lead/${lead.id}`)}
+                            className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
+                            title="Edit lead"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                        <div>
+                          <button
+                            onClick={() => {
+                              setStoryLead(lead);
+                              setIsStoryModalOpen(true);
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8 bg-gray-500 text-white hover:bg-green-600 rounded-full shadow transition"
+                            aria-label="View Story"
+                          >
+                            <BookOpenText size={18} />
+                          </button>
+
+                        </div>
+                        <div>
+                          <button
+                            onClick={() => {
+                              setSelectedLeadId(lead.id);
+                              setIsCommentModalOpen(true);
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8  bg-teal-500 text-white rounded-full hover:bg-teal-600 shadow transition"
+                            title="Comments"
+                          >
+                            <MessageCircle size={16} />
+                          </button>
+                        </div>
+
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -371,9 +377,7 @@ export default function NewLeadsTable() {
             <button
               disabled={page === 1}
               onClick={() => setPage((prev) => prev - 1)}
-              className={`px-4 py-2 rounded-lg border transition ${page === 1
-                ? "border-gray-200 text-gray-400"
-                : "border-gray-300 text-gray-700 hover:bg-gray-100"
+              className={`px-4 py-2 rounded-lg border transition ${page === 1 ? "border-gray-200 text-gray-400" : "border-gray-300 text-gray-700 hover:bg-gray-100"
                 }`}
             >
               Previous
@@ -382,9 +386,7 @@ export default function NewLeadsTable() {
             <button
               disabled={page === totalPages}
               onClick={() => setPage((prev) => prev + 1)}
-              className={`px-4 py-2 rounded-lg border transition ${page === totalPages
-                ? "border-gray-200 text-gray-400"
-                : "border-gray-300 text-gray-700 hover:bg-gray-100"
+              className={`px-4 py-2 rounded-lg border transition ${page === totalPages ? "border-gray-200 text-gray-400" : "border-gray-300 text-gray-700 hover:bg-gray-100"
                 }`}
             >
               Next
@@ -393,14 +395,28 @@ export default function NewLeadsTable() {
         </div>
       </div>
 
+      {/* ✅ Correctly Placed Modal */}
+      {storyLead && (
+        <StoryModal
+          isOpen={isStoryModalOpen}
+          onClose={() => setIsStoryModalOpen(false)}
+          leadId={storyLead.id}
+        />
+      )}
+
+      <CommentModal
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
+        leadId={selectedLeadId}
+      />
+
+
+      {/* ✅ FT Modal */}
       <FTModal
         open={showFTModal}
         onClose={() => setShowFTModal(false)}
         onSave={async () => {
-          if (!ftFromDate || !ftToDate) {
-            toast.error("Both dates required");
-            return;
-          }
+          if (!ftFromDate || !ftToDate) return toast.error("Both dates required");
           try {
             await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
               lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
@@ -435,10 +451,7 @@ export default function NewLeadsTable() {
         open={showCallBackModal}
         onClose={() => setShowCallBackModal(false)}
         onSave={async () => {
-          if (!callBackDate) {
-            toast.error("Call back date is required");
-            return;
-          }
+          if (!callBackDate) return toast.error("Call back date is required");
           try {
             await axiosInstance.patch(`/leads/${callBackLead.id}/response`, {
               lead_response_id: responses.find(

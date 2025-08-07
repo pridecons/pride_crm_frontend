@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import axios from 'axios';
 import * as XLSX from 'xlsx';
@@ -7,10 +7,7 @@ import { axiosInstance, BASE_URL } from '@/api/Axios';
 import { Calendar, BarChart3, PieChart, Target, TrendingUp, Users, ArrowDownToLine } from 'lucide-react';
 import { usePermissions } from '@/context/PermissionsContext';
 
-
 const API_URL = '/recommendations/';
-
-
 
 export default function RationalPage() {
   const { hasPermission } = usePermissions();
@@ -18,10 +15,12 @@ export default function RationalPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [rationalList, setRationalList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalImage, setModalImage] = useState(null);
   const [imageError, setImageError] = useState('');
+  const [openDropdown, setOpenDropdown] = useState(false);
   const [formData, setFormData] = useState({
     stock_name: '',
     entry_price: '',
@@ -30,7 +29,7 @@ export default function RationalPage() {
     targets2: '',
     targets3: '',
     rational: '',
-    recommendation_type: '',
+    recommendation_type: [],
     graph: null,
   });
   const [selectedDate, setSelectedDate] = useState('');
@@ -48,67 +47,92 @@ export default function RationalPage() {
     fetchRationals();
   }, []);
 
-  // Fixed: Moved useEffect to proper location
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (openStatusDropdown !== null) {
         setOpenStatusDropdown(null);
       }
     };
-
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [openStatusDropdown]);
 
-  const openModal = async (id = null) => {
-    setEditId(id);
-    setImageError('');
-    setIsEditMode(!!id) // Clear any previous image error
-    if (id) {
-      try {
-        const res = await axiosInstance.get(`${API_URL}${id}/`);
-        setFormData(res.data);
-      } catch (err) {
-        console.error('Failed to fetch rational:', err);
-      }
-    } else {
-      setFormData({
-        stock_name: '',
-        entry_price: '',
-        stop_loss: '',
-        targets: '',
-        targets2: '',
-        targets3: '',
-        rational: '',
-        recommendation_type: '',
-        graph: null,
-      });
+ const openModal = (item = null) => {
+  if (item) {
+    setEditId(item.id);
+    setIsEditMode(true);
+        let recommendationArray = [];
+    try {
+      recommendationArray = JSON.parse(item.recommendation_type);
+    } catch (err) {
+    // ✅ Normalize recommendation_type to always be an array
+    const recommendationArray = Array.isArray(item.recommendation_type)
+      ? item.recommendation_type
+      : item.recommendation_type
+      ? [item.recommendation_type]
+      : [];
     }
-    setIsModalOpen(true);
-  };
+    setFormData({
+      stock_name: item.stock_name || '',
+      entry_price: item.entry_price || '',
+      stop_loss: item.stop_loss || '',
+      targets: item.targets || '',
+      targets2: item.targets2 || '',
+      targets3: item.targets3 || '',
+      rational: item.rational || '',
+      recommendation_type: recommendationArray,
+      graph: item.graph || null,
+      status: item.status || 'OPEN',
+    });
+  } else {
+    setEditId(null);
+    setIsEditMode(false);
+    setFormData({
+      stock_name: '',
+      entry_price: '',
+      stop_loss: '',
+      targets: '',
+      targets2: '',
+      targets3: '',
+      rational: '',
+      recommendation_type: [],
+      graph: null,
+      status: 'OPEN',
+    });
+  }
+
+  setImageError('');
+  setIsModalOpen(true);
+};
+
+
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'number' ? Number(value) : value,
-    }));
+    if (name === 'recommendation_type') {
+      const selected = Array.from(
+        e.target.selectedOptions,
+        (option) => option.value
+      );
+      setFormData((prev) => ({
+        ...prev,
+        [name]: selected,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === 'number' ? Number(value) : value,
+      }));
+    }
   };
 
-
   const handleExport = async () => {
-
     try {
       const response = await axiosInstance.get('/recommendations');
       const data = response.data;
-
-
-      // Convert JSON to Excel worksheet
       const worksheet = XLSX.utils.json_to_sheet(data);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "recommendations");
-
-      // Trigger file download
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'recommendations');
       XLSX.writeFile(workbook, 'recommendations-export.xlsx');
     } catch (error) {
       console.error('Export failed:', error);
@@ -117,31 +141,15 @@ export default function RationalPage() {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const response = await axiosInstance.put(
+      await axiosInstance.put(
         `/recommendations/status/${id}?status_update=${newStatus}`
       );
-      console.log('Updated:', response.data);
-
       await fetchRationals();
       setOpenStatusDropdown(null);
     } catch (err) {
       console.error('Status update error:', err);
     }
   };
-
-
-  // Add this useEffect to handle outside clicks
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenStatusDropdown(null);
-    };
-
-    if (openStatusDropdown) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [openStatusDropdown]);
-
 
   const openImageModal = (path) => {
     setModalImage(`${BASE_URL}${encodeURI(path)}`);
@@ -150,97 +158,112 @@ export default function RationalPage() {
   const closeModal = () => {
     setModalImage(null);
   };
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setImageError('');
-    setIsEditMode(false)
 
-    const {
-      stock_name,
-      entry_price,
-      stop_loss,
-      targets,
-      targets2,
-      targets3,
-      rational,
-      recommendation_type,
-      graph,
-      status,
-    } = formData;
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setImageError('');
+  setIsEditMode(false);
 
-    // Validate required fields
-    if (!editId && !graph) {
-      setImageError('Please select an image to upload');
-      return;
-    }
+  const {
+    stock_name,
+    entry_price,
+    stop_loss,
+    targets,
+    targets2,
+    targets3,
+    rational,
+    recommendation_type,
+    graph,
+    status,
+  } = formData;
 
-    try {
-      let dataToSend;
-      let headers = {};
+  // 🐛 DEBUG: Check what we have before processing
+  console.log('🔍 Original recommendation_type:', recommendation_type);
+  console.log('🔍 Is array?', Array.isArray(recommendation_type));
+  console.log('🔍 Length:', recommendation_type?.length);
 
-      // Always normalize numbers
-      const cleanedData = {
-        stock_name: stock_name?.trim() || '',
-        entry_price: Number(entry_price),
-        stop_loss: Number(stop_loss),
-        targets: Number(targets),
-        targets2: Number(targets2),
-        targets3: Number(targets3),
-        rational: rational?.trim() || '',
-        recommendation_type: recommendation_type?.trim() || '',
-        status: status || 'OPEN',
-      };
+  // ✅ Validate image only on new entries
+  if (!editId && !graph) {
+    setImageError('Please select an image to upload');
+    return;
+  }
 
-      const isGraphFile = graph instanceof File;
+  try {
+    let dataToSend;
+    let headers = {};
 
-      if (isGraphFile || (!editId && graph)) {
-        // Use FormData when there's an image
-        dataToSend = new FormData();
-        Object.entries(cleanedData).forEach(([key, value]) => {
+    // ✅ Normalize data
+    const cleanedData = {
+      stock_name: stock_name?.trim() || '',
+      entry_price: Number(entry_price),
+      stop_loss: Number(stop_loss),
+      targets: Number(targets),
+      targets2: Number(targets2),
+      targets3: Number(targets3),
+      rational: rational?.trim() || '',
+      recommendation_type: JSON.stringify(recommendation_type),
+      status: status || 'OPEN',
+    };
+
+    const isGraphFile = graph instanceof File;
+
+    if (isGraphFile || (!editId && graph)) {
+      // ✅ Use FormData when uploading a file
+      dataToSend = new FormData();
+
+      Object.entries(cleanedData).forEach(([key, value]) => {
+     if (Array.isArray(value)) {
+          // For other arrays
+          value.forEach((v) => dataToSend.append(key, v));
+        } else {
           dataToSend.append(key, value);
-        });
-        if (isGraphFile) dataToSend.append('graph', graph);
-        headers['Content-Type'] = 'multipart/form-data';
-      } else {
-        // Use JSON otherwise
-        dataToSend = { ...cleanedData, graph }; // include graph path string if already uploaded
-        headers['Content-Type'] = 'application/json';
-      }
-
-      // DEBUG: Log the payload
-      if (dataToSend instanceof FormData) {
-        for (let [key, value] of dataToSend.entries()) {
-          console.log(`${key}:`, value);
         }
-      } else {
-        console.log('Payload:', dataToSend);
+      });
+
+      // ✅ MISSING: Append the file
+      if (isGraphFile) {
+        dataToSend.append('graph', graph);
       }
 
-      // Send to API
-      if (editId) {
-        await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
-      } else {
-        await axiosInstance.post(API_URL, dataToSend, { headers });
+      // 🐛 DEBUG: Log FormData contents
+      console.log('🔍 FormData contents:');
+      for (let pair of dataToSend.entries()) {
+        console.log(`${pair[0]}: ${pair[1]}`);
       }
 
-      setIsModalOpen(false);
-      fetchRationals();
-    } catch (err) {
-      if (err.response?.status === 422) {
-        console.error('Validation error:', err.response.data);
-      } else {
-        console.error('Submit failed:', err);
-      }
+      headers['Content-Type'] = 'multipart/form-data';
+    } else {
+      // ✅ MISSING: Use JSON if no new file
+      dataToSend = { ...cleanedData, graph };
+      console.log('🔍 JSON data being sent:', dataToSend);
+      headers['Content-Type'] = 'application/json';
     }
-  };
+
+    // ✅ Submit via POST or PUT
+    if (editId) {
+      await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
+    } else {
+      await axiosInstance.post(API_URL, dataToSend, { headers });
+    }
+
+    setIsModalOpen(false);
+    fetchRationals(); // ✅ Refresh table
+  } catch (err) {
+    if (err.response?.status === 422) {
+      console.error('Validation error:', err.response.data);
+    } else {
+      console.error('Submit failed:', err);
+    }
+  }
+};
 
 
   const getRecommendationBadge = (type) => {
     const colors = {
-      'Buy': 'bg-green-100 text-green-800 border-green-200',
-      'Sell': 'bg-red-100 text-red-800 border-red-200',
-      'Hold': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Watch': 'bg-blue-100 text-blue-800 border-blue-200'
+      Buy: 'bg-green-100 text-green-800 border-green-200',
+      Sell: 'bg-red-100 text-red-800 border-red-200',
+      Hold: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      Watch: 'bg-blue-100 text-blue-800 border-blue-200',
     };
     return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
@@ -261,6 +284,7 @@ export default function RationalPage() {
       : true;
     return stockMatch && dateMatch;
   });
+
   const statusOptions = [
     { label: 'OPEN', value: 'OPEN' },
     { label: 'TARGET1', value: 'TARGET1_HIT' },
@@ -270,12 +294,11 @@ export default function RationalPage() {
     { label: 'CLOSED', value: 'CLOSED' },
   ];
 
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row sm:items-start lg:justify-between mb-6">
+        <div className="flex flex-col lg:flex-row items-center sm:items-start lg:justify-between mb-6">
           {/* Search + Date */}
           <div className="flex sm:items-center gap-4 w-full">
             {/* Search */}
@@ -324,7 +347,7 @@ export default function RationalPage() {
           </div>
 
           {/* Buttons */}
-          <div className="flex flex-row gap-3 sm:pt-4">
+          <div className="flex flex-row gap-3 mt-4 md:mt-0">
             <div >
               <ExportPdfModal />
             </div>
@@ -333,7 +356,7 @@ export default function RationalPage() {
               <ExportXlsxModal />
             </div>
 
-            {hasPermission("rational_add_rational") && <div>
+            {/* {hasPermission("rational_add_rational") &&  */}<div>
               <button
                 onClick={() => openModal()}
                 className="bg-gradient-to-r from-green-600 to-green-700 px-4 py-2 flex justify-center items-center text-white rounded-md w-auto whitespace-nowrap"
@@ -343,7 +366,8 @@ export default function RationalPage() {
                 </svg>
                 Rational
               </button>
-            </div>}
+            </div>
+            {/* } */}
           </div>
 
         </div>
@@ -397,6 +421,8 @@ export default function RationalPage() {
         handleSubmit={handleSubmit}
         imageError={imageError}
         setImageError={setImageError}
+        openDropdown={openDropdown}
+        setOpenDropdown={setOpenDropdown}
       />
     </div>
   );
@@ -413,12 +439,14 @@ function RationalModal({
   handleSubmit,
   imageError,
   setImageError,
+  openDropdown,
+  setOpenDropdown,
 }) {
   if (!isModalOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-xl mx-auto relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-3xl mx-auto relative max-h-[90vh] overflow-y-auto">
         <button className="absolute top-2 right-3 text-gray-500 text-2xl" onClick={() => setIsModalOpen(false)}>
           &times;
         </button>
@@ -474,18 +502,109 @@ function RationalModal({
               disabled={isEditMode}
             />
           </div>
-          <div className="flex flex-col md:col-span-2">
-            <label className="mb-1 text-gray-700 text-sm">Recommendation Type</label>
-            <select name="recommendation_type" value={formData.recommendation_type} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode}>
-              <option value="">Select Recommendation Type</option>
-              <option value="Equity Cash">Equity Cash</option>
-              <option value="Stock Future">Stock Future</option>
-              <option value="Index Future">Index Future</option>
-              <option value="Stock Option">Stock Option</option>
-              <option value="MCX Bullion">MCX Bullion</option>
-              <option value="MCX Base Metal">MCX Base Metal</option>
-              <option value="MCX Energy">MCX Energy</option>
-            </select>
+          <div className="flex flex-col md:col-span-2 relative">
+            <label className="mb-1 text-gray-700 text-sm font-medium">Recommendation Type</label>
+
+            <div
+              onClick={() => {
+                if (!isEditMode) setOpenDropdown(prev => !prev);
+              }}
+              className={`p-3 border border-black rounded-lg bg-white cursor-pointer transition-all duration-200 flex items-center justify-between ${isEditMode
+                  ? 'bg-gray-50 cursor-not-allowed text-gray-500'
+                  : ''
+                }`}
+            >
+              <div className="flex flex-wrap gap-1">
+                {formData.recommendation_type?.length > 0 ? (
+                  formData.recommendation_type.map(type => (
+                    <span key={type} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                      {type}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-gray-500">Select Recommendation Type</span>
+                )}
+              </div>
+              {!isEditMode && (
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ml-2 flex-shrink-0 ${openDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </div>
+
+            {!isEditMode && openDropdown && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="p-2 border-b border-gray-100">
+                  <div className="text-xs text-gray-600 mb-1">
+                    {formData.recommendation_type?.length || 0} selected
+                  </div>
+                  {formData.recommendation_type?.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, recommendation_type: [] }));
+                      }}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+                {[
+                  "Equity Cash",
+                  "Stock Future",
+                  "Index Future",
+                  "Stock Option",
+                  "MCX Bullion",
+                  "MCX Base Metal",
+                  "MCX Energy"
+                ].map(option => (
+                  <label
+                    key={option}
+                    className="flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors duration-150 border-b border-gray-100 last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 mr-3"
+                      checked={formData.recommendation_type?.includes(option)}
+                      onChange={() => {
+                        const current = formData.recommendation_type || [];
+                        const updated = current.includes(option)
+                          ? current.filter(item => item !== option)
+                          : [...current, option];
+                        setFormData(prev => ({ ...prev, recommendation_type: updated }));
+                      }}
+                    />
+                    <span className="text-gray-800 font-medium">{option}</span>
+                    {formData.recommendation_type?.includes(option) && (
+                      <svg className="w-4 h-4 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </label>
+                ))}
+                <div className="p-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setOpenDropdown(false)}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded text-sm hover:bg-green-700 transition-colors duration-150 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Done ({formData.recommendation_type?.length || 0} selected)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className='col-span-2'>
+             <SmsTemplateSelector />
           </div>
 
           {isEditMode && (
@@ -828,7 +947,31 @@ function RationalTable({
                 <td className="py-4 px-6">{item.targets || '-'}</td>
                 <td className="py-4 px-6">{item.targets2 || '-'}</td>
                 <td className="py-4 px-6">{item.targets3 || '-'}</td>
-                <td className="py-4 px-6">{item.recommendation_type}</td>
+<td className="py-4 px-6">
+  {(() => {
+    const raw = item.recommendation_type;
+
+    if (!raw || raw.length === 0 || raw[0] === "[]") return null;
+
+    try {
+      if (Array.isArray(raw) && raw.every(r => typeof r === "string" && !r.includes("[") && !r.includes("]"))) {
+        return raw.join(", ");
+      }
+
+      const joined = raw.join('');
+      const fixed = joined.replace(/""/g, '","');
+      const parsed = JSON.parse(fixed);
+
+      if (Array.isArray(parsed)) {
+        return parsed.join(", ");
+      }
+
+      throw new Error("Invalid format");
+    } catch (err) {
+      return <span className="text-red-500 font-medium">Invalid data</span>;
+    }
+  })()}
+</td>
                 <td className="py-4 px-6">
                   {item.created_at
                     ? new Date(item.created_at).toLocaleDateString('en-IN', {
@@ -842,13 +985,14 @@ function RationalTable({
                 <td className="py-4 px-6 text-center">
                   {!item.rational && (
                     <button
-                      onClick={() => openModal(item.id)}
+                      onClick={() => openModal(item)} // pass full object, not item.id
                       className="text-blue-600 hover:underline text-sm"
                     >
                       Edit
                     </button>
                   )}
                 </td>
+
 
                 <td className="py-4 px-6 text-center relative">
                   <button
@@ -1433,5 +1577,64 @@ function ExportXlsxModal() {
         </div>
       )}
     </>
+  );
+}
+
+
+function SmsTemplateSelector() {
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [selectedTemplateBody, setSelectedTemplateBody] = useState("");
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch("https://crm.24x7techelp.com/api/v1/sms-templates/");
+        const data = await res.json();
+        setTemplates(data);
+      } catch (err) {
+        console.error("Failed to fetch templates", err);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
+
+  const handleSelect = (e) => {
+    const id = parseInt(e.target.value);
+    setSelectedTemplateId(id);
+
+    const template = templates.find((t) => t.id === id);
+    setSelectedTemplateBody(template?.template || "");
+  };
+
+  return (
+    <div className="flex flex-col md:col-span-2 relative">
+      <label className="mb-1 text-gray-700 text-sm font-medium">SMS Template</label>
+      <select
+        onChange={handleSelect}
+        value={selectedTemplateId ?? ""}
+        className="p-3 border  rounded-lg bg-white cursor-pointer border-black transition-all duration-200"
+      >
+        <option value="" disabled>Select a template</option>
+        {templates.map((template) => (
+          <option key={template.id} value={template.id}>
+            {template.title}
+          </option>
+        ))}
+      </select>
+
+      {selectedTemplateBody && (
+        <>
+          <label className="mt-4 mb-1 text-gray-700 text-sm font-medium">SMS Body</label>
+          <textarea
+            className="p-3 border border-gray-300 rounded-lg bg-gray-50 w-full h-32 text-sm text-gray-800"
+            value={selectedTemplateBody}
+            onChange={(e)=>setSelectedTemplateBody(e.target.value)}
+            
+          />
+        </>
+      )}
+    </div>
   );
 }

@@ -278,20 +278,26 @@ const CreatePaymentLink = ({
                 label="Full Name"
                 value={customerName}
                 setValue={setCustomerName}
+                disabled={!!name} // disable if prefilled
               />
+
               <InputField
                 label="Email Address"
                 value={customerEmail}
                 setValue={setCustomerEmail}
                 placeholder="customer@example.com"
+                disabled={!!email} // disable if prefilled
               />
+
               <InputField
                 label="Phone Number"
                 value={customerPhone}
                 setValue={setCustomerPhone}
                 placeholder="10-digit number"
                 type="number"
+                disabled // always disabled
               />
+
               {/* Service Types (shown as checkboxes, from selected service) */}
               {Array.isArray(service_plan?.service_type) && service_plan?.service_type.length > 0 && (
                 <div className="md:col-span-2">

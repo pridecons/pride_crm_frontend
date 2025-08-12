@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { CreditCard, FileText, Loader2 } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
-import { Modal } from "./Modal";
+import { Modal } from "./ID/Modal";
 import toast from "react-hot-toast";
 
 /**

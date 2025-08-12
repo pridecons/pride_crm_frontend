@@ -12,6 +12,7 @@ import UserDetailsModal from "./UserDetailsModal";
 import UserPermissionsModal from "./UserPermissionsModal";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
+import UserModal from "./UserModal";
 
 export default function UsersListPage() {
     const { hasPermission } = usePermissions();
@@ -27,7 +28,19 @@ export default function UsersListPage() {
     const [selectedBranch, setSelectedBranch] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const [permissionsUser, setPermissionsUser] = useState(null);
+    const [modalMode, setModalMode] = useState(null);        // "add" or "edit"
+    const [modalUser, setModalUser] = useState(null);
 
+    // open add
+    const openAdd = () => {
+        setModalMode("add");
+        setModalUser(null);
+    };
+    // open edit
+    const openEdit = (u) => {
+        setModalMode("edit");
+        setModalUser(u);
+    };
 
     useEffect(() => {
         fetchUsers();
@@ -100,7 +113,7 @@ export default function UsersListPage() {
                         </p>
                     </div>
                     {hasPermission("user_add") && <button
-                        onClick={() => setIsAddModalOpen(true)}
+                        onClick={openAdd}
                         className="bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2"
                     >
                         + Add User
@@ -126,13 +139,26 @@ export default function UsersListPage() {
                 <UserTable
                     users={filteredUsers}
                     branchMap={branchMap}
-                    onEdit={(u) => setEditingUser(u)}
+                    onEdit={openEdit}
                     onDelete={handleDelete}
                     onDetails={(u) => setDetailsUser(u)}
                 />
 
+                <UserModal
+                    mode={modalMode}
+                    isOpen={!!modalMode}
+                    onClose={() => setModalMode(null)}
+                    user={modalUser}
+                    roles={roles}
+                    branches={branches}
+                    onSuccess={(u) => {
+                        fetchUsers();
+                        setPermissionsUser(u);
+                    }}
+                />
+
                 {/* Modals */}
-                <AddUserModal
+                {/* <AddUserModal
                     isOpen={isAddModalOpen}
                     onClose={() => setIsAddModalOpen(false)}
                     roles={roles}
@@ -152,7 +178,7 @@ export default function UsersListPage() {
                         fetchUsers();
                         setPermissionsUser(updatedUser); // ✅ Open permissions modal after update
                     }}
-                />
+                /> */}
                 <UserDetailsModal
                     isOpen={!!detailsUser}
                     onClose={() => setDetailsUser(null)}

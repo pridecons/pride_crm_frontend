@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import { Modal } from "./Modal";
+import { Modal } from "./ID/Modal";
 
 const StoryModal = ({ isOpen, onClose, leadId }) => {
   const [stories, setStories] = useState([]);

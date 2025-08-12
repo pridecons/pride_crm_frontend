@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Modal } from "@/components/Lead/Modal";
+import { Modal } from "@/components/Lead/ID/Modal";
 import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { Loader2, Mail, List } from "lucide-react";

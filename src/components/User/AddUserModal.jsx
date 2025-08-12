@@ -128,9 +128,11 @@ export default function AddUserModal({
                     name: result.user_full_name || prev.name,
                     father_name: result.user_father_name || prev.father_name,
                     date_of_birth: result.user_dob || prev.date_of_birth,
+                    aadhaar: result.masked_aadhaar || prev.aadhaar,
                     address: result.user_address?.full || prev.address,
                     city: result.user_address?.city || prev.city,
                     state: result.user_address?.state || prev.state,
+                    pincode: result.user_address?.zip || prev.pincode
                 }));
                 setIsPanVerified(true);
                 toast.success("PAN verified and details autofilled!");
@@ -241,7 +243,7 @@ export default function AddUserModal({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                                    <input className="w-full p-3 border rounded-xl" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} required />
+                                    <input className="w-full p-3 border rounded-xl" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} required disabled={isPanVerified}  />
                                 </div>
 
                                 <div>
@@ -268,7 +270,7 @@ export default function AddUserModal({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Father's Name</label>
-                                    <input className="w-full p-3 border rounded-xl" value={newUser.father_name} onChange={(e) => setNewUser({ ...newUser, father_name: e.target.value })} />
+                                    <input className="w-full p-3 border rounded-xl" value={newUser.father_name} onChange={(e) => setNewUser({ ...newUser, father_name: e.target.value })} disabled={isPanVerified} />
                                 </div>
 
                                 <div>
@@ -287,7 +289,7 @@ export default function AddUserModal({
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number</label>
                                     <div className="flex gap-2">
-                                        <input className="flex-1 p-3 border rounded-xl" value={newUser.pan} onChange={(e) => setNewUser({ ...newUser, pan: e.target.value.toUpperCase() })} />
+                                        <input className="flex-1 p-3 border rounded-xl" value={newUser.pan} onChange={(e) => setNewUser({ ...newUser, pan: e.target.value.toUpperCase() })} disabled={loadingPan || isPanVerified}/>
                                         <button
                                             type="button"
                                             onClick={handleVerifyPan}
@@ -313,6 +315,7 @@ export default function AddUserModal({
                                             const digits = e.target.value.replace(/\D/g, "");
                                             setNewUser({ ...newUser, aadhaar: digits.slice(0, 12) });
                                         }}
+                                        disabled={isPanVerified}
                                     />
                                 </div>
 
@@ -392,11 +395,11 @@ export default function AddUserModal({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining (DD-MM-YYYY)</label>
-                                    <input className="p-3 border rounded-xl w-full" value={newUser.date_of_joining} onChange={(e) => handleDateChange("date_of_joining", e.target.value)} />
+                                    <input className="p-3 border rounded-xl w-full" value={newUser.date_of_joining} onChange={(e) => handleDateChange("date_of_joining", e.target.value)} disabled={isPanVerified}/>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth (DD-MM-YYYY)</label>
-                                    <input className="p-3 border rounded-xl w-full" value={newUser.date_of_birth} onChange={(e) => handleDateChange("date_of_birth", e.target.value)} />
+                                    <input className="p-3 border rounded-xl w-full" value={newUser.date_of_birth} onChange={(e) => handleDateChange("date_of_birth", e.target.value)} disabled={isPanVerified}/>
                                 </div>
                             </div>
                             <div>

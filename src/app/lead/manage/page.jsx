@@ -1,12 +1,9 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useRouter } from "next/navigation";
 import {
-  Plus,
   Database,
-  Filter,
-  Settings,
   Users,
   CheckCircle,
   Clock,
@@ -15,39 +12,50 @@ import {
   Trash2,
   TrendingUp,
   Activity,
+  X,
+  BookOpenText,
+  MessageCircle,
 } from "lucide-react";
-import SourceModel from "@/components/Lead/Source";
-import ResponseModel from "@/components/Lead/Response";
-import FetchLimitModel from "@/components/Lead/FetchLimit";
 import LoadingState from "@/components/LoadingState";
 import { usePermissions } from "@/context/PermissionsContext";
-import BulkUploadModal from "@/components/Lead/BulkUploadModal";
+import StoryModal from "@/components/Lead/StoryModal";
+import CommentModal from "@/components/Lead/CommentModal";
 
 const LeadManage = () => {
   const { hasPermission } = usePermissions();
   const router = useRouter();
+
+  // Data
   const [leadData, setLeadData] = useState([]);
-  const [filteredLeads, setFilteredLeads] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [isOpenSource, setIsOpenSource] = useState(false);
-  const [isOpenResponse, setIsOpenResponse] = useState(false);
-  const [isOpenFetchLimit, setIsOpenFetchLimit] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState(null);
-  const [responseFilter, setResponseFilter] = useState("All");
-  const [sourceFilter, setSourceFilter] = useState("All");
-  const [employeeFilter, setEmployeeFilter] = useState("All");
-  const [branchFilter, setBranchFilter] = useState("All");
-  // at the top of your component, alongside your other useState’s:
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [sourcesList, setSourcesList] = useState([]);
   const [responsesList, setResponsesList] = useState([]);
 
-  // then, in a new useEffect, fetch them once on mount:
+  // UI state
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("All");
+  const [responseFilter, setResponseFilter] = useState("All");
+  const [branchFilter, setBranchFilter] = useState("All");
+
+  // Employee autocomplete: selected code + text input
+  const [employeeFilter, setEmployeeFilter] = useState("All"); // selected employee_code
+  const [employeeQuery, setEmployeeQuery] = useState(""); // text shown in input
+  const [showEmpDrop, setShowEmpDrop] = useState(false);
+
+  // Accordion
+  const [openLead, setOpenLead] = useState(null);
+
+  // Story & Comments modals
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
+  const [storyLeadId, setStoryLeadId] = useState(null);
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [commentLeadId, setCommentLeadId] = useState(null);
+
+  // Load dropdown lists
   useEffect(() => {
     const loadFilterLists = async () => {
       try {
@@ -57,10 +65,10 @@ const LeadManage = () => {
           axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
           axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
         ]);
-        setBranches(bRes.data);             // array of {id, name, …}
-        setEmployees(uRes.data.data);       // user list nested under .data
-        setSourcesList(sRes.data);          // array of {id, name, …}
-        setResponsesList(rRes.data);        // array of {id, name, …}
+        setBranches(bRes.data || []);
+        setEmployees(uRes?.data?.data || []);
+        setSourcesList(sRes.data || []);
+        setResponsesList(rRes.data || []);
       } catch (err) {
         console.error("Failed to load filters", err);
       }
@@ -68,162 +76,178 @@ const LeadManage = () => {
     loadFilterLists();
   }, []);
 
-
-  // once leadData is loaded, build your dropdown options:
-  const branchOptions = [{ value: "All", label: "All Branches" }, ...branches.map(b => ({ value: String(b.id), label: b.name }))];
-  const employeeOptions = [{ value: "All", label: "All Employees" }, ...employees.map(e => ({ value: String(e.employee_code), label: e.name }))];
-  const sourceOptions = [{ value: "All", label: "All Sources" }, ...sourcesList.map(s => ({ value: String(s.id), label: s.name }))];
-  const responseOptions = [{ value: "All", label: "All Responses" }, ...responsesList.map(r => ({ value: String(r.id), label: r.name }))];
-
+  // Load leads
   useEffect(() => {
+    const fetchLeadData = async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/leads/?skip=0&limit=100&kyc_only=false"
+        );
+        setLeadData(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchLeadData();
   }, []);
 
-  const fetchLeadData = async () => {
-    try {
-      const { data } = await axiosInstance.get(
-        "/leads/?skip=0&limit=100&kyc_only=false"
-      );
-      setLeadData(data);
-      setFilteredLeads(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Helpers to display names
+  const getSourceName = (id) =>
+    sourcesList.find((s) => String(s.id) === String(id))?.name ||
+    (id == null ? "—" : id);
 
-  // Filter leads when search or filter changes
-  useEffect(() => {
+  const getResponseName = (id) =>
+    responsesList.find((r) => String(r.id) === String(id))?.name ||
+    (id == null ? "—" : id);
+
+  const getBranchName = (id) =>
+    branches.find((b) => String(b.id) === String(id))?.name ||
+    (id == null ? "—" : id);
+
+  const getEmployeeName = (code) =>
+    employees.find((e) => String(e.employee_code) === String(code))?.name ||
+    (code == null ? "—" : code);
+
+  // Options
+  const branchOptions = useMemo(
+    () => [{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))],
+    [branches]
+  );
+  const sourceOptions = useMemo(
+    () => [{ value: "All", label: "All Sources" }, ...sourcesList.map((s) => ({ value: String(s.id), label: s.name }))],
+    [sourcesList]
+  );
+  const responseOptions = useMemo(
+    () => [{ value: "All", label: "All Responses" }, ...responsesList.map((r) => ({ value: String(r.id), label: r.name }))],
+    [responsesList]
+  );
+
+  // Filtering (must come BEFORE pagination that uses it)
+  const filteredLeads = useMemo(() => {
     let updated = [...leadData];
 
-    // Search logic: check full_name, email, mobile, alternate_mobile, pan
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
-      updated = updated.filter(
-        (lead) =>
-          (lead.full_name && lead.full_name.toLowerCase().includes(q)) ||
-          (lead.email && lead.email.toLowerCase().includes(q)) ||
-          (lead.mobile && lead.mobile.toLowerCase().includes(q)) ||
-          (lead.alternate_mobile && lead.alternate_mobile.toLowerCase().includes(q)) ||
-          (lead.pan && lead.pan.toLowerCase().includes(q))
-      );
-    }
-
-    // Status logic (if you have a lead_status or similar)
-    if (statusFilter !== "All") {
-      // Update this to your actual status field
-      updated = updated.filter(
-        (lead) => String(lead.lead_status || lead.status) === statusFilter
-      );
+      updated = updated.filter((lead) => {
+        const full_name = (lead.full_name || "").toLowerCase();
+        const email = (lead.email || "").toLowerCase();
+        const mobile = String(lead.mobile || "");
+        const altMobile = String(lead.alternate_mobile || "");
+        const pan = (lead.pan || "").toLowerCase();
+        return (
+          full_name.includes(q) ||
+          email.includes(q) ||
+          mobile.includes(q) ||
+          altMobile.includes(q) ||
+          pan.includes(q)
+        );
+      });
     }
 
     if (branchFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.branch_id) === String(branchFilter));
+      updated = updated.filter(
+        (lead) => String(lead.branch_id) === String(branchFilter)
+      );
     }
     if (employeeFilter !== "All") {
-      updated = updated.filter(lead => String(lead.assigned_to_user) === String(employeeFilter));
+      updated = updated.filter(
+        (lead) => String(lead.assigned_to_user) === String(employeeFilter)
+      );
     }
     if (sourceFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.lead_source_id) === String(sourceFilter));
+      updated = updated.filter(
+        (lead) => String(lead.lead_source_id) === String(sourceFilter)
+      );
     }
     if (responseFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.lead_response_id) === String(responseFilter));
+      updated = updated.filter(
+        (lead) => String(lead.lead_response_id) === String(responseFilter)
+      );
     }
 
-    setFilteredLeads(updated);
+    return updated;
   }, [
     leadData,
     searchQuery,
-    statusFilter,
     branchFilter,
     employeeFilter,
     sourceFilter,
     responseFilter,
   ]);
 
-  const columns = [
-    "id",
-    "full_name",
-    "email",
-    "mobile",
-    "alternate_mobile",
-    "pan",
-    "state",
-    "city",
-    "segment",
-    "investment",
-    "lead_response_id",    // will show as Response Name
-    "lead_source_id",      // will show as Source Name
-    "branch_id",           // will show as Branch Name
-    "created_by_name",
-    "assigned_to_user",    // will show as Employee Name
-    "response_changed_at",
-    "conversion_deadline",
-    "created_at"
-  ];
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
+  const totalPages = Math.ceil(filteredLeads.length / pageSize);
+  const paginatedLeads = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredLeads.slice(startIndex, startIndex + pageSize);
+  }, [filteredLeads, currentPage, pageSize]);
+
+  // Reset page & close any open accordion when filters/search change
+  useEffect(() => {
+    setCurrentPage(1);
+    setOpenLead(null);
+  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter]);
+
+  // Close open lead when page changes
+  useEffect(() => {
+    setOpenLead(null);
+  }, [currentPage]);
 
   // Quick Stats
   const totalLeads = leadData.length;
   const pendingLeads = leadData.filter((lead) => lead.status === "Pending").length;
   const completedLeads = leadData.filter((lead) => lead.status === "Completed").length;
-  const sourcesCount = new Set(leadData.map((lead) => lead.source)).size;
+  const sourcesCount = new Set(
+    leadData.map((lead) => lead.lead_source_id).filter((v) => v != null)
+  ).size;
 
-  const getStatusBadge = (status) => {
-    const statusStyles = {
-      Pending: "bg-amber-100 text-amber-800 border-amber-200",
-      Completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
-      Processing: "bg-blue-100 text-blue-800 border-blue-200",
-      Failed: "bg-red-100 text-red-800 border-red-200",
-    };
+  // Employee autocomplete behavior
+  const empMatches = useMemo(() => {
+    const q = employeeQuery.trim().toLowerCase();
+    if (!q) return [];
+    return employees
+      .filter(
+        (e) =>
+          e?.name?.toLowerCase().includes(q) ||
+          String(e.employee_code || "").toLowerCase().includes(q)
+      )
+      .slice(0, 20);
+  }, [employeeQuery, employees]);
 
-    return statusStyles[status] || "bg-gray-100 text-gray-800 border-gray-200";
+  const handleEmployeeSelect = (emp) => {
+    setEmployeeFilter(String(emp.employee_code));
+    setEmployeeQuery(emp.name || String(emp.employee_code));
+    setShowEmpDrop(false);
   };
 
-  // Lookup helpers
-  const getSourceName = (id) =>
-    sourcesList.find((s) => s.id === id)?.name || (id == null ? "—" : id);
+  const clearEmployee = () => {
+    setEmployeeFilter("All");
+    setEmployeeQuery("");
+    setShowEmpDrop(false);
+  };
 
-  const getResponseName = (id) =>
-    responsesList.find((r) => r.id === id)?.name || (id == null ? "—" : id);
-
-  const getBranchName = (id) =>
-    branches.find((b) => b.id === id)?.name || (id == null ? "—" : id);
-
-  const getEmployeeName = (code) =>
-    employees.find((e) => e.employee_code === code)?.name || (code == null ? "—" : code);
-
-  const prettyHeaders = {
-    id: "ID",
-    full_name: "Full Name",
-    email: "Email",
-    mobile: "Mobile",
-    alternate_mobile: "Alt. Mobile",
-    pan: "PAN",
-    state: "State",
-    city: "City",
-    segment: "Segment",
-    investment: "Investment",
-    lead_response_id: "Response",
-    lead_source_id: "Source",
-    branch_id: "Branch",
-    created_by_name: "Created By",
-    assigned_to_user: "Assign To User",
-    response_changed_at: "Response Changed",
-    conversion_deadline: "Conversion Deadline",
-    created_at: "Created At",
+  // Openers
+  const openStory = (leadId) => {
+    setStoryLeadId(leadId);
+    setIsStoryModalOpen(true);
+  };
+  const openComments = (leadId) => {
+    setCommentLeadId(leadId);
+    setIsCommentModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
-      {/* Enhanced Header */}
+      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Lead Management
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Lead Management</h1>
             <p className="text-gray-600 flex items-center gap-2">
               <Activity size={16} />
               Manage and track your leads efficiently
@@ -232,11 +256,11 @@ const LeadManage = () => {
           <div className="hidden sm:flex items-center gap-3">
             <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-gray-200">
               <span className="text-sm font-medium text-gray-700">
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 })}
               </span>
             </div>
@@ -244,16 +268,14 @@ const LeadManage = () => {
         </div>
       </div>
 
-      {/* Enhanced Quick Stats */}
+      {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                Total Leads
-              </p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Total Leads</p>
               <p className="text-3xl font-bold text-gray-900">{totalLeads}</p>
-              <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+              <p className="text-xs text-green-600 flex items-center gap-1">
                 <TrendingUp size={12} />
                 Active pipeline
               </p>
@@ -267,11 +289,9 @@ const LeadManage = () => {
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                Pending
-              </p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Pending</p>
               <p className="text-3xl font-bold text-gray-900">{pendingLeads}</p>
-              <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+              <p className="text-xs text-amber-600 flex items-center gap-1">
                 <Clock size={12} />
                 Awaiting action
               </p>
@@ -285,11 +305,9 @@ const LeadManage = () => {
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                Completed
-              </p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Completed</p>
               <p className="text-3xl font-bold text-gray-900">{completedLeads}</p>
-              <p className="text-xs text-emerald-600 flex items-center gap-1 mt-1">
+              <p className="text-xs text-emerald-600 flex items-center gap-1">
                 <CheckCircle size={12} />
                 Successfully processed
               </p>
@@ -303,11 +321,9 @@ const LeadManage = () => {
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                Sources
-              </p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Sources</p>
               <p className="text-3xl font-bold text-gray-900">{sourcesCount}</p>
-              <p className="text-xs text-purple-600 flex items-center gap-1 mt-1">
+              <p className="text-xs text-purple-600 flex items-center gap-1">
                 <Database size={12} />
                 Active channels
               </p>
@@ -319,80 +335,32 @@ const LeadManage = () => {
         </div>
       </div>
 
-      {/* Enhanced Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {hasPermission("manage_add_lead") && <div
-          onClick={() => router.push("/lead/add")}
-          className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-300 hover:-translate-y-1"
-        >
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="bg-blue-50 rounded-full p-4 mb-4 group-hover:bg-blue-100 transition-colors">
-              <Plus size={28} className="text-blue-600" />
-            </div>
-            <p className="text-lg font-semibold text-gray-900 mb-1">Add Lead</p>
-            <p className="text-sm text-gray-500">Create new lead entry</p>
+      {/* Search & Filters */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
+        <div className="flex flex-col gap-4">
+          {/* Branch Tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {branchOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setBranchFilter(opt.value)}
+                className={`px-4 py-2 rounded-lg border whitespace-nowrap ${branchFilter === opt.value
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                  }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-        </div>}
 
-        {hasPermission("manage_source_lead") && <div
-          onClick={() => setIsOpenSource(true)}
-          className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-300 hover:-translate-y-1"
-        >
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="bg-emerald-50 rounded-full p-4 mb-4 group-hover:bg-emerald-100 transition-colors">
-              <Database size={28} className="text-emerald-600" />
-            </div>
-            <p className="text-lg font-semibold text-gray-900 mb-1">Source</p>
-            <p className="text-sm text-gray-500">Manage lead sources</p>
-          </div>
-        </div>}
-
-        {hasPermission("manage_response_lead") && <div
-          onClick={() => setIsOpenResponse(true)}
-          className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-300 hover:-translate-y-1"
-        >
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="bg-amber-50 rounded-full p-4 mb-4 group-hover:bg-amber-100 transition-colors">
-              <Filter size={28} className="text-amber-600" />
-            </div>
-            <p className="text-lg font-semibold text-gray-900 mb-1">Response</p>
-            <p className="text-sm text-gray-500">Configure responses</p>
-          </div>
-        </div>}
-
-        {hasPermission("manage_fetch_limit") && <div
-          onClick={() => setIsOpenFetchLimit(true)}
-          className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-300 hover:-translate-y-1"
-        >
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="bg-purple-50 rounded-full p-4 mb-4 group-hover:bg-purple-100 transition-colors">
-              <Settings size={28} className="text-purple-600" />
-            </div>
-            <p className="text-lg font-semibold text-gray-900 mb-1">Fetch Limit</p>
-            <p className="text-sm text-gray-500">Set data limits</p>
-          </div>
-        </div>}
-
-        {hasPermission("manage_bulk_upload") && <div
-          onClick={() => setIsBulkUploadOpen(true)}
-          className="group cursor-pointer bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-red-300 hover:-translate-y-1"
-        >
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="bg-red-50 rounded-full p-4 mb-4 group-hover:bg-red-100 transition-colors">
-              <Database size={28} className="text-red-600" />
-            </div>
-            <p className="text-lg font-semibold text-gray-900 mb-1">Bulk Upload</p>
-            <p className="text-sm text-gray-500">Upload leads from CSV</p>
-          </div>
-        </div>}
-      </div>
-
-      {/* Enhanced Search & Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-4 flex-1">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search
+                size={20}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="text"
                 placeholder="Search by name, email, or phone..."
@@ -401,70 +369,85 @@ const LeadManage = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            {/* Status */}
-            <select
-              className="px-4 py-3"
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-            </select>
+            {/* Employee Autocomplete */}
+            <div className="relative w-full sm:w-64">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Search Employee..."
+                  className="w-full px-4 py-2 border rounded-lg"
+                  value={employeeQuery}
+                  onChange={(e) => {
+                    setEmployeeQuery(e.target.value);
+                    setShowEmpDrop(true);
+                    if (employeeFilter !== "All") setEmployeeFilter("All");
+                  }}
+                  onFocus={() => setShowEmpDrop(Boolean(employeeQuery))}
+                />
+                {employeeFilter !== "All" || employeeQuery ? (
+                  <button
+                    className="p-2 rounded hover:bg-gray-100"
+                    onClick={clearEmployee}
+                    title="Clear"
+                  >
+                    <X size={16} />
+                  </button>
+                ) : null}
+              </div>
 
-            {/* Branch */}
-
-            <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} className="px-4 py-3 ">
-              {branchOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-
-            </select>
-
-            {/* Employee */}
-            <select value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)} className="px-4 py-3 ">
-              {employeeOptions.map(opt =>
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              {showEmpDrop && empMatches.length > 0 && (
+                <div
+                  className="absolute top-full left-0 w-full bg-white border rounded-lg shadow max-h-56 overflow-y-auto z-10"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {empMatches.map((emp) => (
+                    <div
+                      key={emp.employee_code}
+                      onClick={() => handleEmployeeSelect(emp)}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                    >
+                      <div className="font-medium">{emp.name}</div>
+                      <div className="text-xs text-gray-500">
+                        Code: {emp.employee_code}
+                        {emp.branch_id ? ` • ${getBranchName(emp.branch_id)}` : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </select>
+            </div>
 
             {/* Source */}
             <select
               value={sourceFilter}
-              onChange={e => setSourceFilter(e.target.value)}
-              className="px-4 py-3 "
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="px-4 py-3 border rounded-lg"
             >
-              {sourceOptions.map(opt =>
-                <option key={opt === "All" ? "All" : opt.value}
-                  value={opt === "All" ? "All" : opt.value}>
-                  {opt === "All" ? "All Sources" : opt.label}
+              {sourceOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
                 </option>
-              )}
+              ))}
             </select>
 
             {/* Response */}
             <select
               value={responseFilter}
-              onChange={e => setResponseFilter(e.target.value)}
-              className="px-4 py-3 "
+              onChange={(e) => setResponseFilter(e.target.value)}
+              className="px-4 py-3 border rounded-lg"
             >
-              {responseOptions.map(opt =>
-                <option key={opt === "All" ? "All" : opt.value}
-                  value={opt === "All" ? "All" : opt.value}>
-                  {opt === "All" ? "All Responses" : opt.label}
+              {responseOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
                 </option>
-              )}
+              ))}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Table */}
+      {/* Accordion List */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
         {loading ? (
           <LoadingState message="Loading leads..." />
@@ -477,66 +460,126 @@ const LeadManage = () => {
             <p className="text-gray-400 text-sm">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {columns.map((col) => (
-                    <th
-                      key={col}
-                      className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+          <div className="divide-y divide-gray-100">
+            {paginatedLeads.map((lead) => {
+              const isOpen = openLead === lead.id;
+              return (
+                <div key={lead.id} className="bg-white">
+                  <div className="w-full flex justify-between items-center px-4 sm:px-6 py-4 hover:bg-gray-50 transition">
+                    {/* Left: Lead summary */}
+                    <button
+                      onClick={() => setOpenLead(isOpen ? null : lead.id)}
+                      className="text-left flex-1"
                     >
-                      {prettyHeaders[col] || col.replace(/_/g, " ")}
-                    </th>
-                  ))}
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50 transition-colors duration-150">
-                    {columns.map((col) => {
-                      let value = lead[col];
+                      <div className="font-semibold text-gray-900">
+                        {lead.full_name || "—"}{" "}
+                        <span className="text-xs text-gray-500">#{lead.id}</span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {lead.mobile || "—"} • {getResponseName(lead.lead_response_id)} •{" "}
+                        {getSourceName(lead.lead_source_id)}
+                      </div>
+                    </button>
 
-                      // Special render logic
-                      if (col === "lead_source_id") value = getSourceName(lead.lead_source_id);
-                      if (col === "lead_response_id") value = getResponseName(lead.lead_response_id);
-                      if (col === "branch_id") value = getBranchName(lead.branch_id);
-                      if (col === "assigned_to_user") value = getEmployeeName(lead.assigned_to_user);
-                      if (col === "segment" && Array.isArray(value)) value = value.join(", ");
+                    {/* Right: Actions (always visible) */}
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => router.push(`/lead/${lead.id}`)}
+                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                        title="Edit lead"
+                      >
+                        <Edit3 size={16} />
+                      </button>
 
-                      // Format date strings (optional)
-                      if (
-                        ["created_at", "response_changed_at", "conversion_deadline"].includes(col) &&
-                        value
-                      ) {
-                        value = new Date(value).toLocaleString("en-IN");
-                      }
+                      <button
+                        onClick={() => openStory(lead.id)}
+                        className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition"
+                        title="View Story"
+                      >
+                        <BookOpenText size={18} />
+                      </button>
 
-                      return (
-                        <td key={col} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className={value == null ? "text-gray-400" : ""}>
-                            {value == null || value === "" ? "—" : value}
-                          </span>
-                        </td>
-                      );
-                    })}
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-200">
+                      <button
+                        onClick={() => openComments(lead.id)}
+                        className="p-2 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition"
+                        title="Comments"
+                      >
+                        <MessageCircle size={16} />
+                      </button>
+
+                      <button
+                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded details */}
+                  {isOpen && (
+                    <div className="px-4 sm:px-6 pb-5 text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div><span className="font-medium">Email:</span> {lead.email || "—"}</div>
+                      <div><span className="font-medium">PAN:</span> {lead.pan || "—"}</div>
+                      <div><span className="font-medium">Branch:</span> {getBranchName(lead.branch_id)}</div>
+                      <div><span className="font-medium">Assigned To:</span> {getEmployeeName(lead.assigned_to_user)}</div>
+                      <div><span className="font-medium">City:</span> {lead.city || "—"}</div>
+                      <div><span className="font-medium">State:</span> {lead.state || "—"}</div>
+                      <div>
+                        <span className="font-medium">Segment:</span>{" "}
+                        {Array.isArray(lead.segment) ? lead.segment.join(", ") : lead.segment || "—"}
+                      </div>
+                      <div><span className="font-medium">Investment:</span> {lead.investment ?? "—"}</div>
+                      <div>
+                        <span className="font-medium">Response Changed:</span>{" "}
+                        {lead.response_changed_at ? new Date(lead.response_changed_at).toLocaleString("en-IN") : "—"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Conversion Deadline:</span>{" "}
+                        {lead.conversion_deadline ? new Date(lead.conversion_deadline).toLocaleString("en-IN") : "—"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Created At:</span>{" "}
+                        {lead.created_at ? new Date(lead.created_at).toLocaleString("en-IN") : "—"}
+                      </div>
+
+                      <div className="col-span-full flex items-center gap-2 pt-2">
+                        <button
+                          onClick={() => router.push(`/lead/${lead.id}`)}
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                          title="Edit lead"
+                        >
                           <Edit3 size={16} />
                         </button>
-                        <button className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all duration-200">
+
+                        <button
+                          onClick={() => openStory(lead.id)}
+                          className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition"
+                          title="View Story"
+                        >
+                          <BookOpenText size={18} />
+                        </button>
+
+                        <button
+                          onClick={() => openComments(lead.id)}
+                          className="p-2 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition"
+                          title="Comments"
+                        >
+                          <MessageCircle size={16} />
+                        </button>
+
+                        <button
+                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                          title="Delete"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -545,25 +588,70 @@ const LeadManage = () => {
       {!loading && filteredLeads.length > 0 && (
         <div className="mt-6 bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-sm text-gray-600 text-center">
-            Showing <span className="font-medium text-gray-900">{filteredLeads.length}</span> of{" "}
-            <span className="font-medium text-gray-900">{totalLeads}</span> leads
+            Showing{" "}
+            <span className="font-medium text-gray-900">
+              {(currentPage - 1) * pageSize + 1}
+              {"–"}
+              {Math.min(currentPage * pageSize, filteredLeads.length)}
+            </span>{" "}
+            of{" "}
+            <span className="font-medium text-gray-900">{filteredLeads.length}</span>{" "}
+            filtered leads (out of {totalLeads} total)
             {searchQuery && (
-              <span> matching "<span className="font-medium text-blue-600">{searchQuery}</span>"</span>
+              <span>
+                {" "}
+                matching "<span className="font-medium text-blue-600">{searchQuery}</span>"
+              </span>
             )}
           </p>
         </div>
       )}
 
-      {/* Modals */}
-      <SourceModel open={isOpenSource} setOpen={setIsOpenSource} />
-      <ResponseModel open={isOpenResponse} setOpen={setIsOpenResponse} />
-      <FetchLimitModel open={isOpenFetchLimit} setOpen={setIsOpenFetchLimit} />
-      <BulkUploadModal
-        isOpen={isBulkUploadOpen}
-        onClose={() => setIsBulkUploadOpen(false)}
-        branches={branches}
-      />
+      {/* Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-3">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Prev
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`px-3 py-1 border rounded ${currentPage === i + 1
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
+      {/* Story & Comments Modals */}
+      {storyLeadId && (
+        <StoryModal
+          isOpen={isStoryModalOpen}
+          onClose={() => setIsStoryModalOpen(false)}
+          leadId={storyLeadId}
+        />
+      )}
+      <CommentModal
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
+        leadId={commentLeadId}
+      />
     </div>
   );
 };

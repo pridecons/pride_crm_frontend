@@ -7,10 +7,11 @@ import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
 import LeadCommentSection from "@/components/Lead/LeadCommentSection";
 import LoadingState from "@/components/LoadingState";
-import { Pencil,BookOpenText, MessageCircle, Eye, Download } from "lucide-react";
+import { Pencil, BookOpenText, MessageCircle, Eye, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import LeadsDataTable from "@/components/Lead/LeadsTable";
 
 export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
@@ -216,11 +217,97 @@ export default function NewLeadsTable() {
     }
   };
 
-  const filteredLeads = leads
-    .filter((lead) => !lead.lead_response_id)
-    .slice((page - 1) * limit, page * limit);
-  const filteredtotal = leads.filter((lead) => !lead.lead_response_id).length;
-  const totalPages = Math.ceil(total / limit);
+  const columns = [
+    {
+      header: "Client Name",
+      render: (lead) =>
+        editId === lead.id ? (
+          <input
+            type="text"
+            value={lead.full_name}
+            onChange={(e) =>
+              setLeads((prev) =>
+                prev.map((l) =>
+                  l.id === lead.id ? { ...l, full_name: e.target.value } : l
+                )
+              )
+            }
+            onBlur={() => handleUpdateName(lead)}
+            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
+          />
+        ) : (
+          <span>{lead.full_name}</span>
+        ),
+    },
+    {
+      header: "Mobile",
+      render: (lead) => lead.mobile,
+    },
+    {
+      header: "Response",
+      render: (lead) => (
+        <select
+          className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+          value={lead.lead_response_id || ""}
+          onChange={(e) => handleResponseChange(lead, e.target.value)}
+        >
+          <option value="">Select Response</option>
+          {responses.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      ),
+    },
+    {
+      header: "Source",
+      render: (lead) => (
+        <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
+          {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
+        </span>
+      ),
+    },
+    {
+      header: "Actions",
+      render: (lead) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push(`/lead/${lead.id}`)}
+            className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"
+            title="Edit lead"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            onClick={() => {
+              setStoryLead(lead);
+              setIsStoryModalOpen(true);
+            }}
+            className="w-8 h-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
+            title="View Story"
+          >
+            <BookOpenText size={18} />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedLeadId(lead.id);
+              setIsCommentModalOpen(true);
+            }}
+            className="w-8 h-8 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
+            title="Comments"
+          >
+            <MessageCircle size={16} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  // Filter and paginate as before
+  const filteredLeads = leads.filter((l) => !l.lead_response_id);
+  const filteredTotal = filteredLeads.length;
+  const paginatedLeads = filteredLeads.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="min-h-screen p-4">
@@ -234,165 +321,15 @@ export default function NewLeadsTable() {
       </div>
 
       <div className="bg-white rounded-xl border-b border-gray-200 max-w-7xl mx-auto overflow-hidden">
-        {loading ? (
-          <LoadingState message="Loading leads..." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white sticky top-0 z-10">
-                <tr>
-                  {["Client Name", "Mobile", "Response", "Source", "Actions"].map(
-                    (header, i) => (
-                      <th key={i} className="px-4 py-3 font-semibold uppercase tracking-wide text-xs">
-                        {header}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeads.map((lead, index) => (
-                  <tr
-                    key={lead.id}
-                    className={`hover:bg-blue-50 transition-colors duration-150 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      }`}
-                  >
-
-                    {/* Client Name */}
-                    <td className="px-4 py-3">
-                      {editId === lead.id ? (
-                        <input
-                          type="text"
-                          value={lead.full_name}
-                          onChange={(e) =>
-                            setLeads((prev) =>
-                              prev.map((l) =>
-                                l.id === lead.id ? { ...l, full_name: e.target.value } : l
-                              )
-                            )
-                          }
-                          onBlur={() => handleUpdateName(lead)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
-                        />
-                      ) : (
-                        <span>{lead.full_name}</span>
-                      )}
-                    </td>
-
-                    {/* Mobile */}
-                    <td className="px-4 py-3">{lead.mobile}</td>
-
-                    {/* Response */}
-                    <td className="px-4 py-3">
-                      <select
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
-                        value={lead.lead_response_id || ""}
-                        onChange={(e) => handleResponseChange(lead, e.target.value)}
-                      >
-                        <option value="">Select Response</option>
-                        {responses.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    {/* Comment */}
-                    {/* <td className="px-4 py-3">
-                      <LeadCommentSection
-                        leadId={lead.id}
-                        tempComment={lead.tempComment || ""}
-                        savedComment={lead.comment}
-                        onCommentChange={(val) =>
-                          setLeads((prev) =>
-                            prev.map((l) => (l.id === lead.id ? { ...l, tempComment: val } : l))
-                          )
-                        }
-                        onSave={() => handleSaveComment(lead)}
-                      />
-                    </td> */}
-
-
-                    {/* Source */}
-                    <td className="px-4 py-3">
-                      <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
-                        {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-center ">
-                      <div className="flex gap-1">
-                        <div>
-                          <button
-                            onClick={() => router.push(`/lead/${lead.id}`)}
-                            className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
-                            title="Edit lead"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        </div>
-                        <div>
-                          <button
-                            onClick={() => {
-                              setStoryLead(lead);
-                              setIsStoryModalOpen(true);
-                            }}
-                            className="inline-flex items-center justify-center w-8 h-8 bg-gray-500 text-white hover:bg-green-600 rounded-full shadow transition"
-                            aria-label="View Story"
-                          >
-                            <BookOpenText size={18} />
-                          </button>
-
-                        </div>
-                        <div>
-                          <button
-                            onClick={() => {
-                              setSelectedLeadId(lead.id);
-                              setIsCommentModalOpen(true);
-                            }}
-                            className="inline-flex items-center justify-center w-8 h-8  bg-teal-500 text-white rounded-full hover:bg-teal-600 shadow transition"
-                            title="Comments"
-                          >
-                            <MessageCircle size={16} />
-                          </button>
-                        </div>
-
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ✅ Pagination */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between text-sm">
-          <span className="text-gray-600">
-            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, filteredtotal)} of {filteredtotal} entries
-          </span>
-          <div className="flex items-center gap-3">
-            <button
-              disabled={page === 1}
-              onClick={() => setPage((prev) => prev - 1)}
-              className={`px-4 py-2 rounded-lg border transition ${page === 1 ? "border-gray-200 text-gray-400" : "border-gray-300 text-gray-700 hover:bg-gray-100"
-                }`}
-            >
-              Previous
-            </button>
-            <span className="text-gray-700">Page {page} of {totalPages}</span>
-            <button
-              disabled={page === totalPages}
-              onClick={() => setPage((prev) => prev + 1)}
-              className={`px-4 py-2 rounded-lg border transition ${page === totalPages ? "border-gray-200 text-gray-400" : "border-gray-300 text-gray-700 hover:bg-gray-100"
-                }`}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <LeadsDataTable
+          leads={paginatedLeads}
+          loading={loading}
+          columns={columns}
+          page={page}
+          limit={limit}
+          total={filteredTotal}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* ✅ Correctly Placed Modal */}

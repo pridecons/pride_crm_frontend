@@ -23,7 +23,9 @@ export default function Sidebar({ branchId, onClose }) {
   const [expandedSections, setExpandedSections] = useState({
     leads: true,
     configuration: true,
+    manageLeads: false,
   })
+
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [user, setUser] = useState(null)
   const [hasMounted, setHasMounted] = useState(false)
@@ -113,7 +115,7 @@ export default function Sidebar({ branchId, onClose }) {
     },
     {
       items: [
-        { href: '/branch', icon: BarChart3, label: 'Branch', access:["SUPERADMIN"] },
+        { href: '/branch', icon: BarChart3, label: 'Branch', access: ["SUPERADMIN"] },
       ],
     },
     {
@@ -121,10 +123,21 @@ export default function Sidebar({ branchId, onClose }) {
       section: 'leads',
       icon: FileText,
       items: [
-        { href: '/lead', icon: Target, label: 'New Lead' , access:[""] },
-        { href: '/lead/old', icon: Target, label: 'Old Lead', access:[""] },
-        { href: '/lead/add', icon: Plus, label: 'Add Lead', access:[""] },
-        { href: '/lead/manage', icon: FileText, label: 'Manage Leads', access:["BRANCH MANAGER","SUPERADMIN"] },
+        { href: '/lead', icon: Target, label: 'New Lead', access: [""] },
+        { href: '/lead/old', icon: Target, label: 'Old Lead', access: [""] },
+        { href: '/lead/add', icon: Plus, label: 'Add Lead', access: [""] },
+        {
+          title: 'Management',
+          section: 'management',
+          icon: FileText,
+          items: [
+            { href: '/lead/manage', icon: FileText, label: 'Manage Leads', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+            { href: '/lead/manage/source', icon: Target, label: 'Lead Source', access: [""] },
+            { href: '/lead/manage/respose', icon: Plus, label: 'Lead Response', access: [""] },
+            { href: '/lead/manage/fetch-limit', icon: FileText, label: 'Fetch Limit', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+            { href: '/lead/manage/lead-upload', icon: FileText, label: 'Lead Upload', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+          ],
+        },
       ],
     },
     {
@@ -132,8 +145,8 @@ export default function Sidebar({ branchId, onClose }) {
       section: 'configuration',
       icon: Settings,
       items: [
-        { href: '/user', icon: Users, label: 'Users', access:["BRANCH MANAGER","SUPERADMIN"] },
-        { href: '/permission', icon: Users, label: 'Permissions', access:["BRANCH MANAGER","SUPERADMIN"] },
+        { href: '/user', icon: Users, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+        { href: '/permission', icon: Users, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
       ],
     },
     {
@@ -166,8 +179,8 @@ export default function Sidebar({ branchId, onClose }) {
       section: 'Template',
       icon: FileText,
       items: [
-        { href: '/email', icon: Target, label: 'Email' , access:[""] },
-        { href: '/sms', icon: Target, label: 'sms', access:[""] },
+        { href: '/email', icon: Target, label: 'Email', access: [""] },
+        { href: '/sms', icon: Target, label: 'sms', access: [""] },
       ],
     },
     {
@@ -210,11 +223,41 @@ export default function Sidebar({ branchId, onClose }) {
                 </button>
                 {expandedSections[section.section] && (
                   <ul className="mt-2 ml-4 space-y-1">
-                    {section.items.map((item, i) => (
-                      <li key={i}>
-                        <NavItem {...item} />
-                      </li>
-                    ))}
+                    {section.items.map((item, i) =>
+                      // If it's a real link:
+                      item.href ? (
+                        <li key={i}>
+                          <NavItem {...item} />
+                        </li>
+                      ) : (
+                        // Otherwise it's your "Manage Leads" subgroup:
+                        <li key={i}>
+                          <button
+                            onClick={() => toggleSection('manageLeads')}
+                            className="flex w-full items-center justify-between px-4 py-2 text-gray-800 hover:bg-gray-100 rounded-lg"
+                            aria-expanded={expandedSections.manageLeads}
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText size={16} />
+                              <span>{item.title}</span>
+                            </div>
+                            {expandedSections.manageLeads
+                              ? <ChevronDown size={14} />
+                              : <ChevronRight size={14} />
+                            }
+                          </button>
+                          {expandedSections.manageLeads && (
+                            <ul className="mt-1 ml-4 space-y-1">
+                              {item.items.map((sub, j) => (
+                                <li key={j}>
+                                  <NavItem {...sub} />
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      )
+                    )}
                   </ul>
                 )}
               </>

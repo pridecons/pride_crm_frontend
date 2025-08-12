@@ -35,7 +35,7 @@ import toast from "react-hot-toast";
 // import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import LoadingState, { MiniLoader } from "@/components/LoadingState";
 import { usePermissions } from "@/context/PermissionsContext";
-import { Modal } from "@/components/Lead/Modal";
+import { Modal } from "@/components/Lead/ID/Modal";
 import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import EmailModalWithLogs from "@/components/Lead/EmailModalWithTabs";
@@ -43,6 +43,8 @@ import InvoiceList from "@/components/Lead/InvoiceList";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
 import { useFTAndCallbackPatch } from "@/components/Lead/useFTAndCallbackPatch";
+import { ActionButtons } from "@/components/Lead/ID/ActionButtons";
+import { ViewAndEditLead } from "@/components/Lead/ID/ViewAndEditLead";
 
 // --- After all your imports, add this function ---
 export const getFileUrl = (path) => {
@@ -693,7 +695,22 @@ const Lead = () => {
           setAadharBackPreview={setAadharBackPreview}
           setPanPicPreview={setPanPicPreview}
           handleLeadResponseChange={handleResponseChange}
+          fetchCurrentLead={fetchCurrentLead}
         />
+
+        {/* —————— SAVE AT BOTTOM —————— */}
+        {isEditMode && (
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={handleUpdateLead}
+              disabled={loading}
+              className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Save size={16} className="mr-2" />
+              {loading ? "Saving..." : "Save"}
+            </button>
+          </div>
+        )}
 
         {/* Modals */}
         {/* Upload Documents Modal */}
@@ -1302,7 +1319,7 @@ export const StatusBadge = ({ status, type = "default" }) => {
         return status ? "KYC Completed" : "KYC Pending";
       case "old":
         return status ? "Old Lead" : "New Lead";
-      case "client":            
+      case "client":
         return "Client";
       default:
         return status ? "Active" : "Inactive";
@@ -1384,677 +1401,509 @@ export const LeadHeader = ({ navigationInfo, uncalledCount, currentLead }) => {
   );
 };
 
-// ==============================================
-// ActionButtons Component
-// ==============================================
-
-export const ActionButtons = ({
-  currentLead,
-  isEditMode,
-  loading,
-  onCallClick,
-  onEditClick,
-  onSaveClick,
-  onKycClick,
-  kycLoading = false,
-  onPaymentClick,
-  onSendEmailClick,
-  onCommentsClick,
-  onRecordingsClick,
-  onViewKycClick,
-  onDocumentsClick,
-  onStoryClick,
-  onInvoiceClick,
-}) => {
-
-  const { hasPermission } = usePermissions();
-
-  return (
-
-    <div className="flex justify-evenly flex-wrap gap-2 mb-5">
-      {/* Existing Buttons */}
-      <button
-        onClick={onCallClick}
-        disabled={!currentLead || currentLead?.is_call}
-        className={`flex items-center px-3 py-2 rounded-lg transition-colors ${currentLead?.is_call
-          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-          : "bg-green-500 text-white hover:bg-green-600"
-          }`}
-      >
-        <PhoneCall size={16} className="mr-2" />
-        {currentLead?.is_call ? "Called" : "Call"}
-      </button>
-
-      <button
-        onClick={onEditClick}
-        disabled={!currentLead}
-        className={`flex items-center px-3 py-2 rounded-lg transition-colors ${isEditMode
-          ? "bg-red-500 text-white hover:bg-red-600"
-          : "bg-indigo-500 text-white hover:bg-indigo-600"
-          }`}
-      >
-        {isEditMode ? (
-          <X size={16} className="mr-2" />
-        ) : (
-          <Edit3 size={16} className="mr-2" />
-        )}
-        {isEditMode ? "Cancel" : "Edit"}
-      </button>
-
-      {isEditMode && (
-        <button
-          onClick={onSaveClick}
-          disabled={loading}
-          className="flex items-center px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Save size={16} className="mr-2" />
-          {loading ? "Saving..." : "Save"}
-        </button>
-      )}
-
-      {/* ✅ Show KYC Button Only if KYC Completed */}
-      {currentLead?.kyc && (
-        <button
-          onClick={onViewKycClick}
-          className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          <Eye size={16} className="mr-2" />
-          Agreement
-        </button>
-      )}
-
-      {!currentLead?.kyc ? (
-        <button
-          onClick={onKycClick}
-          disabled={kycLoading || !currentLead?.email}
-          className={`flex items-center px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-        >
-          {kycLoading && (
-            <svg
-              className="animate-spin h-4 w-4 mr-2 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              ></path>
-            </svg>
-          )}
-          KYC
-        </button>
-      ) : null}
-
-      <button
-        onClick={onPaymentClick}
-        className="flex items-center px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        <IndianRupee size={16} className="mr-2" />
-        Payment
-      </button>
-      <button
-        onClick={onSendEmailClick}
-        className="flex items-center px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-      >
-        <Mail size={16} className="mr-2" />
-        Email
-      </button>
-
-      <button
-        onClick={onCommentsClick}
-        className="flex items-center px-3 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
-      >
-        <MessageCircle size={16} className="mr-2" />
-        Comments
-      </button>
-
-      {hasPermission("lead_recording_view") && <button
-        onClick={onRecordingsClick}
-        className="flex items-center px-3 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
-      >
-        <Mic size={16} className="mr-2" />
-        Recordings
-      </button>}
-
-      <button
-        onClick={onDocumentsClick}
-        className="flex items-center px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
-      >
-        <FileText size={16} className="mr-2" />
-        Documents
-      </button>
-      <button
-        onClick={onStoryClick}
-        className="flex items-center px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
-      >
-        <BookOpenText size={16} className="mr-2" />
-        Story
-      </button>
-      <button
-        onClick={onInvoiceClick}
-        className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-      >
-        <FileText size={16} className="mr-2" />
-        Invoices
-      </button>
-
-    </div>
-
-  );
-};
 
 // ==============================================
 // ViewAndEditLead Component
 // ==============================================
 
-export const ViewAndEditLead = ({
-  currentLead,
-  editFormData,
-  setEditFormData,
-  isEditMode,
-  leadSources,
-  leadResponses,
-  handleFileChange,
-  aadharFrontPreview,
-  aadharBackPreview,
-  panPicPreview,
-  setAadharFront,
-  setAadharBack,
-  setPanPic,
-  setAadharFrontPreview,
-  setAadharBackPreview,
-  setPanPicPreview,
-  handleLeadResponseChange
-}) => {
-  const [leadType, setLeadType] = useState(
-    editFormData?.lead_type || currentLead?.lead_type || "INDIVIDUAL"
-  );
-  const [panLoading, setPanLoading] = useState(false);
-  const [panError, setPanError] = useState(null);
-  const [panVerifiedData, setPanVerifiedData] = useState(null);
-  const [segmentOptions, setSegmentOptions] = useState([]);
-  const [panFetched, setPanFetched] = useState(false);
+// export const ViewAndEditLead = ({
+//   currentLead,
+//   editFormData,
+//   setEditFormData,
+//   isEditMode,
+//   leadSources,
+//   leadResponses,
+//   handleFileChange,
+//   aadharFrontPreview,
+//   aadharBackPreview,
+//   panPicPreview,
+//   setAadharFront,
+//   setAadharBack,
+//   setPanPic,
+//   setAadharFrontPreview,
+//   setAadharBackPreview,
+//   setPanPicPreview,
+//   handleLeadResponseChange
+// }) => {
+//   const [leadType, setLeadType] = useState(
+//     editFormData?.lead_type || currentLead?.lead_type || "INDIVIDUAL"
+//   );
+//   const [panLoading, setPanLoading] = useState(false);
+//   const [panError, setPanError] = useState(null);
+//   const [panVerifiedData, setPanVerifiedData] = useState(null);
+//   const [segmentOptions, setSegmentOptions] = useState([]);
+//   const [panFetched, setPanFetched] = useState(false);
 
-  useEffect(() => {
-    axiosInstance.get("/profile-role/recommendation-type")
-      .then(res => {
-        setSegmentOptions(
-          res.data.map((seg) => ({ value: seg, label: seg }))
-        );
-      })
-      .catch(() => setSegmentOptions([]));
-  }, []);
+//   useEffect(() => {
+//     axiosInstance.get("/profile-role/recommendation-type")
+//       .then(res => {
+//         setSegmentOptions(
+//           res.data.map((seg) => ({ value: seg, label: seg }))
+//         );
+//       })
+//       .catch(() => setSegmentOptions([]));
+//   }, []);
 
-  useEffect(() => {
-    if (isEditMode) {
-      setEditFormData(prev => ({
-        ...prev,
-        lead_type: leadType
-      }));
-    }
-    // eslint-disable-next-line
-  }, [leadType]);
+//   useEffect(() => {
+//     if (isEditMode) {
+//       setEditFormData(prev => ({
+//         ...prev,
+//         lead_type: leadType
+//       }));
+//     }
+//     // eslint-disable-next-line
+//   }, [leadType]);
 
-  // Helper: Format date to YYYY-MM-DD
-  function formatDob(dob) {
-    if (!dob) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) return dob;
-    if (/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
-      const [d, m, y] = dob.split("-");
-      return `${y}-${m}-${d}`;
-    }
-    return dob;
-  }
+//   // Helper: Format date to YYYY-MM-DD
+//   function formatDob(dob) {
+//     if (!dob) return "";
+//     if (/^\d{4}-\d{2}-\d{2}$/.test(dob)) return dob;
+//     if (/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
+//       const [d, m, y] = dob.split("-");
+//       return `${y}-${m}-${d}`;
+//     }
+//     return dob;
+//   }
 
-  // PAN verification
-  const verifyPan = async (pan) => {
-    try {
-      const res = await axiosInstance.post(
-        '/micro-pan-verification',
-        new URLSearchParams({ pannumber: pan }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      return res.data;
-    } catch (error) {
-      throw error?.response?.data?.detail || error?.message || "PAN verification failed";
-    }
-  };
+//   // PAN verification
+//   const verifyPan = async (pan) => {
+//     try {
+//       const res = await axiosInstance.post(
+//         '/micro-pan-verification',
+//         new URLSearchParams({ pannumber: pan }),
+//         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+//       );
+//       return res.data;
+//     } catch (error) {
+//       throw error?.response?.data?.detail || error?.message || "PAN verification failed";
+//     }
+//   };
 
-  const handleInputChange = useCallback(async (e) => {
-    const { name, value, type, checked } = e.target;
-    let newValue = value;
-    if (name === "pan") newValue = value.toUpperCase();
-    if (name === "pan" && value && value.length === 10) {
-      setPanLoading(true);
-      try {
-        const data = await verifyPan(value.toUpperCase());
-        if (data.success && data.data?.result) {
-          const result = data.data.result;
-          setEditFormData((prev) => ({
-            ...prev,
-            full_name: result.user_full_name || prev.full_name,
-            father_name: result.user_father_name || prev.father_name,
-            dob: result.user_dob ? formatDob(result.user_dob) : prev.dob,
-            address: result.user_address?.full || prev.address,
-            city: result.user_address?.city || prev.city,
-            state: result.user_address?.state || prev.state,
-            pincode: result.user_address?.zip || prev.pincode,
-            country: result.user_address?.country || prev.country,
-            aadhaar: result.masked_aadhaar || prev.aadhaar,
-            gender: result.user_gender === "M" ? "Male" : result.user_gender === "F" ? "Female" : prev.gender,
-          }));
-          setPanVerifiedData(result);
-          setPanFetched(true); // Mark PAN as fetched
-          toast.success("PAN verified and details autofilled!");
-        } else {
-          setPanError("PAN verification failed");
-          toast.error("PAN verification failed");
-        }
-      } catch (err) {
-        setPanError(err);
-        toast.error(typeof err === "string" ? err : "Error verifying PAN");
-      } finally {
-        setPanLoading(false);
-      }
-    }
-    setEditFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : newValue,
-    }));
-    if (name === "lead_type") setLeadType(newValue);
-  }, [setEditFormData]);
+//   const handleInputChange = useCallback(async (e) => {
+//     const { name, value, type, checked } = e.target;
+//     let newValue = value;
+//     if (name === "pan") newValue = value.toUpperCase();
+//     if (name === "pan" && value && value.length === 10) {
+//       setPanLoading(true);
+//       try {
+//         const data = await verifyPan(value.toUpperCase());
+//         if (data.success && data.data?.result) {
+//           const result = data.data.result;
+//           setEditFormData((prev) => ({
+//             ...prev,
+//             full_name: result.user_full_name || prev.full_name,
+//             father_name: result.user_father_name || prev.father_name,
+//             dob: result.user_dob ? formatDob(result.user_dob) : prev.dob,
+//             address: result.user_address?.full || prev.address,
+//             city: result.user_address?.city || prev.city,
+//             state: result.user_address?.state || prev.state,
+//             pincode: result.user_address?.zip || prev.pincode,
+//             country: result.user_address?.country || prev.country,
+//             aadhaar: result.masked_aadhaar || prev.aadhaar,
+//             gender: result.user_gender === "M" ? "Male" : result.user_gender === "F" ? "Female" : prev.gender,
+//           }));
+//           setPanVerifiedData(result);
+//           setPanFetched(true); // Mark PAN as fetched
+//           toast.success("PAN verified and details autofilled!");
+//         } else {
+//           setPanError("PAN verification failed");
+//           toast.error("PAN verification failed");
+//         }
+//       } catch (err) {
+//         setPanError(err);
+//         toast.error(typeof err === "string" ? err : "Error verifying PAN");
+//       } finally {
+//         setPanLoading(false);
+//       }
+//     }
+//     setEditFormData((prev) => ({
+//       ...prev,
+//       [name]: type === "checkbox" ? checked : newValue,
+//     }));
+//     if (name === "lead_type") setLeadType(newValue);
+//   }, [setEditFormData]);
 
-  // INDIVIDUAL fields
-  const personalFieldsIndividual = [
-    { name: "pan", label: "PAN Number", icon: CreditCard, placeholder: "Enter PAN number" },
-    { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar number" },
-    { name: "full_name", label: "Full Name", icon: User, placeholder: "Enter full name" },
-    { name: "father_name", label: "Father Name", icon: User, placeholder: "Enter father name" },
-    {
-      name: "gender", label: "Gender", icon: User, type: "select",
-      options: [{ value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }]
-    },
-    {
-      name: "marital_status", label: "Marital Status", icon: User, type: "select",
-      options: [
-        { value: "Single", label: "Single" },
-        { value: "Married", label: "Married" },
-        { value: "Divorced", label: "Divorced" },
-        { value: "Widowed", label: "Widowed" },
-      ]
-    },
-    { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
-    { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
-    { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile number" },
-    { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
-    { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email address" },
-    { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
-  ];
+//   // INDIVIDUAL fields
+//   const personalFieldsIndividual = [
+//     { name: "pan", label: "PAN Number", icon: CreditCard, placeholder: "Enter PAN number" },
+//     { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar number" },
+//     { name: "full_name", label: "Full Name", icon: User, placeholder: "Enter full name" },
+//     { name: "father_name", label: "Father Name", icon: User, placeholder: "Enter father name" },
+//     {
+//       name: "gender", label: "Gender", icon: User, type: "select",
+//       options: [{ value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }]
+//     },
+//     {
+//       name: "marital_status", label: "Marital Status", icon: User, type: "select",
+//       options: [
+//         { value: "Single", label: "Single" },
+//         { value: "Married", label: "Married" },
+//         { value: "Divorced", label: "Divorced" },
+//         { value: "Widowed", label: "Widowed" },
+//       ]
+//     },
+//     { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
+//     { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
+//     { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile number" },
+//     { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
+//     { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email address" },
+//     { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
+//   ];
 
-  // COMPANY fields
-  const personalFieldsCompany = [
-    { name: "pan", label: "Company PAN", icon: CreditCard, placeholder: "Enter Company PAN" },
-    { name: "company_name", label: "Company Name", icon: User, placeholder: "Enter company name" },
-    { name: "director_name", label: "Director Name", icon: User, placeholder: "Enter director name" },
-    { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
-    { name: "mobile", label: "Company Mobile", icon: Phone, type: "tel", placeholder: "Enter company mobile number" },
-    { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
-    { name: "email", label: "Company Email", icon: Mail, type: "email", placeholder: "Enter company email address" },
-  ];
+//   // COMPANY fields
+//   const personalFieldsCompany = [
+//     { name: "pan", label: "Company PAN", icon: CreditCard, placeholder: "Enter Company PAN" },
+//     { name: "company_name", label: "Company Name", icon: User, placeholder: "Enter company name" },
+//     { name: "director_name", label: "Director Name", icon: User, placeholder: "Enter director name" },
+//     { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
+//     { name: "mobile", label: "Company Mobile", icon: Phone, type: "tel", placeholder: "Enter company mobile number" },
+//     { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel", placeholder: "Enter alternate mobile" },
+//     { name: "email", label: "Company Email", icon: Mail, type: "email", placeholder: "Enter company email address" },
+//   ];
 
-  const addressFields = [
-    { name: "city", label: "City", icon: MapPin, placeholder: "Enter city" },
-    { name: "state", label: "State", icon: MapPin, placeholder: "Enter state" },
-    { name: "district", label: "District", icon: MapPin, placeholder: "Enter district" },
-    { name: "pincode", label: "Pincode", icon: MapPin, placeholder: "Enter pincode" },
-    { name: "country", label: "Country", icon: Globe, placeholder: "Enter country" },
-    { name: "address", label: "Address", icon: MapPin, type: "textarea", placeholder: "Enter full address" },
+//   const addressFields = [
+//     { name: "city", label: "City", icon: MapPin, placeholder: "Enter city" },
+//     { name: "state", label: "State", icon: MapPin, placeholder: "Enter state" },
+//     { name: "district", label: "District", icon: MapPin, placeholder: "Enter district" },
+//     { name: "pincode", label: "Pincode", icon: MapPin, placeholder: "Enter pincode" },
+//     { name: "country", label: "Country", icon: Globe, placeholder: "Enter country" },
+//     { name: "address", label: "Address", icon: MapPin, type: "textarea", placeholder: "Enter full address" },
 
-  ];
+//   ];
 
-  const professionalFields = [
-    { name: "occupation", label: "Occupation", icon: Briefcase, placeholder: "Enter occupation" },
-    {
-      name: "experience",
-      label: "Experience",
-      icon: Briefcase,
-      type: "select",
-      options: [
-        { value: "0-1", label: "0-1 year" },
-        { value: "1-5", label: "1-5 years" },
-        { value: "5-10", label: "5-10 years" },
-        { value: "10-15", label: "10-15 years" },
-        { value: "15+", label: "15+ years" },
-      ]
-    },
-    { name: "segment", label: "Segment", type: "multiselect", options: segmentOptions, icon: Briefcase, placeholder: "Select segment(s)" },
-    { name: "lead_source_id", label: "Lead Source", icon: Building, type: "readonly", options: leadSources },
-    { name: "lead_response_id", label: "Lead Response", icon: Building, type: "select", options: leadResponses },
-  ];
+//   const professionalFields = [
+//     { name: "occupation", label: "Occupation", icon: Briefcase, placeholder: "Enter occupation" },
+//     {
+//       name: "experience",
+//       label: "Experience",
+//       icon: Briefcase,
+//       type: "select",
+//       options: [
+//         { value: "0-1", label: "0-1 year" },
+//         { value: "1-5", label: "1-5 years" },
+//         { value: "5-10", label: "5-10 years" },
+//         { value: "10-15", label: "10-15 years" },
+//         { value: "15+", label: "15+ years" },
+//       ]
+//     },
+//     { name: "segment", label: "Segment", type: "multiselect", options: segmentOptions, icon: Briefcase, placeholder: "Select segment(s)" },
+//     { name: "lead_source_id", label: "Lead Source", icon: Building, type: "readonly", options: leadSources },
+//     { name: "lead_response_id", label: "Lead Response", icon: Building, type: "select", options: leadResponses },
+//   ];
 
-  if (!currentLead) return null;
+//   if (!currentLead) return null;
 
-  // Returns true if this field should be locked (non-editable)
-  const isPanLocked = (fieldName) => {
-    // These fields should be locked if lead has PAN (after save) or after PAN is fetched in this session
-    const panFields = [
-      "pan", "full_name", "father_name", "dob", "address",
-      "city", "state", "pincode", "country", "aadhaar", "gender"
-    ];
-    // If not in edit mode, lock all (readonly)
-    if (!isEditMode) return true;
-    // If lead already has PAN, lock pan fields
-    if (!!currentLead?.pan && panFields.includes(fieldName)) return true;
-    // If PAN was fetched in this session, lock those fields (except for editing other fields)
-    if (panFetched && panFields.includes(fieldName)) return true;
-    return false;
-  };
+//   // Returns true if this field should be locked (non-editable)
+//   const isPanLocked = (fieldName) => {
+//     // These fields should be locked if lead has PAN (after save) or after PAN is fetched in this session
+//     const panFields = [
+//       "pan", "full_name", "father_name", "dob", "address",
+//       "city", "state", "pincode", "country", "aadhaar", "gender"
+//     ];
+//     // If not in edit mode, lock all (readonly)
+//     if (!isEditMode) return true;
+//     // If lead already has PAN, lock pan fields
+//     if (!!currentLead?.pan && panFields.includes(fieldName)) return true;
+//     // If PAN was fetched in this session, lock those fields (except for editing other fields)
+//     if (panFetched && panFields.includes(fieldName)) return true;
+//     return false;
+//   };
 
-  return (
-    <div className="flex flex-col gap-6 mb-6">
-      {/* Lead Type Switcher */}
-      <div className="bg-white rounded-lg shadow-sm p-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Lead Type
-        </label>
-        {isEditMode ? (
-          <select
-            name="lead_type"
-            value={leadType}
-            onChange={handleInputChange}
-            className="w-60 px-3 py-2 border rounded"
-          >
-            <option value="INDIVIDUAL">Individual</option>
-            <option value="COMPANY">Company</option>
-          </select>
-        ) : (
-          <span className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] inline-block">
-            {leadType === "COMPANY" ? "Company" : "Individual"}
-          </span>
-        )}
-      </div>
+//   return (
+//     <div className="flex flex-col gap-6 mb-6">
+//       {/* Lead Type Switcher */}
+//       <div className="bg-white rounded-lg shadow-sm p-3">
+//         <label className="block text-sm font-medium text-gray-700 mb-2">
+//           Lead Type
+//         </label>
+//         {isEditMode ? (
+//           <select
+//             name="lead_type"
+//             value={leadType}
+//             onChange={handleInputChange}
+//             className="w-60 px-3 py-2 border rounded"
+//           >
+//             <option value="INDIVIDUAL">Individual PAN</option>
+//             <option value="COMPANY">Company PAN</option>
+//           </select>
+//         ) : (
+//           <span className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] inline-block">
+//             {leadType === "COMPANY" ? "Company" : "Individual"}
+//           </span>
+//         )}
+//       </div>
 
-      {/* Personal Section */}
-      {/* Personal Section */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <User className="mr-2 text-blue-500" size={20} />
-          {leadType === "COMPANY" ? "Company Details" : "Personal Information"}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {(leadType === "COMPANY" ? personalFieldsCompany : personalFieldsIndividual)
-            .map((field) => {
-              // Age - always readonly
-              if (field.name === "age") {
-                return (
-                  <InputField
-                    key={field.name}
-                    {...field}
-                    value={calculateAge(editFormData.dob)}
-                    isEditMode={false}
-                    icon={Calendar}
-                  />
-                );
-              }
+//       {/* Personal Section */}
+//       {/* Personal Section */}
+//       <div className="bg-white rounded-lg shadow-sm p-6">
+//         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+//           <User className="mr-2 text-blue-500" size={20} />
+//           {leadType === "COMPANY" ? "Company Details" : "Personal Information"}
+//         </h3>
+//         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+//           {(leadType === "COMPANY" ? personalFieldsCompany : personalFieldsIndividual)
+//             .map((field) => {
+//               // Age - always readonly
+//               if (field.name === "age") {
+//                 return (
+//                   <InputField
+//                     key={field.name}
+//                     {...field}
+//                     value={calculateAge(editFormData.dob)}
+//                     isEditMode={false}
+//                     icon={Calendar}
+//                   />
+//                 );
+//               }
 
-              // PAN field: locked after save or PAN present
-              if (field.name === "pan") {
-                return (
-                  <InputField
-                    key={field.name}
-                    {...field}
-                    value={editFormData[field.name]}
-                    isEditMode={!isPanLocked(field.name)}
-                    onInputChange={handleInputChange}
-                    suffix={isEditMode && panLoading ? <MiniLoader /> : null}
-                    autoCapitalize="characters"
-                  />
-                );
-              }
+//               // PAN field: locked after save or PAN present
+//               if (field.name === "pan") {
+//                 return (
+//                   <InputField
+//                     key={field.name}
+//                     {...field}
+//                     value={editFormData[field.name]}
+//                     isEditMode={!isPanLocked(field.name)}
+//                     onInputChange={handleInputChange}
+//                     suffix={isEditMode && panLoading ? <MiniLoader /> : null}
+//                     autoCapitalize="characters"
+//                   />
+//                 );
+//               }
 
-              // For all PAN-fetched fields: lock as per isPanLocked
-              if (
-                ["full_name", "father_name", "dob", "address", "city", "state", "pincode", "country", "aadhaar", "gender"].includes(field.name)
-              ) {
-                return (
-                  <InputField
-                    key={field.name}
-                    {...field}
-                    value={editFormData[field.name]}
-                    isEditMode={!isPanLocked(field.name)}
-                    onInputChange={handleInputChange}
-                  />
-                );
-              }
+//               // For all PAN-fetched fields: lock as per isPanLocked
+//               if (
+//                 ["full_name", "father_name", "dob", "address", "city", "state", "pincode", "country", "aadhaar", "gender"].includes(field.name)
+//               ) {
+//                 return (
+//                   <InputField
+//                     key={field.name}
+//                     {...field}
+//                     value={editFormData[field.name]}
+//                     isEditMode={!isPanLocked(field.name)}
+//                     onInputChange={handleInputChange}
+//                   />
+//                 );
+//               }
 
-              // Marital status always editable
-              if (field.name === "marital_status") {
-                return (
-                  <InputField
-                    key={field.name}
-                    {...field}
-                    value={editFormData[field.name]}
-                    isEditMode={isEditMode}
-                    onInputChange={handleInputChange}
-                  />
-                );
-              }
+//               // Marital status always editable
+//               if (field.name === "marital_status") {
+//                 return (
+//                   <InputField
+//                     key={field.name}
+//                     {...field}
+//                     value={editFormData[field.name]}
+//                     isEditMode={isEditMode}
+//                     onInputChange={handleInputChange}
+//                   />
+//                 );
+//               }
 
-              // Rest: Editable in edit mode
-              return (
-                <InputField
-                  key={field.name}
-                  {...field}
-                  value={editFormData[field.name]}
-                  isEditMode={isEditMode}
-                  onInputChange={handleInputChange}
-                />
-              );
-            })}
+//               // Rest: Editable in edit mode
+//               return (
+//                 <InputField
+//                   key={field.name}
+//                   {...field}
+//                   value={editFormData[field.name]}
+//                   isEditMode={isEditMode}
+//                   onInputChange={handleInputChange}
+//                 />
+//               );
+//             })}
 
-        </div>
-      </div>
+//         </div>
+//       </div>
 
-      {/* Address Section */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <MapPin className="mr-2 text-green-500" size={20} />
-          Address Information
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {addressFields.map((field) => (
-            field.name === "address" ? (
-              <div key={field.name} className="col-span-1 md:col-span-4">
-                <InputField
-                  {...field}
-                  value={editFormData[field.name]}
-                  isEditMode={isEditMode}
-                  onInputChange={handleInputChange}
-                />
-              </div>
-            ) : (
-              <InputField
-                key={field.name}
-                {...field}
-                value={editFormData[field.name]}
-                isEditMode={isEditMode}
-                onInputChange={handleInputChange}
-              />
-            )
-          ))}
-        </div>
-      </div>
+//       {/* Address Section */}
+//       <div className="bg-white rounded-lg shadow-sm p-6">
+//         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+//           <MapPin className="mr-2 text-green-500" size={20} />
+//           Address Information
+//         </h3>
+//         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+//           {addressFields.map((field) => (
+//             field.name === "address" ? (
+//               <div key={field.name} className="col-span-1 md:col-span-4">
+//                 <InputField
+//                   {...field}
+//                   value={editFormData[field.name]}
+//                   isEditMode={isEditMode}
+//                   onInputChange={handleInputChange}
+//                 />
+//               </div>
+//             ) : (
+//               <InputField
+//                 key={field.name}
+//                 {...field}
+//                 value={editFormData[field.name]}
+//                 isEditMode={isEditMode}
+//                 onInputChange={handleInputChange}
+//               />
+//             )
+//           ))}
+//         </div>
+//       </div>
 
-      {/* Professional & Documentation Section */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-          <Briefcase className="mr-2 text-purple-500" size={20} />
-          Professional & Documentation
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {professionalFields.map((field) => {
-            // Lead Source stays readonly always
-            if (field.name === "lead_source_id") {
-              return (
-                <InputField
-                  key={field.name}
-                  {...field}
-                  value={editFormData[field.name]}
-                  isEditMode={false}
-                  options={leadSources}
-                />
-              );
-            }
-            // Segment multiselect
-            if (field.name === "segment") {
-              // ... your multiselect code unchanged ...
-              return (
-                <div key="segment">
-                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                    <Briefcase size={16} className="mr-2 text-purple-500" />
-                    Segment
-                  </label>
-                  {isEditMode ? (
-                    <MultiSelectWithCheckboxes
-                      options={segmentOptions}
-                      value={
-                        Array.isArray(editFormData.segment)
-                          ? editFormData.segment
-                          : (editFormData.segment
-                            ? String(editFormData.segment).split(",").map(s => s.trim()).filter(Boolean)
-                            : [])
-                      }
-                      onChange={(selected) => {
-                        setEditFormData((prev) => ({
-                          ...prev,
-                          segment: selected
-                        }));
-                      }}
-                      placeholder="Select segment(s)"
-                    />
-                  ) : (
-                    <div className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] flex items-center">
-                      <span className="text-gray-900 break-words">
-                        {Array.isArray(editFormData.segment) && editFormData.segment.length > 0
-                          ? editFormData.segment.join(", ")
-                          : "Select segment(s)"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            }
-            // Lead Response field + conditional display of FT or Call Back date
-            // Inside professionalFields.map (replace lead_response_id field block)
+//       {/* Professional & Documentation Section */}
+//       <div className="bg-white rounded-lg shadow-sm p-6">
+//         <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+//           <Briefcase className="mr-2 text-purple-500" size={20} />
+//           Professional & Documentation
+//         </h3>
+//         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+//           {professionalFields.map((field) => {
+//             // Lead Source stays readonly always
+//             if (field.name === "lead_source_id") {
+//               return (
+//                 <InputField
+//                   key={field.name}
+//                   {...field}
+//                   value={editFormData[field.name]}
+//                   isEditMode={false}
+//                   options={leadSources}
+//                 />
+//               );
+//             }
+//             // Segment multiselect
+//             if (field.name === "segment") {
+//               // ... your multiselect code unchanged ...
+//               return (
+//                 <div key="segment">
+//                   <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+//                     <Briefcase size={16} className="mr-2 text-purple-500" />
+//                     Segment
+//                   </label>
+//                   {isEditMode ? (
+//                     <MultiSelectWithCheckboxes
+//                       options={segmentOptions}
+//                       value={
+//                         Array.isArray(editFormData.segment)
+//                           ? editFormData.segment
+//                           : (editFormData.segment
+//                             ? String(editFormData.segment).split(",").map(s => s.trim()).filter(Boolean)
+//                             : [])
+//                       }
+//                       onChange={(selected) => {
+//                         setEditFormData((prev) => ({
+//                           ...prev,
+//                           segment: selected
+//                         }));
+//                       }}
+//                       placeholder="Select segment(s)"
+//                     />
+//                   ) : (
+//                     <div className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] flex items-center">
+//                       <span className="text-gray-900 break-words">
+//                         {Array.isArray(editFormData.segment) && editFormData.segment.length > 0
+//                           ? editFormData.segment.join(", ")
+//                           : "Not selected"}
+//                       </span>
+//                     </div>
+//                   )}
+//                 </div>
+//               );
+//             }
+//             // Lead Response field + conditional display of FT or Call Back date
+//             // Inside professionalFields.map (replace lead_response_id field block)
 
-            // … inside professionalFields.map((field) => { …
+//             // … inside professionalFields.map((field) => { …
 
-            if (field.name === "lead_response_id") {
-              // determine which response is selected
-              const selectedId = editFormData.lead_response_id ?? currentLead.lead_response_id;
-              const resp = leadResponses.find(r => r.value === selectedId);
-              const label = resp?.label?.toLowerCase();
+//             if (field.name === "lead_response_id") {
+//               // determine which response is selected
+//               const selectedId = editFormData.lead_response_id ?? currentLead.lead_response_id;
+//               const resp = leadResponses.find(r => r.value === selectedId);
+//               const label = resp?.label?.toLowerCase();
 
-              return (
-                <div key="lead_response_id" className="col-span-1 md:col-span-2">
-                  {/* Response selector */}
-                  <InputField
-                    {...field}
-                    value={selectedId}
-                    isEditMode={isEditMode}
-                    onInputChange={e => {
-                      const val = e.target.value;
-                      handleLeadResponseChange(currentLead, val);
-                      setEditFormData(prev => ({ ...prev, lead_response_id: val }));
-                    }}
-                    options={leadResponses}
-                  />
+//               return (
+//                 <div key="lead_response_id" className="col-span-1 md:col-span-2">
+//                   {/* Response selector */}
+//                   <InputField
+//                     {...field}
+//                     value={selectedId}
+//                     isEditMode={isEditMode}
+//                     onInputChange={e => {
+//                       const val = e.target.value;
+//                       handleLeadResponseChange(currentLead, val);
+//                       setEditFormData(prev => ({ ...prev, lead_response_id: val }));
+//                     }}
+//                     options={leadResponses}
+//                   />
 
-                  {/* — Edit mode: show inline date inputs when FT or Call Back is selected — */}
-                  {isEditMode && label === "ft" && (
-                    <div className="flex gap-2 mt-2">
-                      <InputField
-                        label="FT From"
-                        name="ft_from_date"
-                        type="date"
-                        value={editFormData.ft_from_date || ""}
-                        isEditMode
-                        onInputChange={handleInputChange}
-                      />
-                      <InputField
-                        label="FT To"
-                        name="ft_to_date"
-                        type="date"
-                        value={editFormData.ft_to_date || ""}
-                        isEditMode
-                        onInputChange={handleInputChange}
-                      />
-                    </div>
-                  )}
-                  {isEditMode && label === "call back" && (
-                    <div className="mt-2">
-                      <InputField
-                        label="Call Back Date"
-                        name="call_back_date"
-                        type="datetime-local"
-                        value={editFormData.call_back_date || ""}
-                        isEditMode
-                        onInputChange={handleInputChange}
-                      />
-                    </div>
-                  )}
+//                   {/* — Edit mode: show inline date inputs when FT or Call Back is selected — */}
+//                   {isEditMode && label === "ft" && (
+//                     <div className="flex gap-2 mt-2">
+//                       <InputField
+//                         label="FT From"
+//                         name="ft_from_date"
+//                         type="date"
+//                         value={editFormData.ft_from_date || ""}
+//                         isEditMode
+//                         onInputChange={handleInputChange}
+//                       />
+//                       <InputField
+//                         label="FT To"
+//                         name="ft_to_date"
+//                         type="date"
+//                         value={editFormData.ft_to_date || ""}
+//                         isEditMode
+//                         onInputChange={handleInputChange}
+//                       />
+//                     </div>
+//                   )}
+//                   {isEditMode && label === "call back" && (
+//                     <div className="mt-2">
+//                       <InputField
+//                         label="Call Back Date"
+//                         name="call_back_date"
+//                         type="datetime-local"
+//                         value={editFormData.call_back_date || ""}
+//                         isEditMode
+//                         onInputChange={handleInputChange}
+//                       />
+//                     </div>
+//                   )}
 
-                  {/* — View mode: always show saved FT/Callback dates — */}
-                  {!isEditMode && label === "ft" && (
-                    <div className="mt-1 text-xs text-blue-700 font-semibold">
-                      <div><strong>FT From:</strong> {currentLead.ft_from_date ? formatDDMMYYYY(currentLead.ft_from_date) : "N/A"}</div>
-                      <div><strong>FT To:</strong>   {currentLead.ft_to_date ? formatDDMMYYYY(currentLead.ft_to_date) : "N/A"}</div>
-                    </div>
-                  )}
-                  {!isEditMode && label === "call back" && (
-                    <div className="mt-1 text-xs text-indigo-700 font-semibold">
-                      <strong>Call Back Date:</strong>{" "}
-                      {currentLead.call_back_date
-                        ? new Date(currentLead.call_back_date).toLocaleString()
-                        : "N/A"}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+//                   {/* — View mode: always show saved FT/Callback dates — */}
+//                   {!isEditMode && label === "ft" && (
+//                     <div className="mt-1 text-xs text-blue-700 font-semibold">
+//                       <div><strong>FT From:</strong> {currentLead.ft_from_date ? formatDDMMYYYY(currentLead.ft_from_date) : "N/A"}</div>
+//                       <div><strong>FT To:</strong>   {currentLead.ft_to_date ? formatDDMMYYYY(currentLead.ft_to_date) : "N/A"}</div>
+//                     </div>
+//                   )}
+//                   {!isEditMode && label === "call back" && (
+//                     <div className="mt-1 text-xs text-indigo-700 font-semibold">
+//                       <strong>Call Back Date:</strong>{" "}
+//                       {currentLead.call_back_date
+//                         ? new Date(currentLead.call_back_date).toLocaleString()
+//                         : "N/A"}
+//                     </div>
+//                   )}
+//                 </div>
+//               );
+//             }
 
-            // …rest of your map…
+//             // …rest of your map…
 
-            // … end professionalFields.map
+//             // … end professionalFields.map
 
 
-            // Rest: Editable in edit mode, always, even after panFetched
-            return (
-              <InputField
-                key={field.name}
-                {...field}
-                value={editFormData[field.name]}
-                isEditMode={isEditMode}
-                onInputChange={handleInputChange}
-                options={field.options || []}
-              />
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
+//             // Rest: Editable in edit mode, always, even after panFetched
+//             return (
+//               <InputField
+//                 key={field.name}
+//                 {...field}
+//                 value={editFormData[field.name]}
+//                 isEditMode={isEditMode}
+//                 onInputChange={handleInputChange}
+//                 options={field.options || []}
+//               />
+//             );
+//           })}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 
 

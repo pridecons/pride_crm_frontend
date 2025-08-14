@@ -1,21 +1,29 @@
-// components/Lead/ActionButtons.jsx
 "use client";
 
 import React from "react";
-import { PhoneCall, Edit3, X, Eye, Mail, MessageCircle, Mic, FileText, BookOpenText, FileText as InvoiceIcon } from "lucide-react";
+import {
+  PhoneCall,
+  X,
+  Eye,
+  Mail,
+  MessageCircle,
+  Mic,
+  FileText,
+  BookOpenText,
+  FileText as InvoiceIcon,
+  Send, // ✅ new
+} from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 
 export function ActionButtons({
   currentLead,
-  isEditMode,
   loading,
   onCallClick,
-  onEditClick,
-  onSaveClick,
   onKycClick,
   kycLoading = false,
   onPaymentClick,
   onSendEmailClick,
+  onSendSMSClick,           // ✅ new prop
   onCommentsClick,
   onRecordingsClick,
   onViewKycClick,
@@ -40,7 +48,7 @@ export function ActionButtons({
         {currentLead?.is_call ? "Called" : "Call"}
       </button>
 
-      {currentLead?.kyc && (
+      {currentLead?.kyc ? (
         <button
           onClick={onViewKycClick}
           className="flex items-center px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -48,9 +56,7 @@ export function ActionButtons({
           <Eye size={16} className="mr-2" />
           Agreement
         </button>
-      )}
-
-      {!currentLead?.kyc && (
+      ) : (
         <button
           onClick={onKycClick}
           disabled={kycLoading || !currentLead?.email}
@@ -74,6 +80,15 @@ export function ActionButtons({
       >
         <Mail size={16} className="mr-2" />
         Email
+      </button>
+
+      {/* ✅ NEW: SMS button */}
+      <button
+        onClick={onSendSMSClick}
+        className="flex items-center px-3 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors"
+      >
+        <Send size={16} className="mr-2" />
+        SMS
       </button>
 
       <button
@@ -116,17 +131,6 @@ export function ActionButtons({
       >
         <InvoiceIcon size={16} className="mr-2" />
         Invoices
-      </button>
-      
-      <button
-        onClick={onEditClick}
-        disabled={!currentLead}
-        className={`flex items-center px-2 py-2 rounded-lg transition-colors ${
-          isEditMode ? "bg-red-500 hover:bg-red-600" : "bg-indigo-500 hover:bg-indigo-600"
-        } text-white`}
-      >
-        {isEditMode ? <X size={16} className="mr-2" /> : <Edit3 size={16} className="mr-2" />}
-        {isEditMode ? "Back" : "Edit"}
       </button>
     </div>
   );

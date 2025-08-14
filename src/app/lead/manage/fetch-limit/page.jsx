@@ -237,7 +237,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Clock />}
-                label="Old Lead Remove (Days)"
+                label="Old Lead Remove (Days before old leads are deleted)"
                 type="number"
                 value={form.old_lead_remove_days}
                 onChange={(e) =>
@@ -247,7 +247,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Target />}
-                label="Per Request Limit"
+                label="Per Request Limit (Max leads per fetch)"
                 type="number"
                 value={form.per_request_limit}
                 onChange={(e) =>
@@ -257,7 +257,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<BarChart3 />}
-                label="Daily Call Limit"
+                label="Daily Call Limit (Max calls per day)"
                 type="number"
                 value={form.daily_call_limit}
                 onChange={(e) =>
@@ -267,7 +267,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Download />}
-                label="Last Fetch Limit"
+                label="Refetch Threshold (fetch allowed when remaining leads ≤ this number)"
                 type="number"
                 value={form.last_fetch_limit}
                 onChange={(e) =>
@@ -277,7 +277,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Timer />}
-                label="Assignment TTL (Hours)"
+                label="Auto-Unassign After (hours)"
                 type="number"
                 value={form.assignment_ttl_hours}
                 onChange={(e) =>
@@ -341,7 +341,7 @@ export default function FetchLimitConfigPage() {
                 "Role",
                 "Per Request",
                 "Daily Limit",
-                "Last Fetch",
+                "Refetch Threshold",
                 "Old Lead Remove",
                 "TTL (hrs)",
                 "Branch",

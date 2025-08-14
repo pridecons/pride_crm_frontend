@@ -126,6 +126,14 @@ export default function Sidebar({ branchId, onClose }) {
         { href: '/lead', icon: Target, label: 'New Lead', access: [""] },
         { href: '/lead/old', icon: Target, label: 'Old Lead', access: [""] },
         { href: '/lead/add', icon: Plus, label: 'Add Lead', access: [""] },
+        { href: '/client', icon: Users, label: 'Client' },
+      ],
+    },
+    {
+      title: 'Configuration',
+      section: 'configuration',
+      icon: Settings,
+      items: [
         {
           title: 'Management',
           section: 'management',
@@ -138,14 +146,8 @@ export default function Sidebar({ branchId, onClose }) {
             { href: '/lead/manage/lead-upload', icon: FileText, label: 'Lead Upload', access: ["BRANCH MANAGER", "SUPERADMIN"] },
           ],
         },
-      ],
-    },
-    {
-      title: 'Configuration',
-      section: 'configuration',
-      icon: Settings,
-      items: [
         { href: '/user', icon: Users, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+        { href: '/plans', icon: BarChart3, label: 'Plans' },
         { href: '/permission', icon: Users, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
       ],
     },
@@ -163,15 +165,9 @@ export default function Sidebar({ branchId, onClose }) {
       ],
     },
     {
-      title: 'Rationals',
+      title: 'Researcher',
       items: [
         { href: '/rational', icon: BarChart3, label: 'Rationals' },
-      ],
-    },
-    {
-      title: 'Services',
-      items: [
-        { href: '/services', icon: BarChart3, label: 'Services' },
       ],
     },
     {
@@ -181,12 +177,6 @@ export default function Sidebar({ branchId, onClose }) {
       items: [
         { href: '/email', icon: Target, label: 'Email', access: [""] },
         { href: '/sms', icon: Target, label: 'sms', access: [""] },
-      ],
-    },
-    {
-      title: 'Clients',
-      items: [
-        { href: '/client', icon: Users, label: 'Client' },
       ],
     },
   ]

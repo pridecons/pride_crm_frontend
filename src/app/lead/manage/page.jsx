@@ -40,6 +40,7 @@ const LeadManage = () => {
   const [sourceFilter, setSourceFilter] = useState("All");
   const [responseFilter, setResponseFilter] = useState("All");
   const [branchFilter, setBranchFilter] = useState("All");
+  const [kycFilter, setKycFilter] = useState("All"); // NEW: 'All' | 'Completed' | 'Pending'
 
   // Employee autocomplete: selected code + text input
   const [employeeFilter, setEmployeeFilter] = useState("All"); // selected employee_code
@@ -166,6 +167,10 @@ const LeadManage = () => {
         (lead) => String(lead.lead_response_id) === String(responseFilter)
       );
     }
+    if (kycFilter !== "All") {
+      const wantCompleted = kycFilter === "Completed";
+      updated = updated.filter((lead) => Boolean(lead.kyc) === wantCompleted);
+    }
 
     return updated;
   }, [
@@ -175,6 +180,7 @@ const LeadManage = () => {
     employeeFilter,
     sourceFilter,
     responseFilter,
+    kycFilter,
   ]);
 
   // Pagination
@@ -191,7 +197,7 @@ const LeadManage = () => {
   useEffect(() => {
     setCurrentPage(1);
     setOpenLead(null);
-  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter]);
+  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter]);
 
   // Close open lead when page changes
   useEffect(() => {
@@ -345,8 +351,8 @@ const LeadManage = () => {
                 key={opt.value}
                 onClick={() => setBranchFilter(opt.value)}
                 className={`px-4 py-2 rounded-lg border whitespace-nowrap ${branchFilter === opt.value
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
                   }`}
               >
                 {opt.label}
@@ -417,6 +423,18 @@ const LeadManage = () => {
                 </div>
               )}
             </div>
+
+            {/* KYC */}
+            <select
+              value={kycFilter}
+              onChange={(e) => setKycFilter(e.target.value)}
+              className="px-4 py-3 border rounded-lg"
+              title="Filter by KYC status"
+            >
+              <option value="All">All KYC</option>
+              <option value="Completed">KYC Completed</option>
+              <option value="Pending">KYC Pending</option>
+            </select>
 
             {/* Source */}
             <select
@@ -622,8 +640,8 @@ const LeadManage = () => {
               key={i}
               onClick={() => setCurrentPage(i + 1)}
               className={`px-3 py-1 border rounded ${currentPage === i + 1
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
                 }`}
             >
               {i + 1}

@@ -153,6 +153,13 @@ export default function SuperDashboard() {
             </div>
         </div>
     )
+    // Custom titles for top cards
+    const TITLE_MAP = {
+        new_leads_today: 'Upload Leads Today',
+        new_leads_this_week: 'Upload Leads This Week',
+        new_leads_this_month: 'Upload Leads This Month',
+    };
+
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -212,47 +219,72 @@ export default function SuperDashboard() {
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Key Metrics</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {Object.entries(overall_stats).map(([key, value]) => (
-                            <StatCard
-                                key={key}
-                                title={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                value={value}
-                                icon={
-                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                    </svg>
-                                }
-                                color="blue"
-                            />
-                        ))}
+                        {Object.entries(overall_stats)
+                            // 1) remove conversion_rate card
+                            .filter(([key]) => key !== 'conversion_rate')
+                            // 2) remap titles: new_leads_* → upload_leads_*
+                            .map(([key, value]) => {
+                                const remappedKey = key.startsWith('new_leads')
+                                    ? key.replace(/^new_leads/, 'upload_leads')
+                                    : key;
+
+                                const title = remappedKey
+                                    .replace(/_/g, ' ')
+                                    .replace(/\b\w/g, (l) => l.toUpperCase()); // → "Upload Leads Today", etc.
+
+                                return (
+                                    <StatCard
+                                        key={key}
+                                        title={title}
+                                        value={value}
+                                        icon={
+                                            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                            </svg>
+                                        }
+                                        color="blue"
+                                    />
+                                );
+                            })}
+
                     </div>
                 </div>
 
                 {/* Payment Stats */}
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Financial Overview</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {Object.entries(payment_stats).map(([key, value]) => (
-                            <StatCard
-                                key={key}
-                                title={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                value={Number(value).toFixed(2)}  // ✅ format to 2 decimal places
-                                icon={
-                                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                                    </svg>
-                                }
-                                color="green"
-                            />
-                        ))}
-                    </div>
-                </div>
+               <div>
+    <h2 className="text-xl font-semibold text-gray-900 mb-4">Financial Overview</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Object.entries(payment_stats)
+            // remove unwanted keys
+            .filter(([key]) => !['average_payment_amount', 'successful_payments', 'failed_payments', 'revenue_this_month'].includes(key))
+            .map(([key, value]) => {
+                let titleText = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                if (key === 'total_payments') {
+                    titleText = 'Daily Payments';
+                }
+                return (
+                    <StatCard
+                        key={key}
+                        title={titleText}
+                        value={Number(value).toFixed(2)}
+                        icon={
+                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                        }
+                        color="green"
+                    />
+                );
+            })}
+    </div>
+</div>
+
 
 
                 {/* Charts Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Daily Trends Chart */}
-                 
+
 
                     {/* Lead Source Performance Table */}
                     {data.source_analytics && data.source_analytics.length > 0 && (
@@ -267,9 +299,8 @@ export default function SuperDashboard() {
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Leads</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Converted</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Leads</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversion %</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -277,9 +308,10 @@ export default function SuperDashboard() {
                                             <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
                                                 <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{source.source_name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-blue-700">{source.total_leads}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-green-700">{source.converted_leads}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-orange-700">
+                                                    {source.total_leads - source.converted_leads}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-gray-900">₹{source.total_revenue}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{source.conversion_rate}%</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -287,6 +319,7 @@ export default function SuperDashboard() {
                             </div>
                         </div>
                     )}
+
 
                     {/* Response Distribution Table */}
                     {data.response_analytics && data.response_analytics.length > 0 && (
@@ -553,142 +586,142 @@ export default function SuperDashboard() {
                     </div>
                 </div>
 
-                   {data.daily_trends && data.daily_trends.length > 0 && (
-                        <div className="lg:col-span-2">
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-xl font-semibold text-gray-900">Daily Performance Trends</h2>
-                                    <div className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full font-medium">
-                                        Last 30 Days
-                                    </div>
-                                </div>
-                                <div className="h-80">
-                                    <Line
-                                        data={{
-                                            labels: data.daily_trends.map(item => item.date),
-                                            datasets: [
-                                                {
-                                                    label: 'Leads Created',
-                                                    data: data.daily_trends.map(item => item.leads_created),
-                                                    borderColor: '#3b82f6',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#3b82f6',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                },
-                                                {
-                                                    label: 'Leads Called',
-                                                    data: data.daily_trends.map(item => item.leads_called),
-                                                    borderColor: '#f59e0b',
-                                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#f59e0b',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                },
-                                                {
-                                                    label: 'Payments Made',
-                                                    data: data.daily_trends.map(item => item.payments_made),
-                                                    borderColor: '#10b981',
-                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#10b981',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                },
-                                                {
-                                                    label: 'Revenue',
-                                                    data: data.daily_trends.map(item => item.revenue),
-                                                    borderColor: '#ef4444',
-                                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                                    tension: 0.4,
-                                                    fill: true,
-                                                    pointRadius: 4,
-                                                    pointHoverRadius: 8,
-                                                    pointBackgroundColor: '#ef4444',
-                                                    pointBorderColor: '#ffffff',
-                                                    pointBorderWidth: 2,
-                                                    yAxisID: 'revenueAxis',
-                                                },
-                                            ],
-                                        }}
-                                        options={{
-                                            responsive: true,
-                                            maintainAspectRatio: false,
-                                            interaction: {
-                                                mode: 'index',
-                                                intersect: false,
-                                            },
-                                            plugins: {
-                                                legend: {
-                                                    position: 'top',
-                                                    labels: {
-                                                        usePointStyle: true,
-                                                        padding: 20,
-                                                    },
-                                                },
-                                                tooltip: {
-                                                    mode: 'index',
-                                                    intersect: false,
-                                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                                    titleColor: '#ffffff',
-                                                    bodyColor: '#ffffff',
-                                                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                                                    borderWidth: 1,
-                                                },
-                                            },
-                                            scales: {
-                                                y: {
-                                                    beginAtZero: true,
-                                                    title: {
-                                                        display: true,
-                                                        text: 'Counts',
-                                                        font: { weight: 'bold' },
-                                                    },
-                                                    ticks: {
-                                                        precision: 0,
-                                                    },
-                                                    grid: {
-                                                        color: 'rgba(0, 0, 0, 0.05)',
-                                                    },
-                                                },
-                                                revenueAxis: {
-                                                    position: 'right',
-                                                    beginAtZero: true,
-                                                    title: {
-                                                        display: true,
-                                                        text: 'Revenue (₹)',
-                                                        font: { weight: 'bold' },
-                                                    },
-                                                    grid: {
-                                                        drawOnChartArea: false,
-                                                    },
-                                                    ticks: {
-                                                        precision: 0,
-                                                    },
-                                                },
-                                                x: {
-                                                    grid: {
-                                                        color: 'rgba(0, 0, 0, 0.05)',
-                                                    },
-                                                },
-                                            },
-                                        }}
-                                    />
+                {data.daily_trends && data.daily_trends.length > 0 && (
+                    <div className="lg:col-span-2">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-semibold text-gray-900">Daily Performance Trends</h2>
+                                <div className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full font-medium">
+                                    Last 30 Days
                                 </div>
                             </div>
+                            <div className="h-80">
+                                <Line
+                                    data={{
+                                        labels: data.daily_trends.map(item => item.date),
+                                        datasets: [
+                                            {
+                                                label: 'Leads Created',
+                                                data: data.daily_trends.map(item => item.leads_created),
+                                                borderColor: '#3b82f6',
+                                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                tension: 0.4,
+                                                fill: true,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 8,
+                                                pointBackgroundColor: '#3b82f6',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                            },
+                                            {
+                                                label: 'Leads Called',
+                                                data: data.daily_trends.map(item => item.leads_called),
+                                                borderColor: '#f59e0b',
+                                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                                tension: 0.4,
+                                                fill: true,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 8,
+                                                pointBackgroundColor: '#f59e0b',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                            },
+                                            {
+                                                label: 'Payments Made',
+                                                data: data.daily_trends.map(item => item.payments_made),
+                                                borderColor: '#10b981',
+                                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                tension: 0.4,
+                                                fill: true,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 8,
+                                                pointBackgroundColor: '#10b981',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                            },
+                                            {
+                                                label: 'Revenue',
+                                                data: data.daily_trends.map(item => item.revenue),
+                                                borderColor: '#ef4444',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                                tension: 0.4,
+                                                fill: true,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 8,
+                                                pointBackgroundColor: '#ef4444',
+                                                pointBorderColor: '#ffffff',
+                                                pointBorderWidth: 2,
+                                                yAxisID: 'revenueAxis',
+                                            },
+                                        ],
+                                    }}
+                                    options={{
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        interaction: {
+                                            mode: 'index',
+                                            intersect: false,
+                                        },
+                                        plugins: {
+                                            legend: {
+                                                position: 'top',
+                                                labels: {
+                                                    usePointStyle: true,
+                                                    padding: 20,
+                                                },
+                                            },
+                                            tooltip: {
+                                                mode: 'index',
+                                                intersect: false,
+                                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                                titleColor: '#ffffff',
+                                                bodyColor: '#ffffff',
+                                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                                borderWidth: 1,
+                                            },
+                                        },
+                                        scales: {
+                                            y: {
+                                                beginAtZero: true,
+                                                title: {
+                                                    display: true,
+                                                    text: 'Counts',
+                                                    font: { weight: 'bold' },
+                                                },
+                                                ticks: {
+                                                    precision: 0,
+                                                },
+                                                grid: {
+                                                    color: 'rgba(0, 0, 0, 0.05)',
+                                                },
+                                            },
+                                            revenueAxis: {
+                                                position: 'right',
+                                                beginAtZero: true,
+                                                title: {
+                                                    display: true,
+                                                    text: 'Revenue (₹)',
+                                                    font: { weight: 'bold' },
+                                                },
+                                                grid: {
+                                                    drawOnChartArea: false,
+                                                },
+                                                ticks: {
+                                                    precision: 0,
+                                                },
+                                            },
+                                            x: {
+                                                grid: {
+                                                    color: 'rgba(0, 0, 0, 0.05)',
+                                                },
+                                            },
+                                        },
+                                    }}
+                                />
+                            </div>
                         </div>
-                    )}
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

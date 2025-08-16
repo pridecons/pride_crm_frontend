@@ -251,33 +251,33 @@ export default function SuperDashboard() {
                 </div>
 
                 {/* Payment Stats */}
-               <div>
-    <h2 className="text-xl font-semibold text-gray-900 mb-4">Financial Overview</h2>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {Object.entries(payment_stats)
-            // remove unwanted keys
-            .filter(([key]) => !['average_payment_amount', 'successful_payments', 'failed_payments', 'revenue_this_month'].includes(key))
-            .map(([key, value]) => {
-                let titleText = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                if (key === 'total_payments') {
-                    titleText = 'Daily Payments';
-                }
-                return (
-                    <StatCard
-                        key={key}
-                        title={titleText}
-                        value={Number(value).toFixed(2)}
-                        icon={
-                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                            </svg>
-                        }
-                        color="green"
-                    />
-                );
-            })}
-    </div>
-</div>
+                <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Financial Overview</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {Object.entries(payment_stats)
+                            // remove unwanted keys
+                            .filter(([key]) => !['average_payment_amount', 'successful_payments', 'failed_payments', 'revenue_this_month'].includes(key))
+                            .map(([key, value]) => {
+                                let titleText = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                if (key === 'total_payments') {
+                                    titleText = 'Daily Payments';
+                                }
+                                return (
+                                    <StatCard
+                                        key={key}
+                                        title={titleText}
+                                        value={Number(value).toFixed(2)}
+                                        icon={
+                                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                            </svg>
+                                        }
+                                        color="green"
+                                    />
+                                );
+                            })}
+                    </div>
+                </div>
 
 
 
@@ -396,7 +396,10 @@ export default function SuperDashboard() {
                                                         {b.converted_leads}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">₹{b.total_revenue}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                                                    ₹{Number(b.total_revenue).toFixed(2)}
+                                                </td>
+
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
                                                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
@@ -482,7 +485,7 @@ export default function SuperDashboard() {
                                                         {e.converted_leads}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">₹{e.total_revenue}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">₹{Number(e.total_revenue).toFixed(2)}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center">
                                                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2 max-w-16">
@@ -577,7 +580,7 @@ export default function SuperDashboard() {
                                                         {e.converted_leads}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">₹{e.total_revenue}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">₹{Number(e.total_revenue.toFixed(2))}</td>
                                             </tr>
                                         ))}
                                 </tbody>

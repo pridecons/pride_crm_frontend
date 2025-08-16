@@ -2,7 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
+import { FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
+import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
 
 const DEFAULT_LIMIT = 100;
@@ -34,6 +36,8 @@ export default function PaymentHistoryPage() {
     const [plans, setPlans] = useState([]);
     const [plan, setPlan] = useState("");
 
+    const [invoiceOpen, setInvoiceOpen] = useState(false);
+    const [selectedLeadId, setSelectedLeadId] = useState(null);
     // ===== Global Client Search (name/email/phone) =====
     const [clientQuery, setClientQuery] = useState("");
     const [debouncedClientQuery, setDebouncedClientQuery] = useState(clientQuery);
@@ -66,7 +70,13 @@ export default function PaymentHistoryPage() {
     const [payments, setPayments] = useState([]);
     const [total, setTotal] = useState(0);
     const [error, setError] = useState("");
-
+    useEffect(() => {
+        // Fetch leads with payments (replace endpoint as needed)
+        axiosInstance
+            .get("/leads/with-payments")
+            .then((res) => setLeads(res.data || []))
+            .catch(() => setLeads([]));
+    }, []);
     // ===== Debouncers =====
     useEffect(() => {
         const t = setTimeout(() => setDebouncedClientQuery(clientQuery), 300);
@@ -613,6 +623,7 @@ export default function PaymentHistoryPage() {
                                 <th className="py-2 px-3 border-b font-semibold">Status</th>
                                 <th className="py-2 px-3 border-b font-semibold">Mode</th>
                                 <th className="py-2 px-3 border-b font-semibold">Date</th>
+                                <th className="py-2 px-3 border-b font-semibold">Invoice</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -653,9 +664,31 @@ export default function PaymentHistoryPage() {
                                     </td>
                                     <td className="py-2 px-3">{p.mode}</td>
                                     <td className="py-2 px-3">{new Date(p.created_at).toLocaleString()}</td>
+                                    <div className="flex items-center pt-5 gap-2">
+
+                                        <button
+                                            onClick={() => setSelectedLeadId(p.lead_id)}
+                                            className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            <span>Invoice</span>
+                                        </button>
+
+                                    </div>
+
                                 </tr>
                             ))}
                         </tbody>
+
+                        {/* Render modal once outside the table */}
+                        <InvoiceModal
+                            isOpen={!!selectedLeadId}
+                            onClose={() => setSelectedLeadId(null)}
+                            leadId={selectedLeadId}
+                        />
+
+
+
                     </table>
 
                     <div className="flex justify-between items-center py-4">

@@ -167,7 +167,7 @@ export default function Sidebar({ branchId, onClose }) {
     {
       title: 'Researcher',
       items: [
-        { href: '/rational', icon: BarChart3, label: 'Rationals' },
+        { href: '/rational', icon: BarChart3, label: 'Messanger' },
       ],
     },
     {

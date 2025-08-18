@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { axiosInstance, BASE_URL } from '@/api/Axios';
 import { Calendar, BarChart3, PieChart, Target, TrendingUp, Users, ArrowDownToLine } from 'lucide-react';
 import { usePermissions } from '@/context/PermissionsContext';
+import { ChevronDown, ChevronUp, FileDown, FileSpreadsheet } from "lucide-react";
+import Cookies from 'js-cookie';
+import { jwtDecode } from 'jwt-decode';
 
 const API_URL = '/recommendations/';
 
@@ -16,6 +19,9 @@ export default function RationalPage() {
   const [rationalList, setRationalList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showXlsxModal, setShowXlsxModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [modalImage, setModalImage] = useState(null);
@@ -33,6 +39,33 @@ export default function RationalPage() {
     graph: null,
   });
   const [selectedDate, setSelectedDate] = useState('');
+
+  const [dateFrom, setDateFrom] = useState(''); // e.g. "2025-08-14"
+  const [dateTo, setDateTo] = useState('');
+
+  const handlePdfClick = () => {
+    setIsOpen(false);
+    setShowPdfModal(true);
+  };
+
+  const [excelFrom, setExcelFrom] = useState('');
+  const [excelTo, setExcelTo] = useState('');
+
+  const handleXlsxClick = () => {
+    setIsOpen(false);
+    setShowXlsxModal(true);
+  };
+
+
+  // Close dropdown when clicking outside
+  const handleClickOutside = () => {
+    setIsOpen(false);
+  };
+  useEffect(() => {
+    if (dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo)) {
+      setDateTo(dateFrom);
+    }
+  }, [dateFrom, dateTo]);
 
   const fetchRationals = async () => {
     try {
@@ -57,55 +90,53 @@ export default function RationalPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [openStatusDropdown]);
 
- const openModal = (item = null) => {
-  if (item) {
-    setEditId(item.id);
-    setIsEditMode(true);
-        let recommendationArray = [];
-    try {
-      recommendationArray = JSON.parse(item.recommendation_type);
-    } catch (err) {
-    // ✅ Normalize recommendation_type to always be an array
-    const recommendationArray = Array.isArray(item.recommendation_type)
-      ? item.recommendation_type
-      : item.recommendation_type
-      ? [item.recommendation_type]
-      : [];
+  const openModal = (item = null) => {
+    if (item) {
+      setEditId(item.id);
+      setIsEditMode(true);
+      let recommendationArray = [];
+      try {
+        recommendationArray = JSON.parse(item.recommendation_type);
+      } catch (err) {
+        // ✅ Normalize recommendation_type to always be an array
+        const recommendationArray = Array.isArray(item.recommendation_type)
+          ? item.recommendation_type
+          : item.recommendation_type
+            ? [item.recommendation_type]
+            : [];
+      }
+      setFormData({
+        stock_name: item.stock_name || '',
+        entry_price: item.entry_price || '',
+        stop_loss: item.stop_loss || '',
+        targets: item.targets || '',
+        targets2: item.targets2 || '',
+        targets3: item.targets3 || '',
+        rational: item.rational || '',
+        recommendation_type: recommendationArray,
+        graph: item.graph || null,
+        status: item.status || 'OPEN',
+      });
+    } else {
+      setEditId(null);
+      setIsEditMode(false);
+      setFormData({
+        stock_name: '',
+        entry_price: '',
+        stop_loss: '',
+        targets: '',
+        targets2: '',
+        targets3: '',
+        rational: '',
+        recommendation_type: [],
+        graph: null,
+        status: 'OPEN',
+      });
     }
-    setFormData({
-      stock_name: item.stock_name || '',
-      entry_price: item.entry_price || '',
-      stop_loss: item.stop_loss || '',
-      targets: item.targets || '',
-      targets2: item.targets2 || '',
-      targets3: item.targets3 || '',
-      rational: item.rational || '',
-      recommendation_type: recommendationArray,
-      graph: item.graph || null,
-      status: item.status || 'OPEN',
-    });
-  } else {
-    setEditId(null);
-    setIsEditMode(false);
-    setFormData({
-      stock_name: '',
-      entry_price: '',
-      stop_loss: '',
-      targets: '',
-      targets2: '',
-      targets3: '',
-      rational: '',
-      recommendation_type: [],
-      graph: null,
-      status: 'OPEN',
-    });
-  }
 
-  setImageError('');
-  setIsModalOpen(true);
-};
-
-
+    setImageError('');
+    setIsModalOpen(true);
+  };
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
@@ -159,103 +190,103 @@ export default function RationalPage() {
     setModalImage(null);
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setImageError('');
-  setIsEditMode(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setImageError('');
+    setIsEditMode(false);
 
-  const {
-    stock_name,
-    entry_price,
-    stop_loss,
-    targets,
-    targets2,
-    targets3,
-    rational,
-    recommendation_type,
-    graph,
-    status,
-  } = formData;
+    const {
+      stock_name,
+      entry_price,
+      stop_loss,
+      targets,
+      targets2,
+      targets3,
+      rational,
+      recommendation_type,
+      graph,
+      status,
+    } = formData;
 
-  // 🐛 DEBUG: Check what we have before processing
-  console.log('🔍 Original recommendation_type:', recommendation_type);
-  console.log('🔍 Is array?', Array.isArray(recommendation_type));
-  console.log('🔍 Length:', recommendation_type?.length);
+    // 🐛 DEBUG: Check what we have before processing
+    console.log('🔍 Original recommendation_type:', recommendation_type);
+    console.log('🔍 Is array?', Array.isArray(recommendation_type));
+    console.log('🔍 Length:', recommendation_type?.length);
 
-  // ✅ Validate image only on new entries
-  if (!editId && !graph) {
-    setImageError('Please select an image to upload');
-    return;
-  }
+    // ✅ Validate image only on new entries
+    if (!editId && !graph) {
+      setImageError('Please select an image to upload');
+      return;
+    }
 
-  try {
-    let dataToSend;
-    let headers = {};
+    try {
+      let dataToSend;
+      let headers = {};
 
-    // ✅ Normalize data
-    const cleanedData = {
-      stock_name: stock_name?.trim() || '',
-      entry_price: Number(entry_price),
-      stop_loss: Number(stop_loss),
-      targets: Number(targets),
-      targets2: Number(targets2),
-      targets3: Number(targets3),
-      rational: rational?.trim() || '',
-      recommendation_type: JSON.stringify(recommendation_type),
-      status: status || 'OPEN',
-    };
+      // ✅ Normalize data
+      const cleanedData = {
+        stock_name: stock_name?.trim() || '',
+        entry_price: Number(entry_price),
+        stop_loss: Number(stop_loss),
+        targets: Number(targets),
+        targets2: Number(targets2),
+        targets3: Number(targets3),
+        rational: rational?.trim() || '',
+        recommendation_type: JSON.stringify(recommendation_type),
+        status: status || 'OPEN',
+      };
 
-    const isGraphFile = graph instanceof File;
+      const isGraphFile = graph instanceof File;
 
-    if (isGraphFile || (!editId && graph)) {
-      // ✅ Use FormData when uploading a file
-      dataToSend = new FormData();
+      if (isGraphFile || (!editId && graph)) {
+        // ✅ Use FormData when uploading a file
+        dataToSend = new FormData();
 
-      Object.entries(cleanedData).forEach(([key, value]) => {
-     if (Array.isArray(value)) {
-          // For other arrays
-          value.forEach((v) => dataToSend.append(key, v));
-        } else {
-          dataToSend.append(key, value);
+        Object.entries(cleanedData).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            // For other arrays
+            value.forEach((v) => dataToSend.append(key, v));
+          } else {
+            dataToSend.append(key, value);
+          }
+        });
+
+        // ✅ MISSING: Append the file
+        if (isGraphFile) {
+          dataToSend.append('graph', graph);
         }
-      });
 
-      // ✅ MISSING: Append the file
-      if (isGraphFile) {
-        dataToSend.append('graph', graph);
+        // 🐛 DEBUG: Log FormData contents
+        console.log('🔍 FormData contents:');
+        for (let pair of dataToSend.entries()) {
+          console.log(`${pair[0]}: ${pair[1]}`);
+        }
+
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        // ✅ MISSING: Use JSON if no new file
+        dataToSend = { ...cleanedData, graph };
+        console.log('🔍 JSON data being sent:', dataToSend);
+        headers['Content-Type'] = 'application/json';
       }
 
-      // 🐛 DEBUG: Log FormData contents
-      console.log('🔍 FormData contents:');
-      for (let pair of dataToSend.entries()) {
-        console.log(`${pair[0]}: ${pair[1]}`);
+      // ✅ Submit via POST or PUT
+      if (editId) {
+        await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
+      } else {
+        await axiosInstance.post(API_URL, dataToSend, { headers });
       }
 
-      headers['Content-Type'] = 'multipart/form-data';
-    } else {
-      // ✅ MISSING: Use JSON if no new file
-      dataToSend = { ...cleanedData, graph };
-      console.log('🔍 JSON data being sent:', dataToSend);
-      headers['Content-Type'] = 'application/json';
+      setIsModalOpen(false);
+      fetchRationals(); // ✅ Refresh table
+    } catch (err) {
+      if (err.response?.status === 422) {
+        console.error('Validation error:', err.response.data);
+      } else {
+        console.error('Submit failed:', err);
+      }
     }
-
-    // ✅ Submit via POST or PUT
-    if (editId) {
-      await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
-    } else {
-      await axiosInstance.post(API_URL, dataToSend, { headers });
-    }
-
-    setIsModalOpen(false);
-    fetchRationals(); // ✅ Refresh table
-  } catch (err) {
-    if (err.response?.status === 422) {
-      console.error('Validation error:', err.response.data);
-    } else {
-      console.error('Submit failed:', err);
-    }
-  }
-};
+  };
 
 
   const getRecommendationBadge = (type) => {
@@ -268,21 +299,26 @@ export default function RationalPage() {
     return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const formattedDate = selectedDate
-    ? new Date(selectedDate).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-    : '';
-
   const filteredData = rationalList.filter((item) => {
-    const stockMatch = item.stock_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const dateMatch = selectedDate
-      ? new Date(item.created_at).toLocaleDateString() ===
-      new Date(selectedDate).toLocaleDateString()
-      : true;
-    return stockMatch && dateMatch;
+    const stockMatch = item.stock_name?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    // If no date filters, just return stock match
+    if (!dateFrom && !dateTo) return stockMatch;
+
+    const itemDate = new Date(item.created_at); // assumes ISO string from API
+    const start = dateFrom ? new Date(dateFrom) : null;
+    const end = dateTo ? new Date(dateTo) : null;
+
+    // normalize to local start/end of day to include full dates
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const inRange =
+      (!start || itemDate >= start) &&
+      (!end || itemDate <= end);
+
+    return stockMatch && inRange;
   });
 
   const statusOptions = [
@@ -324,37 +360,58 @@ export default function RationalPage() {
                 className="pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
-
-            {/* Date Picker */}
-            <div className="w-full sm:w-64">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {selectedDate && (
-                <span className="text-sm text-gray-600 mt-1 block">
-                  Selected:{" "}
-                  {new Date(selectedDate).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-              )}
-            </div>
           </div>
 
           {/* Buttons */}
           <div className="flex flex-row gap-3 mt-4 md:mt-0">
-            <div >
-              <ExportPdfModal />
-            </div>
+            <div className="relative inline-block text-left">
+              {/* Download Button */}
+              <button
+                onClick={() => setIsOpen((prev) => !prev)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+              >
+                Download
+                <ChevronDown
+                  size={16}
+                  className={`transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-            <div >
-              <ExportXlsxModal />
+              {/* Dropdown */}
+              {isOpen && (
+                <>
+                  {/* Backdrop to close dropdown */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={handleClickOutside}
+                  />
+
+                  <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="divide-y divide-gray-100">
+                      <button
+                        className="w-full px-4 py-2 flex items-center gap-2 hover:bg-gray-50 cursor-pointer text-left transition-colors"
+                        onClick={handlePdfClick}
+                      >
+                        <FileDown size={16} className="text-red-500" />
+                        Download PDF
+                      </button>
+
+                      <button
+                        className="w-full px-4 py-2 flex items-center gap-2 hover:bg-gray-50 cursor-pointer text-left transition-colors"
+                        onClick={handleXlsxClick}
+                      >
+                        <FileSpreadsheet size={16} className="text-green-500" />
+                        Download XLSX
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+            {/* Render modals conditionally */}
+            {showPdfModal && <ExportPdfModal onClose={() => setShowPdfModal(false)} open={showPdfModal} />}
+            {showXlsxModal && <ExportXlsxModal onClose={() => setShowXlsxModal(false)} open={showXlsxModal} />}
+
 
             {/* {hasPermission("rational_add_rational") &&  */}<div>
               <button
@@ -364,13 +421,52 @@ export default function RationalPage() {
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Rational
+                Recommendation
               </button>
             </div>
             {/* } */}
           </div>
 
         </div>
+        <div className="flex flex-col lg:flex-row items-center gap-4 sm:items-start mb-6 bg-white p-4 rounded-2xl shadow-md">
+          {/* Date From */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center text-gray-400 font-medium">
+            <span className="px-2 text-sm">to</span>
+          </div>
+
+          {/* Date To */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg shadow-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          {/* Clear Button */}
+          <button
+            type="button"
+            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors duration-200"
+          >
+            <ArrowDownToLine className="w-4 h-4" />
+            Clear
+          </button>
+        </div>
+
 
         <RationalTable
           rationalList={rationalList}
@@ -510,8 +606,8 @@ function RationalModal({
                 if (!isEditMode) setOpenDropdown(prev => !prev);
               }}
               className={`p-3 border border-black rounded-lg bg-white cursor-pointer transition-all duration-200 flex items-center justify-between ${isEditMode
-                  ? 'bg-gray-50 cursor-not-allowed text-gray-500'
-                  : ''
+                ? 'bg-gray-50 cursor-not-allowed text-gray-500'
+                : ''
                 }`}
             >
               <div className="flex flex-wrap gap-1">
@@ -604,7 +700,7 @@ function RationalModal({
             )}
           </div>
           <div className='col-span-2'>
-             <SmsTemplateSelector />
+            <SmsTemplateSelector />
           </div>
 
           {isEditMode && (
@@ -700,7 +796,7 @@ function RationalModal({
 
           <div className="md:col-span-2">
             <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition-colors duration-150">
-              {editId ? 'Update Rational' : 'Create Rational'}
+              {editId ? 'Update Rational' : 'Submit'}
             </button>
           </div>
         </form>
@@ -915,8 +1011,17 @@ function RationalTable({
   openStatusDropdown,
   setOpenStatusDropdown,
   handleStatusChange,
-  statusOptions
+  statusOptions,
 }) {
+  const [expanded, setExpanded] = useState(new Set());
+
+  const toggleRow = (id) => {
+    const next = new Set(expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpanded(next);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -926,130 +1031,180 @@ function RationalTable({
               <th className="text-left py-4 px-6 sticky left-0 bg-white z-10 shadow-right">Stock Name</th>
               <th className="text-left py-4 px-6">Entry Price</th>
               <th className="text-left py-4 px-6">Stop Loss</th>
-              <th className="text-left py-4 px-6">Target </th>
-              <th className="text-left py-4 px-6">Target 2</th>
-              <th className="text-left py-4 px-6">Target 3</th>
-              <th className="text-left py-4 px-6">Recommendation</th>
+              <th className="text-left py-4 px-6">Target</th>
               <th className="text-left py-4 px-6">Date</th>
-              <th className="text-left py-4 px-6">Rational</th>
-              <th className="text-center py-4 px-6">Actions</th>
               <th className="text-center py-4 px-6">Status</th>
-              <th className="text-center py-4 px-6">Graph</th>
-              <th className="text-center py-4 px-6">PDF</th>
+              <th className="text-center py-4 px-6">Action</th>
+
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100">
-            {filteredData.map((item) => (
-              <tr key={item.id}>
-                <td className="py-4 px-6 font-semibold sticky left-0 bg-white z-10 shadow-right uppercase">{item.stock_name}</td>
-                <td className="py-4 px-6">{item.entry_price}</td>
-                <td className="py-4 px-6">{item.stop_loss}</td>
-                <td className="py-4 px-6">{item.targets || '-'}</td>
-                <td className="py-4 px-6">{item.targets2 || '-'}</td>
-                <td className="py-4 px-6">{item.targets3 || '-'}</td>
-<td className="py-4 px-6">
-  {(() => {
-    const raw = item.recommendation_type;
-
-    if (!raw || raw.length === 0 || raw[0] === "[]") return null;
-
-    try {
-      if (Array.isArray(raw) && raw.every(r => typeof r === "string" && !r.includes("[") && !r.includes("]"))) {
-        return raw.join(", ");
-      }
-
-      const joined = raw.join('');
-      const fixed = joined.replace(/""/g, '","');
-      const parsed = JSON.parse(fixed);
-
-      if (Array.isArray(parsed)) {
-        return parsed.join(", ");
-      }
-
-      throw new Error("Invalid format");
-    } catch (err) {
-      return <span className="text-red-500 font-medium">Invalid data</span>;
-    }
-  })()}
-</td>
-                <td className="py-4 px-6">
-                  {item.created_at
-                    ? new Date(item.created_at).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })
-                    : '-'}
-                </td>
-                <td className="py-4 px-6">{item.rational || '-'}</td>
-                <td className="py-4 px-6 text-center">
-                  {!item.rational && (
-                    <button
-                      onClick={() => openModal(item)} // pass full object, not item.id
-                      className="text-blue-600 hover:underline text-sm"
-                    >
-                      Edit
-                    </button>
-                  )}
-                </td>
-
-
-                <td className="py-4 px-6 text-center relative">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
-                    }}
-                    className="text-sm text-blue-600 hover:underline focus:outline-none"
+            {filteredData.map((item) => {
+              const isOpen = expanded.has(item.id);
+              return (
+                <>
+                  {/* Main Row */}
+                  <tr
+                    key={item.id}
+                    className="hover:bg-slate-50 cursor-pointer"
+                    onClick={() => toggleRow(item.id)}
+                    aria-expanded={isOpen}
                   >
-                    {statusOptions.find((opt) => opt.value === item.status)?.label || item.status || 'N/A'}
-                  </button>
-
-                  {openStatusDropdown === item.id && item.status === 'OPEN' && (
-                    <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
-                      {statusOptions.map(({ label, value }) => (
-                        <div
-                          key={value}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange(item.id, value);
-                            setOpenStatusDropdown(null);
-                          }}
-                          className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === value
-                            ? 'bg-blue-50 text-blue-600 font-medium'
-                            : 'text-gray-700 hover:text-blue-600'
-                            }`}
-                        >
-                          {label}
-                          {item.status === value && <span className="ml-2">✓</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </td>
-
-                <td className="py-4 px-6 text-center">
-                  {item.graph ? (
-                    <button
-                      onClick={() => openImageModal(item.graph)}
-                      className="text-blue-600 hover:underline text-sm"
+                    <td className="py-4 px-6 font-semibold sticky left-0 bg-white z-10 shadow-right uppercase">
+                      <div className="flex items-center gap-2">
+                        {item.stock_name}
+                        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">{item.entry_price}</td>
+                    <td className="py-4 px-6">{item.stop_loss}</td>
+                    <td className="py-4 px-6">{item.targets || "-"}</td>
+                    <td className="py-4 px-6">
+                      {item.created_at
+                        ? new Date(item.created_at).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                        : "-"}
+                    </td>
+                    <td
+                      className="py-4 px-6 text-center relative"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      View
-                    </button>
-                  ) : (
-                    <span className="text-gray-400 text-sm">No Graph</span>
-                  )}
-                </td>
+                      <button
+                        onClick={() =>
+                          setOpenStatusDropdown(
+                            openStatusDropdown === item.id ? null : item.id
+                          )
+                        }
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        {
+                          statusOptions.find((opt) => opt.value === item.status)
+                            ?.label || item.status || "N/A"
+                        }
+                      </button>
 
-                <td className="py-4 px-6 text-center">
-                  {item.pdf ? <DownloadPDF id={item.id} /> : '-'}
-                </td>
-              </tr>
-            ))}
+                      {openStatusDropdown === item.id && item.status === "OPEN" && (
+                        <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
+                          {statusOptions.map(({ label, value }) => (
+                            <div
+                              key={value}
+                              onClick={() => {
+                                handleStatusChange(item.id, value);
+                                setOpenStatusDropdown(null);
+                              }}
+                              className={`px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${item.status === value
+                                ? "bg-blue-50 text-blue-600 font-medium"
+                                : "text-gray-700 hover:text-blue-600"
+                                }`}
+                            >
+                              {label}
+                              {item.status === value && <span className="ml-2">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 px-6"> {!item.rational && (
+                      <button
+                        onClick={() => openModal(item)}
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Edit
+                      </button>
+                    )}</td>
+                  </tr>
+
+                  {/* Accordion Row */}
+                  {isOpen && (
+                    <tr className="bg-slate-50">
+                      <td colSpan={6} className="px-6 py-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <p className="text-slate-500">Target 2</p>
+                            <p className="font-medium">{item.targets2 || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Target 3</p>
+                            <p className="font-medium">{item.targets3 || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Recommendation</p>
+                            <p className="font-medium">
+                              {(() => {
+                                const raw = item.recommendation_type;
+                                if (!raw || raw.length === 0 || raw[0] === "[]")
+                                  return "-";
+                                try {
+                                  if (
+                                    Array.isArray(raw) &&
+                                    raw.every(
+                                      (r) =>
+                                        typeof r === "string" &&
+                                        !r.includes("[") &&
+                                        !r.includes("]")
+                                    )
+                                  ) {
+                                    return raw.join(", ");
+                                  }
+                                  const joined = raw.join("");
+                                  const fixed = joined.replace(/""/g, '","');
+                                  const parsed = JSON.parse(fixed);
+                                  if (Array.isArray(parsed)) {
+                                    return parsed.join(", ");
+                                  }
+                                  throw new Error("Invalid format");
+                                } catch {
+                                  return "Invalid data";
+                                }
+                              })()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Rational</p>
+                            <p className="font-medium">{item.rational || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Graph</p>
+                            {item.graph ? (
+                              <button
+                                onClick={() => openImageModal(item.graph)}
+                                className="text-blue-600 hover:underline text-sm"
+                              >
+                                View
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">No Graph</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-slate-500">PDF</p>
+                            {item.pdf ? <DownloadPDF id={item.id} /> : "-"}
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Actions</p>
+
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
           </tbody>
         </table>
 
         {rationalList.length === 0 && (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">
+              No rationals found
+            </h3>
+          </div>
+        )}{rationalList.length === 0 && (
           <div className="text-center py-12">
             <h3 className="text-lg font-semibold text-slate-800 mb-2">No rationals found</h3>
             <p className="text-slate-600 mb-4">Add your first stock rational</p>
@@ -1145,7 +1300,7 @@ function DownloadPDF({ id, userId }) {
   );
 }
 
-function ExportPdfModal() {
+function ExportPdfModal({ open, onClose }) {
   const { hasPermission } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1167,6 +1322,15 @@ function ExportPdfModal() {
       [name]: value
     }));
   };
+
+  // Fix: Update internal state when external prop changes
+  useEffect(() => {
+    setIsOpen(open);
+  }, [open]);
+
+  useEffect(() => {
+    console.log("Dropdown is now:", isOpen ? "open" : "closed");
+  }, [isOpen]);
 
   // 🔽 Fetch researcher list when modal opens
   useEffect(() => {
@@ -1231,7 +1395,13 @@ function ExportPdfModal() {
     } finally {
       setLoading(false);
       setIsOpen(false);
+      if (onClose) onClose(); // Call parent's onClose
     }
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    if (onClose) onClose(); // Call parent's onClose
   };
 
   return (
@@ -1250,7 +1420,7 @@ function ExportPdfModal() {
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 max-w-3xl w-full shadow-lg relative">
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
               className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
             >
               &times;
@@ -1273,7 +1443,6 @@ function ExportPdfModal() {
                   </option>
                 ))}
               </select>
-
 
               <input
                 type="text"
@@ -1334,7 +1503,7 @@ function ExportPdfModal() {
 
             <div className="flex justify-end space-x-3 mt-6">
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="px-4 py-2 bg-gray-300 rounded-md"
               >
                 Cancel
@@ -1353,10 +1522,8 @@ function ExportPdfModal() {
     </>
   );
 }
-
-function ExportXlsxModal() {
+function ExportXlsxModal({ onClose }) {
   const { hasPermission } = usePermissions();
-  const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [researchers, setResearchers] = useState([]);
   const [filters, setFilters] = useState({
@@ -1366,7 +1533,7 @@ function ExportXlsxModal() {
     recommendation_type: '',
     date_from: '',
     date_to: '',
-    sort_order: '',
+    sort_order: 'desc', // Set default value
   });
 
   const handleChange = (e) => {
@@ -1377,7 +1544,7 @@ function ExportXlsxModal() {
     }));
   };
 
-  // 🔽 Fetch researcher list
+  // 🔽 Fetch researcher list on component mount
   useEffect(() => {
     const fetchResearchers = async () => {
       try {
@@ -1401,10 +1568,8 @@ function ExportXlsxModal() {
       }
     };
 
-    if (isOpen) {
-      fetchResearchers();
-    }
-  }, [isOpen]);
+    fetchResearchers();
+  }, []);
 
   const handleExport = async () => {
     if (!filters.sort_order) {
@@ -1444,139 +1609,130 @@ function ExportXlsxModal() {
       alert('Export failed. Please try again.');
     } finally {
       setLoading(false);
-      setIsOpen(false);
+      if (onClose) onClose(); // Close modal after export
     }
   };
 
+  const handleClose = () => {
+    if (onClose) onClose();
+  };
+
   return (
-    <>
-      {hasPermission("rational_export_xls") && <button
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
-      >
-        <div className='flex items-center gap-1'>
-          <ArrowDownToLine className="h-4" />
-          <div>XLSX</div>
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl p-6 max-w-3xl w-full shadow-lg relative">
+        <button
+          onClick={handleClose}
+          className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
+        >
+          &times;
+        </button>
+
+        <h2 className="text-lg font-semibold mb-4">
+          Export Recommendations (XLSX)
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {/* ✅ Researcher Dropdown */}
+          <select
+            name="user_id"
+            value={filters.user_id}
+            onChange={handleChange}
+            className="border rounded px-3 py-2 text-sm"
+          >
+            <option value="">All Researchers</option>
+            {researchers.map((user) => (
+              <option key={user.employee_code} value={user.employee_code}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="text"
+            name="stock_name"
+            value={filters.stock_name}
+            onChange={handleChange}
+            placeholder="Stock Name"
+            className="border rounded px-3 py-2 text-sm"
+          />
+
+          <select
+            name="status"
+            value={filters.status}
+            onChange={handleChange}
+            className="border rounded px-3 py-2 text-sm"
+          >
+            <option value="">All Statuses</option>
+            <option value="OPEN">OPEN</option>
+            <option value="TARGET1_HIT">TARGET1_HIT</option>
+            <option value="TARGET2_HIT">TARGET2_HIT</option>
+            <option value="TARGET3_HIT">TARGET3_HIT</option>
+            <option value="STOP_LOSS_HIT">STOP_LOSS_HIT</option>
+            <option value="CLOSED">CLOSED</option>
+          </select>
+
+          <select
+            name="recommendation_type"
+            value={filters.recommendation_type}
+            onChange={handleChange}
+            className="border rounded px-3 py-2 text-sm"
+          >
+            <option value="">All Types</option>
+            <option value="Equity Cash">Equity Cash</option>
+            <option value="Stock Future">Stock Future</option>
+            <option value="Index Future">Index Future</option>
+            <option value="Stock Option">Stock Option</option>
+            <option value="MCX Bullion">MCX Bullion</option>
+            <option value="MCX Base Metal">MCX Base Metal</option>
+            <option value="MCX Energy">MCX Energy</option>
+          </select>
+
+          <input
+            type="date"
+            name="date_from"
+            value={filters.date_from}
+            onChange={handleChange}
+            className="border rounded px-3 py-2 text-sm"
+          />
+
+          <input
+            type="date"
+            name="date_to"
+            value={filters.date_to}
+            onChange={handleChange}
+            className="border rounded px-3 py-2 text-sm"
+          />
+
+          <select
+            name="sort_order"
+            value={filters.sort_order}
+            onChange={handleChange}
+            className="border rounded px-3 py-2 text-sm"
+            required
+          >
+            <option value="desc">asc</option>
+            <option value="asc">desc</option>
+          </select>
+
         </div>
-      </button>}
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 max-w-3xl w-full shadow-lg relative">
-            <button
-              onClick={() => setIsOpen(false)}
-              className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
-            >
-              &times;
-            </button>
-
-            <h2 className="text-lg font-semibold mb-4">
-              Export Recommendations (XLSX)
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {/* ✅ Researcher Dropdown */}
-              <select
-                name="user_id"
-                value={filters.user_id}
-                onChange={handleChange}
-                className="border rounded px-3 py-2 text-sm"
-              >
-                <option value="">All Researchers</option>
-                {researchers.map((user) => (
-                  <option key={user.employee_code} value={user.employee_code}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="text"
-                name="stock_name"
-                value={filters.stock_name}
-                onChange={handleChange}
-                placeholder="Stock Name"
-                className="border rounded px-3 py-2 text-sm"
-              />
-
-              <select
-                name="status"
-                value={filters.status}
-                onChange={handleChange}
-                className="border rounded px-3 py-2 text-sm"
-              >
-                <option value="">All Statuses</option>
-                <option value="OPEN">OPEN</option>
-                <option value="TARGET1_HIT">TARGET1_HIT</option>
-                <option value="TARGET2_HIT">TARGET2_HIT</option>
-                <option value="TARGET3_HIT">TARGET3_HIT</option>
-                <option value="STOP_LOSS_HIT">STOP_LOSS_HIT</option>
-                <option value="CLOSED">CLOSED</option>
-              </select>
-
-              <select
-                name="recommendation_type"
-                value={filters.recommendation_type}
-                onChange={handleChange}
-                className="border rounded px-3 py-2 text-sm"
-              >
-                <option value="">All Types</option>
-                <option value="Equity Cash">Equity Cash</option>
-                <option value="Stock Future">Stock Future</option>
-                <option value="Index Future">Index Future</option>
-                <option value="Stock Option">Stock Option</option>
-                <option value="MCX Bullion">MCX Bullion</option>
-                <option value="MCX Base Metal">MCX Base Metal</option>
-                <option value="MCX Energy">MCX Energy</option>
-              </select>
-
-              <input
-                type="date"
-                name="date_from"
-                value={filters.date_from}
-                onChange={handleChange}
-                className="border rounded px-3 py-2 text-sm"
-              />
-
-              <input
-                type="date"
-                name="date_to"
-                value={filters.date_to}
-                onChange={handleChange}
-                className="border rounded px-3 py-2 text-sm"
-              />
-
-              <select
-                name="sort_order"
-                value={filters.sort_order}
-                onChange={handleChange}
-                className="border rounded px-3 py-2 text-sm"
-                required
-              >
-                <option value="asc">asc</option>
-                <option value="desc">desc</option>
-              </select>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="px-4 py-2 bg-gray-300 rounded-md"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-green-600 text-white rounded-md"
-                disabled={loading}
-              >
-                {loading ? 'Exporting...' : 'Export'}
-              </button>
-            </div>
-          </div>
+        <div className="flex justify-end space-x-3 mt-6">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 bg-gray-300 rounded-md"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 bg-green-600 text-white rounded-md"
+            disabled={loading}
+          >
+            {loading ? 'Exporting...' : 'Export'}
+          </button>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -1630,8 +1786,8 @@ function SmsTemplateSelector() {
           <textarea
             className="p-3 border border-gray-300 rounded-lg bg-gray-50 w-full h-32 text-sm text-gray-800"
             value={selectedTemplateBody}
-            onChange={(e)=>setSelectedTemplateBody(e.target.value)}
-            
+            onChange={(e) => setSelectedTemplateBody(e.target.value)}
+
           />
         </>
       )}

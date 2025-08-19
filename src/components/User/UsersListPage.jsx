@@ -6,8 +6,6 @@ import { Users } from "lucide-react";
 import StatsCards from "./StatsCards";
 import UserFilters from "./UserFilters";
 import UserTable from "./UserTable";
-import AddUserModal from "./AddUserModal";
-import EditUserModal from "./EditUserModal";
 import UserDetailsModal from "./UserDetailsModal";
 import UserPermissionsModal from "./UserPermissionsModal";
 import toast from "react-hot-toast";
@@ -158,27 +156,6 @@ export default function UsersListPage() {
                 />
 
                 {/* Modals */}
-                {/* <AddUserModal
-                    isOpen={isAddModalOpen}
-                    onClose={() => setIsAddModalOpen(false)}
-                    roles={roles}
-                    branches={branches}
-                    onUserAdded={(createdUser) => {
-                        fetchUsers();
-                        setPermissionsUser(createdUser);
-                    }}
-                />
-                <EditUserModal
-                    isOpen={!!editingUser}
-                    onClose={() => setEditingUser(null)}
-                    user={editingUser}
-                    roles={roles}
-                    branches={branches}
-                    onUserUpdated={(updatedUser) => {
-                        fetchUsers();
-                        setPermissionsUser(updatedUser); // ✅ Open permissions modal after update
-                    }}
-                /> */}
                 <UserDetailsModal
                     isOpen={!!detailsUser}
                     onClose={() => setDetailsUser(null)}

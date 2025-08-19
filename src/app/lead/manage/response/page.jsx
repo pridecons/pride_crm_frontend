@@ -78,11 +78,7 @@ export default function LeadResponsesPage() {
           lead_limit: Number(form.lead_limit),
         });
         toast.success("Response created!");
-        if (confirm("Create another?")) {
-          setForm({ name: "", lead_limit: "" });
-          await fetchResponses();
-          return;
-        }
+
       }
       resetForm();
       await fetchResponses();
@@ -213,7 +209,7 @@ export default function LeadResponsesPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, name: e.target.value }))
                   }
-                  className="mt-1 block w-full border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500"
                 />
               </div>
               <div>
@@ -228,7 +224,7 @@ export default function LeadResponsesPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, lead_limit: e.target.value }))
                   }
-                  className="mt-1 block w-full border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500"
                 />
               </div>
             </div>
@@ -267,7 +263,7 @@ export default function LeadResponsesPage() {
             placeholder="Search responses..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border-gray-300 rounded-md w-64 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-64 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
       </div>

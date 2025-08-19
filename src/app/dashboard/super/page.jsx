@@ -277,6 +277,84 @@ export default function SuperDashboard() {
                                 );
                             })}
                     </div>
+
+                    {/* Financial Overview → Bar chart (ADD this block) */}
+{Array.isArray(data?.daily_trends) && data.daily_trends.length > 0 && (
+  <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold text-gray-900">
+        Payments & Revenue (Last 30 Days)
+      </h3>
+      <span className="text-xs text-gray-500">Bar Chart</span>
+    </div>
+
+    <div className="h-80">
+      <Bar
+        data={{
+          labels: data.daily_trends.map((d) => d.date),
+          datasets: [
+            {
+              label: 'Payments Made',
+              data: data.daily_trends.map((d) => d.payments_made),
+              backgroundColor: 'rgba(16, 185, 129, 0.6)', // teal
+              borderWidth: 0,
+              yAxisID: 'y',
+            },
+            {
+              label: 'Revenue (₹)',
+              data: data.daily_trends.map((d) => d.revenue),
+              backgroundColor: 'rgba(59, 130, 246, 0.5)', // blue
+              borderWidth: 0,
+              yAxisID: 'y1',
+            },
+          ],
+        }}
+        options={{
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const label = ctx.dataset.label || '';
+                  const val = ctx.parsed.y;
+                  if (label.includes('Revenue')) {
+                    return `${label}: ₹${Number(val).toLocaleString('en-IN')}`;
+                  }
+                  return `${label}: ${val}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxRotation: 0, autoSkip: true },
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Payments (count)' },
+              grid: { color: 'rgba(0,0,0,0.05)' },
+            },
+            y1: {
+              position: 'right',
+              beginAtZero: true,
+              title: { display: true, text: 'Revenue (₹)' },
+              grid: { drawOnChartArea: false },
+              ticks: {
+                callback: (value) =>
+                  '₹' + new Intl.NumberFormat('en-IN').format(value),
+              },
+            },
+          },
+        }}
+      />
+    </div>
+  </div>
+)}
+
                 </div>
 
 

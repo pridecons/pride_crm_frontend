@@ -74,8 +74,8 @@ export default function PaymentHistoryPage() {
         // Fetch leads with payments (replace endpoint as needed)
         axiosInstance
             .get("/leads/with-payments")
-            .then((res) => setLeads(res.data || []))
-            .catch(() => setLeads([]));
+            .then((res) => setPayments(res.data || []))
+            .catch(() => setPayments([]));
     }, []);
     // ===== Debouncers =====
     useEffect(() => {
@@ -664,7 +664,7 @@ export default function PaymentHistoryPage() {
                                     </td>
                                     <td className="py-2 px-3">{p.mode}</td>
                                     <td className="py-2 px-3">{new Date(p.created_at).toLocaleString()}</td>
-                                    <div className="flex items-center pt-5 gap-2">
+                                    <td><div className="flex items-center pt-5 gap-2">
 
                                         <button
                                             onClick={() => setSelectedLeadId(p.lead_id)}
@@ -674,11 +674,13 @@ export default function PaymentHistoryPage() {
                                             <span>Invoice</span>
                                         </button>
 
-                                    </div>
+                                    </div></td>
+
 
                                 </tr>
                             ))}
                         </tbody>
+                    </table>
 
                         {/* Render modal once outside the table */}
                         <InvoiceModal
@@ -686,10 +688,6 @@ export default function PaymentHistoryPage() {
                             onClose={() => setSelectedLeadId(null)}
                             leadId={selectedLeadId}
                         />
-
-
-
-                    </table>
 
                     <div className="flex justify-between items-center py-4">
                         <span className="text-gray-600">

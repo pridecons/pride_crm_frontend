@@ -1,34 +1,44 @@
 // hooks/useFTAndCallbackPatch.js
-import { useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 
 export function useFTAndCallbackPatch({ responses, onPatched }) {
-  // Modal states
+  // Modals + state
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftLead, setFTLead] = useState(null);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
+
   const [showCallBackModal, setShowCallBackModal] = useState(false);
   const [callBackLead, setCallBackLead] = useState(null);
   const [callBackDate, setCallBackDate] = useState("");
 
-  // Open FT modal and assign state
+  // Remember previous response id to revert on cancel
+  const prevResponseRef = useRef(null);
+
+  const findIdByName = useCallback(
+    (name) =>
+      responses.find((r) => r.name?.toLowerCase() === name)?.id,
+    [responses]
+  );
+
   const openFTModal = (lead) => {
+    prevResponseRef.current = lead.lead_response_id;
     setFTLead(lead);
     setFTFromDate("");
     setFTToDate("");
     setShowFTModal(true);
   };
 
-  // Open CallBack modal and assign state
   const openCallBackModal = (lead) => {
+    prevResponseRef.current = lead.lead_response_id;
     setCallBackLead(lead);
     setCallBackDate("");
     setShowCallBackModal(true);
   };
 
-  // Called by onSave in FTModal
+  // ---- Save handlers (patch + close) ----
   const saveFT = async () => {
     if (!ftFromDate || !ftToDate) {
       toast.error("Both dates required");
@@ -36,77 +46,96 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
     }
     try {
       await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-        lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+        lead_response_id: findIdByName("ft"),
+        // input is YYYY-MM-DD; API expects DD-MM-YYYY
         ft_from_date: ftFromDate.split("-").reverse().join("-"),
         ft_to_date: ftToDate.split("-").reverse().join("-"),
       });
       toast.success("FT response and dates saved!");
       onPatched?.();
-      setShowFTModal(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to save FT response");
+    } finally {
+      setShowFTModal(false);
+      prevResponseRef.current = null;
     }
   };
 
-  // Called by onSave in CallBackModal
   const saveCallBack = async () => {
     if (!callBackDate) {
       toast.error("Call back date is required");
       return;
     }
+    const cbId = findIdByName("call back") ?? findIdByName("callback");
     try {
       await axiosInstance.patch(`/leads/${callBackLead.id}/response`, {
-        lead_response_id: responses.find(
-          (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
-        )?.id,
+        lead_response_id: cbId,
         call_back_date: new Date(callBackDate).toISOString(),
       });
       toast.success("Call Back response and date saved!");
       onPatched?.();
-      setShowCallBackModal(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to save Call Back response");
+    } finally {
+      setShowCallBackModal(false);
+      prevResponseRef.current = null;
     }
   };
 
-  // Central handler: on response change, show appropriate modal or patch directly
-  const handleResponseChange = (lead, newResponseId) => {
-    const selectedResponse = responses.find((r) => r.id == newResponseId);
-    const responseName = selectedResponse?.name?.toLowerCase();
+  // ---- Cancel handlers (close + give previous id so caller can revert UI) ----
+  const cancelFT = () => {
+    const prev = prevResponseRef.current;
+    setShowFTModal(false);
+    return prev;
+  };
 
-    if (responseName === "ft") {
-      openFTModal(lead);
-    } else if (responseName === "call back" || responseName === "callback") {
-      openCallBackModal(lead);
-    } else {
-      // Direct PATCH for all other responses
-      axiosInstance
-        .patch(`/leads/${lead.id}/response`, { lead_response_id: parseInt(newResponseId) })
-        .then(() => {
-          toast.success("Response updated!");
-          onPatched?.();
-        })
-        .catch(() => {
-          toast.error("Failed to update response!");
-        });
-    }
+  const cancelCallBack = () => {
+    const prev = prevResponseRef.current;
+    setShowCallBackModal(false);
+    return prev;
+  };
+
+  // Central handler: open modal for FT/Callback, else patch immediately
+  const handleResponseChange = (lead, newResponseId) => {
+    const selected = responses.find((r) => r.id == newResponseId);
+    const name = selected?.name?.toLowerCase();
+
+    if (name === "ft") return openFTModal(lead);
+    if (name === "call back" || name === "callback") return openCallBackModal(lead);
+
+    axiosInstance
+      .patch(`/leads/${lead.id}/response`, { lead_response_id: parseInt(newResponseId) })
+      .then(() => {
+        toast.success("Response updated!");
+        onPatched?.();
+      })
+      .catch(() => toast.error("Failed to update response!"));
   };
 
   return {
+    // FT
     showFTModal,
     setShowFTModal,
     ftLead,
+    setFTLead,            // <-- exposed for your inline prefill
     ftFromDate,
     setFTFromDate,
     ftToDate,
     setFTToDate,
+
+    // Call Back
     showCallBackModal,
     setShowCallBackModal,
     callBackLead,
+    setCallBackLead,      // <-- exposed
     callBackDate,
     setCallBackDate,
+
+    // Actions
     handleResponseChange,
     saveFT,
     saveCallBack,
+    cancelFT,
+    cancelCallBack,
   };
 }

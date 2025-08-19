@@ -114,11 +114,6 @@ export default function Sidebar({ branchId, onClose }) {
       ],
     },
     {
-      items: [
-        { href: '/branch', icon: BarChart3, label: 'Branch', access: ["SUPERADMIN"] },
-      ],
-    },
-    {
       title: 'Leads',
       section: 'leads',
       icon: FileText,
@@ -134,6 +129,8 @@ export default function Sidebar({ branchId, onClose }) {
       section: 'configuration',
       icon: Settings,
       items: [
+        { href: '/branch', icon: BarChart3, label: 'Branch', access: ["SUPERADMIN"] },
+
         {
           title: 'Management',
           section: 'management',
@@ -141,7 +138,7 @@ export default function Sidebar({ branchId, onClose }) {
           items: [
             { href: '/lead/manage', icon: FileText, label: 'Manage Leads', access: ["BRANCH MANAGER", "SUPERADMIN"] },
             { href: '/lead/manage/source', icon: Target, label: 'Lead Source', access: [""] },
-            { href: '/lead/manage/respose', icon: Plus, label: 'Lead Response', access: [""] },
+            { href: '/lead/manage/response', icon: Plus, label: 'Lead Response', access: [""] },
             { href: '/lead/manage/fetch-limit', icon: FileText, label: 'Fetch Limit', access: ["BRANCH MANAGER", "SUPERADMIN"] },
             { href: '/lead/manage/lead-upload', icon: FileText, label: 'Lead Upload', access: ["BRANCH MANAGER", "SUPERADMIN"] },
           ],

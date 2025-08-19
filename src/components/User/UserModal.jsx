@@ -84,6 +84,12 @@ export default function UserModal({
         }
     };
 
+    // Helpers
+    const isValidAadhaar = (v = "") => {
+        // allow either 12 digits or 8 X's + 4 digits (case-insensitive)
+        return /^\d{12}$/.test(v) || /^[Xx]{8}\d{4}$/.test(v);
+    };
+
     // Initialize form when opening
     useEffect(() => {
         if (!isOpen) return;
@@ -233,8 +239,8 @@ export default function UserModal({
     const handleSubmit = async (e) => {
         e.preventDefault();
         // Simple validations
-        if (formData.aadhaar && !/^\d{12}$/.test(formData.aadhaar))
-            return toast.error("Aadhaar must be 12 digits");
+        if (formData.aadhaar && !isValidAadhaar(formData.aadhaar))
+            return toast.error("Aadhaar must be 12 digits or masked like XXXXXXXX1234");
         if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number))
             return toast.error("Phone must be 10 digits");
         if (!isEdit && !passwordRegex.test(formData.password))
@@ -291,8 +297,8 @@ export default function UserModal({
     if (!isOpen) return null;
 
     const aadhaarError =
-        formData.aadhaar.length > 0 && formData.aadhaar.length !== 12
-            ? "Must be 12 digits"
+        formData.aadhaar.length > 0 && !isValidAadhaar(formData.aadhaar)
+            ? "Enter 12 digits or masked like XXXXXXXX1234"
             : "";
     const phoneError =
         formData.phone_number.length > 0 &&
@@ -439,8 +445,9 @@ export default function UserModal({
                                         maxLength={12}
                                         value={formData.aadhaar}
                                         onChange={e => {
-                                            const digits = e.target.value.replace(/\D/g, "");
-                                            setFormData({ ...formData, aadhaar: digits.slice(0, 12) });
+                                            // keep only digits and X/x, force uppercase, limit to 12
+                                            const clean = e.target.value.replace(/[^0-9xX]/g, "").toUpperCase().slice(0, 12);
+                                            setFormData({ ...formData, aadhaar: clean });
                                         }}
                                         disabled={isPanVerified}
                                     />

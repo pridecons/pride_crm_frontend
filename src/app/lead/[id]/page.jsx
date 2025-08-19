@@ -128,18 +128,18 @@ const Lead = () => {
     showFTModal,
     setShowFTModal,
     ftLead,
+
     ftFromDate,
     setFTFromDate,
     ftToDate,
     setFTToDate,
     showCallBackModal,
     setShowCallBackModal,
+
     callBackLead,
     callBackDate,
     setCallBackDate,
-    handleResponseChange,
-    saveFT,
-    saveCallBack,
+    handleResponseChange, saveFT, saveCallBack, cancelFT, cancelCallBack,
   } = useFTAndCallbackPatch({
     responses: responseListForHook,
     onPatched: fetchCurrentLead,
@@ -382,13 +382,32 @@ const Lead = () => {
     try {
       setLoading(true);
       const updateData = { ...editFormData };
+      // Figure out which response name is selected
+   const respName = getResponseNameById(updateData.lead_response_id);
 
       if (updateData.dob) {
         updateData.dob = new Date(updateData.dob).toISOString().split("T")[0];
       }
-      if (updateData.call_back_date) {
-        updateData.call_back_date = new Date(updateData.call_back_date).toISOString();
-      }
+// Enforce dates for FT / Call Back, convert formats
+   if (respName === "ft") {
+     if (!updateData.ft_from_date || !updateData.ft_to_date) {
+       toast.error("Please set both FT From and FT To dates before saving.");
+       setLoading(false);
+       return;
+     }
+     // inputs are YYYY-MM-DD; API expects DD-MM-YYYY
+     updateData.ft_from_date = ymdToDmy(updateData.ft_from_date);
+     updateData.ft_to_date   = ymdToDmy(updateData.ft_to_date);
+   }
+
+   if (respName === "call back" || respName === "callback") {
+     if (!updateData.call_back_date) {
+       toast.error("Please set a Call Back date & time before saving.");
+       setLoading(false);
+       return;
+     }
+     updateData.call_back_date = new Date(updateData.call_back_date).toISOString();
+   }
 
       if (updateData.segment && typeof updateData.segment === "string") {
         updateData.segment = updateData.segment.split(",").map((s) => s.trim()).filter((s) => s);
@@ -504,6 +523,55 @@ const Lead = () => {
   }
   const displaySegment = parsedSegment.join(", ");
 
+  // Get response name by id (lowercased for comparisons)
+  const getResponseNameById = (id) => {
+    const match = leadResponses.find((r) => r.value === id || r.id === id);
+    return match?.label?.toLowerCase?.() ?? match?.name?.toLowerCase?.() ?? "";
+  };
+
+  // DMY -> YMD
+  const dmyToYmd = (dmy) => {
+    if (!dmy) return "";
+    const [dd, mm, yyyy] = dmy.split("-");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const ymdToDmy = (ymd) => {
+  if (!ymd) return "";
+  const [yyyy, mm, dd] = ymd.split("-");
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+  // Format ISO datetime to "YYYY-MM-DDTHH:MM" for <input type="datetime-local">
+  const isoToDatetimeLocal = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mmn = String(d.getMinutes()).padStart(2, "0");
+    return `${y}-${m}-${day}T${hh}:${mmn}`;
+  };
+
+  // Open FT modal prefilled from currentLead values
+  const handleEditFTInline = () => {
+
+    // API stores DMY; convert to input YMD
+    const ymdFrom = currentLead?.ft_from_date ? dmyToYmd(currentLead.ft_from_date) : "";
+    const ymdTo = currentLead?.ft_to_date ? dmyToYmd(currentLead.ft_to_date) : "";
+    setFTFromDate(ymdFrom);
+    setFTToDate(ymdTo);
+    setShowFTModal(true);
+  };
+
+  // Open Call Back modal prefilled from currentLead call_back_date (ISO)
+  const handleEditCallbackInline = () => {
+
+    setCallBackDate(isoToDatetimeLocal(currentLead?.call_back_date || ""));
+    setShowCallBackModal(true);
+  };
+
   // Loading State
   if (loading && !currentLead) {
     return <LoadingState />;
@@ -527,6 +595,57 @@ const Lead = () => {
           uncalledCount={uncalledCount}
           currentLead={currentLead}
         />
+
+        {/* Response-specific info block */}
+        {currentLead?.lead_response_id && (() => {
+          const respName = getResponseNameById(currentLead.lead_response_id);
+
+          if (respName === "ft") {
+            return (
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm flex items-center justify-between">
+                <div className="text-blue-900">
+                  <div className="font-semibold">Follow-Through (FT)</div>
+                  <div className="mt-1">
+                    <span className="font-medium">From:</span>{" "}
+                    {currentLead?.ft_from_date || "N/A"}{" "}
+                    <span className="font-medium ml-3">To:</span>{" "}
+                    {currentLead?.ft_to_date || "N/A"}
+                  </div>
+                </div>
+                <button
+                  onClick={handleEditFTInline}
+                  className="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Edit FT Dates
+                </button>
+              </div>
+            );
+          }
+
+          if (respName === "call back" || respName === "callback") {
+            return (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm flex items-center justify-between">
+                <div className="text-amber-900">
+                  <div className="font-semibold">Call Back</div>
+                  <div className="mt-1">
+                    <span className="font-medium">Call Back Date:</span>{" "}
+                    {currentLead?.call_back_date
+                      ? new Date(currentLead.call_back_date).toLocaleString()
+                      : "N/A"}
+                  </div>
+                </div>
+                <button
+                  onClick={handleEditCallbackInline}
+                  className="px-3 py-1.5 text-xs rounded bg-amber-600 text-white hover:bg-amber-700"
+                >
+                  Edit Call Back
+                </button>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
 
         {/* Error Alert */}
         {error && (
@@ -939,8 +1058,36 @@ const Lead = () => {
 
         <FTModal
           open={showFTModal}
-          onClose={() => setShowFTModal(false)}
-          onSave={saveFT}
+  onClose={() => {
+    const prev = cancelFT();
+    if (prev != null) {
+      setEditFormData((p) => ({ ...p, lead_response_id: prev }));
+    }
+  }}
+          onSave={async (payload) => {
+            try {
+              // get the FT response id (works whether items are {id,name} or {value,label})
+              const ftResp =
+                leadResponses.find(
+                  (r) => (r.label || r.name || "").toLowerCase() === "ft"
+                );
+              const ftResponseId = ftResp?.value ?? ftResp?.id;
+              if (!ftResponseId) throw new Error("FT response not found");
+
+              await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
+                lead_response_id: ftResponseId,
+                ft_from_date: payload.ft_from_date,     // already D-M-Y from FTModal
+                ft_to_date: payload.ft_to_date,         // already D-M-Y from FTModal
+                segment: payload.segment,               // e.g., "cash", "index_option", …
+                ft_service_type: payload.ft_service_type, // "call" | "sms"
+              });
+              toast.success("FT dates updated");
+              setShowFTModal(false);
+              fetchCurrentLead();
+            } catch (e) {
+              toast.error(e?.message || "Failed to save FT");
+            }
+          }}
           fromDate={ftFromDate}
           toDate={ftToDate}
           setFromDate={setFTFromDate}
@@ -948,8 +1095,33 @@ const Lead = () => {
         />
         <CallBackModal
           open={showCallBackModal}
-          onClose={() => setShowCallBackModal(false)}
-          onSave={saveCallBack}
+  onClose={() => {
+    const prev = cancelCallBack();
+    if (prev != null) {
+      setEditFormData((p) => ({ ...p, lead_response_id: prev }));
+    }
+  }}
+          onSave={async () => {
+            try {
+              if (!callBackDate) throw new Error("Call back date is required");
+              const cbResp = leadResponses.find((r) => {
+                const n = (r.label || r.name || "").toLowerCase();
+                return n === "call back" || n === "callback";
+              });
+              const cbResponseId = cbResp?.value ?? cbResp?.id;
+              if (!cbResponseId) throw new Error("Callback response not found");
+
+              await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
+                lead_response_id: cbResponseId,
+                call_back_date: new Date(callBackDate).toISOString(),
+              });
+              toast.success("Call back updated");
+              setShowCallBackModal(false);
+              fetchCurrentLead();
+            } catch (e) {
+              toast.error(e?.message || "Failed to save Call Back");
+            }
+          }}
           dateValue={callBackDate}
           setDateValue={setCallBackDate}
         />

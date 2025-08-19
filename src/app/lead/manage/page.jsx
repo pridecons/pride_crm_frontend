@@ -31,9 +31,16 @@ const LeadManage = () => {
   const [employees, setEmployees] = useState([]);
   const [sourcesList, setSourcesList] = useState([]);
   const [responsesList, setResponsesList] = useState([]);
-
-  // UI state
+  // Date 
+  const [data, setData] = useState({
+    source_analytics: [],
+    response_analytics: []
+  });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedSource, setSelectedSource] = useState("");
+  const [sources, setSources] = useState([]);
+
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,6 +57,7 @@ const LeadManage = () => {
   // Accordion
   const [openLead, setOpenLead] = useState(null);
 
+  const [dashboardData, setDashboardData] = useState(null);
   // Story & Comments modals
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [storyLeadId, setStoryLeadId] = useState(null);
@@ -247,6 +255,23 @@ const LeadManage = () => {
     setIsCommentModalOpen(true);
   };
 
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/analytics/leads/admin/dashboard-card?days=30"
+        );
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Failed to fetch dashboard data", error);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
       {/* Header */}
@@ -276,14 +301,16 @@ const LeadManage = () => {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Leads */}
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Total Leads</p>
-              <p className="text-3xl font-bold text-gray-900">{totalLeads}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {dashboardData?.overall?.total_leads ?? "--"}
+              </p>
               <p className="text-xs text-green-600 flex items-center gap-1">
-                <TrendingUp size={12} />
-                Active pipeline
+                <TrendingUp size={12} /> Active pipeline
               </p>
             </div>
             <div className="bg-blue-50 rounded-full p-3 group-hover:bg-blue-100 transition-colors">
@@ -292,14 +319,16 @@ const LeadManage = () => {
           </div>
         </div>
 
+        {/* Old Leads */}
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Pending</p>
-              <p className="text-3xl font-bold text-gray-900">{pendingLeads}</p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Old Leads</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {dashboardData?.overall?.old_leads ?? "--"}
+              </p>
               <p className="text-xs text-amber-600 flex items-center gap-1">
-                <Clock size={12} />
-                Awaiting action
+                <Clock size={12} /> Existing pipeline
               </p>
             </div>
             <div className="bg-amber-50 rounded-full p-3 group-hover:bg-amber-100 transition-colors">
@@ -308,14 +337,16 @@ const LeadManage = () => {
           </div>
         </div>
 
+        {/* New Leads */}
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Completed</p>
-              <p className="text-3xl font-bold text-gray-900">{completedLeads}</p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">New Leads</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {dashboardData?.overall?.new_leads ?? "--"}
+              </p>
               <p className="text-xs text-emerald-600 flex items-center gap-1">
-                <CheckCircle size={12} />
-                Successfully processed
+                <CheckCircle size={12} /> Recently added
               </p>
             </div>
             <div className="bg-emerald-50 rounded-full p-3 group-hover:bg-emerald-100 transition-colors">
@@ -324,14 +355,16 @@ const LeadManage = () => {
           </div>
         </div>
 
+        {/* Total Clients */}
         <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Sources</p>
-              <p className="text-3xl font-bold text-gray-900">{sourcesCount}</p>
+              <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Clients</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {dashboardData?.overall?.total_clients ?? "--"}
+              </p>
               <p className="text-xs text-purple-600 flex items-center gap-1">
-                <Database size={12} />
-                Active channels
+                <Database size={12} /> Converted leads
               </p>
             </div>
             <div className="bg-purple-50 rounded-full p-3 group-hover:bg-purple-100 transition-colors">
@@ -340,6 +373,10 @@ const LeadManage = () => {
           </div>
         </div>
       </div>
+
+
+      <DashboardTables />
+
 
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
@@ -675,3 +712,259 @@ const LeadManage = () => {
 };
 
 export default LeadManage;
+
+
+function DashboardTables() {
+  const [data, setData] = useState({
+    source_analytics: [],
+    response_analytics: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedSource, setSelectedSource] = useState("");
+  const [sources, setSources] = useState([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [applied, setApplied] = useState(false);
+
+  // fetch dashboard data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await axiosInstance.get(
+          `/analytics/leads/admin/dashboard?days=30`
+        );
+        setData(response.data);
+      } catch (err) {
+        console.error("Error fetching analytics data:", err);
+        setError("Failed to load analytics data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // fetch sources for dropdown
+  useEffect(() => {
+    const fetchSources = async () => {
+      try {
+        const res = await axiosInstance.get(
+          "/lead-config/sources/?skip=0&limit=100",
+          { headers: { accept: "application/json" } }
+        );
+        setSources(res.data);
+      } catch (err) {
+        console.error("Error fetching sources:", err);
+      }
+    };
+    fetchSources();
+  }, []);
+  const fetchFilteredData = async () => {
+    if (!fromDate || !toDate) {
+      alert("Please select both From and To dates");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(
+        `/analytics/leads/admin/dashboard?from=${fromDate}&to=${toDate}`
+      );
+      setData(response.data);
+    } catch (err) {
+      console.error("Error fetching analytics data:", err);
+      setError("Failed to load analytics data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClear = () => {
+    setFromDate("");
+    setToDate("");
+    setApplied(false);
+  };
+
+  const handleApply = () => {
+    console.log("Applying filter with:", fromDate, toDate);
+    // your API call or filter logic here
+    setApplied(true); // after applying, show Clear
+  };
+
+
+  return (
+
+    <div className="w-full grid grid-cols-3 gap-8 pb-6">
+      {/* Lead Source Performance Table */}
+      {data.source_analytics?.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg w-full border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Lead Source
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Source
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Pending Leads
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {data.source_analytics.map((source, index) => (
+                  <tr
+                    key={index}
+                    className="hover:bg-gray-50 transition-colors duration-150"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      {source.source_name}
+                    </td>
+                    <td className="px-6 py-4 text-orange-700">
+                      {source.total_leads - source.converted_leads}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Response Distribution Table */}
+      <div className="col-span-2  bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Response Distribution
+          </h2>
+          <p className="text-gray-600 text-sm mt-1">How leads have responded</p>
+        </div>
+
+        {/* Filter */}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">
+              Filter by Source:
+            </label>
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none min-w-[150px]"
+            >
+              <option value="">All Sources</option>
+              {sources.map((src, idx) => (
+                <option key={idx} value={src.name || src.source_name}>
+                  {src.name || src.source_name}
+                </option>
+              ))}
+            </select>
+            <div className="flex items-center gap-3">
+              {/* From Date */}
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setApplied(false); // reset apply state if user changes date
+                }}
+                className="border rounded px-2 py-1 text-sm"
+              />
+
+              {/* To Date */}
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setApplied(false);
+                }}
+                className="border rounded px-2 py-1 text-sm"
+              />
+
+              {/* Button Logic */}
+              {applied ? (
+                // After Apply → always show Clear
+                <button
+                  onClick={handleClear}
+                  className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+                >
+                  Clear
+                </button>
+              ) : fromDate || toDate ? (
+                fromDate && toDate ? (
+                  <button
+                    onClick={handleApply}
+                    className="px-4 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+                  >
+                    Apply
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleClear}
+                    className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+                  >
+                    Clear
+                  </button>
+                )
+              ) : null}
+            </div>
+
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Response
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Total Leads
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Percentage
+                </th>
+              </tr>
+            </thead>
+          </table>
+          {/* Scrollable tbody */}
+          <div className="max-h-[250px] overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed">
+              <tbody className="bg-white divide-y divide-gray-200">
+                {data.response_analytics
+                  .filter((res) =>
+                    selectedSource ? res.response_source === selectedSource : true
+                  )
+                  .map((res, idx) => (
+                    <tr
+                      key={idx}
+                      className="hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        {res.response_name}
+                      </td>
+                      <td className="px-6 py-4 text-blue-700">{res.total_leads}</td>
+                      <td className="px-6 py-4 text-gray-900">{res.percentage}%</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  );
+}
+
+

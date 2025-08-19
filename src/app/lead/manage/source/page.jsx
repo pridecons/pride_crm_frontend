@@ -89,14 +89,23 @@ export default function LeadSourcesPage() {
     }
   };
 
-  const filteredSources = sources.filter((src) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      src.name.toLowerCase().includes(term) ||
-      src.description.toLowerCase().includes(term) ||
-      src.created_by.toLowerCase().includes(term)
-    );
-  });
+  // const filteredSources = sources.filter((src) => {
+  //   const term = searchTerm.toLowerCase();
+  //   return (
+  //     src.name.toLowerCase().includes(term) ||
+  //     src.description.toLowerCase().includes(term) ||
+  //     src.created_by.toLowerCase().includes(term)
+  //   );
+  // })
+  ;const filteredSources = sources.filter((src) => {
+  const term = (searchTerm || "").toLowerCase();
+  return (
+    (src?.name || "").toLowerCase().includes(term) ||
+    (src?.description || "").toLowerCase().includes(term) ||
+    (src?.created_by || "").toLowerCase().includes(term)
+  );
+});
+
 
   return (
     <div className="p-6">

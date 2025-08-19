@@ -38,11 +38,10 @@ export default function OldLeadsTable() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [applied, setApplied] = useState(false); // track if date filter is applied
 
   const router = useRouter()
 
-
-  // ✅ Load user info for comments
   useEffect(() => {
     const userInfo = JSON.parse(localStorage.getItem("user_info")) || {};
     setUserId(userInfo.employee_code || "Admin001");
@@ -50,40 +49,65 @@ export default function OldLeadsTable() {
 
   // ✅ Fetch data on mount
   // refetch leads whenever filters or page change
- useEffect(() => {
-   fetchLeads();
- }, [responseFilterId, /*fromDate, toDate,*/ searchQuery, page]);
+  useEffect(() => {
+    if (applied) {
+      fetchLeads();
+    }
+  }, [applied, page, responseFilterId, searchQuery]);
 
- // still fetch these just once
- useEffect(() => {
-   fetchResponses();
-   fetchSources();
- }, []);
 
-  const fetchLeads = async () => {
-   setLoading(true);
-   try {
-     const { data } = await axiosInstance.get("/old-leads/my-assigned", {
-       params: {
-         skip:  (page - 1) * limit,
-         limit,
-        //  fromdate:     fromDate     || undefined,
-        //  todate:       toDate       || undefined,
-         search:       searchQuery  || undefined,
-         response_id:  responseFilterId || undefined,
-       },
-     });
+  // still fetch these just once
+  useEffect(() => {
+    fetchResponses();
+    fetchSources();
+  }, []);
 
-     setLeads(data.assigned_old_leads || []);
-     // your API might return a `total` field; fallback to array length
-     setTotal(data.total ?? data.assigned_old_leads.length);
-   } catch (error) {
-     console.error("Error fetching leads:", error);
-     toast.error("Failed to load leads!");
-   } finally {
-     setLoading(false);
-   }
- };
+ // ⬇️ make fetchLeads accept optional params
+const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
+  setLoading(true);
+  try {
+    const { data } = await axiosInstance.get("/old-leads/my-assigned", {
+      params: {
+        skip: (page - 1) * limit,
+        limit,
+        fromdate: customFrom || undefined,
+        todate: customTo || undefined,
+        search: searchQuery || undefined,
+        response_id: responseFilterId || undefined,
+      },
+    });
+
+    setLeads(data.assigned_old_leads || []);
+    setTotal(data.total ?? data.assigned_old_leads.length);
+  } catch (error) {
+    console.error("Error fetching leads:", error);
+    toast.error("Failed to load leads!");
+  } finally {
+    setLoading(false);
+  }
+};
+
+// initial load
+useEffect(() => {
+  fetchLeads();
+}, []);
+
+// apply filter
+const handleApply = () => {
+  console.log("Applying filter with:", fromDate, toDate);
+  setApplied(true);
+  fetchLeads(fromDate, toDate); // ✅ use current dates
+};
+
+// clear filter
+const handleClear = () => {
+  setFromDate("");
+  setToDate("");
+  setApplied(false);
+  fetchLeads("", ""); // ✅ fetch without date filters
+};
+
+
 
   const fetchResponses = async () => {
     try {
@@ -428,7 +452,7 @@ export default function OldLeadsTable() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 ">
-      <div className="flex flex-wrap gap-4 p-4 bg-gray-50">
+      <div className="flex flex-wrap gap-4 py-4 bg-gray-50">
         {/* Response dropdown */}
         <select
           value={responseFilterId || ""}
@@ -466,26 +490,77 @@ export default function OldLeadsTable() {
             className="px-3 py-2 border rounded text-sm"
           />
         </div> */}
+        <div className="flex items-center gap-3">
+          {/* From Date */}
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setApplied(false); // reset apply state if user changes date
+            }}
+            className="px-3 py-2 border rounded text-sm"
+          />
+
+          {/* To Date */}
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setApplied(false);
+            }}
+            className="px-3 py-2 border rounded text-sm"
+          />
+
+          {/* Button Logic */}
+          {applied ? (
+            // After Apply → always show Clear
+            <button
+              onClick={handleClear}
+              className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+            >
+              Clear
+            </button>
+          ) : fromDate || toDate ? (
+            fromDate && toDate ? (
+              <button
+                onClick={handleApply}
+                className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+              >
+                Apply
+              </button>
+            ) : (
+              <button
+                onClick={handleClear}
+                className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+              >
+                Clear
+              </button>
+            )
+          ) : null}
+        </div>
+
 
         {/* Global search */}
-        <input
+        {/* <input
           type="text"
           placeholder="Search leads…"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="flex-1 px-3 py-2 border rounded text-sm"
-        />
+        /> */}
       </div>
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-7xl mx-auto overflow-hidden">
         <LeadsDataTable
-        leads={leads}
-        loading={loading}
-        columns={columns}
-        page={page}
-        limit={limit}
-        total={filteredLeads.length}
-        onPageChange={setPage}
+          leads={leads}
+          loading={loading}
+          columns={columns}
+          page={page}
+          limit={limit}
+          total={filteredLeads.length}
+          onPageChange={setPage}
         />
       </div>
       <FTModal

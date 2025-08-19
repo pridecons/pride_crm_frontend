@@ -162,8 +162,8 @@ export default function FetchLimitConfigPage() {
   const averagePerRequest =
     configs.length > 0
       ? Math.round(
-          configs.reduce((sum, c) => sum + c.per_request_limit, 0) / configs.length
-        )
+        configs.reduce((sum, c) => sum + c.per_request_limit, 0) / configs.length
+      )
       : 0;
   const uniqueRoles = new Set(configs.map((c) => c.role)).size;
 
@@ -257,7 +257,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<BarChart3 />}
-                label="Daily Call Limit (Max calls per day)"
+                label="Daily Fetch Limit (Max fetches per day)"
                 type="number"
                 value={form.daily_call_limit}
                 onChange={(e) =>
@@ -426,7 +426,7 @@ function SelectField({ icon, label, options, ...props }) {
       </label>
       <select
         {...props}
-        className="w-full border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
+        className="w-full border border-gray-500 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -440,15 +440,16 @@ function SelectField({ icon, label, options, ...props }) {
 
 function InputField({ icon, label, ...props }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 border-gray-700">
       <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
         {icon}
         {label}
       </label>
       <input
         {...props}
-        className="w-full border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
+        className="w-full border border-gray-500 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
       />
+
     </div>
   );
 }

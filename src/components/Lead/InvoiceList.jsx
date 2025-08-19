@@ -32,6 +32,22 @@ const InvoiceModal = ({ isOpen, onClose, leadId }) => {
             .finally(() => setLoading(false));
     }, [isOpen, leadId]);
 
+
+    const handleDownload = async (url, filename = "invoice.pdf") => {
+        try {
+            const res = await axiosInstance.get(url, { responseType: "blob" });
+            const blob = new Blob([res.data], { type: "application/pdf" });
+            const link = document.createElement("a");
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            window.URL.revokeObjectURL(link.href);
+        } catch (err) {
+            toast.error("Failed to download invoice");
+        }
+    };
+
+
     return (
         <Modal
             isOpen={isOpen}
@@ -79,6 +95,7 @@ const InvoiceModal = ({ isOpen, onClose, leadId }) => {
                                     <th className="py-2 px-3 text-left">Amount</th>
                                     <th className="py-2 px-3 text-left">Status</th>
                                     <th className="py-2 px-3 text-left">Created</th>
+                                    <th className="py-2 px-3 text-left">View</th>
                                     <th className="py-2 px-3 text-left">Download</th>
                                 </tr>
                             </thead>
@@ -116,6 +133,21 @@ const InvoiceModal = ({ isOpen, onClose, leadId }) => {
                                                 <span className="text-gray-400">N/A</span>
                                             )}
                                         </td>
+                                        <td className="py-2 px-3">
+                                            {inv.invoice_path && inv.invoice_path !== "false" ? (
+                                                <button
+                                                    onClick={() =>
+                                                        handleDownload(getInvoiceUrl(inv.invoice_path), `invoice-${inv.id}.pdf`)
+                                                    }
+                                                    className="text-blue-600 hover:underline"
+                                                >
+                                                    Download
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-400">N/A</span>
+                                            )}
+                                        </td>
+
                                     </tr>
                                 ))}
                             </tbody>

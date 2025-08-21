@@ -326,7 +326,7 @@ export default function FetchLimitConfigPage() {
             placeholder="Search by role or branch..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border-gray-300 rounded-md w-72 focus:ring-indigo-500 focus:border-indigo-500"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-72 focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
       </div>

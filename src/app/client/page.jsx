@@ -339,7 +339,7 @@ export default function ClientsPage() {
                                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Investment</th>
                                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
                                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> {/* ✅ New column */}
+                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> 
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">

@@ -652,7 +652,7 @@ const BranchesPage = () => {
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6">
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-2">
                   <Dialog.Title className="text-2xl font-bold text-white flex items-center">
                     <svg className="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -854,7 +854,7 @@ const BranchesPage = () => {
                   <div className="flex justify-end">
                     <button
                       onClick={() => setShowDetails(false)}
-                      className="px-6 py-2 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                      className="px-6 py-1 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors duration-200"
                     >
                       Close
                     </button>

@@ -20,6 +20,8 @@ import LoadingState from "@/components/LoadingState";
 import { usePermissions } from "@/context/PermissionsContext";
 import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
+import { jwtDecode } from "jwt-decode";
+import Cookies from "js-cookie";
 
 const LeadManage = () => {
   const { hasPermission } = usePermissions();
@@ -64,43 +66,102 @@ const LeadManage = () => {
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [commentLeadId, setCommentLeadId] = useState(null);
 
+  const [role, setRole] = useState(null);
+const [branchId, setBranchId] = useState(null);
+const isSuperAdmin = role === "SUPERADMIN";
+
   // Load dropdown lists
-  useEffect(() => {
-    const loadFilterLists = async () => {
-      try {
-        const [bRes, uRes, sRes, rRes] = await Promise.all([
-          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
-          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
-          axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
-          axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
-        ]);
-        setBranches(bRes.data || []);
-        setEmployees(uRes?.data?.data || []);
-        setSourcesList(sRes.data || []);
-        setResponsesList(rRes.data || []);
-      } catch (err) {
-        console.error("Failed to load filters", err);
+useEffect(() => {
+  const loadFilterLists = async () => {
+    try {
+      const [bRes, uRes, sRes, rRes] = await Promise.all([
+        axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+        axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+        axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
+        axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
+      ]);
+
+      const allBranches = bRes.data || [];
+      const allEmployees = uRes?.data?.data || [];
+
+      if (isSuperAdmin) {
+        setBranches(allBranches);
+        setEmployees(allEmployees);
+      } else {
+        // keep only current user's branch + employees of that branch
+        const safeBranchId = String(branchId || "");
+        setBranches(allBranches.filter(b => String(b.id) === safeBranchId));
+        setEmployees(allEmployees.filter(e => String(e.branch_id) === safeBranchId));
       }
-    };
-    loadFilterLists();
-  }, []);
+
+      setSourcesList(sRes.data || []);
+      setResponsesList(rRes.data || []);
+    } catch (err) {
+      console.error("Failed to load filters", err);
+    }
+  };
+
+  // wait until we know role/branch; SUPERADMIN can load immediately
+  if (isSuperAdmin || branchId) loadFilterLists();
+}, [isSuperAdmin, branchId]);
+
+  useEffect(() => {
+  try {
+    // Try reading pre-saved user_info (preferred)
+    const ui = Cookies.get("user_info");
+    if (ui) {
+      const parsed = JSON.parse(ui);
+      const r = parsed?.role || parsed?.user?.role || null;
+      // support several shapes: branch_id, user.branch_id, branch.id
+      const b =
+        parsed?.branch_id ??
+        parsed?.user?.branch_id ??
+        parsed?.branch?.id ??
+        null;
+      setRole(r);
+      setBranchId(b ? String(b) : null);
+      return;
+    }
+
+    // Fallback: decode access token
+    const token = Cookies.get("access_token");
+    if (token) {
+      const payload = jwtDecode(token);
+      const r = payload?.role || null;
+      const b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
+      setRole(r);
+      setBranchId(b ? String(b) : null);
+    }
+  } catch (e) {
+    console.error("Failed to read user info from cookies", e);
+  }
+}, []);
+
+useEffect(() => {
+  if (!isSuperAdmin && branchId) {
+    setBranchFilter(String(branchId));
+  }
+}, [isSuperAdmin, branchId]);
 
   // Load leads
-  useEffect(() => {
-    const fetchLeadData = async () => {
-      try {
-        const { data } = await axiosInstance.get(
-          "/leads/?skip=0&limit=100&kyc_only=false"
-        );
-        setLeadData(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLeadData();
-  }, []);
+useEffect(() => {
+  const fetchLeadData = async () => {
+    try {
+      setLoading(true);
+      const base = "/leads/?skip=0&limit=100&kyc_only=false";
+      const url = !isSuperAdmin && branchId ? `${base}&branch_id=${branchId}` : base;
+      const { data } = await axiosInstance.get(url);
+      setLeadData(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // SUPERADMIN can fetch immediately; others wait for branchId
+  if (isSuperAdmin || branchId) fetchLeadData();
+}, [isSuperAdmin, branchId]);
 
   // Helpers to display names
   const getSourceName = (id) =>
@@ -375,27 +436,30 @@ const LeadManage = () => {
       </div>
 
 
-      <DashboardTables />
-      <EmployeeWithDataAccuracy/>
+      <DashboardTables isSuperAdmin={isSuperAdmin} branchId={branchId} />
+<EmployeeWithDataAccuracy isSuperAdmin={isSuperAdmin} branchId={branchId} />
 
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
         <div className="flex flex-col gap-4">
-          {/* Branch Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {branchOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setBranchFilter(opt.value)}
-                className={`px-4 py-2 rounded-lg border whitespace-nowrap ${branchFilter === opt.value
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                  }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+{/* Branch Tabs → visible only to SUPERADMIN */}
+{isSuperAdmin && (
+  <div className="flex gap-2 overflow-x-auto pb-2">
+    {([{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]).map((opt) => (
+      <button
+        key={opt.value}
+        onClick={() => setBranchFilter(opt.value)}
+        className={`px-4 py-2 rounded-lg border whitespace-nowrap ${
+          branchFilter === opt.value
+            ? "bg-blue-600 text-white border-blue-600"
+            : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+        }`}
+      >
+        {opt.label}
+      </button>
+    ))}
+  </div>
+)}
 
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             {/* Search */}
@@ -714,7 +778,7 @@ const LeadManage = () => {
 export default LeadManage;
 
 
-function DashboardTables() {
+function DashboardTables({ isSuperAdmin, branchId }) {
   const [data, setData] = useState({
     source_analytics: [],
     response_analytics: []
@@ -732,9 +796,10 @@ function DashboardTables() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get(
-          `/analytics/leads/admin/dashboard?days=30`
-        );
+        // SUPERADMIN can see global; others must be scoped to branch
+        const qs = new URLSearchParams({ days: "30" });
+        if (!isSuperAdmin && branchId) qs.set("branch_id", String(branchId));
+        const response = await axiosInstance.get(`/analytics/leads/admin/dashboard?${qs.toString()}`);
         setData(response.data);
       } catch (err) {
         console.error("Error fetching analytics data:", err);
@@ -743,17 +808,15 @@ function DashboardTables() {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+
+    if (isSuperAdmin || branchId) fetchData();
+  }, [isSuperAdmin, branchId]);
 
   // fetch sources for dropdown
   useEffect(() => {
     const fetchSources = async () => {
       try {
-        const res = await axiosInstance.get(
-          "/lead-config/sources/?skip=0&limit=100",
-          { headers: { accept: "application/json" } }
-        );
+        const res = await axiosInstance.get("/lead-config/sources/?skip=0&limit=100", { headers: { accept: "application/json" } });
         setSources(res.data);
       } catch (err) {
         console.error("Error fetching sources:", err);
@@ -761,6 +824,7 @@ function DashboardTables() {
     };
     fetchSources();
   }, []);
+
   const fetchFilteredData = async () => {
     if (!fromDate || !toDate) {
       alert("Please select both From and To dates");
@@ -769,9 +833,9 @@ function DashboardTables() {
 
     try {
       setLoading(true);
-      const response = await axiosInstance.get(
-        `/analytics/leads/admin/dashboard?from=${fromDate}&to=${toDate}`
-      );
+      const qs = new URLSearchParams({ from: fromDate, to: toDate });
+      if (!isSuperAdmin && branchId) qs.set("branch_id", String(branchId));
+      const response = await axiosInstance.get(`/analytics/leads/admin/dashboard?${qs.toString()}`);
       setData(response.data);
     } catch (err) {
       console.error("Error fetching analytics data:", err);
@@ -788,9 +852,8 @@ function DashboardTables() {
   };
 
   const handleApply = () => {
-    console.log("Applying filter with:", fromDate, toDate);
-    // your API call or filter logic here
-    setApplied(true); // after applying, show Clear
+    setApplied(true);
+    fetchFilteredData();
   };
 
 

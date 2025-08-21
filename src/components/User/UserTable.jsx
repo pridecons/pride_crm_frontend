@@ -1,11 +1,60 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
-import { axiosInstance } from "@/api/Axios"; // ✅ Using your axiosInstance
+import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 
-export default function UserTable({ users = [], branchMap = {}, onEdit, onDetails, refreshUsers }) {
+function useRoleBranch() {
+  const [role, setRole] = useState(null);
+  const [branchId, setBranchId] = useState(null);
+
+  useEffect(() => {
+    try {
+      const ui = Cookies.get("user_info");
+      if (ui) {
+        const parsed = JSON.parse(ui);
+        const r = parsed?.role || parsed?.user?.role || null;
+        const b = parsed?.branch_id ?? parsed?.user?.branch_id ?? parsed?.branch?.id ?? null;
+        setRole(r || null);
+        setBranchId(b != null ? String(b) : null);
+        return;
+      }
+      const token = Cookies.get("access_token");
+      if (token) {
+        const p = jwtDecode(token);
+        const r = p?.role || null;
+        const b = p?.branch_id ?? p?.user?.branch_id ?? null;
+        setRole(r || null);
+        setBranchId(b != null ? String(b) : null);
+      }
+    } catch (e) {
+      console.error("role/branch decode failed", e);
+    }
+  }, []);
+
+  return { role, branchId, isSuperAdmin: role === "SUPERADMIN" };
+}
+
+export default function UserTable({
+  users = [],
+  branchMap = {},
+  onEdit,
+  onDetails,
+  refreshUsers
+}) {
+  const { isSuperAdmin, branchId } = useRoleBranch();
+
+  // FE safety: scope visible users to own branch unless SUPERADMIN
+  const visibleUsers = useMemo(() => {
+    if (isSuperAdmin) return users;
+    if (!branchId) return [];
+    return users.filter(u => String(u.branch_id) === String(branchId));
+  }, [users, isSuperAdmin, branchId]);
+
   const getRoleColorClass = (role) => {
     const roleColors = {
       SUPERADMIN: "text-blue-800",
@@ -16,18 +65,15 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
       SBA: "text-indigo-800",
       BA: "text-gray-800",
     };
-
     return roleColors[role] || "bg-gray-100 text-gray-700 border border-gray-200";
   };
 
-  // ✅ Delete Handler
   const handleDelete = async (employeeCode) => {
     if (!confirm(`Are you sure you want to deactivate user ${employeeCode}?`)) return;
-
     try {
       const res = await axiosInstance.delete(`/users/${employeeCode}`);
       toast.success(res.data.message || `User ${employeeCode} deactivated successfully`);
-      if (refreshUsers) refreshUsers(); // ✅ Refresh user list if function provided
+      refreshUsers?.();
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.message || "Failed to deactivate user");
@@ -38,7 +84,6 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
     <div className="bg-white rounded-2xl shadow-md border border-gray-200">
       <div className="overflow-x-auto">
         <table className="table-fixed w-full text-sm text-gray-700">
-          {/* Sticky Header */}
           <thead className="bg-gray-100 border-b sticky top-0 z-10">
             <tr>
               <th className="w-12 px-5 py-4 text-left font-semibold">#</th>
@@ -53,15 +98,11 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
           </thead>
 
           <tbody className="divide-y divide-gray-100">
-            {users.length > 0 ? (
-              users.map((u, index) => (
-                <tr
-                  key={u.employee_code}
-                  className="hover:bg-gray-50 transition duration-200 ease-in-out"
-                >
+            {visibleUsers.length > 0 ? (
+              visibleUsers.map((u, index) => (
+                <tr key={u.employee_code} className="hover:bg-gray-50 transition duration-200 ease-in-out">
                   <td className="px-5 py-4">{index + 1}</td>
 
-                  {/* Name */}
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-blue-100 flex items-center justify-center rounded-full">
@@ -71,21 +112,14 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
                     </div>
                   </td>
 
-                  {/* Role */}
                   <td className="px-5 py-4">
-                    <span
-                      className={`py-0.5 rounded-full text-xs font-semibold ${getRoleColorClass(
-                        u.role
-                      )}`}
-                    >
+                    <span className={`py-0.5 rounded-full text-xs font-semibold ${getRoleColorClass(u.role)}`}>
                       {u.role}
                     </span>
                   </td>
 
-                  {/* Branch */}
                   <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
 
-                  {/* Phone */}
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2 text-gray-700">
                       <Phone className="w-4 h-4 text-gray-400" />
@@ -93,7 +127,6 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
                     </div>
                   </td>
 
-                  {/* Email */}
                   <td className="px-5 py-4 truncate max-w-[240px]">
                     <div className="flex items-center gap-2 text-gray-700">
                       <Mail className="w-4 h-4 text-gray-400" />
@@ -101,7 +134,6 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
                     </div>
                   </td>
 
-                  {/* Status */}
                   <td className="px-5 py-4">
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -114,7 +146,6 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
                     </span>
                   </td>
 
-                  {/* Actions */}
                   <td className="px-5 py-4 text-center">
                     <div className="flex justify-center gap-3">
                       {onDetails && (
@@ -157,11 +188,9 @@ export default function UserTable({ users = [], branchMap = {}, onEdit, onDetail
         </table>
       </div>
 
-      {users.length > 0 && (
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 text-sm text-gray-600 text-center">
-          Showing {users.length} user{users.length > 1 ? "s" : ""}
-        </div>
-      )}
+      <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 text-sm text-gray-600 text-center">
+        Showing {visibleUsers.length} user{visibleUsers.length !== 1 ? "s" : ""}
+      </div>
     </div>
   );
 }
@@ -171,5 +200,5 @@ UserTable.propTypes = {
   branchMap: PropTypes.object,
   onEdit: PropTypes.func,
   onDetails: PropTypes.func,
-  refreshUsers: PropTypes.func, // ✅ Add this to refetch data after delete
+  refreshUsers: PropTypes.func,
 };

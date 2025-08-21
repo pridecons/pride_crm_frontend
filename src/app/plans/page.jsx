@@ -204,14 +204,13 @@ export default function ServicesPage() {
             <p className="text-gray-600 text-lg">Manage and organize your plan offerings</p>
           </div>
 
-          {canCreate && (
             <button
               onClick={() => { resetForm(); setIsModalOpen(true); }}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
             >
               + Create Plan
             </button>
-          )}
+
         </div>
 
         {loading ? (
@@ -270,9 +269,9 @@ export default function ServicesPage() {
 
                     {/* Body */}
                     <div className="p-4 relative">
-                      {(canEdit || canDelete) && (
+                      
                         <div className="absolute right-2 top-2 flex items-center gap-2">
-                          {canEdit && (
+                          
                             <button
                               onClick={() => handleEdit(srv)}
                               className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
@@ -281,8 +280,7 @@ export default function ServicesPage() {
                             >
                               <Pencil size={18} />
                             </button>
-                          )}
-                          {canDelete && (
+                          
                             <button
                               onClick={() => handleDelete(srv.id)}
                               className="p-2 rounded-full hover:bg-rose-50 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
@@ -291,9 +289,9 @@ export default function ServicesPage() {
                             >
                               <Trash2 size={18} />
                             </button>
-                          )}
+                          
                         </div>
-                      )}
+                      
 
                       {/* Description */}
                       <p className="text-sm text-gray-600 mb-4 pr-12 line-clamp-3">

@@ -278,86 +278,107 @@ export default function SuperDashboard() {
                             })}
                     </div>
 
-                    {/* Financial Overview → Bar chart (ADD this block) */}
-{Array.isArray(data?.daily_trends) && data.daily_trends.length > 0 && (
-  <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">
-        Payments & Revenue (Last 30 Days)
-      </h3>
-      <span className="text-xs text-gray-500">Bar Chart</span>
-    </div>
+                    {/* Financial Overview → Monthly Sales (REPLACE the old block with this) */}
+{Array.isArray(data?.daily_trends) && data.daily_trends.length > 0 && (() => {
+  // ---- Build a monthly (YYYY-MM) map from daily_trends ----
+  const parseISO = (s) => new Date(s);
+  const toKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const toLabel = (d) =>
+    d.toLocaleString("en-GB", { month: "short" }).replace(".", "") + String(d.getFullYear()).slice(-2); // e.g., "Aug24"
 
-    <div className="h-80">
-      <Bar
-        data={{
-          labels: data.daily_trends.map((d) => d.date),
-          datasets: [
-            {
-              label: 'Payments Made',
-              data: data.daily_trends.map((d) => d.payments_made),
-              backgroundColor: 'rgba(16, 185, 129, 0.6)', // teal
-              borderWidth: 0,
-              yAxisID: 'y',
-            },
-            {
-              label: 'Revenue (₹)',
-              data: data.daily_trends.map((d) => d.revenue),
-              backgroundColor: 'rgba(59, 130, 246, 0.5)', // blue
-              borderWidth: 0,
-              yAxisID: 'y1',
-            },
-          ],
-        }}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { position: 'top' },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => {
-                  const label = ctx.dataset.label || '';
-                  const val = ctx.parsed.y;
-                  if (label.includes('Revenue')) {
-                    return `${label}: ₹${Number(val).toLocaleString('en-IN')}`;
-                  }
-                  return `${label}: ${val}`;
+  // Find min & max dates in the daily array
+  let minDate = parseISO(data.daily_trends[0].date);
+  let maxDate = parseISO(data.daily_trends[0].date);
+  for (const row of data.daily_trends) {
+    const d = parseISO(row.date);
+    if (d < minDate) minDate = d;
+    if (d > maxDate) maxDate = d;
+  }
+
+  // Sum revenue by (YYYY-MM)
+  const monthlyRevenue = new Map(); // key: YYYY-MM, val: number
+  for (const row of data.daily_trends) {
+    const d = parseISO(row.date);
+    const key = toKey(d);
+    monthlyRevenue.set(key, (monthlyRevenue.get(key) || 0) + Number(row.revenue || 0));
+  }
+
+  // Build continuous months from min → max (fill missing with 0)
+  const labels = [];
+  const values = [];
+  const cursor = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  const end = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+
+  while (cursor <= end) {
+    const key = toKey(cursor);
+    labels.push(toLabel(cursor));
+    values.push(monthlyRevenue.get(key) || 0);
+    // next month
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return (
+    <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Monthly Sales</h3>
+        <span className="text-xs text-gray-500">Bar Chart</span>
+      </div>
+
+      <div className="h-80">
+        <Bar
+          data={{
+            labels,
+            datasets: [
+              {
+                label: "Sales (₹)",
+                data: values,
+                backgroundColor: "rgba(56, 189, 248, 0.6)", // cyan-ish
+                borderWidth: 0,
+                yAxisID: "y",
+              },
+            ],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) =>
+                    `Sales: ₹${Number(ctx.parsed.y || 0).toLocaleString("en-IN")}`,
+                  title: (items) => (items?.[0]?.label ? items[0].label : ""),
                 },
               },
             },
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxRotation: 0, autoSkip: true },
-            },
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: 'Payments (count)' },
-              grid: { color: 'rgba(0,0,0,0.05)' },
-            },
-            y1: {
-              position: 'right',
-              beginAtZero: true,
-              title: { display: true, text: 'Revenue (₹)' },
-              grid: { drawOnChartArea: false },
-              ticks: {
-                callback: (value) =>
-                  '₹' + new Intl.NumberFormat('en-IN').format(value),
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: {
+                  autoSkip: false, // show all months
+                  maxRotation: 0,
+                  minRotation: 0,
+                },
+              },
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: "Amount (₹)" },
+                grid: { color: "rgba(0,0,0,0.05)" },
+                ticks: {
+                  callback: (v) => "₹" + new Intl.NumberFormat("en-IN").format(v),
+                },
               },
             },
-          },
-        }}
-      />
+          }}
+        />
+      </div>
     </div>
-  </div>
-)}
+  );
+})()}
+
 
                 </div>
-
-
 
                 {/* Charts Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

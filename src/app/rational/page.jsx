@@ -1,14 +1,10 @@
 "use client";
-
-import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { axiosInstance, BASE_URL } from '@/api/Axios';
 import { Calendar, BarChart3, PieChart, Target, TrendingUp, Users, ArrowDownToLine } from 'lucide-react';
 import { usePermissions } from '@/context/PermissionsContext';
 import { ChevronDown, ChevronUp, FileDown, FileSpreadsheet } from "lucide-react";
-import Cookies from 'js-cookie';
-import { jwtDecode } from 'jwt-decode';
 
 const API_URL = '/recommendations/';
 
@@ -96,14 +92,14 @@ export default function RationalPage() {
       setIsEditMode(true);
       let recommendationArray = [];
       try {
-        recommendationArray = JSON.parse(item.recommendation_type);
+        const parsed = typeof item.recommendation_type === 'string'
+          ? JSON.parse(item.recommendation_type)
+          : item.recommendation_type;
+        recommendationArray = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
       } catch (err) {
-        // ✅ Normalize recommendation_type to always be an array
-        const recommendationArray = Array.isArray(item.recommendation_type)
+        recommendationArray = Array.isArray(item.recommendation_type)
           ? item.recommendation_type
-          : item.recommendation_type
-            ? [item.recommendation_type]
-            : [];
+          : item.recommendation_type ? [item.recommendation_type] : [];
       }
       setFormData({
         stock_name: item.stock_name || '',
@@ -193,7 +189,6 @@ export default function RationalPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setImageError('');
-    setIsEditMode(false);
 
     const {
       stock_name,
@@ -223,7 +218,7 @@ export default function RationalPage() {
       let dataToSend;
       let headers = {};
 
-      // ✅ Normalize data
+      // ✅ Normalize data (KEEP recommendation_type as an ARRAY)
       const cleanedData = {
         stock_name: stock_name?.trim() || '',
         entry_price: Number(entry_price),
@@ -232,7 +227,11 @@ export default function RationalPage() {
         targets2: Number(targets2),
         targets3: Number(targets3),
         rational: rational?.trim() || '',
-        recommendation_type: JSON.stringify(recommendation_type),
+        recommendation_type: Array.isArray(recommendation_type)
+          ? recommendation_type
+          : recommendation_type
+            ? [recommendation_type]
+            : [],
         status: status || 'OPEN',
       };
 
@@ -242,15 +241,15 @@ export default function RationalPage() {
         // ✅ Use FormData when uploading a file
         dataToSend = new FormData();
 
+        // append primitives
         Object.entries(cleanedData).forEach(([key, value]) => {
-          if (Array.isArray(value)) {
-            // For other arrays
-            value.forEach((v) => dataToSend.append(key, v));
-          } else {
-            dataToSend.append(key, value);
-          }
+          if (key === 'recommendation_type') return; // handle below
+          dataToSend.append(key, String(value));
         });
-
+        // append list items so FastAPI/Pydantic sees a list[str]
+        cleanedData.recommendation_type.forEach((rt) => {
+          dataToSend.append('recommendation_type', rt);
+        });
         // ✅ MISSING: Append the file
         if (isGraphFile) {
           dataToSend.append('graph', graph);
@@ -262,9 +261,10 @@ export default function RationalPage() {
           console.log(`${pair[0]}: ${pair[1]}`);
         }
 
-        headers['Content-Type'] = 'multipart/form-data';
+        // Let Axios set the multipart boundary automatically:
+        // headers['Content-Type'] = 'multipart/form-data';
       } else {
-        // ✅ MISSING: Use JSON if no new file
+        // ✅ JSON path (no new file) — send array as-is
         dataToSend = { ...cleanedData, graph };
         console.log('🔍 JSON data being sent:', dataToSend);
         headers['Content-Type'] = 'application/json';
@@ -605,9 +605,7 @@ function RationalModal({
               onClick={() => {
                 if (!isEditMode) setOpenDropdown(prev => !prev);
               }}
-              className={`p-3 border border-black rounded-lg bg-white cursor-pointer transition-all duration-200 flex items-center justify-between ${isEditMode
-                ? 'bg-gray-50 cursor-not-allowed text-gray-500'
-                : ''
+              className={`p-3 border border-black rounded-lg bg-white cursor-pointer transition-all duration-200 flex items-center justify-between ${isEditMode ? 'bg-gray-50 cursor-not-allowed text-gray-500 pointer-events-none' : ''
                 }`}
             >
               <div className="flex flex-wrap gap-1">
@@ -703,7 +701,7 @@ function RationalModal({
             <SmsTemplateSelector />
           </div>
 
-          {isEditMode && (
+          {!isEditMode && (
             <div className="flex flex-col md:col-span-2">
               <label className="mb-1 text-gray-700 text-sm">Status</label>
               <select
@@ -1043,7 +1041,7 @@ function RationalTable({
             {filteredData.map((item) => {
               const isOpen = expanded.has(item.id);
               return (
-                <>
+                <React.Fragment key={item.id}>
                   {/* Main Row */}
                   <tr
                     key={item.id}
@@ -1192,7 +1190,7 @@ function RationalTable({
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>

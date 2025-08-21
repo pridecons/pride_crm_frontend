@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
-import { Bell, X, Menu, Search, User, LogOut, Settings, Clock } from 'lucide-react'
+import { Bell, X, Menu, Search, User, Clock, ChevronDown } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
 import { axiosInstance } from '@/api/Axios'
 import toast from 'react-hot-toast'
+import { createPortal } from "react-dom";
 
 export default function Header({ onMenuClick, onSearch }) {
   const router = useRouter();
@@ -19,51 +20,131 @@ export default function Header({ onMenuClick, onSearch }) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
+  const [expanded, setExpanded] = useState(false); // <- NEW: expand on focus/click
 
   const searchWrapRef = useRef(null);
+  const overlayRef = useRef(null);
   const inputRef = useRef(null);
-  const abortRef = useRef(null); // AbortController for fetch cancel
+  const abortRef = useRef(null);
+  const portalHostRef = useRef(null);
 
   // ---- Quick Filter (Responses) state ----
-  const [respOptions, setRespOptions] = useState([]); // [{id,name,aliases?:[]}]
-  const [respMatches, setRespMatches] = useState([]); // suggestions for responses
+  const [respOptions, setRespOptions] = useState([]); // [{id,name}]
+  const [respMatches, setRespMatches] = useState([]);
+
+  // ---- Branch & Source (for richer rows) ----
+  const [branchOptions, setBranchOptions] = useState([]);   // [{id,name}]
+  const [sourceOptions, setSourceOptions] = useState([]);   // [{id,name}]
 
   // ---- Clock ----
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [isConnect, setIsConnect] = useState(false);
 
-  // counts for current query: { [responseId]: number }
-const [respCounts, setRespCounts] = useState({});
+  // counts for current query
+  const [respCounts, setRespCounts] = useState({});
 
-// Build a summary list [{id, name, count}] sorted by count desc (limit to 8 for brevity)
-const respSummary = useMemo(() => {
-  return (respOptions || [])
-    .map(r => ({ id: r.id, name: r.name, count: respCounts[r.id] || 0 }))
-    .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name))
-    .slice(0, 8); // change/remove limit if you want all
-}, [respOptions, respCounts]);
+  // Tabs + accordion state
+  const [activeResponse, setActiveResponse] = useState('ALL');   // 'ALL' or response name
+  const [openGroups, setOpenGroups] = useState({});              // { [responseName]: boolean }
+  const [responseCounts, setResponseCounts] = useState({});      // { [responseName]: number }
 
+  const [anchorRect, setAnchorRect] = useState(null);
+
+
+  const respSummary = useMemo(() => {
+    return (respOptions || [])
+      .map(r => ({ id: r.id, name: r.name, count: respCounts[r.id] || 0 }))
+      .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name))
+      .slice(0, 8);
+  }, [respOptions, respCounts]);
 
   const respMap = useMemo(() => {
     const m = {};
-    for (const r of respOptions || []) {
-      if (r && (r.id !== undefined) && r.name) m[r.id] = r.name;
-    }
+    for (const r of respOptions || []) if (r?.id != null && r.name) m[r.id] = r.name;
     return m;
   }, [respOptions]);
 
+  const branchMap = useMemo(() => {
+    const m = {};
+    for (const b of branchOptions || []) if (b?.id != null && b.name) m[b.id] = b.name;
+    return m;
+  }, [branchOptions]);
 
-  // fetch response names once
+  const sourceMap = useMemo(() => {
+    const m = {};
+    for (const s of sourceOptions || []) if (s?.id != null && s.name) m[s.id] = s.name;
+    return m;
+  }, [sourceOptions]);
+
+  // Tabs list (sorted by count desc → alpha)
+  const responseTabs = useMemo(() => {
+    return Object.entries(responseCounts)
+      .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+  }, [responseCounts]);
+
+  // Group suggestions by response (respect active tab)
+  const groupedByResponse = useMemo(() => {
+    const buckets = {};
+    for (const l of suggestions || []) {
+      const name = getResponseName(l, respMap);
+      if (activeResponse === 'ALL' || name === activeResponse) {
+        if (!buckets[name]) buckets[name] = [];
+        buckets[name].push(l);
+      }
+    }
+    return Object.entries(buckets).sort(
+      (a, b) => (b[1].length - a[1].length) || a[0].localeCompare(b[0])
+    );
+  }, [suggestions, activeResponse, respMap]);
+
+
+  // Open all groups by default whenever groups change
+  useEffect(() => {
+    const init = {};
+    for (const [k] of groupedByResponse) init[k] = true;
+    setOpenGroups(init);
+  }, [groupedByResponse]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    let host = document.getElementById('global-search-portal');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'global-search-portal';
+      document.body.appendChild(host);
+    }
+    portalHostRef.current = host;
+    return () => {
+      // keep host across Fast Refresh; remove only if you really want to
+      portalHostRef.current = null;
+    };
+  }, []);
+
+
+  // Flatten visible leads (for arrow-key navigation)
+  const visibleLeads = useMemo(() => {
+    const out = [];
+    for (const [group, items] of groupedByResponse) {
+      if (openGroups[group]) out.push(...items);
+    }
+    return out;
+  }, [groupedByResponse, openGroups]);
+
+  // fetch lookup data once
   useEffect(() => {
     (async () => {
       try {
-        // Adjust if your config path differs:
-        const { data } = await axiosInstance.get('/lead-config/responses/');
-        // expect: [{id: 1, name: "NPC", ...}, ...]
-        setRespOptions(Array.isArray(data) ? data : []);
+        const [{ data: responses }, { data: sources }, { data: branches }] = await Promise.all([
+          axiosInstance.get('/lead-config/responses/'),
+          axiosInstance.get('/lead-config/sources/'),
+          axiosInstance.get('/branches/?skip=0&limit=200')  // adjust if your endpoint differs
+        ]);
+        setRespOptions(Array.isArray(responses) ? responses : []);
+        setSourceOptions(Array.isArray(sources) ? sources : []);
+        setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
       } catch (e) {
-        console.error('Failed loading response options', e);
+        console.error('Failed loading lookups', e);
       }
     })();
   }, []);
@@ -71,34 +152,34 @@ const respSummary = useMemo(() => {
   const buildResponseMatches = (q) => {
     if (!q || q.trim().length < 2) return [];
     const term = q.trim().toLowerCase();
-
-    // Simple prefix/contains match on response name + a few common aliases
     const aliasMap = {
       'npc': ['not picked', 'not picked call', 'no pickup'],
       'cb': ['call back', 'callback'],
       'int': ['interested'],
       'ni': ['not interested'],
     };
-
     return respOptions
       .filter(r => {
         const name = (r.name || '').toLowerCase();
         const aliases = aliasMap[name] || [];
         return name.startsWith(term) || name.includes(term) || aliases.some(a => a.startsWith(term));
       })
-      .slice(0, 5) // top few
+      .slice(0, 5)
       .map(r => ({ id: r.id, name: r.name }));
   };
 
-  // close profile on outside click
+  // close popovers on outside click
   const profileRef = useRef(null);
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setShowProfileMenu(false);
-      }
-      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfileMenu(false);
+      if (
+        searchWrapRef.current &&
+        !searchWrapRef.current.contains(e.target) &&
+        (!overlayRef.current || !overlayRef.current.contains(e.target)) // allow clicks inside overlay
+      ) {
         setOpen(false);
+        setExpanded(false); // collapse on outside click
         setHighlight(-1);
       }
     };
@@ -125,14 +206,11 @@ const respSummary = useMemo(() => {
     if (accessToken && userInfo) {
       axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
       const decoded = jwtDecode(accessToken);
-      setUser({
-        ...JSON.parse(userInfo),
-        role: decoded.role,
-      });
+      setUser({ ...JSON.parse(userInfo), role: decoded.role });
     }
   }, []);
 
-  // expose query to parent (existing behavior)
+  // expose query to parent
   useEffect(() => {
     const id = setTimeout(() => {
       if (typeof onSearch === 'function') onSearch(query);
@@ -141,135 +219,155 @@ const respSummary = useMemo(() => {
     return () => clearTimeout(id);
   }, [query, onSearch]);
 
-// ---- Fetch suggestions (debounced) ----
-const fetchSuggestions = useCallback(async (q) => {
-  const term = (q || "").trim();
-
-  // short queries → clear everything
-  if (term.length < 2) {
-    try { abortRef.current?.abort(); } catch {}
-    setSuggestions([]);
-    setRespCounts({});
-    setRespMatches([]);
-    setOpen(false);
-    setLoading(false);
-    return;
+  // --- Helper (hoisted) ---
+  function getResponseName(lead, respMapLocal = null) {
+    const map = respMapLocal ?? respMap; // allow passing or use closure
+    return (
+      lead?.lead_response_name ||
+      map?.[lead?.lead_response_id] ||
+      'No Response'
+    );
   }
 
-  // cancel previous request
-  try { abortRef.current?.abort(); } catch {}
-  const ac = new AbortController();
-  abortRef.current = ac;
+  // ---- Fetch suggestions (debounced) ----
+  const fetchSuggestions = useCallback(async (q) => {
+    const term = (q || "").trim();
 
-  setLoading(true);
-  try {
-    const url = `/leads/search/?q=${encodeURIComponent(term)}&search_type=all`;
-    const { data } = await axiosInstance.get(url, {
-      signal: ac.signal,
-      baseURL: 'https://crm.24x7techelp.com/api/v1',
-    });
+    // Keep overlay open even if term is short; just clear lists.
+    if (term.length < 2) {
+      try { abortRef.current?.abort(); } catch { }
+      setSuggestions([]);
+      setRespCounts({});
+      setRespMatches([]);
+      setResponseCounts({});
+      // DO NOT setOpen(false); keep it open like Chrome.
+      setLoading(false);
+      return;
+    }
 
-    // Normalize to an array of leads
-    const list =
-      Array.isArray(data)
-        ? data
-        : (data?.items || data?.results || data?.leads || []);
+    try { abortRef.current?.abort(); } catch { }
+    const ac = new AbortController();
+    abortRef.current = ac;
 
-    // 1) build counts by responseId
-    const counts = {};
-    for (const l of list) {
-      let rid = l?.lead_response_id ?? null;
+    setLoading(true);
+    try {
+      const url = `/leads/search/?q=${encodeURIComponent(term)}&search_type=all`;
+      const { data } = await axiosInstance.get(url, {
+        signal: ac.signal,
+        baseURL: 'https://crm.24x7techelp.com/api/v1',
+      });
 
-      // fallback: map by response name → id
-      if (rid == null && l?.lead_response_name) {
-        const match = (respOptions || []).find(
-          r => (r.name || '').toLowerCase() === String(l.lead_response_name || '').toLowerCase()
-        );
-        if (match) rid = match.id;
+      const raw = Array.isArray(data) ? data : (data?.items || data?.results || data?.leads || []);
+      const list = Array.isArray(raw) ? raw : [];
+
+      const countsById = {};
+      const countsByName = {};
+
+      for (const l of list) {
+        let rid = l?.lead_response_id ?? null;
+        if (rid == null && l?.lead_response_name) {
+          const match = (respOptions || []).find(
+            r => (r.name || '').toLowerCase() === String(l.lead_response_name || '').toLowerCase()
+          );
+          if (match) rid = match.id;
+        }
+        if (rid != null) countsById[rid] = (countsById[rid] || 0) + 1;
+
+        const rname = getResponseName(l);
+        countsByName[rname] = (countsByName[rname] || 0) + 1;
       }
-      if (rid != null) counts[rid] = (counts[rid] || 0) + 1;
+
+      setRespCounts(countsById);
+      setResponseCounts(countsByName);
+      setSuggestions(list.slice(0, 50));
+      setRespMatches(buildResponseMatches(term));
+
+      // Always keep overlay open while the user is in search mode
+
+    } catch (err) {
+      if (err.name !== 'CanceledError' && err.name !== 'AbortError') console.error(err);
+      setSuggestions([]);
+      setRespCounts({});
+      setResponseCounts({});
+      setRespMatches(buildResponseMatches(term));
+      // Still keep it open — show “No results” state instead of closing
+
+    } finally {
+      setLoading(false);
     }
-    setRespCounts(counts);
+  }, [respOptions]);
 
-    // 2) set lead suggestions (limit)
-    setSuggestions(list.slice(0, 8));
 
-    // 3) optional: response quick matches for the typed term
-    setRespMatches(buildResponseMatches(term));
-
-    setOpen(true);
-  } catch (err) {
-    if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
-      console.error(err);
-    }
-    // still try to show response-name matches even if fetch fails
-    setSuggestions([]);
-    setRespCounts({});
-    setRespMatches(buildResponseMatches(term));
-    setOpen(!!buildResponseMatches(term).length);
-  } finally {
-    setLoading(false);
-  }
-}, [respOptions]);   
-
-  // debounce input → suggestions
   useEffect(() => {
-    const id = setTimeout(() => {
-      fetchSuggestions(query);
-    }, 250);
+    const id = setTimeout(() => { fetchSuggestions(query); }, 250);
     return () => clearTimeout(id);
   }, [query, fetchSuggestions]);
+
+  // keep overlay perfectly aligned + resized like Chrome
+  useEffect(() => {
+    if (!open || !searchWrapRef.current) return;
+
+    const el = searchWrapRef.current;
+    const update = () => setAnchorRect(el.getBoundingClientRect());
+
+    requestAnimationFrame(update);
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+
+    window.addEventListener('resize', update);
+    const onScroll = () => update();
+    window.addEventListener('scroll', onScroll, true);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open, expanded]);
 
   // ---- Handlers ----
   const handleSelect = (lead) => {
     setOpen(false);
+    setExpanded(false);
     setHighlight(-1);
     setQuery(lead?.full_name || '');
-    // Navigate to lead details (adjust route if different in your app)
-    router.push(`/dashboard/leads/${lead.id}`);
+    router.push(`/lead/${lead.id}`); // ✅ correct route
   };
 
   const handleEnterNoPick = () => {
     setOpen(false);
+    setExpanded(false);
     setHighlight(-1);
-    // If parent wants a full search, keep using existing prop:
     if (typeof onSearch === 'function') onSearch(query);
-    // Or navigate to a results page you own:
-    // router.push(`/dashboard/leads?query=${encodeURIComponent(query)}`);
   };
 
   const onKeyDown = (e) => {
-    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-      setOpen(true);
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHighlight((h) => Math.min((h ?? -1) + 1, suggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlight((h) => Math.max((h ?? -1) - 1, 0));
-    } else if (e.key === 'Enter') {
-      if (open && suggestions.length && highlight >= 0) {
-        e.preventDefault();
-        handleSelect(suggestions[highlight]);
-      } else {
-        handleEnterNoPick();
-      }
+    const total = visibleLeads.length;
+    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { setOpen(true); setExpanded(true); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min((h ?? -1) + 1, Math.max(total - 1, 0))); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max((h ?? -1) - 1, 0)); }
+    else if (e.key === 'Enter') {
+      if (open && total && highlight >= 0) { e.preventDefault(); handleSelect(visibleLeads[highlight]); }
+      else { handleEnterNoPick(); }
     } else if (e.key === 'Escape') {
-      setOpen(false);
-      setHighlight(-1);
+      setOpen(false); setExpanded(false); setHighlight(-1);
     }
   };
 
   const handleResponseFilterClick = (respName) => {
     setOpen(false);
+    setExpanded(false);
     setHighlight(-1);
-    // navigate to the dedicated results page with kind=response
     router.push(`/search?kind=response&value=${encodeURIComponent(respName)}`);
   };
 
-  const toggleProfileMenu = () => setShowProfileMenu((p) => !p);
+  const toggleProfileMenu = () => setShowProfileMenu(p => !p);
+
+  // dynamic width classes
+  const searchWidthCls = expanded
+    ? "sm:max-w-[720px] md:max-w-[840px] lg:max-w-[960px]"
+    : "sm:max-w-md";
 
   return (
     <header className="bg-white border-b border-gray-100 px-4 py-2 lg:px-4 relative">
@@ -284,30 +382,41 @@ const fetchSuggestions = useCallback(async (q) => {
             <Menu size={20} />
           </button>
           <div className="relative">
-            <img
-              src="/pride.png"
-              alt="Logo"
-              width={130}
-              height={55}
-              className="transition-transform duration-200 hover:scale-105"
-            />
+            <img src="/pride.png" alt="Logo" width={130} height={55} className="transition-transform duration-200 hover:scale-105" />
             <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
           </div>
         </div>
 
         {/* -------- Global Search -------- */}
-        <div className="flex-1 max-w-md mx-3 hidden sm:block" ref={searchWrapRef}>
+        <div
+          className={`flex-1 ${searchWidthCls} mx-3 hidden sm:block transition-all duration-200`}
+          ref={searchWrapRef}
+        >
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={16} />
             <input
               ref={inputRef}
               type="text"
               placeholder="Search lead by name, phone, or email…"
-              className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-50 focus:bg-white shadow-sm hover:shadow-md"
+              className={`w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl transition bg-gray-50
+ outline-none ring-0 focus:outline-none focus:ring-0 focus:shadow-none
+ hover:shadow-md ${open ? 'invisible pointer-events-none' :
+                  'focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white'}`}
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+              onChange={(e) => { setQuery(e.target.value) }}  // keep open while typing
               onKeyDown={onKeyDown}
-              onFocus={() => { if (suggestions.length) setOpen(true); }}
+              onFocus={() => {
+                setExpanded(true);
+                requestAnimationFrame(() => {
+                  const el = searchWrapRef.current;
+                  if (!el) return;
+                  setAnchorRect(el.getBoundingClientRect());
+                  setOpen(true);
+                  // immediately drop focus from the header input so its ring disappears
+                  inputRef.current?.blur();
+                });
+              }}
+              // open on click
               autoComplete="off"
             />
             {/* clear */}
@@ -322,83 +431,34 @@ const fetchSuggestions = useCallback(async (q) => {
             )}
 
             {/* Suggestions dropdown */}
-            {open && (loading || suggestions.length > 0 || respSummary.length > 0) && (
-              <div className="absolute mt-1 w-full bg-white rounded-xl border border-gray-200 shadow-2xl overflow-hidden z-50">
-                {loading && <div className="px-3 py-2 text-sm text-gray-500">Searching…</div>}
-
-                {/* Responses (counts) */}
-{!loading && respSummary.length > 0 && (
-  <div className="border-b border-gray-100">
-    <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-gray-500 bg-gray-50">
-      Responses
-    </div>
-    <ul className="max-h-64 overflow-auto">
-      {respSummary.map((r) => (
-        <li
-          key={`resp-sum-${r.id}`}
-          onClick={() => handleResponseFilterClick(r.name)}
-          className="cursor-pointer px-3 py-2 text-sm flex items-center justify-between hover:bg-blue-50"
-          title={`Open results for ${r.name}`}
-        >
-          <div className="flex items-center gap-2">
-            <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-xs">response</span>
-            <span className="font-medium text-gray-900">{r.name}</span>
-          </div>
-          <span className="text-xs text-gray-600">{r.count}</span>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-
-                {/* Lead hits */}
-                {!loading && suggestions.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-gray-500 bg-gray-50">Leads</div>
-                    <ul className="max-h-80 overflow-auto">
-                      {suggestions.map((l, idx) => {
-                        const active = idx === highlight;
-                        return (
-                          <li
-                            key={l.id}
-                            onMouseEnter={() => setHighlight(idx)}
-                            onMouseLeave={() => setHighlight(-1)}
-                            onClick={() => handleSelect(l)}
-                            className={`cursor-pointer px-3 py-2 text-sm flex items-start gap-3 ${active ? 'bg-blue-50' : 'bg-white'} hover:bg-blue-50`}
-                          >
-                            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white flex items-center justify-center font-semibold">
-                              {String(l.full_name || '?').trim().charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-medium text-gray-900 truncate">{l.full_name}</div>
-                              <div className="text-xs text-gray-600 flex flex-wrap gap-2">
-                                {l.mobile && <span className="px-1.5 py-0.5 bg-gray-100 rounded-md">{l.mobile}</span>}
-                                {(l.lead_response_name || respMap[l.lead_response_id]) && (
-                                  <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700">
-                                    {l.lead_response_name || respMap[l.lead_response_id]}
-                                  </span>
-                                )}
-                                {l.is_client ? <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded-md">Client</span>
-                                  : <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded-md">Lead</span>}
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-
-                {!loading && suggestions.length === 0 && respMatches.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-gray-500">No results</div>
-                )}
-
-                <div className="px-3 py-2 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
-                  <span>↑/↓ to navigate • Enter to open</span>
-                  <span>Esc to close</span>
-                </div>
-              </div>
+            {open && anchorRect && portalHostRef.current && (
+              <SearchOverlay
+                key="global-search-overlay"               // stable key
+                anchorRect={anchorRect}
+                overlayRef={overlayRef}
+                portalHost={portalHostRef.current}        // <-- pass host
+                query={query}
+                setQuery={setQuery}
+                onClose={() => { setOpen(false); setExpanded(false); setHighlight(-1); }}
+                loading={loading}
+                responseTabs={responseTabs}
+                responseCounts={responseCounts}
+                activeResponse={activeResponse}
+                setActiveResponse={setActiveResponse}
+                groupedByResponse={groupedByResponse}
+                openGroups={openGroups}
+                setOpenGroups={setOpenGroups}
+                visibleLeads={visibleLeads}
+                highlight={highlight}
+                setHighlight={setHighlight}
+                handleSelect={handleSelect}
+                respMap={respMap}
+                branchMap={branchMap}
+                sourceMap={sourceMap}
+                onEnterNoPick={handleEnterNoPick}
+              />
             )}
+
           </div>
         </div>
         {/* -------- /Global Search -------- */}
@@ -579,3 +639,198 @@ const ShowNotifications = ({ setIsConnect }) => {
     </div>
   );
 };
+
+function SearchOverlay({
+  anchorRect,
+  portalHost,
+  query, setQuery, onClose,
+  loading,
+  responseTabs, responseCounts,
+  activeResponse, setActiveResponse,
+  groupedByResponse, openGroups, setOpenGroups,
+  visibleLeads, highlight, setHighlight,
+  handleSelect, respMap, branchMap, sourceMap,
+  onEnterNoPick,
+  overlayRef,
+}) {
+  // close on ESC
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const overlayInputRef = useRef(null);
+
+  useEffect(() => {
+    overlayInputRef.current?.focus({ preventScroll: true });
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const totalCount = Object.values(responseCounts).reduce((a, b) => a + b, 0) || 0;
+
+  const content = (
+    // wrapper shouldn't block the page
+    <div className="fixed inset-0 z-[1000] pointer-events-none">
+      {/* Single floating panel (Chrome-like), no backdrop */}
+      <div
+        ref={overlayRef}
+        className="absolute z-[1001] pointer-events-auto rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden"
+        style={{
+          top: anchorRect.top,     // rect is viewport-based; fixed container uses viewport too
+          left: anchorRect.left,
+          width: anchorRect.width,
+        }}
+      >
+        {/* Top search bar */}
+        <div className="p-3 border-b border-gray-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              ref={overlayInputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                const total = visibleLeads.length;
+                if (e.key === "ArrowDown") { e.preventDefault(); setHighlight(h => Math.min((h ?? -1) + 1, Math.max(total - 1, 0))); }
+                else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight(h => Math.max((h ?? -1) - 1, 0)); }
+                else if (e.key === "Enter") {
+                  if (total && highlight >= 0) { e.preventDefault(); handleSelect(visibleLeads[highlight]); }
+                  else { onEnterNoPick(); }
+                }
+              }}
+              placeholder="Search lead by name, phone, or email…"
+              className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 bg-gray-50
+             outline-none focus:outline-none focus:ring-0 focus:shadow-none
+             focus:border-gray-300 focus:bg-white text-[15px]"
+            />
+            {query && (
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="sticky top-0 bg-white border-b border-gray-100">
+          <div className="px-3 py-2 flex items-center gap-2 overflow-x-auto">
+            <button
+              onClick={() => setActiveResponse('ALL')}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs border transition
+              ${activeResponse === 'ALL'
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
+            >
+              All <span className="ml-2 text-[10px] opacity-80">
+                {(Object.values(responseCounts).reduce((a, b) => a + b, 0) || 0)}
+              </span>
+            </button>
+
+            {responseTabs.map(([name, count]) => (
+              <button
+                key={`tab-${name}`}
+                onClick={() => setActiveResponse(name)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs border transition
+                ${activeResponse === name
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}
+                title={`Filter: ${name}`}
+              >
+                {name}
+                <span className={`ml-2 text-[10px] ${activeResponse === name ? 'opacity-90' : 'opacity-70'}`}>{count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="max-h-[65vh] overflow-auto">
+          {loading && <div className="px-4 py-3 text-sm text-gray-500">Searching…</div>}
+          {!loading && groupedByResponse.length === 0 && (
+            <div className="px-4 py-3 text-sm text-gray-500">No results</div>
+          )}
+
+          {!loading && groupedByResponse.map(([groupName, items]) => {
+            const isOpen = !!openGroups[groupName];
+            return (
+              <div key={groupName} className="border-b border-gray-100">
+                <button
+                  onClick={() => setOpenGroups(g => ({ ...g, [groupName]: !g[groupName] }))}
+                  className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <span className="text-sm font-medium text-gray-900">{groupName}</span>
+                  </div>
+                  <span className="text-xs text-gray-600">{items.length}</span>
+                </button>
+
+                {isOpen && (
+                  <ul className="pb-2">
+                    {items.map((l) => {
+                      const globalIdx = visibleLeads.findIndex(v => v.id === l.id);
+                      const active = globalIdx === highlight;
+                      const responseName = l.lead_response_name || respMap[l.lead_response_id];
+                      const branchName = branchMap[l.branch_id] || (l.branch_name ?? '');
+                      const sourceName = sourceMap[l.lead_source_id] || (l.lead_source_name ?? '');
+                      const city = l.city || '';
+                      const seg = Array.isArray(l.segment) ? l.segment.join(', ') : (l.segment || '');
+
+                      return (
+                        <li
+                          key={l.id}
+                          onMouseEnter={() => setHighlight(globalIdx)}
+                          onMouseLeave={() => setHighlight(-1)}
+                          onClick={() => handleSelect(l)}
+                          className={`cursor-pointer px-4 py-2 text-sm flex items-start gap-3 ${active ? 'bg-blue-50' : 'bg-white'} hover:bg-blue-50`}
+                        >
+                          <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white flex items-center justify-center font-semibold">
+                            {String(l.full_name || '?').trim().charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-gray-900 truncate">{l.full_name}</div>
+                              {responseName && <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] whitespace-nowrap">{responseName}</span>}
+                              {sourceName && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] whitespace-nowrap">{sourceName}</span>}
+                              {branchName && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] whitespace-nowrap">{branchName}</span>}
+                            </div>
+                            <div className="mt-0.5 text-xs text-gray-600 flex flex-wrap gap-2">
+                              {l.mobile && <span className="px-1.5 py-0.5 bg-gray-100 rounded-md">{l.mobile}</span>}
+                              {l.email && <span className="px-1.5 py-0.5 bg-gray-100 rounded-md truncate max-w-[14rem]">{l.email}</span>}
+                              {city && <span className="px-1.5 py-0.5 bg-gray-100 rounded-md">{city}</span>}
+                              {seg && <span className="px-1.5 py-0.5 bg-gray-100 rounded-md truncate max-w-[10rem]">{seg}</span>}
+                              {l.is_client
+                                ? <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded-md">Client</span>
+                                : <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded-md">Lead</span>}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer hint */}
+        <div className="px-4 py-2 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
+          <span>↑/↓ to navigate • Enter to open</span>
+          <button onClick={onClose} className="px-2 py-0.5 rounded border text-xs hover:bg-gray-50">Esc to close</button>
+        </div>
+      </div>
+    </div>
+  );
+
+
+  return createPortal(content, portalHost);
+}
+

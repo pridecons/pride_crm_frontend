@@ -30,19 +30,19 @@ export function ActionButtons({
   onDocumentsClick,
   onStoryClick,
   onInvoiceClick,
+  onShareClick,
 }) {
   const { hasPermission } = usePermissions();
 
   return (
-    <div className="flex justify-evenly flex-wrap gap-2 mb-5">
+    <div className="flex justify-evenly flex-wrap gap-1.5 mb-5">
       <button
         onClick={onCallClick}
         disabled={!currentLead || currentLead.is_call}
-        className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
-          currentLead?.is_call
+        className={`flex items-center px-3 py-2 rounded-lg transition-colors ${currentLead?.is_call
             ? "bg-gray-300 text-gray-500 cursor-not-allowed"
             : "bg-green-500 text-white hover:bg-green-600"
-        }`}
+          }`}
       >
         <PhoneCall size={16} className="mr-2" />
         {currentLead?.is_call ? "Called" : "Call"}
@@ -131,6 +131,13 @@ export function ActionButtons({
       >
         <InvoiceIcon size={16} className="mr-2" />
         Invoices
+      </button>
+
+      <button
+        onClick={onShareClick}
+        className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+      >
+        Transfer
       </button>
     </div>
   );

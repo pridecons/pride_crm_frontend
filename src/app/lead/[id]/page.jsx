@@ -46,6 +46,7 @@ import { useFTAndCallbackPatch } from "@/components/Lead/useFTAndCallbackPatch";
 import { ActionButtons } from "@/components/Lead/ID/ActionButtons";
 import { ViewAndEditLead } from "@/components/Lead/ID/ViewAndEditLead";
 import SMSModalWithLogs from "@/components/Lead/ID/SMSModalWithLogs";
+import LeadShareModal from "@/components/Lead/ID/LeadShareModal";
 
 // --- After all your imports, add this function ---
 export const getFileUrl = (path) => {
@@ -103,6 +104,8 @@ const Lead = () => {
   const [kycLoading, setKycLoading] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const fetchCurrentLead = async () => {
     try {
@@ -383,31 +386,31 @@ const Lead = () => {
       setLoading(true);
       const updateData = { ...editFormData };
       // Figure out which response name is selected
-   const respName = getResponseNameById(updateData.lead_response_id);
+      const respName = getResponseNameById(updateData.lead_response_id);
 
       if (updateData.dob) {
         updateData.dob = new Date(updateData.dob).toISOString().split("T")[0];
       }
-// Enforce dates for FT / Call Back, convert formats
-   if (respName === "ft") {
-     if (!updateData.ft_from_date || !updateData.ft_to_date) {
-       toast.error("Please set both FT From and FT To dates before saving.");
-       setLoading(false);
-       return;
-     }
-     // inputs are YYYY-MM-DD; API expects DD-MM-YYYY
-     updateData.ft_from_date = ymdToDmy(updateData.ft_from_date);
-     updateData.ft_to_date   = ymdToDmy(updateData.ft_to_date);
-   }
+      // Enforce dates for FT / Call Back, convert formats
+      if (respName === "ft") {
+        if (!updateData.ft_from_date || !updateData.ft_to_date) {
+          toast.error("Please set both FT From and FT To dates before saving.");
+          setLoading(false);
+          return;
+        }
+        // inputs are YYYY-MM-DD; API expects DD-MM-YYYY
+        updateData.ft_from_date = ymdToDmy(updateData.ft_from_date);
+        updateData.ft_to_date = ymdToDmy(updateData.ft_to_date);
+      }
 
-   if (respName === "call back" || respName === "callback") {
-     if (!updateData.call_back_date) {
-       toast.error("Please set a Call Back date & time before saving.");
-       setLoading(false);
-       return;
-     }
-     updateData.call_back_date = new Date(updateData.call_back_date).toISOString();
-   }
+      if (respName === "call back" || respName === "callback") {
+        if (!updateData.call_back_date) {
+          toast.error("Please set a Call Back date & time before saving.");
+          setLoading(false);
+          return;
+        }
+        updateData.call_back_date = new Date(updateData.call_back_date).toISOString();
+      }
 
       if (updateData.segment && typeof updateData.segment === "string") {
         updateData.segment = updateData.segment.split(",").map((s) => s.trim()).filter((s) => s);
@@ -537,10 +540,10 @@ const Lead = () => {
   };
 
   const ymdToDmy = (ymd) => {
-  if (!ymd) return "";
-  const [yyyy, mm, dd] = ymd.split("-");
-  return `${dd}-${mm}-${yyyy}`;
-};
+    if (!ymd) return "";
+    const [yyyy, mm, dd] = ymd.split("-");
+    return `${dd}-${mm}-${yyyy}`;
+  };
 
   // Format ISO datetime to "YYYY-MM-DDTHH:MM" for <input type="datetime-local">
   const isoToDatetimeLocal = (iso) => {
@@ -683,6 +686,7 @@ const Lead = () => {
             setIsStoryModalOpen(true);
           }}
           onInvoiceClick={() => setIsInvoiceModalOpen(true)}
+          onShareClick={() => setIsShareModalOpen(true)}
         />
 
         {/* Right-aligned Edit / Back button */}
@@ -1056,14 +1060,25 @@ const Lead = () => {
           </div>}
         </Modal>
 
+        <LeadShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          leadId={currentLead?.id}
+          onSuccess={(data) => {
+            // Optionally refresh lead or log
+            fetchCurrentLead();
+            console.log("Lead shared:", data);
+          }}
+        />
+
         <FTModal
           open={showFTModal}
-  onClose={() => {
-    const prev = cancelFT();
-    if (prev != null) {
-      setEditFormData((p) => ({ ...p, lead_response_id: prev }));
-    }
-  }}
+          onClose={() => {
+            const prev = cancelFT();
+            if (prev != null) {
+              setEditFormData((p) => ({ ...p, lead_response_id: prev }));
+            }
+          }}
           onSave={async (payload) => {
             try {
               // get the FT response id (works whether items are {id,name} or {value,label})
@@ -1095,12 +1110,12 @@ const Lead = () => {
         />
         <CallBackModal
           open={showCallBackModal}
-  onClose={() => {
-    const prev = cancelCallBack();
-    if (prev != null) {
-      setEditFormData((p) => ({ ...p, lead_response_id: prev }));
-    }
-  }}
+          onClose={() => {
+            const prev = cancelCallBack();
+            if (prev != null) {
+              setEditFormData((p) => ({ ...p, lead_response_id: prev }));
+            }
+          }}
           onSave={async () => {
             try {
               if (!callBackDate) throw new Error("Call back date is required");

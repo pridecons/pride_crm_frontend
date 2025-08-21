@@ -376,7 +376,7 @@ const LeadManage = () => {
 
 
       <DashboardTables />
-
+      <EmployeeWithDataAccuracy/>
 
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
@@ -798,7 +798,7 @@ function DashboardTables() {
 
     <div className="w-full grid grid-cols-3 gap-8 pb-6">
       {/* Lead Source Performance Table */}
-      {data.source_analytics?.length > 0 && (
+      {/* {data.source_analytics?.length > 0 && ( */}
         <div className="bg-white rounded-xl shadow-lg w-full border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="text-xl font-semibold text-gray-900">
@@ -835,7 +835,7 @@ function DashboardTables() {
             </table>
           </div>
         </div>
-      )}
+      {/* )} */}
 
       {/* Response Distribution Table */}
       <div className="col-span-2  bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
@@ -967,4 +967,135 @@ function DashboardTables() {
   );
 }
 
+function EmployeeWithDataAccuracy() {
+  const [employees, setEmployees] = useState([]);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [applied, setApplied] = useState(false);
+
+  // Fetch employees for autocomplete/dropdown
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const { data } = await axiosInstance.get("/employee?skip=0&limit=100");
+        setEmployees(data);
+      } catch (error) {
+        console.error("Failed to fetch employees", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  // Get employee name by code
+  const getEmployeeName = (code) => {
+    const emp = employees.find((e) => String(e.employee_code) === String(code));
+    return emp ? emp.name : "—";
+  };
+
+  const handleApply = () => {
+    console.log("Applying filter with:", fromDate, toDate);
+    setApplied(true);
+  };
+
+  const handleClear = () => {
+    setFromDate("");
+    setToDate("");
+    setApplied(false);
+  };
+
+  return (
+    <div className="mb-6">
+      <div className="bg-white rounded-2xl shadow-lg p-6">
+        <h1 className="text-xl font-semibold mb-4">
+          Employee with Data Accuracy
+        </h1>
+
+        <div className="space-y-4 flex gap-5 flex-wrap">
+          {/* Lead Source */}
+          <div>
+            <label className="block text-gray-500 mb-1">Lead Source</label>
+            <select
+              name="leadSource"
+              id="leadSource"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Lead Source</option>
+              <option value="referral">Referral</option>
+              <option value="website">Website</option>
+              <option value="social">Social Media</option>
+            </select>
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="block text-gray-500 mb-1">Role</label>
+            <select
+              name="role"
+              id="role"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Role</option>
+              <option value="90000">90000</option>
+            </select>
+          </div>
+
+          {/* Date Filters + Buttons */}
+          <div className="flex gap-3 ">
+           <div> 
+             <label className=" block text-gray-500 mb-1">From</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setApplied(false); // reset apply state if user changes date
+              }}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            </div>
+
+           <div>
+             <label className="block text-gray-500 mb-1">To</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setApplied(false);
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+            />
+           </div>
+
+            {/* Button Logic */}
+            {applied ? (
+              <button
+                onClick={handleClear}
+                className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+              >
+                Clear
+              </button>
+            ) : fromDate || toDate ? (
+              fromDate && toDate ? (
+                <button
+                  onClick={handleApply}
+                  className="px-4 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+                >
+                  Apply
+                </button>
+              ) : (
+                <button
+                  onClick={handleClear}
+                  className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+                >
+                  Clear
+                </button>
+              )
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 

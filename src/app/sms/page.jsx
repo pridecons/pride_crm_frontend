@@ -185,11 +185,10 @@ export default function SMSTemplatesSimplePage() {
 
         {/* Message Alert */}
         {msg && (
-          <div className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg font-semibold ${
-            msg.includes("failed") || msg.includes("Failed")
+          <div className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg font-semibold ${msg.includes("failed") || msg.includes("Failed")
               ? "bg-red-50 border-2 border-red-400 text-red-600"
               : "bg-sky-50 border-2 border-sky-300 text-sky-800"
-          }`}>
+            }`}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               {msg.includes("failed") || msg.includes("Failed") ? (
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01" />
@@ -224,7 +223,7 @@ export default function SMSTemplatesSimplePage() {
                 <p className="mb-6 text-base text-gray-500">
                   Get started by creating your first SMS template
                 </p>
-                <button 
+                <button
                   className="px-6 py-3 bg-gradient-to-br from-indigo-500 to-purple-700 text-white rounded-lg font-semibold text-sm transition-transform duration-300 hover:scale-[1.02]"
                   onClick={() => openModal()}
                 >
@@ -307,9 +306,8 @@ export default function SMSTemplatesSimplePage() {
                   {templates.map((tpl, index) => (
                     <tr
                       key={tpl.id}
-                      className={`transition-transform duration-200 ease-in-out ${
-                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } hover:bg-sky-50 hover:scale-[1.002]`}
+                      className={`transition-transform duration-200 ease-in-out ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        } hover:bg-sky-50 hover:scale-[1.002]`}
                     >
                       <td className="px-5 py-4 text-gray-800 align-middle">
                         <span className="inline-block bg-gradient-to-br from-indigo-500 to-purple-700 text-white px-3 py-1 rounded-full text-xs font-bold">
@@ -330,11 +328,10 @@ export default function SMSTemplatesSimplePage() {
                         </code>
                       </td>
                       <td className="px-5 py-4 text-gray-800 align-middle">
-                        <span className={`inline-block text-xs font-semibold px-3 py-1 rounded ${
-                          tpl.message_type === "TRANSACTIONAL"
+                        <span className={`inline-block text-xs font-semibold px-3 py-1 rounded ${tpl.message_type === "TRANSACTIONAL"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-yellow-100 text-yellow-800"
-                        }`}>
+                          }`}>
                           {tpl.message_type}
                         </span>
                       </td>
@@ -550,11 +547,10 @@ export default function SMSTemplatesSimplePage() {
                         className="relative mt-2"
                       >
                         <div
-                          className={`w-full p-3.5 border-2 rounded-xl bg-white cursor-pointer flex items-center justify-between min-h-[48px] transition ${
-                            showRoleDropdown
+                          className={`w-full p-3.5 border-2 rounded-xl bg-white cursor-pointer flex items-center justify-between min-h-[48px] transition ${showRoleDropdown
                               ? "border-indigo-500 ring-2 ring-indigo-100"
                               : "border-gray-200"
-                          }`}
+                            }`}
                           onClick={() => setShowRoleDropdown(!showRoleDropdown)}
                         >
                           <span className={`text-[15px] ${form.allowedRoles.length ? "text-gray-700" : "text-gray-400"}`}>
@@ -563,9 +559,8 @@ export default function SMSTemplatesSimplePage() {
                           <svg
                             width="20"
                             height="20"
-                            className={`w-5 h-5 fill-indigo-500 transition-transform duration-200 ease-in-out ${
-                              showRoleDropdown ? "rotate-180" : ""
-                            }`}
+                            className={`w-5 h-5 fill-indigo-500 transition-transform duration-200 ease-in-out ${showRoleDropdown ? "rotate-180" : ""
+                              }`}
                             viewBox="0 0 24 24"
                           >
                             <path d="M7 10l5 5 5-5z" />
@@ -578,20 +573,44 @@ export default function SMSTemplatesSimplePage() {
                                 Loading roles...
                               </div>
                             ) : (
-                              roles.map((role) => (
-                                <label 
-                                  key={role} 
-                                  className="flex items-center gap-3 px-3 py-2 rounded mb-1 font-medium text-base hover:bg-gray-50 transition cursor-pointer"
+                              <>
+                                {/* ✅ Select All Option */}
+                                <label
+                                  className="flex items-center gap-3 px-3 py-2 rounded mb-1 font-semibold text-base bg-gray-50 cursor-pointer"
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={form.allowedRoles.includes(role)}
-                                    onChange={() => handleRoleToggle(role)}
-                                    className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                                    checked={form.allowedRoles.length === roles.length} // all selected
+                                    onChange={() => {
+                                      if (form.allowedRoles.length === roles.length) {
+                                        // Unselect all
+                                        setForm((prev) => ({ ...prev, allowedRoles: [] }));
+                                      } else {
+                                        // Select all
+                                        setForm((prev) => ({ ...prev, allowedRoles: roles }));
+                                      }
+                                    }}
+                                    className="w-4 h-4 accent-indigo-600 cursor-pointer"
                                   />
-                                  <span className="text-gray-700">{role}</span>
+                                  <span className="text-gray-800">Select All</span>
                                 </label>
-                              ))
+
+                                {/* ✅ Individual Roles */}
+                                {roles.map((role) => (
+                                  <label
+                                    key={role}
+                                    className="flex items-center gap-3 px-3 py-2 rounded mb-1 font-medium text-base hover:bg-gray-50 transition cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={form.allowedRoles.includes(role)}
+                                      onChange={() => handleRoleToggle(role)}
+                                      className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                                    />
+                                    <span className="text-gray-700">{role}</span>
+                                  </label>
+                                ))}
+                              </>
                             )}
                           </div>
                         )}
@@ -603,11 +622,10 @@ export default function SMSTemplatesSimplePage() {
                   <div className="flex gap-4 pt-6 border-t border-gray-100">
                     <button
                       type="submit"
-                      className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl text-white transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg ${
-                        editingId
+                      className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl text-white transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg ${editingId
                           ? "bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
                           : "bg-gradient-to-br from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
-                      }`}
+                        }`}
                     >
                       {editingId ? (
                         <>

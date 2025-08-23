@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState, useMemo } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useRouter } from "next/navigation";
@@ -17,14 +18,12 @@ import {
   MessageCircle,
 } from "lucide-react";
 import LoadingState from "@/components/LoadingState";
-import { usePermissions } from "@/context/PermissionsContext";
 import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
 
 const LeadManage = () => {
-  const { hasPermission } = usePermissions();
   const router = useRouter();
 
   // Data
@@ -33,23 +32,15 @@ const LeadManage = () => {
   const [employees, setEmployees] = useState([]);
   const [sourcesList, setSourcesList] = useState([]);
   const [responsesList, setResponsesList] = useState([]);
-  // Date 
-  const [data, setData] = useState({
-    source_analytics: [],
-    response_analytics: []
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedSource, setSelectedSource] = useState("");
-  const [sources, setSources] = useState([]);
 
+  const [loading, setLoading] = useState(true);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("All");
   const [responseFilter, setResponseFilter] = useState("All");
   const [branchFilter, setBranchFilter] = useState("All");
-  const [kycFilter, setKycFilter] = useState("All"); // NEW: 'All' | 'Completed' | 'Pending'
+  const [kycFilter, setKycFilter] = useState("All"); // 'All' | 'Completed' | 'Pending'
 
   // Employee autocomplete: selected code + text input
   const [employeeFilter, setEmployeeFilter] = useState("All"); // selected employee_code
@@ -88,10 +79,9 @@ const LeadManage = () => {
           setBranches(allBranches);
           setEmployees(allEmployees);
         } else {
-          // keep only current user's branch + employees of that branch
           const safeBranchId = String(branchId || "");
-          setBranches(allBranches.filter(b => String(b.id) === safeBranchId));
-          setEmployees(allEmployees.filter(e => String(e.branch_id) === safeBranchId));
+          setBranches(allBranches.filter((b) => String(b.id) === safeBranchId));
+          setEmployees(allEmployees.filter((e) => String(e.branch_id) === safeBranchId));
         }
 
         setSourcesList(sRes.data || []);
@@ -101,18 +91,16 @@ const LeadManage = () => {
       }
     };
 
-    // wait until we know role/branch; SUPERADMIN can load immediately
     if (isSuperAdmin || branchId) loadFilterLists();
   }, [isSuperAdmin, branchId]);
 
+  // Identify role/branch from cookies or token
   useEffect(() => {
     try {
-      // Try reading pre-saved user_info (preferred)
       const ui = Cookies.get("user_info");
       if (ui) {
         const parsed = JSON.parse(ui);
         const r = parsed?.role || parsed?.user?.role || null;
-        // support several shapes: branch_id, user.branch_id, branch.id
         const b =
           parsed?.branch_id ??
           parsed?.user?.branch_id ??
@@ -123,7 +111,6 @@ const LeadManage = () => {
         return;
       }
 
-      // Fallback: decode access token
       const token = Cookies.get("access_token");
       if (token) {
         const payload = jwtDecode(token);
@@ -159,11 +146,10 @@ const LeadManage = () => {
       }
     };
 
-    // SUPERADMIN can fetch immediately; others wait for branchId
     if (isSuperAdmin || branchId) fetchLeadData();
   }, [isSuperAdmin, branchId]);
 
-  // Helpers to display names
+  // Name helpers
   const getSourceName = (id) =>
     sourcesList.find((s) => String(s.id) === String(id))?.name ||
     (id == null ? "—" : id);
@@ -180,11 +166,7 @@ const LeadManage = () => {
     employees.find((e) => String(e.employee_code) === String(code))?.name ||
     (code == null ? "—" : code);
 
-  // Options
-  const branchOptions = useMemo(
-    () => [{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))],
-    [branches]
-  );
+  // Select options (source/response only used)
   const sourceOptions = useMemo(
     () => [{ value: "All", label: "All Sources" }, ...sourcesList.map((s) => ({ value: String(s.id), label: s.name }))],
     [sourcesList]
@@ -194,7 +176,7 @@ const LeadManage = () => {
     [responsesList]
   );
 
-  // Filtering (must come BEFORE pagination that uses it)
+  // Filtered list
   const filteredLeads = useMemo(() => {
     let updated = [...leadData];
 
@@ -217,24 +199,16 @@ const LeadManage = () => {
     }
 
     if (branchFilter !== "All") {
-      updated = updated.filter(
-        (lead) => String(lead.branch_id) === String(branchFilter)
-      );
+      updated = updated.filter((lead) => String(lead.branch_id) === String(branchFilter));
     }
     if (employeeFilter !== "All") {
-      updated = updated.filter(
-        (lead) => String(lead.assigned_to_user) === String(employeeFilter)
-      );
+      updated = updated.filter((lead) => String(lead.assigned_to_user) === String(employeeFilter));
     }
     if (sourceFilter !== "All") {
-      updated = updated.filter(
-        (lead) => String(lead.lead_source_id) === String(sourceFilter)
-      );
+      updated = updated.filter((lead) => String(lead.lead_source_id) === String(sourceFilter));
     }
     if (responseFilter !== "All") {
-      updated = updated.filter(
-        (lead) => String(lead.lead_response_id) === String(responseFilter)
-      );
+      updated = updated.filter((lead) => String(lead.lead_response_id) === String(responseFilter));
     }
     if (kycFilter !== "All") {
       const wantCompleted = kycFilter === "Completed";
@@ -273,13 +247,7 @@ const LeadManage = () => {
     setOpenLead(null);
   }, [currentPage]);
 
-  // Quick Stats
   const totalLeads = leadData.length;
-  const pendingLeads = leadData.filter((lead) => lead.status === "Pending").length;
-  const completedLeads = leadData.filter((lead) => lead.status === "Completed").length;
-  const sourcesCount = new Set(
-    leadData.map((lead) => lead.lead_source_id).filter((v) => v != null)
-  ).size;
 
   // Employee autocomplete behavior
   const empMatches = useMemo(() => {
@@ -306,7 +274,7 @@ const LeadManage = () => {
     setShowEmpDrop(false);
   };
 
-  // Openers
+  // Modals
   const openStory = (leadId) => {
     setStoryLeadId(leadId);
     setIsStoryModalOpen(true);
@@ -316,7 +284,7 @@ const LeadManage = () => {
     setIsCommentModalOpen(true);
   };
 
-
+  // Quick stats
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -328,10 +296,8 @@ const LeadManage = () => {
         console.error("Failed to fetch dashboard data", error);
       }
     };
-
     fetchDashboardData();
   }, []);
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
@@ -435,38 +401,34 @@ const LeadManage = () => {
         </div>
       </div>
 
-
-      <DashboardTables isSuperAdmin={isSuperAdmin} branchId={branchId} />
-      <EmployeeWithDataAccuracy isSuperAdmin={isSuperAdmin} branchId={branchId} />
-
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
         <div className="flex flex-col gap-4">
           {/* Branch Tabs → visible only to SUPERADMIN */}
           {isSuperAdmin && (
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {([{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setBranchFilter(opt.value)}
-                  className={`px-4 py-2 rounded-lg border whitespace-nowrap ${branchFilter === opt.value
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+              {[{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))].map(
+                (opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setBranchFilter(opt.value)}
+                    className={`px-4 py-2 rounded-lg border whitespace-nowrap ${
+                      branchFilter === opt.value
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
                     }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              )}
             </div>
           )}
 
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             {/* Search */}
             <div className="relative flex-1 max-w-md">
-              <Search
-                size={20}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+              <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by name, email, or phone..."
@@ -492,11 +454,7 @@ const LeadManage = () => {
                   onFocus={() => setShowEmpDrop(Boolean(employeeQuery))}
                 />
                 {employeeFilter !== "All" || employeeQuery ? (
-                  <button
-                    className="p-2 rounded hover:bg-gray-100"
-                    onClick={clearEmployee}
-                    title="Clear"
-                  >
+                  <button className="p-2 rounded hover:bg-gray-100" onClick={clearEmployee} title="Clear">
                     <X size={16} />
                   </button>
                 ) : null}
@@ -563,103 +521,43 @@ const LeadManage = () => {
             </select>
           </div>
         </div>
-           {/* Accordion List */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 mt-8">
-        {loading ? (
-          <LoadingState message="Loading leads..." />
-        ) : filteredLeads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64">
-            <div className="bg-gray-50 rounded-full p-6 mb-4">
-              <Users size={48} className="text-gray-400" />
+
+        {/* Accordion List */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 mt-8">
+          {loading ? (
+            <LoadingState message="Loading leads..." />
+          ) : filteredLeads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64">
+              <div className="bg-gray-50 rounded-full p-6 mb-4">
+                <Users size={48} className="text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-lg font-medium mb-2">No leads found</p>
+              <p className="text-gray-400 text-sm">Try adjusting your search or filters</p>
             </div>
-            <p className="text-gray-500 text-lg font-medium mb-2">No leads found</p>
-            <p className="text-gray-400 text-sm">Try adjusting your search or filters</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {paginatedLeads.map((lead) => {
-              const isOpen = openLead === lead.id;
-              return (
-                <div key={lead.id} className="bg-white">
-                  <div className="w-full flex justify-between items-center px-4 sm:px-6 py-4 hover:bg-gray-50 transition">
-                    {/* Left: Lead summary */}
-                    <button
-                      onClick={() => setOpenLead(isOpen ? null : lead.id)}
-                      className="text-left flex-1"
-                    >
-                      <div className="font-semibold text-gray-900">
-                        {lead.full_name || "—"}{" "}
-                        <span className="text-xs text-gray-500">#{lead.id}</span>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {lead.mobile || "—"} • {getResponseName(lead.lead_response_id)} •{" "}
-                        {getSourceName(lead.lead_source_id)}
-                      </div>
-                    </button>
-
-                    {/* Right: Actions (always visible) */}
-                    <div className="flex items-center gap-2 ml-4">
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {paginatedLeads.map((lead) => {
+                const isOpen = openLead === lead.id;
+                return (
+                  <div key={lead.id} className="bg-white">
+                    <div className="w-full flex justify-between items-center px-4 sm:px-6 py-4 hover:bg-gray-50 transition">
+                      {/* Left: Lead summary */}
                       <button
-                        onClick={() => router.push(`/lead/${lead.id}`)}
-                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                        title="Edit lead"
+                        onClick={() => setOpenLead(isOpen ? null : lead.id)}
+                        className="text-left flex-1"
                       >
-                        <Edit3 size={16} />
+                        <div className="font-semibold text-gray-900">
+                          {lead.full_name || "—"}{" "}
+                          <span className="text-xs text-gray-500">#{lead.id}</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {lead.mobile || "—"} • {getResponseName(lead.lead_response_id)} •{" "}
+                          {getSourceName(lead.lead_source_id)}
+                        </div>
                       </button>
 
-                      <button
-                        onClick={() => openStory(lead.id)}
-                        className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition"
-                        title="View Story"
-                      >
-                        <BookOpenText size={18} />
-                      </button>
-
-                      <button
-                        onClick={() => openComments(lead.id)}
-                        className="p-2 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition"
-                        title="Comments"
-                      >
-                        <MessageCircle size={16} />
-                      </button>
-
-                      <button
-                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expanded details */}
-                  {isOpen && (
-                    <div className="px-4 sm:px-6 pb-5 text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <div><span className="font-medium">Email:</span> {lead.email || "—"}</div>
-                      <div><span className="font-medium">PAN:</span> {lead.pan || "—"}</div>
-                      <div><span className="font-medium">Branch:</span> {getBranchName(lead.branch_id)}</div>
-                      <div><span className="font-medium">Assigned To:</span> {getEmployeeName(lead.assigned_to_user)}</div>
-                      <div><span className="font-medium">City:</span> {lead.city || "—"}</div>
-                      <div><span className="font-medium">State:</span> {lead.state || "—"}</div>
-                      <div>
-                        <span className="font-medium">Segment:</span>{" "}
-                        {Array.isArray(lead.segment) ? lead.segment.join(", ") : lead.segment || "—"}
-                      </div>
-                      <div><span className="font-medium">Investment:</span> {lead.investment ?? "—"}</div>
-                      <div>
-                        <span className="font-medium">Response Changed:</span>{" "}
-                        {lead.response_changed_at ? new Date(lead.response_changed_at).toLocaleString("en-IN") : "—"}
-                      </div>
-                      <div>
-                        <span className="font-medium">Conversion Deadline:</span>{" "}
-                        {lead.conversion_deadline ? new Date(lead.conversion_deadline).toLocaleString("en-IN") : "—"}
-                      </div>
-                      <div>
-                        <span className="font-medium">Created At:</span>{" "}
-                        {lead.created_at ? new Date(lead.created_at).toLocaleString("en-IN") : "—"}
-                      </div>
-
-                      <div className="col-span-full flex items-center gap-2 pt-2">
+                      {/* Right: Actions (always visible) */}
+                      <div className="flex items-center gap-2 ml-4">
                         <button
                           onClick={() => router.push(`/lead/${lead.id}`)}
                           className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
@@ -692,17 +590,76 @@ const LeadManage = () => {
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+
+                    {/* Expanded details */}
+                    {isOpen && (
+                      <div className="px-4 sm:px-6 pb-5 text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div><span className="font-medium">Email:</span> {lead.email || "—"}</div>
+                        <div><span className="font-medium">PAN:</span> {lead.pan || "—"}</div>
+                        <div><span className="font-medium">Branch:</span> {getBranchName(lead.branch_id)}</div>
+                        <div><span className="font-medium">Assigned To:</span> {getEmployeeName(lead.assigned_to_user)}</div>
+                        <div><span className="font-medium">City:</span> {lead.city || "—"}</div>
+                        <div><span className="font-medium">State:</span> {lead.state || "—"}</div>
+                        <div>
+                          <span className="font-medium">Segment:</span>{" "}
+                          {Array.isArray(lead.segment) ? lead.segment.join(", ") : lead.segment || "—"}
+                        </div>
+                        <div><span className="font-medium">Investment:</span> {lead.investment ?? "—"}</div>
+                        <div>
+                          <span className="font-medium">Response Changed:</span>{" "}
+                          {lead.response_changed_at ? new Date(lead.response_changed_at).toLocaleString("en-IN") : "—"}
+                        </div>
+                        <div>
+                          <span className="font-medium">Conversion Deadline:</span>{" "}
+                          {lead.conversion_deadline ? new Date(lead.conversion_deadline).toLocaleString("en-IN") : "—"}
+                        </div>
+                        <div>
+                          <span className="font-medium">Created At:</span>{" "}
+                          {lead.created_at ? new Date(lead.created_at).toLocaleString("en-IN") : "—"}
+                        </div>
+
+                        <div className="col-span-full flex items-center gap-2 pt-2">
+                          <button
+                            onClick={() => router.push(`/lead/${lead.id}`)}
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                            title="Edit lead"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+
+                          <button
+                            onClick={() => openStory(lead.id)}
+                            className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition"
+                            title="View Story"
+                          >
+                            <BookOpenText size={18} />
+                          </button>
+
+                          <button
+                            onClick={() => openComments(lead.id)}
+                            className="p-2 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition"
+                            title="Comments"
+                          >
+                            <MessageCircle size={16} />
+                          </button>
+
+                          <button
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      </div>
-
-   
       {/* Results Summary */}
       {!loading && filteredLeads.length > 0 && (
         <div className="mt-6 bg-white rounded-xl shadow-sm p-4 border border-gray-100">
@@ -740,10 +697,11 @@ const LeadManage = () => {
             <button
               key={i}
               onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 border rounded ${currentPage === i + 1
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                }`}
+              className={`px-3 py-1 border rounded ${
+                currentPage === i + 1
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+              }`}
             >
               {i + 1}
             </button>
@@ -776,389 +734,3 @@ const LeadManage = () => {
 };
 
 export default LeadManage;
-
-
-function DashboardTables({ isSuperAdmin, branchId }) {
-  const [data, setData] = useState({
-    source_analytics: [],
-    response_analytics: []
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedSource, setSelectedSource] = useState("");
-  const [sources, setSources] = useState([]);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [applied, setApplied] = useState(false);
-
-  // fetch dashboard data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // SUPERADMIN can see global; others must be scoped to branch
-        const qs = new URLSearchParams({ days: "30" });
-        if (!isSuperAdmin && branchId) qs.set("branch_id", String(branchId));
-        const response = await axiosInstance.get(`/analytics/leads/admin/dashboard?${qs.toString()}`);
-        setData(response.data);
-      } catch (err) {
-        console.error("Error fetching analytics data:", err);
-        setError("Failed to load analytics data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isSuperAdmin || branchId) fetchData();
-  }, [isSuperAdmin, branchId]);
-
-  // fetch sources for dropdown
-  useEffect(() => {
-    const fetchSources = async () => {
-      try {
-        const res = await axiosInstance.get("/lead-config/sources/?skip=0&limit=100", { headers: { accept: "application/json" } });
-        setSources(res.data);
-      } catch (err) {
-        console.error("Error fetching sources:", err);
-      }
-    };
-    fetchSources();
-  }, []);
-
-  const fetchFilteredData = async () => {
-    if (!fromDate || !toDate) {
-      alert("Please select both From and To dates");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const qs = new URLSearchParams({ from: fromDate, to: toDate });
-      if (!isSuperAdmin && branchId) qs.set("branch_id", String(branchId));
-      const response = await axiosInstance.get(`/analytics/leads/admin/dashboard?${qs.toString()}`);
-      setData(response.data);
-    } catch (err) {
-      console.error("Error fetching analytics data:", err);
-      setError("Failed to load analytics data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClear = () => {
-    setFromDate("");
-    setToDate("");
-    setApplied(false);
-  };
-
-  const handleApply = () => {
-    setApplied(true);
-    fetchFilteredData();
-  };
-
-
-  return (
-
-    <div className="w-full grid grid-cols-3 gap-8 pb-6">
-      {/* Lead Source Performance Table */}
-      {/* {data.source_analytics?.length > 0 && ( */}
-      <div className="bg-white rounded-xl shadow-lg w-full border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Lead Source
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Source
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Pending Leads
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {data.source_analytics.map((source, index) => (
-                <tr
-                  key={index}
-                  className="hover:bg-gray-50 transition-colors duration-150"
-                >
-                  <td className="px-6 py-4 font-medium text-gray-900">
-                    {source.source_name}
-                  </td>
-                  <td className="px-6 py-4 text-orange-700">
-                    {source.total_leads - source.converted_leads}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {/* )} */}
-
-      {/* Response Distribution Table */}
-      <div className="col-span-2  bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Response Distribution
-          </h2>
-          <p className="text-gray-600 text-sm mt-1">How leads have responded</p>
-        </div>
-
-        {/* Filter */}
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-gray-700">
-              Filter by Source:
-            </label>
-            <select
-              value={selectedSource}
-              onChange={(e) => setSelectedSource(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none min-w-[150px]"
-            >
-              <option value="">All Sources</option>
-              {sources.map((src, idx) => (
-                <option key={idx} value={src.name || src.source_name}>
-                  {src.name || src.source_name}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-3">
-              {/* From Date */}
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setApplied(false); // reset apply state if user changes date
-                }}
-                className="border rounded px-2 py-1 text-sm"
-              />
-
-              {/* To Date */}
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setApplied(false);
-                }}
-                className="border rounded px-2 py-1 text-sm"
-              />
-
-              {/* Button Logic */}
-              {applied ? (
-                // After Apply → always show Clear
-                <button
-                  onClick={handleClear}
-                  className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-                >
-                  Clear
-                </button>
-              ) : fromDate || toDate ? (
-                fromDate && toDate ? (
-                  <button
-                    onClick={handleApply}
-                    className="px-4 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
-                  >
-                    Apply
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleClear}
-                    className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-                  >
-                    Clear
-                  </button>
-                )
-              ) : null}
-            </div>
-
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Response
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Total Leads
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Percentage
-                </th>
-              </tr>
-            </thead>
-          </table>
-          {/* Scrollable tbody */}
-          <div className="max-h-[250px] overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-200 table-fixed">
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.response_analytics
-                  .filter((res) =>
-                    selectedSource ? res.response_source === selectedSource : true
-                  )
-                  .map((res, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-gray-50 transition-colors duration-150"
-                    >
-                      <td className="px-6 py-4 font-medium text-gray-900">
-                        {res.response_name}
-                      </td>
-                      <td className="px-6 py-4 text-blue-700">{res.total_leads}</td>
-                      <td className="px-6 py-4 text-gray-900">{res.percentage}%</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-
-  );
-}
-
-function EmployeeWithDataAccuracy() {
-  const [employees, setEmployees] = useState([]);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [applied, setApplied] = useState(false);
-
-  // Fetch employees for autocomplete/dropdown
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const { data } = await axiosInstance.get("/employee?skip=0&limit=100");
-        setEmployees(data);
-      } catch (error) {
-        console.error("Failed to fetch employees", error);
-      }
-    };
-    fetchEmployees();
-  }, []);
-
-  // Get employee name by code
-  const getEmployeeName = (code) => {
-    const emp = employees.find((e) => String(e.employee_code) === String(code));
-    return emp ? emp.name : "—";
-  };
-
-  const handleApply = () => {
-    console.log("Applying filter with:", fromDate, toDate);
-    setApplied(true);
-  };
-
-  const handleClear = () => {
-    setFromDate("");
-    setToDate("");
-    setApplied(false);
-  };
-
-  return (
-    <div className="mb-6">
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h1 className="text-xl font-semibold mb-4">
-          Employee with Data Accuracy
-        </h1>
-
-        <div className="space-y-4 flex gap-5 flex-wrap">
-          {/* Lead Source */}
-          <div>
-            <label className="block text-gray-500 mb-1">Lead Source</label>
-            <select
-              name="leadSource"
-              id="leadSource"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Lead Source</option>
-              <option value="referral">Referral</option>
-              <option value="website">Website</option>
-              <option value="social">Social Media</option>
-            </select>
-          </div>
-
-          {/* Role */}
-          <div>
-            <label className="block text-gray-500 mb-1">Role</label>
-            <select
-              name="role"
-              id="role"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Role</option>
-              <option value="90000">90000</option>
-            </select>
-          </div>
-
-          {/* Date Filters + Buttons */}
-          <div className="flex gap-3 ">
-            <div>
-              <label className=" block text-gray-500 mb-1">From</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setApplied(false); // reset apply state if user changes date
-                }}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-500 mb-1">To</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setApplied(false);
-                }}
-                className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
-              />
-            </div>
-
-            {/* Button Logic */}
-            {applied ? (
-              <button
-                onClick={handleClear}
-                className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-              >
-                Clear
-              </button>
-            ) : fromDate || toDate ? (
-              fromDate && toDate ? (
-                <button
-                  onClick={handleApply}
-                  className="px-4 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
-                >
-                  Apply
-                </button>
-              ) : (
-                <button
-                  onClick={handleClear}
-                  className="px-4 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-                >
-                  Clear
-                </button>
-              )
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-

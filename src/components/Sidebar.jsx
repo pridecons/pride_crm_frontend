@@ -15,6 +15,17 @@ import {
   FileText,
   Target,
   BarChart3,
+  Home,
+  Building,
+  Download,
+  MessageSquare,
+  ArrowDownCircle,
+  Upload,
+  UserCheck,
+  Shield,
+  CreditCard,
+  MessageCircle,
+  Mail
 } from 'lucide-react'
 
 export default function Sidebar({ branchId, onClose }) {
@@ -99,84 +110,85 @@ export default function Sidebar({ branchId, onClose }) {
     </Link>
   )
 
-  const menu = [
-    {
-      title: 'Main',
-      items: [
-        {
-          href:
-            user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
-              ? '/dashboard/super'
-              : '/dashboard',
-          icon: BarChart3,
-          label: 'Home'
-        },
-      ],
-    },
-    {
-      title: 'Leads',
-      section: 'leads',
-      icon: FileText,
-      items: [
-        { href: '/lead', icon: Target, label: 'New Lead', access: [""] },
-        { href: '/lead/old', icon: Target, label: 'Old Lead', access: [""] },
-        { href: '/lead/add', icon: Plus, label: 'Add Lead', access: [""] },
-        { href: '/client', icon: Users, label: 'Client' },
-      ],
-    },
-    {
-      title: 'Configuration',
-      section: 'configuration',
-      icon: Settings,
-      items: [
-        { href: '/branch', icon: BarChart3, label: 'Branch', access: ["SUPERADMIN"] },
+const menu = [
+  {
+    title: 'Main',
+    items: [
+      {
+        href:
+          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
+            ? '/dashboard/super'
+            : '/dashboard',
+        icon: Home,
+        label: 'Home'
+      },
+    ],
+  },
+  {
+    title: 'Leads',
+    section: 'leads',
+    icon: Target,
+    items: [
+      { href: '/lead', icon: Target, label: 'New Lead', access: [""] },
+      { href: '/lead/old', icon: Target, label: 'Old Lead', access: [""] },
+      { href: '/lead/add', icon: Plus, label: 'Add Lead', access: [""] },
+      { href: '/client', icon: Users, label: 'Client' },
+    ],
+  },
+  {
+    title: 'Configuration',
+    section: 'configuration',
+    icon: Settings,
+    items: [
+      { href: '/branch', icon: Building, label: 'Branch', access: ["SUPERADMIN"] },
 
-        {
-          title: 'Management',
-          section: 'management',
-          icon: FileText,
-          items: [
-            { href: '/lead/manage', icon: FileText, label: 'Manage Leads', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-            { href: '/lead/manage/source', icon: Target, label: 'Lead Source', access: [""] },
-            { href: '/lead/manage/response', icon: Plus, label: 'Lead Response', access: [""] },
-            { href: '/lead/manage/fetch-limit', icon: FileText, label: 'Fetch Limit', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-            { href: '/lead/manage/lead-upload', icon: FileText, label: 'Lead Upload', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-          ],
-        },
-        { href: '/user', icon: Users, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-        { href: '/plans', icon: BarChart3, label: 'Plans' },
-        { href: '/permission', icon: Users, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-      ],
-    },
-    {
-      title: 'Payment',
-      items: [
-        {
-          href:
-            user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
-              ? '/admin-payment'
-              : '/payment',
-          icon: BarChart3,
-          label: 'Payment'
-        },
-      ],
-    },
-    {
-      title: 'Researcher',
-      items: [
-        { href: '/rational', icon: BarChart3, label: 'Messanger' },
-      ],
-    },
-    {
-      title: 'Template',
-      section: 'Template',
-      icon: FileText,
-      items: [
-        { href: '/email', icon: Target, label: 'Email', access: [""] },
-        { href: '/sms', icon: Target, label: 'sms', access: [""] },
-      ],
-    },
-  ]
+      {
+        title: 'Management',
+        section: 'management',
+        icon: FileText,
+        items: [
+          { href: '/lead/manage', icon: Target, label: 'Manage Leads', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+          { href: '/lead/manage/source', icon: Download, label: 'Lead Source', access: [""] },
+          { href: '/lead/manage/response', icon: MessageSquare, label: 'Lead Response', access: [""] },
+          { href: '/lead/manage/fetch-limit', icon: ArrowDownCircle, label: 'Fetch Limit', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+          { href: '/lead/manage/lead-upload', icon: Upload, label: 'Lead Upload', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+          { href: '/lead/manage/analytics', icon: BarChart3, label: 'Lead Analytics', access: [""] },
+        ],
+      },
+      { href: '/user', icon: UserCheck, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+      { href: '/plans', icon: FileText, label: 'Plans' },
+      { href: '/permission', icon: Shield, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+    ],
+  },
+  {
+    title: 'Payment',
+    items: [
+      {
+        href:
+          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
+            ? '/admin-payment'
+            : '/payment',
+        icon: CreditCard,
+        label: 'Payment'
+      },
+    ],
+  },
+  {
+    title: 'Researcher',
+    items: [
+      { href: '/rational', icon: MessageCircle, label: 'Messenger' },
+    ],
+  },
+  {
+    title: 'Template',
+    section: 'Template',
+    icon: FileText,
+    items: [
+      { href: '/email', icon: Mail, label: 'Email', access: [""] },
+      { href: '/sms', icon: MessageSquare, label: 'SMS', access: [""] },
+    ],
+  },
+]
 
 
   if (!hasMounted) return null

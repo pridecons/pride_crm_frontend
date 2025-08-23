@@ -20,6 +20,28 @@
   import { MiniLoader } from "@/components/LoadingState";
   import { useFTAndCallbackPatch } from "../useFTAndCallbackPatch";
 
+  // Single-flight + cache for recommendation types
+let _recTypeCache = null;
+let _recTypePromise = null;
+
+async function loadRecommendationTypes(axiosInstance) {
+  if (_recTypeCache) return _recTypeCache;
+  if (_recTypePromise) return _recTypePromise;
+
+  _recTypePromise = axiosInstance
+    .get("/profile-role/recommendation-type")
+    .then((res) => {
+      const items = Array.isArray(res?.data) ? res.data : [];
+      _recTypeCache = items;           // cache for future callers
+      return _recTypeCache;
+    })
+    .finally(() => {
+      _recTypePromise = null;          // allow refresh if you ever clear cache
+    });
+
+  return _recTypePromise;
+}
+
   // Utility: calculate age from YYYY-MM-DD
   function calculateAge(dob) {
     if (!dob) return "";
@@ -63,15 +85,23 @@
       });
 
 
-    // Load segment options once
-    useEffect(() => {
-      axiosInstance
-        .get("/profile-role/recommendation-type")
-        .then((res) =>
-          setSegmentOptions(res.data.map((seg) => ({ value: seg, label: seg })))
-        )
-        .catch(() => setSegmentOptions([]));
-    }, []);
+useEffect(() => {
+  let cancelled = false;
+
+  loadRecommendationTypes(axiosInstance)
+    .then((items) => {
+      if (cancelled) return;
+      setSegmentOptions(items.map((seg) => ({ value: seg, label: seg })));
+    })
+    .catch(() => {
+      if (!cancelled) setSegmentOptions([]);
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
 
     // Keep lead_type in sync
     useEffect(() => {

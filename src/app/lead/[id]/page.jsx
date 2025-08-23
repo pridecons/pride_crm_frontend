@@ -1,39 +1,16 @@
 // Main Lead Component
 "use client";
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useParams } from "next/navigation";
-import {
-  User,
-  Phone,
-  Mail,
-  MapPin,
-  Briefcase,
-  FileText,
-  Edit3,
-  Save,
-  X,
-  Eye,
-  PhoneCall,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  CreditCard,
-  IndianRupee,
-  Building,
-  Globe,
-  MessageCircle,
-  Mic,
-  BookOpenText,
-} from "lucide-react";
+import { Edit3, Save, X, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
 import toast from "react-hot-toast";
 // import { Viewer, Worker } from "@react-pdf-viewer/core";
 // import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 // import "@react-pdf-viewer/core/lib/styles/index.css";
 // import "@react-pdf-viewer/default-layout/lib/styles/index.css";
-import LoadingState, { MiniLoader } from "@/components/LoadingState";
+import LoadingState from "@/components/LoadingState";
 import { usePermissions } from "@/context/PermissionsContext";
 import { Modal } from "@/components/Lead/ID/Modal";
 import StoryModal from "@/components/Lead/StoryModal";
@@ -64,13 +41,11 @@ const Lead = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOpenSource, setIsOpenSource] = useState(false);
-  const [isOpenResponse, setIsOpenResponse] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editFormData, setEditFormData] = useState({});
 
   const [leadSources, setLeadSources] = useState([]);
   const [leadResponses, setLeadResponses] = useState([]);
-  const [uncalledCount, setUncalledCount] = useState(0);
 
   const [aadharFront, setAadharFront] = useState(null);
   const [aadharBack, setAadharBack] = useState(null);
@@ -80,23 +55,11 @@ const Lead = () => {
   const [aadharBackPreview, setAadharBackPreview] = useState(null);
   const [panPicPreview, setPanPicPreview] = useState(null);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
-  const [stories, setStories] = useState([]);
-  const [loadingStories, setLoadingStories] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [isEmailLogsModalOpen, setIsEmailLogsModalOpen] = useState(false);
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
-  const [emailLogs, setEmailLogs] = useState([]);
-  const [emailContext, setEmailContext] = useState({ username: "" });
-  const [contextFields, setContextFields] = useState([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [templates, setTemplates] = useState([]);
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState("");
-  const [loadingComments, setLoadingComments] = useState(false);
   const [recordings, setRecordings] = useState([]);
   const [loadingRecordings, setLoadingRecordings] = useState(false);
   const [uploadingRecording, setUploadingRecording] = useState(false);
-  const [selectedRecording, setSelectedRecording] = useState(null);
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
@@ -106,6 +69,12 @@ const Lead = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // fetch guards
+  const didInit = useRef(false); // prevents double mount fetch in StrictMode
+  const fetchedOnOpen = useRef({
+    recordings: false,
+  });
 
   const fetchCurrentLead = async () => {
     try {
@@ -157,98 +126,6 @@ const Lead = () => {
       console.warn("No recordings available or failed to fetch.");
     } finally {
       setLoadingRecordings(false);
-    }
-  };
-
-  // Fetch comments
-  const fetchComments = async () => {
-    try {
-      setLoadingComments(true);
-      const { data } = await axiosInstance.get(`/leads/${id}/comments`);
-      setComments(data);
-    } catch (err) {
-      console.error("Error fetching comments:", err);
-      toast.error("Failed to load comments");
-    } finally {
-      setLoadingComments(false);
-    }
-  };
-
-  // Add comment
-  const handleAddComment = async () => {
-    if (!newComment.trim()) {
-      toast.error("Comment cannot be empty");
-      return;
-    }
-    try {
-      await axiosInstance.post(`/leads/${id}/comments`, null, {
-        params: { comment: newComment },
-      });
-      toast.success("Comment added");
-      setNewComment("");
-      fetchComments();
-    } catch (err) {
-      console.error("Error adding comment:", err);
-      toast.error("Failed to add comment");
-    }
-  };
-
-  const extractPlaceholders = (body = "") => {
-    const regex = /{{(.*?)}}/g;
-    let match;
-    const fields = [];
-    while ((match = regex.exec(body)) !== null) {
-      fields.push(match[1].trim());
-    }
-    return fields;
-  };
-
-  useEffect(() => {
-    if (isEmailModalOpen) {
-      axiosInstance.get("/email/templates/")
-        .then((res) => {
-          setTemplates(res.data);
-        })
-        .catch((err) => {
-          console.error("Error fetching templates:", err);
-          toast.error("Failed to load templates");
-        });
-    }
-  }, [isEmailModalOpen]);
-
-  const handleSendEmail = async () => {
-    if (!selectedTemplateId) {
-      toast.error("Please select an email template");
-      return;
-    }
-    if (contextFields.some((f) => !emailContext[f])) {
-      toast.error("Please fill all required fields");
-      return;
-    }
-    try {
-      await axiosInstance.post("/email/send", {
-        template_id: selectedTemplateId,
-        recipient_email: currentLead?.email,
-        context: emailContext,
-      });
-      toast.success("Email sent successfully!");
-      setIsEmailModalOpen(false);
-    } catch (err) {
-      console.error("Error sending email:", err);
-      toast.error("Failed to send email");
-    }
-  };
-
-  const fetchEmailLogs = async () => {
-    try {
-      const { data } = await axiosInstance.get(`/email/logs/`, {
-        params: { recipient_email: currentLead?.email },
-      });
-      setEmailLogs(data);
-      setIsEmailLogsModalOpen(true);
-    } catch (err) {
-      console.error("Error fetching email logs:", err);
-      toast.error("Failed to load logs");
     }
   };
 
@@ -340,12 +217,10 @@ const Lead = () => {
 
   const fetchData = async () => {
     try {
-      const [sourcesRes, responsesRes, assignmentsRes, uncalledRes] =
+      const [sourcesRes, responsesRes] =
         await Promise.all([
           apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
           apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
-          apiCall("GET", "/leads/assignments/my"),
-          apiCall("GET", "/leads/navigation/uncalled-count"),
         ]);
 
       // Normalize data for dropdowns
@@ -361,25 +236,11 @@ const Lead = () => {
           label: res.name,
         }))
       );
-      setAssignments(assignmentsRes.assignments);
-      setUncalledCount(uncalledRes.uncalled_count);
     } catch (err) {
       console.log("Error fetching data:", err);
     }
   };
 
-  const fetchStories = async () => {
-    try {
-      setLoadingStories(true);
-      const response = await apiCall("GET", `/leads/${id}/stories`);
-      setStories(response);
-    } catch (err) {
-      toast.error("Failed to fetch stories");
-      console.error(err);
-    } finally {
-      setLoadingStories(false);
-    }
-  };
 
   const handleUpdateLead = async () => {
     try {
@@ -461,31 +322,33 @@ const Lead = () => {
     }
   };
 
-  const handleCompleteAssignment = async () => {
-    try {
-      await apiCall(
-        "DELETE",
-        `/leads/assignments/${currentLead.assignment_id}`
-      );
-      await fetchData();
-      await fetchCurrentLead();
-      setIsOpenResponse(false);
-    } catch (err) {
-      setError(err);
-    }
-  };
-
   const handleCancelEdit = () => {
     setEditFormData(currentLead);
     setIsEditMode(false);
   };
 
   useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+
     fetchCurrentLead();
     fetchData();
-    fetchComments();
-    fetchRecordings(); // ✅ Fetch recordings on load
-  }, []);
+    // ❌ don't prefetch comments/recordings here
+  }, [id]);
+
+
+
+  // Recordings: fetch when recordings modal opens
+  useEffect(() => {
+    if (isRecordingsModalOpen && !fetchedOnOpen.current.recordings) {
+      fetchedOnOpen.current.recordings = true;
+      fetchRecordings();
+    }
+    if (!isRecordingsModalOpen) {
+      fetchedOnOpen.current.recordings = false;
+    }
+  }, [isRecordingsModalOpen, id]);
+
 
   const handleUploadRecording = async (e) => {
     const file = e.target.files[0];
@@ -595,7 +458,6 @@ const Lead = () => {
         {/* Header */}
 
         <LeadHeader
-          uncalledCount={uncalledCount}
           currentLead={currentLead}
         />
 
@@ -676,15 +538,12 @@ const Lead = () => {
           onPaymentClick={() => setIsOpenPayment(true)}
           onSendEmailClick={() => setIsEmailModalOpen(true)}
           onSendSMSClick={() => setIsSMSModalOpen(true)}
-          onViewEmailLogsClick={fetchEmailLogs}
+          onViewEmailLogsClick={() => setIsEmailModalOpen(true)}
           onCommentsClick={() => setIsCommentsModalOpen(true)}
           onRecordingsClick={() => setIsRecordingsModalOpen(true)}
           onViewKycClick={handleViewKyc}
           onDocumentsClick={() => setIsDocumentsModalOpen(true)}
-          onStoryClick={() => {
-            fetchStories();
-            setIsStoryModalOpen(true);
-          }}
+          onStoryClick={() => setIsStoryModalOpen(true)}
           onInvoiceClick={() => setIsInvoiceModalOpen(true)}
           onShareClick={() => setIsShareModalOpen(true)}
         />
@@ -712,12 +571,14 @@ const Lead = () => {
           </button>
         </div>
 
-        <SMSModalWithLogs
-          open={isSMSModalOpen}
-          onClose={() => setIsSMSModalOpen(false)}
-          leadMobile={currentLead?.mobile}
-          leadName={currentLead?.full_name}
-        />
+        {isSMSModalOpen && (
+          <SMSModalWithLogs
+            open
+            onClose={() => setIsSMSModalOpen(false)}
+            leadMobile={currentLead?.mobile}
+            leadName={currentLead?.full_name}
+          />
+        )}
 
         {/* Lead Details */}
         <ViewAndEditLead
@@ -971,44 +832,22 @@ const Lead = () => {
           </div>
         </Modal>
 
-        <Modal
-          isOpen={isOpenResponse}
-          onClose={() => setIsOpenResponse(false)}
-          title="Complete Assignment"
-          actions={[
-            <button
-              key="cancel"
-              onClick={() => setIsOpenResponse(false)}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              Cancel
-            </button>,
-            <button
-              key="confirm"
-              onClick={handleCompleteAssignment}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-            >
-              Complete Assignment
-            </button>,
-          ]}
-        >
-          <p className="text-gray-600">
-            Are you sure you want to complete this assignment? This will remove
-            it from your active assignments.
-          </p>
-        </Modal>
         {/* Comments Modal */}
-        <CommentModal
-          isOpen={isCommentsModalOpen}
-          onClose={() => setIsCommentsModalOpen(false)}
-          leadId={currentLead?.id}
-        />
+        {isCommentsModalOpen && (
+          <CommentModal
+            isOpen
+            onClose={() => setIsCommentsModalOpen(false)}
+            leadId={currentLead?.id}
+          />
+        )}
 
-        <InvoiceList
-          isOpen={isInvoiceModalOpen}
-          onClose={() => setIsInvoiceModalOpen(false)}
-          leadId={currentLead?.id}
-        />
+        {isInvoiceModalOpen && (
+          <InvoiceList
+            isOpen
+            onClose={() => setIsInvoiceModalOpen(false)}
+            leadId={currentLead?.id}
+          />
+        )}
 
         {/* Recordings Modal */}
         <Modal
@@ -1060,16 +899,14 @@ const Lead = () => {
           </div>}
         </Modal>
 
-        <LeadShareModal
-          isOpen={isShareModalOpen}
-          onClose={() => setIsShareModalOpen(false)}
-          leadId={currentLead?.id}
-          onSuccess={(data) => {
-            // Optionally refresh lead or log
-            fetchCurrentLead();
-            console.log("Lead shared:", data);
-          }}
-        />
+        {isShareModalOpen && (
+          <LeadShareModal
+            isOpen
+            onClose={() => setIsShareModalOpen(false)}
+            leadId={currentLead?.id}
+            onSuccess={(data) => { fetchCurrentLead(); console.log("Lead shared:", data); }}
+          />
+        )}
 
         <FTModal
           open={showFTModal}
@@ -1144,27 +981,34 @@ const Lead = () => {
 
       </div>
 
-      <PaymentModel
-        open={isOpenPayment}
-        setOpen={setIsOpenPayment}
-        name={currentLead?.full_name}
-        phone={currentLead?.mobile}
-        email={currentLead?.email}
-        service={displaySegment}
-        lead_id={currentLead?.id}
-      />
+      {isOpenPayment && (
+        <PaymentModel
+          open
+          setOpen={setIsOpenPayment}
+          name={currentLead?.full_name}
+          phone={currentLead?.mobile}
+          email={currentLead?.email}
+          service={displaySegment}
+          lead_id={currentLead?.id}
+        />
+      )}
 
-      <StoryModal
-        isOpen={isStoryModalOpen}
-        onClose={() => setIsStoryModalOpen(false)}
-        leadId={currentLead?.id}
-      />
-      <EmailModalWithLogs
-        open={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        leadEmail={currentLead?.email}
-        leadName={currentLead?.full_name}
-      />
+      {isStoryModalOpen && (
+        <StoryModal
+          isOpen
+          onClose={() => setIsStoryModalOpen(false)}
+          leadId={currentLead?.id}
+        />
+      )}
+
+      {isEmailModalOpen && (
+        <EmailModalWithLogs
+          open
+          onClose={() => setIsEmailModalOpen(false)}
+          leadEmail={currentLead?.email}
+          leadName={currentLead?.full_name}
+        />
+      )}
 
     </div>
   );
@@ -1268,7 +1112,7 @@ export const ErrorState = ({ error, onRetry }) => {
 // ==============================================
 
 
-export const LeadHeader = ({ navigationInfo, uncalledCount, currentLead }) => {
+export const LeadHeader = ({ currentLead }) => {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
       <h3 className="text-2xl font-bold text-gray-800">

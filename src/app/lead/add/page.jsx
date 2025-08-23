@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { axiosInstance } from '@/api/Axios'
 import toast from 'react-hot-toast';
+import { MultiSelectWithCheckboxes } from '@/components/Lead/ID/MultiSelectWithCheckboxes';
 
 export default function LeadForm() {
   const [formData, setFormData] = useState({
@@ -45,6 +46,14 @@ export default function LeadForm() {
   const [panVerified, setPanVerified] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+const [segmentsList, setSegmentsList] = useState([]);
+
+const segmentOptions = useMemo(
+  () => (segmentsList || []).map((s) => ({ label: s, value: s })),
+  [segmentsList]
+);
+
+
   const handleFileChange = (e, setter, previewSetter) => {
     const file = e.target.files[0];
     if (file) {
@@ -58,13 +67,14 @@ export default function LeadForm() {
       .then(res => setLeadSources(res.data || []))
     axiosInstance.get('/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
+    axiosInstance.get('/profile-role/recommendation-type')
+      .then(res => setSegmentsList(res.data || []));
   }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === "segment") {
-      setFormData(prev => ({ ...prev, [name]: value.split(",").map(v => v.trim()) }));
-    } else if (name === "comment") {
+
+    if (name === "comment") {
       setFormData(prev => ({ ...prev, [name]: { text: value } }));
     } else if (name === "pan") {
       setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
@@ -240,7 +250,7 @@ export default function LeadForm() {
             <option value="Company">Company</option>
           </select>
         </div>
-        
+
         {/* PAN Number + Verify / Reset */}
         <div className="col-span-2 md:col-span-1">
           <label className="block mb-1 font-medium">PAN Number</label>
@@ -252,6 +262,9 @@ export default function LeadForm() {
               placeholder="PAN Number"
               disabled={panVerified}
               required
+              maxLength={10}
+              minLength={10}
+              pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
               className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
             />
             {panVerified ? (
@@ -312,6 +325,9 @@ export default function LeadForm() {
             onChange={handleChange}
             placeholder="Mobile"
             required
+            maxLength={10}
+            minLength={10}
+            pattern="\d{10}"
             className="p-2 border rounded w-full"
           />
         </div>
@@ -338,6 +354,9 @@ export default function LeadForm() {
             value={formData.alternate_mobile}
             onChange={handleChange}
             placeholder="Alternate Mobile"
+            maxLength={10}
+            minLength={10}
+            pattern="\d{10}"
             className="p-2 border rounded w-full"
           />
         </div>
@@ -368,6 +387,9 @@ export default function LeadForm() {
             placeholder="Aadhaar Number"
             disabled={panVerified}
             required
+            maxLength={12}
+            minLength={12}
+            pattern="\d{12}"
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           />
         </div>
@@ -505,16 +527,19 @@ export default function LeadForm() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-t-0 rounded-b">
         {/* Segments */}
-        <div>
-          <label className="block mb-1 font-medium">Segments (comma separated)</label>
-          <input
-            name="segment"
-            value={formData.segment.join(", ")}
-            onChange={handleChange}
-            placeholder="e.g. cash, equity, future"
-            className="p-2 border rounded w-full"
-          />
-        </div>
+<div>
+  <label className="block mb-1 font-medium">Segments</label>
+  <MultiSelectWithCheckboxes
+    options={segmentOptions}
+    value={formData.segment}
+    onChange={(vals) => setFormData(prev => ({ ...prev, segment: vals }))}
+    placeholder="Select segment(s)"
+  />
+  <p className="text-xs text-gray-500 mt-1">
+    You can choose multiple segments.
+  </p>
+</div>
+
 
         {/* Investment */}
         {/* <div>

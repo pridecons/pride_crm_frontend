@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Shield,
   RefreshCw,
@@ -25,16 +25,65 @@ import {
   BarChart3,
   Download,
   CheckSquare,
+  Search, // ⬅️ added
 } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import LoadingState from "@/components/LoadingState"; // Adjust the import path if needed
 
+// ---------- SearchFilter (from first page) ----------
+function SearchFilter({ allItems, onFilter }) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    if (!allItems || allItems.length === 0) {
+      onFilter([]);
+      return;
+    }
+
+    // If search is empty, return all items
+    if (!value.trim()) {
+      onFilter(allItems);
+      return;
+    }
+
+    // Filter items based on search term
+    const filtered = allItems.filter((item) => {
+      const searchValue = value.toLowerCase();
+      return (
+        item.toLowerCase().includes(searchValue) ||
+        item.replace(/_/g, " ").toLowerCase().includes(searchValue)
+      );
+    });
+
+    onFilter(filtered);
+  };
+
+  return (
+    <div className="relative mb-4">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <Search className="h-4 w-4 text-gray-400" />
+      </div>
+      <input
+        type="text"
+        placeholder="Search permissions..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg
+                   focus:ring-2 focus:ring-blue-400 focus:border-transparent
+                   transition-all duration-200 text-gray-900 placeholder-gray-500"
+      />
+    </div>
+  );
+}
+// ----------------------------------------------------
+
 // Get permission keys, filter out meta fields
 const getPermissionKeys = (permObj) =>
-  Object.keys(permObj || {}).filter(
-    (k) => !["user_id", "user", "id"].includes(k)
-  );
+  Object.keys(permObj || {}).filter((k) => !["user_id", "user", "id"].includes(k));
 
 // Permission Icon helper
 const getPermissionIcon = (perm) => {
@@ -69,36 +118,78 @@ const getPermissionCategory = (perm) => {
   if (perm.includes("user")) return "User Management";
   if (perm.includes("lead")) return "Lead Management";
   if (perm.includes("view_")) return "View Access";
-  if (
-    perm.includes("payment") ||
-    perm.includes("invoice") ||
-    perm.includes("accounts")
-  )
+  if (perm.includes("payment") || perm.includes("invoice") || perm.includes("accounts"))
     return "Financial";
   return "General";
 };
 
 export default function PermissionsPage() {
-  const [permissions, setPermissions] = useState([]);
+  const [permissions, setPermissions] = useState([]); // list of permission rows (user_id + booleans)
+  const [usersByCode, setUsersByCode] = useState({}); // employee_code -> user object
+  const [usersTotal, setUsersTotal] = useState(0);
+
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedUserPermissions, setSelectedUserPermissions] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [query, setQuery] = useState(""); // search for users list (left pane)
+
+  // ⬇️ NEW: state to hold filtered permission keys (right pane)
+  const [filteredPermissions, setFilteredPermissions] = useState([]);
+
   useEffect(() => {
-    fetchAllPermissions();
+    fetchAllData();
   }, []);
 
-  const fetchAllPermissions = async () => {
+  // When a user is selected / data loaded, initialize permission filter to all keys
+  useEffect(() => {
+    if (selectedUserPermissions) {
+      const allPerms = getPermissionKeys(selectedUserPermissions);
+      setFilteredPermissions(allPerms);
+    } else {
+      setFilteredPermissions([]);
+    }
+  }, [selectedUserPermissions]);
+
+  // Helper to clear current selection
+  const clearSelection = () => {
+    setSelectedUser(null);
+    setSelectedUserPermissions(null);
+    setFilteredPermissions([]);
+  };
+
+  // Fetch permissions + users together and merge by employee_code/user_id
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get("/permissions/?skip=0&limit=100");
-      setPermissions(res.data);
+      const [permRes, usersRes] = await Promise.all([
+        axiosInstance.get("/permissions/?skip=0&limit=100"),
+        axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+      ]);
+
+      const permList = Array.isArray(permRes.data) ? permRes.data : [];
+      const usersArray = Array.isArray(usersRes?.data?.data) ? usersRes.data.data : [];
+
+      const map = {};
+      for (const u of usersArray) {
+        map[u.employee_code] = u;
+      }
+
+      setPermissions(permList);
+      setUsersByCode(map);
+      setUsersTotal(usersRes?.data?.pagination?.total ?? usersArray.length);
     } catch (err) {
-      toast.error("Failed to load permissions list");
+      console.error(err);
+      toast.error("Failed to load users/permissions");
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAllPermissions = async () => {
+    await fetchAllData();
   };
 
   const loadUserPermissions = async (userId) => {
@@ -108,6 +199,7 @@ export default function PermissionsPage() {
       const res = await axiosInstance.get(`/permissions/user/${userId}`);
       setSelectedUserPermissions(res.data);
     } catch (err) {
+      console.error(err);
       toast.error(`Could not load user permissions for ${userId}`);
     } finally {
       setLoading(false);
@@ -116,24 +208,22 @@ export default function PermissionsPage() {
 
   const togglePermission = async (perm) => {
     try {
-      const res = await axiosInstance.patch(
-        `/permissions/user/${selectedUser}/toggle/${perm}`
-      );
-      toast.success(res.data.message);
+      const res = await axiosInstance.patch(`/permissions/user/${selectedUser}/toggle/${perm}`);
+      toast.success(res.data?.message || `Toggled ${perm}`);
       loadUserPermissions(selectedUser);
     } catch (err) {
+      console.error(err);
       toast.error(`Failed to toggle ${perm}`);
     }
   };
 
   const resetToDefault = async () => {
     try {
-      const res = await axiosInstance.post(
-        `/permissions/user/${selectedUser}/reset-defaults`
-      );
-      toast.success(res.data.message);
+      const res = await axiosInstance.post(`/permissions/user/${selectedUser}/reset-defaults`);
+      toast.success(res.data?.message || "Reset to default");
       loadUserPermissions(selectedUser);
     } catch (err) {
+      console.error(err);
       toast.error("Failed to reset permissions");
     }
   };
@@ -141,13 +231,12 @@ export default function PermissionsPage() {
   const handleUpdate = async () => {
     try {
       setSaving(true);
-      await axiosInstance.put(
-        `/permissions/user/${selectedUser}`,
-        selectedUserPermissions
-      );
+      await axiosInstance.put(`/permissions/user/${selectedUser}`, selectedUserPermissions);
       toast.success("Permissions updated successfully");
-      fetchAllPermissions();
+      await fetchAllPermissions();
+      clearSelection();
     } catch (err) {
+      console.error(err);
       toast.error("Update failed");
     } finally {
       setSaving(false);
@@ -161,25 +250,60 @@ export default function PermissionsPage() {
     }));
   };
 
-  // Group permissions by category
-  const groupedPermissions = selectedUserPermissions
-    ? getPermissionKeys(selectedUserPermissions).reduce((acc, perm) => {
-        const category = getPermissionCategory(perm);
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(perm);
-        return acc;
-      }, {})
-    : {};
+  // ⬇️ NEW: get filtered permissions grouped by category (uses filteredPermissions)
+  const groupedPermissions =
+    selectedUserPermissions && filteredPermissions.length > 0
+      ? filteredPermissions.reduce((acc, perm) => {
+          const category = getPermissionCategory(perm);
+          if (!acc[category]) acc[category] = [];
+          acc[category].push(perm);
+          return acc;
+        }, {})
+      : {};
 
   const enabledPermissions = selectedUserPermissions
-    ? getPermissionKeys(selectedUserPermissions).filter(
-        (key) => selectedUserPermissions[key]
-      ).length
+    ? getPermissionKeys(selectedUserPermissions).filter((key) => selectedUserPermissions[key]).length
     : 0;
 
   const totalPermissions = selectedUserPermissions
     ? getPermissionKeys(selectedUserPermissions).length
     : 0;
+
+  // Derived “display list” of users with merged user info from usersByCode
+  const mergedPermissionUsers = useMemo(() => {
+    const list = permissions.map((row) => {
+      const fromUsers = usersByCode[row.user_id];
+      const name = fromUsers?.name ?? row.user?.name ?? row.user_id ?? "Unknown";
+      const role = fromUsers?.role ?? row.user?.role ?? "Role not assigned";
+      const email = fromUsers?.email ?? row.user?.email ?? "Email not available";
+      return {
+        ...row,
+        _display: { name, role, email },
+      };
+    });
+
+    // 🚫 Filter out SUPERADMIN
+    const filtered = list.filter((r) => r._display.role?.toUpperCase() !== "SUPERADMIN");
+
+    // simple search by name/role/email/user_id
+    const q = query.trim().toLowerCase();
+    if (!q) return filtered;
+
+    return filtered.filter((r) => {
+      const { name, role, email } = r._display;
+      return (
+        (name || "").toLowerCase().includes(q) ||
+        (role || "").toLowerCase().includes(q) ||
+        (email || "").toLowerCase().includes(q) ||
+        (r.user_id || "").toLowerCase().includes(q)
+      );
+    });
+  }, [permissions, usersByCode, query]);
+
+  // ⬇️ NEW: wrapper to handle SearchFilter callback
+  const handlePermissionFilter = (filtered) => {
+    setFilteredPermissions(filtered);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
@@ -216,7 +340,7 @@ export default function PermissionsPage() {
                   Total Users
                 </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {permissions.length}
+                  {usersTotal || permissions.length}
                 </p>
               </div>
               <div className="bg-blue-50 rounded-full p-3">
@@ -231,9 +355,7 @@ export default function PermissionsPage() {
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
                   Total Permissions
                 </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {totalPermissions}
-                </p>
+                <p className="text-3xl font-bold text-gray-900">{totalPermissions}</p>
               </div>
               <div className="bg-green-50 rounded-full p-3">
                 <Shield className="w-6 h-6 text-green-600" />
@@ -278,13 +400,22 @@ export default function PermissionsPage() {
           {/* Enhanced Users List */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 rounded-full p-2">
-                  <Users className="w-5 h-5 text-white" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/20 rounded-full p-2">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-white">Users with Permissions</h2>
                 </div>
-                <h2 className="text-xl font-semibold text-white">
-                  Users with Permissions
-                </h2>
+                {/* Quick search for users */}
+                <div className="w-56">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search name/role/email"
+                    className="w-full text-sm rounded-lg px-3 py-2 bg-white/90 outline-none focus:ring-2 ring-white/60 placeholder:text-gray-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -294,74 +425,58 @@ export default function PermissionsPage() {
               ) : (
                 <div className="max-h-[500px] overflow-auto">
                   <div className="space-y-2">
-                    {permissions.map((user) => (
-                      <div
-                        key={user.user_id}
-                        onClick={() => loadUserPermissions(user.user_id)}
-                        className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
-                          selectedUser === user.user_id
-                            ? "bg-blue-50 border-blue-200 text-blue-700"
-                            : "hover:bg-gray-50 border-gray-100 hover:border-gray-200"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`rounded-full p-2 ${
-                              selectedUser === user.user_id
-                                ? "bg-blue-100"
-                                : "bg-gray-100 group-hover:bg-gray-200"
-                            }`}
-                          >
-                            <User
-                              className={`w-4 h-4 ${
-                                selectedUser === user.user_id
-                                  ? "text-blue-600"
-                                  : "text-gray-600"
-                              }`}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <p
-                              className={`text-xs ${
-                                selectedUser === user.user_id
-                                  ? "text-blue-900"
-                                  : "text-gray-900"
+                    {mergedPermissionUsers.map((row) => {
+                      const isSelected = selectedUser === row.user_id;
+                      const { name, role, email } = row._display;
+
+                      return (
+                        <div
+                          key={row.user_id}
+                          onClick={() => loadUserPermissions(row.user_id)}
+                          className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
+                            isSelected
+                              ? "bg-blue-50 border-blue-200 text-blue-700"
+                              : "hover:bg-gray-50 border-gray-100 hover:border-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`rounded-full p-2 ${
+                                isSelected ? "bg-blue-100" : "bg-gray-100 group-hover:bg-gray-200"
                               }`}
                             >
-                              {user.user_id}
-                            </p>
-                            <div className="flex justify-between">
-                              <p
-                                className={`font-medium ${
-                                  selectedUser === user.user_id
-                                    ? "text-blue-900"
-                                    : "text-gray-900"
+                              <User
+                                className={`w-4 h-4 ${
+                                  isSelected ? "text-blue-600" : "text-gray-600"
                                 }`}
-                              >
-                                {user.user?.name || user.user_id}
-                              </p>
-                              <p
-                                className={`text-sm ${
-                                  selectedUser === user.user_id
-                                    ? "text-blue-600"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                {user.user?.role || "Role not assigned"}
-                              </p>
+                              />
                             </div>
-                            <p className="text-xs text-gray-500 truncate">
-                              {user.user?.email || "Email not available"}
-                            </p>
+                            <div className="flex-1">
+                              <p className={`text-xs ${isSelected ? "text-blue-900" : "text-gray-900"}`}>
+                                {row.user_id}
+                              </p>
+                              <div className="flex justify-between gap-3">
+                                <p className={`font-medium ${isSelected ? "text-blue-900" : "text-gray-900"}`}>
+                                  {name}
+                                </p>
+                                <p className={`text-sm ${isSelected ? "text-blue-600" : "text-gray-500"}`}>
+                                  {role}
+                                </p>
+                              </div>
+                              <p className="text-xs text-gray-500 truncate">{email}</p>
+                            </div>
+                            {isSelected && (
+                              <div className="text-blue-600">
+                                <Settings className="w-4 h-4" />
+                              </div>
+                            )}
                           </div>
-                          {selectedUser === user.user_id && (
-                            <div className="text-blue-600">
-                              <Settings className="w-4 h-4" />
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {mergedPermissionUsers.length === 0 && (
+                      <div className="text-sm text-gray-500 px-1 py-4">No users found.</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -370,9 +485,7 @@ export default function PermissionsPage() {
 
           {/* Enhanced Permissions Editor */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            {loading && selectedUser && (
-              <LoadingState message="Loading user permissions..." />
-            )}
+            {loading && selectedUser && <LoadingState message="Loading user permissions..." />}
 
             {!loading && selectedUserPermissions ? (
               <>
@@ -382,24 +495,25 @@ export default function PermissionsPage() {
                       <Settings className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold text-white">
-                        Permissions Editor
-                      </h2>
+                      <h2 className="text-xl font-semibold text-white">Permissions Editor</h2>
                       <p className="text-green-100 text-sm">
-                        Editing:
+                        Editing:{" "}
                         <span className="font-medium">
-                          {selectedUserPermissions?.user?.name || selectedUser}
-                          ({selectedUserPermissions?.user?.role || "Role N/A"})
+                          {usersByCode[selectedUser]?.name ||
+                            selectedUserPermissions?.user?.name ||
+                            selectedUser}
+                          {" ("}
+                          {usersByCode[selectedUser]?.role ||
+                            selectedUserPermissions?.user?.role ||
+                            "Role N/A"}
+                          {")"}
                         </span>
                       </p>
                     </div>
                   </div>
                   {/* Close Button */}
                   <button
-                    onClick={() => {
-                      setSelectedUser(null);
-                      setSelectedUserPermissions(null);
-                    }}
+                    onClick={clearSelection}
                     className="text-white hover:text-gray-200 transition"
                     title="Close Editor"
                   >
@@ -408,10 +522,16 @@ export default function PermissionsPage() {
                 </div>
 
                 <div className="p-6">
+                  {/* ⬇️ NEW: permission search box */}
+                  <SearchFilter
+                    allItems={getPermissionKeys(selectedUserPermissions)}
+                    onFilter={handlePermissionFilter}
+                  />
+
                   <div className="max-h-[450px] overflow-auto mb-6">
                     <div className="space-y-6">
-                      {Object.entries(groupedPermissions).map(
-                        ([category, perms]) => (
+                      {Object.keys(groupedPermissions).length > 0 ? (
+                        Object.entries(groupedPermissions).map(([category, perms]) => (
                           <div key={category} className="space-y-3">
                             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2">
                               <div className="bg-blue-50 rounded-full p-1">
@@ -422,8 +542,7 @@ export default function PermissionsPage() {
                             <div className="grid grid-cols-1 gap-3">
                               {perms.map((perm) => {
                                 const IconComponent = getPermissionIcon(perm);
-                                const isChecked =
-                                  selectedUserPermissions[perm] || false;
+                                const isChecked = selectedUserPermissions[perm] || false;
 
                                 return (
                                   <label
@@ -439,9 +558,7 @@ export default function PermissionsPage() {
                                         type="checkbox"
                                         className="sr-only"
                                         checked={isChecked}
-                                        onChange={() =>
-                                          handleCheckboxChange(perm)
-                                        }
+                                        onChange={() => handleCheckboxChange(perm)}
                                       />
                                       <div
                                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
@@ -450,68 +567,47 @@ export default function PermissionsPage() {
                                             : "bg-white border-gray-300 group-hover:border-gray-400"
                                         }`}
                                       >
-                                        {isChecked && (
-                                          <CheckSquare className="w-3 h-3 text-white" />
-                                        )}
+                                        {isChecked && <CheckSquare className="w-3 h-3 text-white" />}
                                       </div>
                                     </div>
 
                                     <div
                                       className={`rounded-full p-2 ${
-                                        isChecked
-                                          ? "bg-green-100"
-                                          : "bg-gray-100 group-hover:bg-gray-200"
+                                        isChecked ? "bg-green-100" : "bg-gray-100 group-hover:bg-gray-200"
                                       }`}
                                     >
                                       <IconComponent
-                                        className={`w-4 h-4 ${
-                                          isChecked
-                                            ? "text-green-600"
-                                            : "text-gray-600"
-                                        }`}
+                                        className={`w-4 h-4 ${isChecked ? "text-green-600" : "text-gray-600"}`}
                                       />
                                     </div>
 
                                     <div className="flex-1">
                                       <span
                                         className={`font-medium capitalize ${
-                                          isChecked
-                                            ? "text-green-900"
-                                            : "text-gray-900"
+                                          isChecked ? "text-green-900" : "text-gray-900"
                                         }`}
                                       >
                                         {perm.replace(/_/g, " ")}
                                       </span>
-                                      <p
-                                        className={`text-sm ${
-                                          isChecked
-                                            ? "text-green-600"
-                                            : "text-gray-500"
-                                        }`}
-                                      >
+                                      <p className={`text-sm ${isChecked ? "text-green-600" : "text-gray-500"}`}>
                                         {isChecked ? "Enabled" : "Disabled"}
                                       </p>
                                     </div>
 
-                                    <div
-                                      className={`${
-                                        isChecked
-                                          ? "text-green-600"
-                                          : "text-gray-400"
-                                      }`}
-                                    >
-                                      {isChecked ? (
-                                        <Unlock className="w-4 h-4" />
-                                      ) : (
-                                        <Lock className="w-4 h-4" />
-                                      )}
+                                    <div className={`${isChecked ? "text-green-600" : "text-gray-400"}`}>
+                                      {isChecked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                                     </div>
                                   </label>
                                 );
                               })}
                             </div>
                           </div>
-                        )
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500">No permissions found matching your search.</p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -550,9 +646,7 @@ export default function PermissionsPage() {
                     <div className="bg-white/20 rounded-full p-2">
                       <Settings className="w-5 h-5 text-white" />
                     </div>
-                    <h2 className="text-xl font-semibold text-white">
-                      Permissions Editor
-                    </h2>
+                    <h2 className="text-xl font-semibold text-white">Permissions Editor</h2>
                   </div>
                 </div>
               )
@@ -563,9 +657,7 @@ export default function PermissionsPage() {
                 <div className="bg-gray-100 rounded-full p-6 mb-6">
                   <User className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No User Selected
-                </h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No User Selected</h3>
                 <p className="text-gray-500 text-center max-w-sm">
                   Select a user from the list to view and edit their permissions
                 </p>

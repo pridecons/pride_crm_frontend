@@ -23,6 +23,9 @@ export default function RationalPage() {
   const [modalImage, setModalImage] = useState(null);
   const [imageError, setImageError] = useState('');
   const [openDropdown, setOpenDropdown] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     stock_name: '',
     entry_price: '',
@@ -63,14 +66,20 @@ export default function RationalPage() {
     }
   }, [dateFrom, dateTo]);
 
-  const fetchRationals = async () => {
-    try {
-      const res = await axiosInstance.get(API_URL);
-      setRationalList(res.data);
-    } catch (err) {
-      console.error('Failed to load rationals:', err);
-    }
-  };
+
+const fetchRationals = async (params = {}) => {
+  try {
+    setLoading(true);
+    const res = await axiosInstance.get(API_URL, {
+      params: { limit: 100, offset: 0, ...params },
+    });
+    setRationalList(res.data);
+  } catch (err) {
+    console.error('Failed to load rationals:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchRationals();
@@ -85,6 +94,18 @@ export default function RationalPage() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [openStatusDropdown]);
+
+  const handleApplyDates = async () => {
+  // guard: if both empty, just refetch all
+  if (!dateFrom && !dateTo) {
+    fetchRationals();
+    return;
+  }
+  const params = {};
+  if (dateFrom) params.date_from = dateFrom; // "YYYY-MM-DD"
+  if (dateTo) params.date_to = dateTo;       // "YYYY-MM-DD"
+  await fetchRationals(params);
+};
 
   const openModal = (item = null) => {
     if (item) {
@@ -299,27 +320,10 @@ export default function RationalPage() {
     return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const filteredData = rationalList.filter((item) => {
-    const stockMatch = item.stock_name?.toLowerCase()
-      .includes(searchTerm.toLowerCase());
+const filteredData = rationalList.filter((item) =>
+  (item.stock_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+);
 
-    // If no date filters, just return stock match
-    if (!dateFrom && !dateTo) return stockMatch;
-
-    const itemDate = new Date(item.created_at); // assumes ISO string from API
-    const start = dateFrom ? new Date(dateFrom) : null;
-    const end = dateTo ? new Date(dateTo) : null;
-
-    // normalize to local start/end of day to include full dates
-    if (start) start.setHours(0, 0, 0, 0);
-    if (end) end.setHours(23, 59, 59, 999);
-
-    const inRange =
-      (!start || itemDate >= start) &&
-      (!end || itemDate <= end);
-
-    return stockMatch && inRange;
-  });
 
   const statusOptions = [
     { label: 'OPEN', value: 'OPEN' },
@@ -459,12 +463,22 @@ export default function RationalPage() {
           {/* Clear Button */}
           <button
             type="button"
-            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            onClick={() => { setDateFrom(''); setDateTo(''); fetchRationals(); }}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors duration-200"
           >
             <ArrowDownToLine className="w-4 h-4" />
             Clear
           </button>
+
+          {/* Date toolbar section — add this button next to Clear */}
+<button
+  type="button"
+  onClick={handleApplyDates}
+  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+  disabled={!dateFrom && !dateTo}
+>
+  Apply
+</button>
         </div>
 
 

@@ -239,7 +239,7 @@ const CreatePaymentLink = ({
                                         : val?.billing_cycle === "YEARLY"
                                             ? 365
                                             : 0
-                                );  
+                                );
                             }}
                         />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -683,188 +683,304 @@ const UPIRequestSection = ({ orderId }) => {
     );
 };
 
+// ⬇️ Replace ONLY the existing CheckPayment component with this
+
+// ⬇️ Replace ONLY the existing CheckPayment component with this
+
 const CheckPayment = () => {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedDate, setSelectedDate] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ALL");
-    const [history, setHistory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-    useEffect(() => {
-        const fetchHistory = async () => {
-            try {
-                const { data } = await axiosInstance.get("/payment/employee/history");
-                setHistory(data);
-            } catch (err) {
-                setError(err.response?.data?.detail || "Failed to fetch payment history.");
-            } finally {
-                setLoading(false);
-            }
-        };
+  // Date inputs (what user is typing)
+  const [dateFromInput, setDateFromInput] = useState("");
+  const [dateToInput, setDateToInput] = useState("");
 
-        fetchHistory();
-    }, []);
+  // Applied dates (used for fetching/filtering after clicking Apply)
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case "PAID":
-                return "bg-green-100 text-green-800 border-green-200";
-            case "PENDING":
-                return "bg-yellow-100 text-yellow-800 border-yellow-200";
-            case "FAILED":
-                return "bg-red-100 text-red-800 border-red-200";
-            default:
-                return "bg-gray-100 text-gray-800 border-gray-200";
-        }
-    };
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Fetch history; if a single date is provided, backend filters that day.
+  const fetchHistory = async (singleDate = "") => {
+    try {
+      setLoading(true);
+      let url = "/payment/employee/history";
+      if (singleDate) url += `?date=${singleDate}`;
+      const { data } = await axiosInstance.get(url);
+      setHistory(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to fetch payment history.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <div className="p-6">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    📊 All Payment History
-                </h3>
-            </div>
+  // Initial load (all)
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-wrap">
-                {/* Status Dropdown */}
-                <div className="flex items-center gap-2">
-                    <label htmlFor="status" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        Filter by Status:
-                    </label>
-                    <select
-                        id="status"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="ALL">All</option>
-                        <option value="PAID">PAID</option>
-                        <option value="PENDING">EXPIRED</option>
-                        <option value="FAILED">ACTIVE</option>
-                    </select>
-                </div>
+  // Click handler for Apply (Search)
+  const handleApplyDates = () => {
+    // Normalize if from > to → lock to = from
+    let from = dateFromInput;
+    let to = dateToInput;
+    if (from && to && new Date(from) > new Date(to)) {
+      to = from;
+      setDateToInput(to);
+    }
 
-                {/* Date Picker */}
-                <div className="flex items-center gap-2">
-                    <label htmlFor="date" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        Filter by Date:
-                    </label>
-                    <input
-                        type="date"
-                        id="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
+    // Save applied range
+    setDateFrom(from);
+    setDateTo(to);
 
-                {/* Search Bar */}
-                <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
-                    <label htmlFor="search" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        Search:
-                    </label>
-                    <input
-                        type="text"
-                        id="search"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Name, Email, Order ID"
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-            </div>
+    // Decide how to fetch
+    if (!from && !to) {
+      fetchHistory(); // all
+    } else if (from && !to) {
+      fetchHistory(from); // single day
+    } else if (!from && to) {
+      fetchHistory(to); // single day
+    } else {
+      // both → fetch all, range-filter locally
+      fetchHistory();
+    }
+  };
 
-            {loading && <LoadingState message="Loading payment history..." />}
+  const handleClearDates = () => {
+    setDateFromInput("");
+    setDateToInput("");
+    setDateFrom("");
+    setDateTo("");
+    fetchHistory(); // back to all
+  };
 
-            {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-                    <span className="text-red-500 text-xl mr-3">⚠</span>
-                    <div>
-                        <h4 className="text-red-800 font-medium">Error</h4>
-                        <p className="text-red-700 text-sm mt-1">{error}</p>
-                    </div>
-                </div>
-            )}
+  // Map status to badge classes
+  const getStatusColor = (status) => {
+    const s = (status || "").toUpperCase();
+    switch (s) {
+      case "PAID": return "bg-green-100 text-green-800 border-green-200";
+      case "ACTIVE": return "bg-blue-100 text-blue-800 border-blue-200";
+      case "PENDING": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "EXPIRED": return "bg-orange-100 text-orange-800 border-orange-200";
+      case "FAILED":
+      case "CANCELLED": return "bg-red-100 text-red-800 border-red-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
 
-            {!loading && !error && history.length === 0 && (
-                <div className="text-center py-12">
-                    <div className="text-gray-400 text-6xl mb-4">📭</div>
-                    <h4 className="text-gray-600 font-medium mb-2">No Records Found</h4>
-                    <p className="text-gray-500 text-sm">No payment transactions recorded.</p>
-                </div>
-            )}
+  // Helper: local date (YYYY-MM-DD) from ISO
+  const toLocalDateOnly = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
 
-            {!loading && !error && history.length > 0 && (
-                <div className="space-y-4">
-                    {history
-                        .filter((item) => {
-                            const statusMatch = statusFilter === "ALL" || item.status === statusFilter;
-                            const searchMatch =
-                                item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.order_id.toLowerCase().includes(searchTerm.toLowerCase());
+  // Apply filters (status + search + applied dates)
+  const filtered = React.useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
 
-                            const dateMatch = selectedDate
-                                ? new Date(item.created_at).toISOString().split("T")[0] === selectedDate
-                                : true;
+    return history.filter((item) => {
+      const itemStatus = (item?.status || "").toUpperCase();
+      const statusMatch = statusFilter === "ALL" || itemStatus === statusFilter.toUpperCase();
 
-                            return statusMatch && searchMatch && dateMatch;
-                        })
-                        .map((item) => (
-                            <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+      // Date filter uses APPLIED dates only
+      const itemDay = toLocalDateOnly(item?.created_at);
+      const dateMatch = (() => {
+        if (!dateFrom && !dateTo) return true;
+        if (dateFrom && !dateTo) return itemDay === dateFrom;
+        if (!dateFrom && dateTo) return itemDay === dateTo;
+        return itemDay >= dateFrom && itemDay <= dateTo; // inclusive range
+      })();
 
-                                <div className="flex justify-between items-start mb-3">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-800">
-                                            {item.name} ({item.Service})
-                                        </h4>
-                                        <p className="text-sm text-gray-500">
-                                            Order ID: {item.order_id}
-                                        </p>
-                                    </div>
-                                    <span
-                                        className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                            item.status
-                                        )}`}
-                                    >
-                                        {item.status}
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                    <div>
-                                        <span className="text-gray-500 block">Amount</span>
-                                        <span className="font-semibold text-lg">
-                                            ₹{item.paid_amount}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-500 block">Email</span>
-                                        <span className="text-gray-800">{item.email}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-500 block">Date</span>
-                                        <span className="text-gray-800">
-                                            {new Date(item.created_at).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-500 block">Time</span>
-                                        <span className="text-gray-800">
-                                            {new Date(item.created_at).toLocaleTimeString("en-IN", {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                                hour12: true,
-                                            })}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                </div>
-            )}
+      const haystack = [
+        item?.name,
+        item?.email,
+        item?.order_id,
+        item?.phone_number,
+        item?.invoice_no,
+        Array.isArray(item?.Service) ? item.Service.join(", ") : item?.Service,
+      ]
+        .filter(Boolean)
+        .map((v) => String(v).toLowerCase());
+
+      const searchMatch = !q || haystack.some((v) => v.includes(q));
+
+      return statusMatch && dateMatch && searchMatch;
+    });
+  }, [history, statusFilter, dateFrom, dateTo, searchTerm]);
+
+  // Build dynamic status options from the fetched data
+  const statusOptions = React.useMemo(() => {
+    const uniq = Array.from(
+      new Set(history.map((x) => (x?.status || "").toUpperCase()).filter(Boolean))
+    ).sort();
+    return ["ALL", ...uniq];
+  }, [history]);
+
+  return (
+    <div className="p-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          📊 All Payment History
+        </h3>
+      </div>
+
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-wrap">
+        {/* Status Dropdown (dynamic) */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="status" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            Filter by Status:
+          </label>
+          <select
+            id="status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {statusOptions.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
         </div>
-    );
+
+        {/* Date Range with Apply/Clear */}
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            Filter by Date:
+          </label>
+          <input
+            type="date"
+            value={dateFromInput}
+            onChange={(e) => setDateFromInput(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="From"
+          />
+          <span className="text-gray-400">to</span>
+          <input
+            type="date"
+            value={dateToInput}
+            onChange={(e) => setDateToInput(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="To"
+          />
+
+          <button
+            type="button"
+            onClick={handleApplyDates}
+            disabled={loading}
+            className="ml-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            title="Apply date filter"
+          >
+            Apply
+          </button>
+
+          {(dateFromInput || dateToInput || dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={handleClearDates}
+              className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50"
+              title="Clear dates"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
+          <label htmlFor="search" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            Search:
+          </label>
+          <input
+            type="text"
+            id="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Name, Email, Order ID, Phone, Invoice"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      {loading && <LoadingState message="Loading payment history..." />}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+          <span className="text-red-500 text-xl mr-3">⚠</span>
+          <div>
+            <h4 className="text-red-800 font-medium">Error</h4>
+            <p className="text-red-700 text-sm mt-1">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-gray-400 text-6xl mb-4">📭</div>
+          <h4 className="text-gray-600 font-medium mb-2">No Records Found</h4>
+          <p className="text-gray-500 text-sm">No payment transactions match your filters.</p>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <div className="space-y-4">
+          {filtered.map((item) => (
+            <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h4 className="font-semibold text-gray-800">
+                    {item?.name}{" "}
+                    {Array.isArray(item?.Service) && (
+                      <span className="text-gray-500 text-sm">({item.Service.join(", ")})</span>
+                    )}
+                  </h4>
+                  <p className="text-sm text-gray-500">Order ID: {item?.order_id || "-"}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(item?.status)}`}>
+                  {item?.status || "UNKNOWN"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500 block">Amount</span>
+                  <span className="font-semibold text-lg">₹{item?.paid_amount ?? 0}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block">Email</span>
+                  <span className="text-gray-800">{item?.email || "-"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block">Date</span>
+                  <span className="text-gray-800">
+                    {new Date(item?.created_at).toLocaleDateString("en-IN")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block">Time</span>
+                  <span className="text-gray-800">
+                    {new Date(item?.created_at).toLocaleTimeString("en-IN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
+
+

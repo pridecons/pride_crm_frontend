@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import Cookies from 'js-cookie'
 import { useRouter } from 'next/navigation'
@@ -38,6 +38,48 @@ export default function SuperDashboard() {
     const [error, setError] = useState(null)
     const [data, setData] = useState(null)
     const router = useRouter()
+
+    // Top 2 performers per branch (by revenue, then converted, then calls)
+    const topTwoByBranch = useMemo(() => {
+        if (!Array.isArray(data?.top_performers)) return [];
+
+        // 1) Filter by selected branch if SUPERADMIN picked one
+        let arr = data.top_performers;
+        if (role === 'SUPERADMIN' && branchId) {
+            const selectedBranchName = getBranchNameById(branchId);
+            arr = arr.filter((e) => e.branch_name === selectedBranchName);
+        }
+
+        // 2) Group by branch
+        const byBranch = new Map();
+        for (const e of arr) {
+            const key = e.branch_name || 'Unknown';
+            if (!byBranch.has(key)) byBranch.set(key, []);
+            byBranch.get(key).push(e);
+        }
+
+        // 3) For each branch, sort and pick top 2
+        const picked = [];
+        for (const [, list] of byBranch) {
+            list.sort((a, b) => {
+                const rev = (b.total_revenue || 0) - (a.total_revenue || 0);
+                if (rev !== 0) return rev;
+                const conv = (b.converted_leads || 0) - (a.converted_leads || 0);
+                if (conv !== 0) return conv;
+                return (b.called_leads || 0) - (a.called_leads || 0);
+            });
+            picked.push(...list.slice(0, 2));
+        }
+
+        // Optional: sort display by branch name, then revenue desc
+        picked.sort(
+            (a, b) =>
+                (a.branch_name || '').localeCompare(b.branch_name || '') ||
+                (b.total_revenue || 0) - (a.total_revenue || 0)
+        );
+
+        return picked;
+    }, [data?.top_performers, role, branchId, branches]);
 
     useEffect(() => {
         const token = Cookies.get('access_token')
@@ -160,7 +202,6 @@ export default function SuperDashboard() {
         new_leads_this_month: 'Upload Leads This Month',
     };
 
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
             <div className="max-w-7xl mx-auto p-6 space-y-8">
@@ -175,40 +216,47 @@ export default function SuperDashboard() {
                         {role === 'SUPERADMIN' && (
                             <div className="flex flex-col space-y-2 w-full md:w-auto">
                                 <label className="text-sm font-semibold text-gray-700 mb-1">
-                                    Select Branch
+                                    Selected Branch
                                 </label>
+
+                                {/** utility styles for tabs */}
                                 <div className="flex flex-wrap gap-3">
-                                    <button
-                                        onClick={() => setBranchId(null)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 bg-gradient-to-r from-blue-500 to-blue-700 text-white border-blue-700 hover:brightness-110 ${!branchId ? 'shadow-md ring-2 ring-blue-300' : ''
-                                            }`}
-                                    >
-                                        All Branches
-                                    </button>
-                                    {branches.map((branch, index) => {
-                                        const colors = [
-                                            'from-pink-500 to-pink-700 border-pink-700',
-                                            'from-green-500 to-green-700 border-green-700',
-                                            'from-purple-500 to-purple-700 border-purple-700',
-                                            'from-yellow-500 to-yellow-600 border-yellow-600',
-                                            'from-indigo-500 to-indigo-700 border-indigo-700',
-                                            'from-teal-500 to-teal-700 border-teal-700',
-                                            'from-rose-500 to-rose-700 border-rose-700',
-                                        ]
-                                        const colorClass = colors[index % colors.length]
-                                        const isActive = branchId == branch.id
+                                    {(() => {
+                                        const tabBase =
+                                            "px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200";
+                                        const tabClasses = (active) =>
+                                            active
+                                                ? "bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-300"
+                                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50";
 
                                         return (
-                                            <button
-                                                key={branch.id}
-                                                onClick={() => setBranchId(branch.id)}
-                                                className={`px-4 py-2 rounded-lg text-sm font-semibold border text-white transition-all duration-200 bg-gradient-to-r ${colorClass} hover:brightness-110 ${isActive ? 'shadow-md ring-2 ring-offset-1 ring-white' : ''
-                                                    }`}
-                                            >
-                                                {branch.name}
-                                            </button>
-                                        )
-                                    })}
+                                            <>
+                                                {/* All Branches */}
+                                                <button
+                                                    onClick={() => setBranchId(null)}
+                                                    aria-pressed={!branchId}
+                                                    className={`${tabBase} ${tabClasses(!branchId)}`}
+                                                >
+                                                    All Branches
+                                                </button>
+
+                                                {/* Individual branches */}
+                                                {branches.map((branch) => {
+                                                    const isActive = String(branchId) === String(branch.id);
+                                                    return (
+                                                        <button
+                                                            key={branch.id}
+                                                            onClick={() => setBranchId(branch.id)}
+                                                            aria-pressed={isActive}
+                                                            className={`${tabBase} ${tabClasses(isActive)}`}
+                                                        >
+                                                            {branch.name}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
@@ -279,103 +327,103 @@ export default function SuperDashboard() {
                     </div>
 
                     {/* Financial Overview → Monthly Sales (REPLACE the old block with this) */}
-{Array.isArray(data?.daily_trends) && data.daily_trends.length > 0 && (() => {
-  // ---- Build a monthly (YYYY-MM) map from daily_trends ----
-  const parseISO = (s) => new Date(s);
-  const toKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const toLabel = (d) =>
-    d.toLocaleString("en-GB", { month: "short" }).replace(".", "") + String(d.getFullYear()).slice(-2); // e.g., "Aug24"
+                    {Array.isArray(data?.daily_trends) && data.daily_trends.length > 0 && (() => {
+                        // ---- Build a monthly (YYYY-MM) map from daily_trends ----
+                        const parseISO = (s) => new Date(s);
+                        const toKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                        const toLabel = (d) =>
+                            d.toLocaleString("en-GB", { month: "short" }).replace(".", "") + String(d.getFullYear()).slice(-2); // e.g., "Aug24"
 
-  // Find min & max dates in the daily array
-  let minDate = parseISO(data.daily_trends[0].date);
-  let maxDate = parseISO(data.daily_trends[0].date);
-  for (const row of data.daily_trends) {
-    const d = parseISO(row.date);
-    if (d < minDate) minDate = d;
-    if (d > maxDate) maxDate = d;
-  }
+                        // Find min & max dates in the daily array
+                        let minDate = parseISO(data.daily_trends[0].date);
+                        let maxDate = parseISO(data.daily_trends[0].date);
+                        for (const row of data.daily_trends) {
+                            const d = parseISO(row.date);
+                            if (d < minDate) minDate = d;
+                            if (d > maxDate) maxDate = d;
+                        }
 
-  // Sum revenue by (YYYY-MM)
-  const monthlyRevenue = new Map(); // key: YYYY-MM, val: number
-  for (const row of data.daily_trends) {
-    const d = parseISO(row.date);
-    const key = toKey(d);
-    monthlyRevenue.set(key, (monthlyRevenue.get(key) || 0) + Number(row.revenue || 0));
-  }
+                        // Sum revenue by (YYYY-MM)
+                        const monthlyRevenue = new Map(); // key: YYYY-MM, val: number
+                        for (const row of data.daily_trends) {
+                            const d = parseISO(row.date);
+                            const key = toKey(d);
+                            monthlyRevenue.set(key, (monthlyRevenue.get(key) || 0) + Number(row.revenue || 0));
+                        }
 
-  // Build continuous months from min → max (fill missing with 0)
-  const labels = [];
-  const values = [];
-  const cursor = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-  const end = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+                        // Build continuous months from min → max (fill missing with 0)
+                        const labels = [];
+                        const values = [];
+                        const cursor = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+                        const end = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
 
-  while (cursor <= end) {
-    const key = toKey(cursor);
-    labels.push(toLabel(cursor));
-    values.push(monthlyRevenue.get(key) || 0);
-    // next month
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
+                        while (cursor <= end) {
+                            const key = toKey(cursor);
+                            labels.push(toLabel(cursor));
+                            values.push(monthlyRevenue.get(key) || 0);
+                            // next month
+                            cursor.setMonth(cursor.getMonth() + 1);
+                        }
 
-  return (
-    <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Monthly Sales</h3>
-        <span className="text-xs text-gray-500">Bar Chart</span>
-      </div>
+                        return (
+                            <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">Monthly Sales</h3>
+                                    <span className="text-xs text-gray-500">Bar Chart</span>
+                                </div>
 
-      <div className="h-80">
-        <Bar
-          data={{
-            labels,
-            datasets: [
-              {
-                label: "Sales (₹)",
-                data: values,
-                backgroundColor: "rgba(56, 189, 248, 0.6)", // cyan-ish
-                borderWidth: 0,
-                yAxisID: "y",
-              },
-            ],
-          }}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: "index", intersect: false },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) =>
-                    `Sales: ₹${Number(ctx.parsed.y || 0).toLocaleString("en-IN")}`,
-                  title: (items) => (items?.[0]?.label ? items[0].label : ""),
-                },
-              },
-            },
-            scales: {
-              x: {
-                grid: { display: false },
-                ticks: {
-                  autoSkip: false, // show all months
-                  maxRotation: 0,
-                  minRotation: 0,
-                },
-              },
-              y: {
-                beginAtZero: true,
-                title: { display: true, text: "Amount (₹)" },
-                grid: { color: "rgba(0,0,0,0.05)" },
-                ticks: {
-                  callback: (v) => "₹" + new Intl.NumberFormat("en-IN").format(v),
-                },
-              },
-            },
-          }}
-        />
-      </div>
-    </div>
-  );
-})()}
+                                <div className="h-80">
+                                    <Bar
+                                        data={{
+                                            labels,
+                                            datasets: [
+                                                {
+                                                    label: "Sales (₹)",
+                                                    data: values,
+                                                    backgroundColor: "rgba(56, 189, 248, 0.6)", // cyan-ish
+                                                    borderWidth: 0,
+                                                    yAxisID: "y",
+                                                },
+                                            ],
+                                        }}
+                                        options={{
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            interaction: { mode: "index", intersect: false },
+                                            plugins: {
+                                                legend: { display: false },
+                                                tooltip: {
+                                                    callbacks: {
+                                                        label: (ctx) =>
+                                                            `Sales: ₹${Number(ctx.parsed.y || 0).toLocaleString("en-IN")}`,
+                                                        title: (items) => (items?.[0]?.label ? items[0].label : ""),
+                                                    },
+                                                },
+                                            },
+                                            scales: {
+                                                x: {
+                                                    grid: { display: false },
+                                                    ticks: {
+                                                        autoSkip: false, // show all months
+                                                        maxRotation: 0,
+                                                        minRotation: 0,
+                                                    },
+                                                },
+                                                y: {
+                                                    beginAtZero: true,
+                                                    title: { display: true, text: "Amount (₹)" },
+                                                    grid: { color: "rgba(0,0,0,0.05)" },
+                                                    ticks: {
+                                                        callback: (v) => "₹" + new Intl.NumberFormat("en-IN").format(v),
+                                                    },
+                                                },
+                                            },
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })()}
 
 
                 </div>
@@ -539,77 +587,72 @@ export default function SuperDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {data.top_performers
-                                        .filter((e) => {
-                                            if (role === 'SUPERADMIN' && branchId) {
-                                                const selectedBranchName = getBranchNameById(branchId)
-                                                return e.branch_name === selectedBranchName
-                                            }
-                                            return true
-                                        })
-                                        .map((e, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50 transition-colors duration-150">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="flex-shrink-0 h-8 w-8">
-                                                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                                <span className="text-sm font-medium text-blue-800">
-                                                                    {e.employee_name.charAt(0).toUpperCase()}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="ml-3">
-                                                            <div className="font-medium text-gray-900">{e.employee_name}</div>
+                                    {topTwoByBranch.map((e, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 transition-colors duration-150">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-8 w-8">
+                                                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <span className="text-sm font-medium text-blue-800">
+                                                                {e.employee_name.charAt(0).toUpperCase()}
+                                                            </span>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                        {e.role}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.branch_name || '-'}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {e.total_leads}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                        {e.called_leads}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        {e.converted_leads}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">₹{Number(e.total_revenue).toFixed(2)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2 max-w-16">
-                                                            <div
-                                                                className="bg-green-500 h-2 rounded-full"
-                                                                style={{ width: `${Math.min(parseFloat(e.conversion_rate), 100)}%` }}
-                                                            ></div>
-                                                        </div>
-                                                        <span className="text-sm font-medium text-gray-900">{e.conversion_rate}%</span>
+                                                    <div className="ml-3">
+                                                        <div className="font-medium text-gray-900">{e.employee_name}</div>
                                                     </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2 max-w-16">
-                                                            <div
-                                                                className="bg-blue-500 h-2 rounded-full"
-                                                                style={{ width: `${Math.min(parseFloat(e.call_rate), 100)}%` }}
-                                                            ></div>
-                                                        </div>
-                                                        <span className="text-sm font-medium text-gray-900">{e.call_rate}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                    {e.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.branch_name || '-'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {e.total_leads}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                    {e.called_leads}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    {e.converted_leads}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                                                ₹{Number(e.total_revenue).toFixed(2)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2 max-w-16">
+                                                        <div
+                                                            className="bg-green-500 h-2 rounded-full"
+                                                            style={{ width: `${Math.min(parseFloat(e.conversion_rate), 100)}%` }}
+                                                        />
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    <span className="text-sm font-medium text-gray-900">{e.conversion_rate}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2 max-w-16">
+                                                        <div
+                                                            className="bg-blue-500 h-2 rounded-full"
+                                                            style={{ width: `${Math.min(parseFloat(e.call_rate), 100)}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-sm font-medium text-gray-900">{e.call_rate}%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
+
                             </table>
                         </div>
                     </div>

@@ -99,7 +99,6 @@ export function ActionButtons({
         Comments
       </button>
 
-      {hasPermission("lead_recording_view") && (
         <button
           onClick={onRecordingsClick}
           className="flex items-center px-3 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
@@ -107,7 +106,6 @@ export function ActionButtons({
           <Mic size={16} className="mr-2" />
           Recordings
         </button>
-      )}
 
       <button
         onClick={onDocumentsClick}

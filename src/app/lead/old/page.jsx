@@ -49,11 +49,12 @@ export default function OldLeadsTable() {
 
   // ✅ Fetch data on mount
   // refetch leads whenever filters or page change
-  useEffect(() => {
-    if (applied) {
-      fetchLeads();
-    }
-  }, [applied, page, responseFilterId, searchQuery]);
+useEffect(() => {
+  if (applied || responseFilterId !== null) {
+    fetchLeads();
+  }
+}, [applied, page, responseFilterId, searchQuery]);
+
 
 
   // still fetch these just once
@@ -62,50 +63,50 @@ export default function OldLeadsTable() {
     fetchSources();
   }, []);
 
- // ⬇️ make fetchLeads accept optional params
-const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
-  setLoading(true);
-  try {
-    const { data } = await axiosInstance.get("/old-leads/my-assigned", {
-      params: {
-        skip: (page - 1) * limit,
-        limit,
-        fromdate: customFrom || undefined,
-        todate: customTo || undefined,
-        search: searchQuery || undefined,
-        response_id: responseFilterId || undefined,
-      },
-    });
+  // ⬇️ make fetchLeads accept optional params
+  const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
+    setLoading(true);
+    try {
+      const { data } = await axiosInstance.get("/old-leads/my-assigned", {
+        params: {
+          skip: (page - 1) * limit,
+          limit,
+          fromdate: customFrom || undefined,
+          todate: customTo || undefined,
+          search: searchQuery || undefined,
+          response_id: responseFilterId || undefined,
+        },
+      });
 
-    setLeads(data.assigned_old_leads || []);
-    setTotal(data.total ?? data.assigned_old_leads.length);
-  } catch (error) {
-    console.error("Error fetching leads:", error);
-    toast.error("Failed to load leads!");
-  } finally {
-    setLoading(false);
-  }
-};
+      setLeads(data.assigned_old_leads || []);
+      setTotal(data.total ?? data.assigned_old_leads.length);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      toast.error("Failed to load leads!");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-// initial load
-useEffect(() => {
-  fetchLeads();
-}, []);
+  // initial load
+  useEffect(() => {
+    fetchLeads();
+  }, []);
 
-// apply filter
-const handleApply = () => {
-  console.log("Applying filter with:", fromDate, toDate);
-  setApplied(true);
-  fetchLeads(fromDate, toDate); // ✅ use current dates
-};
+  // apply filter
+  const handleApply = () => {
+    console.log("Applying filter with:", fromDate, toDate);
+    setApplied(true);
+    fetchLeads(fromDate, toDate); // ✅ use current dates
+  };
 
-// clear filter
-const handleClear = () => {
-  setFromDate("");
-  setToDate("");
-  setApplied(false);
-  fetchLeads("", ""); // ✅ fetch without date filters
-};
+  // clear filter
+  const handleClear = () => {
+    setFromDate("");
+    setToDate("");
+    setApplied(false);
+    fetchLeads("", ""); // ✅ fetch without date filters
+  };
 
 
 
@@ -456,9 +457,11 @@ const handleClear = () => {
         {/* Response dropdown */}
         <select
           value={responseFilterId || ""}
-          onChange={e =>
-            setResponseFilterId(e.target.value ? Number(e.target.value) : null)
-          }
+          onChange={e => {
+            const newResponseId = e.target.value ? Number(e.target.value) : null;
+            setResponseFilterId(newResponseId);
+            setPage(1); // Reset to first page when filter changes
+          }}
           className="px-3 py-2 border rounded text-sm"
         >
           <option value="">All Responses</option>

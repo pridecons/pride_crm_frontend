@@ -67,101 +67,101 @@ const LeadManage = () => {
   const [commentLeadId, setCommentLeadId] = useState(null);
 
   const [role, setRole] = useState(null);
-const [branchId, setBranchId] = useState(null);
-const isSuperAdmin = role === "SUPERADMIN";
+  const [branchId, setBranchId] = useState(null);
+  const isSuperAdmin = role === "SUPERADMIN";
 
   // Load dropdown lists
-useEffect(() => {
-  const loadFilterLists = async () => {
-    try {
-      const [bRes, uRes, sRes, rRes] = await Promise.all([
-        axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
-        axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
-        axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
-        axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
-      ]);
+  useEffect(() => {
+    const loadFilterLists = async () => {
+      try {
+        const [bRes, uRes, sRes, rRes] = await Promise.all([
+          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+          axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
+          axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
+        ]);
 
-      const allBranches = bRes.data || [];
-      const allEmployees = uRes?.data?.data || [];
+        const allBranches = bRes.data || [];
+        const allEmployees = uRes?.data?.data || [];
 
-      if (isSuperAdmin) {
-        setBranches(allBranches);
-        setEmployees(allEmployees);
-      } else {
-        // keep only current user's branch + employees of that branch
-        const safeBranchId = String(branchId || "");
-        setBranches(allBranches.filter(b => String(b.id) === safeBranchId));
-        setEmployees(allEmployees.filter(e => String(e.branch_id) === safeBranchId));
+        if (isSuperAdmin) {
+          setBranches(allBranches);
+          setEmployees(allEmployees);
+        } else {
+          // keep only current user's branch + employees of that branch
+          const safeBranchId = String(branchId || "");
+          setBranches(allBranches.filter(b => String(b.id) === safeBranchId));
+          setEmployees(allEmployees.filter(e => String(e.branch_id) === safeBranchId));
+        }
+
+        setSourcesList(sRes.data || []);
+        setResponsesList(rRes.data || []);
+      } catch (err) {
+        console.error("Failed to load filters", err);
       }
+    };
 
-      setSourcesList(sRes.data || []);
-      setResponsesList(rRes.data || []);
-    } catch (err) {
-      console.error("Failed to load filters", err);
-    }
-  };
-
-  // wait until we know role/branch; SUPERADMIN can load immediately
-  if (isSuperAdmin || branchId) loadFilterLists();
-}, [isSuperAdmin, branchId]);
+    // wait until we know role/branch; SUPERADMIN can load immediately
+    if (isSuperAdmin || branchId) loadFilterLists();
+  }, [isSuperAdmin, branchId]);
 
   useEffect(() => {
-  try {
-    // Try reading pre-saved user_info (preferred)
-    const ui = Cookies.get("user_info");
-    if (ui) {
-      const parsed = JSON.parse(ui);
-      const r = parsed?.role || parsed?.user?.role || null;
-      // support several shapes: branch_id, user.branch_id, branch.id
-      const b =
-        parsed?.branch_id ??
-        parsed?.user?.branch_id ??
-        parsed?.branch?.id ??
-        null;
-      setRole(r);
-      setBranchId(b ? String(b) : null);
-      return;
-    }
+    try {
+      // Try reading pre-saved user_info (preferred)
+      const ui = Cookies.get("user_info");
+      if (ui) {
+        const parsed = JSON.parse(ui);
+        const r = parsed?.role || parsed?.user?.role || null;
+        // support several shapes: branch_id, user.branch_id, branch.id
+        const b =
+          parsed?.branch_id ??
+          parsed?.user?.branch_id ??
+          parsed?.branch?.id ??
+          null;
+        setRole(r);
+        setBranchId(b ? String(b) : null);
+        return;
+      }
 
-    // Fallback: decode access token
-    const token = Cookies.get("access_token");
-    if (token) {
-      const payload = jwtDecode(token);
-      const r = payload?.role || null;
-      const b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
-      setRole(r);
-      setBranchId(b ? String(b) : null);
+      // Fallback: decode access token
+      const token = Cookies.get("access_token");
+      if (token) {
+        const payload = jwtDecode(token);
+        const r = payload?.role || null;
+        const b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
+        setRole(r);
+        setBranchId(b ? String(b) : null);
+      }
+    } catch (e) {
+      console.error("Failed to read user info from cookies", e);
     }
-  } catch (e) {
-    console.error("Failed to read user info from cookies", e);
-  }
-}, []);
+  }, []);
 
-useEffect(() => {
-  if (!isSuperAdmin && branchId) {
-    setBranchFilter(String(branchId));
-  }
-}, [isSuperAdmin, branchId]);
+  useEffect(() => {
+    if (!isSuperAdmin && branchId) {
+      setBranchFilter(String(branchId));
+    }
+  }, [isSuperAdmin, branchId]);
 
   // Load leads
-useEffect(() => {
-  const fetchLeadData = async () => {
-    try {
-      setLoading(true);
-      const base = "/leads/?skip=0&limit=100&kyc_only=false";
-      const url = !isSuperAdmin && branchId ? `${base}&branch_id=${branchId}` : base;
-      const { data } = await axiosInstance.get(url);
-      setLeadData(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchLeadData = async () => {
+      try {
+        setLoading(true);
+        const base = "/leads/?skip=0&limit=100&kyc_only=false";
+        const url = !isSuperAdmin && branchId ? `${base}&branch_id=${branchId}` : base;
+        const { data } = await axiosInstance.get(url);
+        setLeadData(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // SUPERADMIN can fetch immediately; others wait for branchId
-  if (isSuperAdmin || branchId) fetchLeadData();
-}, [isSuperAdmin, branchId]);
+    // SUPERADMIN can fetch immediately; others wait for branchId
+    if (isSuperAdmin || branchId) fetchLeadData();
+  }, [isSuperAdmin, branchId]);
 
   // Helpers to display names
   const getSourceName = (id) =>
@@ -437,29 +437,28 @@ useEffect(() => {
 
 
       <DashboardTables isSuperAdmin={isSuperAdmin} branchId={branchId} />
-<EmployeeWithDataAccuracy isSuperAdmin={isSuperAdmin} branchId={branchId} />
+      <EmployeeWithDataAccuracy isSuperAdmin={isSuperAdmin} branchId={branchId} />
 
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
         <div className="flex flex-col gap-4">
-{/* Branch Tabs → visible only to SUPERADMIN */}
-{isSuperAdmin && (
-  <div className="flex gap-2 overflow-x-auto pb-2">
-    {([{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]).map((opt) => (
-      <button
-        key={opt.value}
-        onClick={() => setBranchFilter(opt.value)}
-        className={`px-4 py-2 rounded-lg border whitespace-nowrap ${
-          branchFilter === opt.value
-            ? "bg-blue-600 text-white border-blue-600"
-            : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-        }`}
-      >
-        {opt.label}
-      </button>
-    ))}
-  </div>
-)}
+          {/* Branch Tabs → visible only to SUPERADMIN */}
+          {isSuperAdmin && (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {([{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setBranchFilter(opt.value)}
+                  className={`px-4 py-2 rounded-lg border whitespace-nowrap ${branchFilter === opt.value
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             {/* Search */}
@@ -564,10 +563,8 @@ useEffect(() => {
             </select>
           </div>
         </div>
-      </div>
-
-      {/* Accordion List */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+           {/* Accordion List */}
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 mt-8">
         {loading ? (
           <LoadingState message="Loading leads..." />
         ) : filteredLeads.length === 0 ? (
@@ -703,6 +700,9 @@ useEffect(() => {
         )}
       </div>
 
+      </div>
+
+   
       {/* Results Summary */}
       {!loading && filteredLeads.length > 0 && (
         <div className="mt-6 bg-white rounded-xl shadow-sm p-4 border border-gray-100">
@@ -862,42 +862,42 @@ function DashboardTables({ isSuperAdmin, branchId }) {
     <div className="w-full grid grid-cols-3 gap-8 pb-6">
       {/* Lead Source Performance Table */}
       {/* {data.source_analytics?.length > 0 && ( */}
-        <div className="bg-white rounded-xl shadow-lg w-full border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Lead Source
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Source
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Pending Leads
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.source_analytics.map((source, index) => (
-                  <tr
-                    key={index}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      {source.source_name}
-                    </td>
-                    <td className="px-6 py-4 text-orange-700">
-                      {source.total_leads - source.converted_leads}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="bg-white rounded-xl shadow-lg w-full border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Lead Source
+          </h2>
         </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Source
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Pending Leads
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {data.source_analytics.map((source, index) => (
+                <tr
+                  key={index}
+                  className="hover:bg-gray-50 transition-colors duration-150"
+                >
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    {source.source_name}
+                  </td>
+                  <td className="px-6 py-4 text-orange-700">
+                    {source.total_leads - source.converted_leads}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {/* )} */}
 
       {/* Response Distribution Table */}
@@ -1104,31 +1104,31 @@ function EmployeeWithDataAccuracy() {
 
           {/* Date Filters + Buttons */}
           <div className="flex gap-3 ">
-           <div> 
-             <label className=" block text-gray-500 mb-1">From</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setApplied(false); // reset apply state if user changes date
-              }}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div>
+              <label className=" block text-gray-500 mb-1">From</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setApplied(false); // reset apply state if user changes date
+                }}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
-           <div>
-             <label className="block text-gray-500 mb-1">To</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setApplied(false);
-              }}
-              className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
-            />
-           </div>
+            <div>
+              <label className="block text-gray-500 mb-1">To</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setApplied(false);
+                }}
+                className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              />
+            </div>
 
             {/* Button Logic */}
             {applied ? (

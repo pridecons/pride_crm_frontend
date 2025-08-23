@@ -6,8 +6,8 @@ import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
 import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
-import InvoiceList from "@/components/Lead/InvoiceList"; 
-import { Pencil,FileText, BookOpenText, MessageCircle } from "lucide-react";
+import InvoiceList from "@/components/Lead/InvoiceList";
+import { Pencil, FileText, BookOpenText, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function ClientsPage() {
@@ -24,7 +24,6 @@ export default function ClientsPage() {
     const [selectedLeadId, setSelectedLeadId] = useState(null);
     const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
     const [storyLead, setStoryLead] = useState(null);
-
 
     const userInfo = JSON.parse(Cookies.get("user_info") || "{}");
     const router = useRouter();
@@ -45,7 +44,6 @@ export default function ClientsPage() {
                         Authorization: `Bearer ${token}`,
                     },
                 });
-
                 console.log("Source analytics:", res.data.source_analytics);
             } catch (err) {
                 console.error("Failed to load dashboard:", err);
@@ -97,10 +95,13 @@ export default function ClientsPage() {
     const fetchMyClients = async () => {
         try {
             setLoading(true);
-            const res = await axiosInstance.get("/clients/my-clients?limit=100");
-            setMyClients(res.data || []);
+            const res = await axiosInstance.get("/clients/?page=1&limit=10");
+
+            // ✅ safely set array
+            setMyClients(res.data?.clients || []);
         } catch (err) {
             console.error("Error fetching my clients:", err);
+            setMyClients([]); // fallback
         } finally {
             setLoading(false);
         }
@@ -272,7 +273,7 @@ export default function ClientsPage() {
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
-                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> 
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -339,74 +340,84 @@ export default function ClientsPage() {
                                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Investment</th>
                                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
                                     <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> 
+                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {myClients.map((client) => (
-                                    <tr key={client.id}>
-                                        <td className="px-5 py-4 text-sm font-medium text-gray-900">{client.full_name}</td>
-                                        <td className="px-5 py-4 text-sm text-gray-700">{client.email}</td>
-                                        <td className="px-5 py-4 text-sm text-gray-700">{client.mobile}</td>
-                                        <td className="px-5 py-4 text-sm text-gray-700">{client.city}</td>
-                                        <td className="px-5 py-4 text-sm text-gray-700">{client.occupation}</td>
-                                        <td className="px-5 py-4 text-sm font-medium text-green-600">₹{client.investment}</td>
-                                        <td className="px-5 py-4 text-sm text-gray-700">
-                                            <div className="flex flex-wrap gap-1">
-                                                {client.services?.map((service, idx) => (
-                                                    <span
-                                                        key={idx}
-                                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
+                                {Array.isArray(myClients) &&
+                                    myClients.map((client) => (
+                                        <tr key={client.lead_id}>
+                                            <td className="px-5 py-4 text-sm font-medium text-gray-900">
+                                                {client.full_name}
+                                            </td>
+                                            <td className="px-5 py-4 text-sm text-gray-700">{client.email}</td>
+                                            <td className="px-5 py-4 text-sm text-gray-700">{client.mobile}</td>
+                                            <td className="px-5 py-4 text-sm text-gray-700">{client.city}</td>
+                                            <td className="px-5 py-4 text-sm text-gray-700">{client.occupation}</td>
+                                            <td className="px-5 py-4 text-sm font-medium text-green-600">
+                                                ₹{client.investment ?? client.total_amount_paid}
+                                            </td>
+
+                                            <td className="px-5 py-4 text-sm text-gray-700">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {client.services?.map((service) => (
+                                                        <span
+                                                            key={`${client.lead_id}-${service}`} // ✅ stable unique key
+                                                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
+                                                        >
+                                                            {service}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </td>
+
+                                            <td className="px-5 py-4 text-sm text-gray-700">
+                                                {client.last_payment
+                                                    ? new Date(client.last_payment).toLocaleDateString("en-US", {
+                                                        year: "numeric",
+                                                        month: "short",
+                                                        day: "numeric",
+                                                    })
+                                                    : "—"}
+                                            </td>
+
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => router.push(`/lead/${client.lead_id}`)}
+                                                        className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
+                                                        title="Edit Lead"
                                                     >
-                                                        {service}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-4 text-sm text-gray-700">
-                                            {new Date(client.last_payment).toLocaleDateString("en-US", {
-                                                year: "numeric",
-                                                month: "short",
-                                                day: "numeric",
-                                            })}
-                                        </td>
-                                        <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => router.push(`/lead/${client.lead_id}`)}
-                                                    className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
-                                                    title="Edit Lead"
-                                                >
-                                                    <Pencil size={14} />
-                                                </button>
+                                                        <Pencil size={14} />
+                                                    </button>
 
-                                                <button
-                                                    onClick={() => {
-                                                        setStoryLead(client);
-                                                        setIsStoryModalOpen(true);
-                                                    }}
-                                                    className="inline-flex items-center justify-center w-8 h-8 bg-gray-500 text-white hover:bg-green-600 rounded-full shadow transition"
-                                                    aria-label="View Story"
-                                                >
-                                                    <BookOpenText size={18} />
-                                                </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setStoryLead(client);
+                                                            setIsStoryModalOpen(true);
+                                                        }}
+                                                        className="inline-flex items-center justify-center w-8 h-8 bg-gray-500 text-white hover:bg-green-600 rounded-full shadow transition"
+                                                        aria-label="View Story"
+                                                    >
+                                                        <BookOpenText size={18} />
+                                                    </button>
 
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedLeadId(client.lead_id);
-                                                        setIsCommentModalOpen(true);
-                                                    }}
-                                                    className="inline-flex items-center justify-center w-8 h-8 bg-teal-500 text-white rounded-full hover:bg-teal-600 shadow transition"
-                                                    title="Comment"
-                                                >
-                                                    <MessageCircle size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-
-                                    </tr>
-                                ))}
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedLeadId(client.lead_id);
+                                                            setIsCommentModalOpen(true);
+                                                        }}
+                                                        className="inline-flex items-center justify-center w-8 h-8 bg-teal-500 text-white rounded-full hover:bg-teal-600 shadow transition"
+                                                        title="Comment"
+                                                    >
+                                                        <MessageCircle size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                             </tbody>
+
                         </table>
                     </div>
                 )}

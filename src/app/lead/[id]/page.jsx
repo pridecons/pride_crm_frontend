@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useParams } from "next/navigation";
-import { Edit3, Save, X, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { Edit3, Save, X, AlertCircle, CheckCircle, XCircle, MessageCircle, BookOpenText } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
 import toast from "react-hot-toast";
 // import { Viewer, Worker } from "@react-pdf-viewer/core";
@@ -539,37 +539,62 @@ const Lead = () => {
           onSendEmailClick={() => setIsEmailModalOpen(true)}
           onSendSMSClick={() => setIsSMSModalOpen(true)}
           onViewEmailLogsClick={() => setIsEmailModalOpen(true)}
-          onCommentsClick={() => setIsCommentsModalOpen(true)}
           onRecordingsClick={() => setIsRecordingsModalOpen(true)}
           onViewKycClick={handleViewKyc}
           onDocumentsClick={() => setIsDocumentsModalOpen(true)}
-          onStoryClick={() => setIsStoryModalOpen(true)}
           onInvoiceClick={() => setIsInvoiceModalOpen(true)}
           onShareClick={() => setIsShareModalOpen(true)}
         />
 
-        {/* Right-aligned Edit / Back button */}
-        <div className="flex justify-end mt-2 mb-4">
-          <button
-            onClick={() => (isEditMode ? handleCancelEdit() : setIsEditMode(true))}
-            disabled={!currentLead}
-            aria-pressed={isEditMode}
-            className={`group relative inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm font-medium
-      shadow-sm transition-all
-      ${isEditMode
-                ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
-                : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              }
-      disabled:opacity-50 disabled:cursor-not-allowed`}
+        {/* Top Toolbar: Left (Story/Comments) | Right (Edit/Back) */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+          {/* LEFT: Story + Comments */}
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              onClick={() => setIsStoryModalOpen(true)}
+              className="w-10 h-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
+            title="View Story"
           >
-            <span
-              className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"}`}
-              aria-hidden="true"
-            />
-            {isEditMode ? "Back" : "Edit"}
-            {isEditMode ? <X size={16} className="opacity-80 group-hover:opacity-100" /> : <Edit3 size={16} className="opacity-80 group-hover:opacity-100" />}
-          </button>
+            <BookOpenText size={20} />
+            </button>
+
+            <button
+              onClick={() => setIsCommentsModalOpen(true)}
+              className="w-10 h-10 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
+            title="Comments"
+          >
+            <MessageCircle size={20} />
+            </button>
+          </div>
+
+          {/* RIGHT: Edit / Back */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => (isEditMode ? handleCancelEdit() : setIsEditMode(true))}
+              disabled={!currentLead}
+              aria-pressed={isEditMode}
+              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium
+        shadow-sm transition-all
+        ${isEditMode
+                  ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
+                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                }
+        disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"}`}
+                aria-hidden="true"
+              />
+              {isEditMode ? "Back" : "Edit"}
+              {isEditMode ? (
+                <X size={16} className="opacity-80 group-hover:opacity-100" />
+              ) : (
+                <Edit3 size={16} className="opacity-80 group-hover:opacity-100" />
+              )}
+            </button>
+          </div>
         </div>
+
 
         {isSMSModalOpen && (
           <SMSModalWithLogs

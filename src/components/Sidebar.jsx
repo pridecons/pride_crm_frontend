@@ -25,7 +25,8 @@ import {
   Shield,
   CreditCard,
   MessageCircle,
-  Mail
+  Mail,
+  CalendarCheck
 } from 'lucide-react'
 
 export default function Sidebar({ branchId, onClose }) {
@@ -156,6 +157,7 @@ const menu = [
         ],
       },
       { href: '/user', icon: UserCheck, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+      { href: '/attendance', icon: CalendarCheck, label: 'Attendance', access: ["BRANCH MANAGER", "SUPERADMIN"] },
       { href: '/plans', icon: FileText, label: 'Plans' },
       { href: '/permission', icon: Shield, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
     ],

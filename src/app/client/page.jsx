@@ -133,6 +133,15 @@ export default function ClientsPage() {
                         <span className="text-gray-500 w-24">Branch:</span>
                         <span className="text-gray-700">{client.branch_name}</span>
                     </div>
+                    <div className="flex">
+                        <span className="text-gray-500 w-24">KYC:</span>
+                        <span
+                            className={`text-sm font-medium ${client.kyc_status ? "text-green-600" : "text-red-600"
+                                }`}
+                        >
+                            {client.kyc_status ? "DONE" : "PENDING"}
+                        </span>
+                    </div>
                 </div>
                 <div className="pt-3 mt-3 border-t border-gray-100">
                     <div className="flex justify-between items-center">
@@ -272,6 +281,7 @@ export default function ClientsPage() {
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                                        <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">KYC Status</th>
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
                                         <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
@@ -284,9 +294,17 @@ export default function ClientsPage() {
                                             <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">{client.mobile}</td>
                                             <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">{client.city}</td>
                                             <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">{client.branch_name}</td>
+                                            <td className="px-5 py-4 whitespace-nowrap text-sm">
+                                                <span
+                                                    className={`${client.kyc_status ? "text-green-600 font-semibold" : "text-red-600"
+                                                        }`}
+                                                >
+                                                    {client.kyc_status ? "DONE" : "PENDING"}
+                                                </span>
+                                            </td>
                                             <td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-green-600">₹{client.total_amount_paid}</td>
                                             <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                <div className="flex items-center gap-0.5">
+                                                <div className="flex items-center gap-1.5">
                                                     <button
                                                         onClick={() => {
                                                             setSelectedLead(client);
@@ -328,19 +346,19 @@ export default function ClientsPage() {
                     )
                 ) : (
                     // My Clients Table for other roles
-                    <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-                        <table className="min-w-full divide-y divide-gray-200">
+                    <div className="overflow-x-hidden bg-white rounded-lg border border-gray-200">
+                        <table className="w-full table-fixed divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupation</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Investment</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
-                                    <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Occupation</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Investment</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
+                                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">

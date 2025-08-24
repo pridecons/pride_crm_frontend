@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef, lazy } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { DropdownCheckboxButton, InputField } from "../common/InputField";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 const PAYMENT_METHODS = [
   { code: "cc", label: "Credit Card", icon: "💳", category: "card" },
@@ -77,10 +78,11 @@ export default function PaymentModal({
               <button
                 key={opt.value}
                 onClick={() => setSelectOption(opt.value)}
-                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${selectOption === opt.value
-                  ? "border-blue-500 text-blue-600 bg-blue-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  }`}
+                className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  selectOption === opt.value
+                    ? "border-blue-500 text-blue-600 bg-blue-50"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
               >
                 <span className="mr-2">{opt.icon}</span>
                 {opt.name}
@@ -137,6 +139,21 @@ const CreatePaymentLink = ({
   const [call, setCall] = useState(2);
   const [duration_day, setDuration_day] = useState(0);
   const [selectedServiceTypes, setSelectedServiceTypes] = useState([]);
+  const [isOpentPaymentMode, setIsOpentPaymentMode] = useState(false);
+  const [paymentLimit, setPaymentLimit] = useState({
+    paid_payments_count: 0,
+    remaining_limit: 0,
+    total_paid: 0,
+    total_paid_limit: 0,
+  });
+
+  const remaining = Math.max(0, Number(paymentLimit?.remaining_limit || 0));
+  const totalPaid = Number(paymentLimit?.total_paid || 0);
+  const totalLimit = Number(paymentLimit?.total_paid_limit || 0);
+  const usedPct =
+    totalLimit > 0
+      ? Math.min(100, Math.round((totalPaid / totalLimit) * 100))
+      : 0;
 
   const toggleMethod = (code) => {
     setSelectedMethods((prev) => {
@@ -158,6 +175,27 @@ const CreatePaymentLink = ({
     }
   };
 
+  useEffect(() => {
+    checkPaymentLimit();
+  }, []);
+
+  const checkPaymentLimit = async () => {
+    try {
+      if (!lead_id) return;
+      const { data } = await axiosInstance.get(
+        `payment/payment-limit/${lead_id}`
+      );
+      setPaymentLimit({
+        paid_payments_count: Number(data?.paid_payments_count || 0),
+        remaining_limit: Number(data?.remaining_limit || 0),
+        total_paid: Number(data?.total_paid || 0),
+        total_paid_limit: Number(data?.total_paid_limit || 0),
+      });
+    } catch (err) {
+      console.error(err?.response?.data?.detail || err.message);
+    }
+  };
+
   const handleSubmit = async () => {
     setError(null);
     setLoading(true);
@@ -174,6 +212,16 @@ const CreatePaymentLink = ({
     }
     if (!(amount > 0)) {
       setError("Amount must be greater than 0.");
+      setLoading(false);
+      return;
+    }
+    if (amount > remaining) {
+      setError(`Amount exceeds remaining limit (₹${remaining}).`);
+      setLoading(false);
+      return;
+    }
+    if (remaining <= 0) {
+      setError("No remaining limit available.");
       setLoading(false);
       return;
     }
@@ -229,19 +277,27 @@ const CreatePaymentLink = ({
   };
 
   const handleAmount = (value) => {
-    const newAmount = parseFloat(value);
-    setAmount(newAmount);
+    const raw = Number(value ?? 0);
+    const capped = Math.min(Math.max(raw, 0), remaining || 0); // 0..remaining
+    setAmount(capped);
+
+    if (!service_plan || !service_plan?.discounted_price) return;
 
     if (service_plan?.billing_cycle === "CALL") {
-      const perCall = service_plan?.discounted_price / service_plan?.CALL;
-      const totalCall = Math.round(newAmount / perCall);
+      const perCall = service_plan?.CALL
+        ? Number(service_plan?.discounted_price) / Number(service_plan?.CALL)
+        : 0;
+      const totalCall =
+        perCall > 0 ? Math.max(0, Math.round(capped / perCall)) : 0;
       setCall(totalCall);
       setDuration_day(0);
     } else {
       setCall(0);
       const daysCount = service_plan?.billing_cycle === "MONTHLY" ? 30 : 365;
-      const perDayPrice = service_plan?.discounted_price / daysCount;
-      const totalDays = Math.round(newAmount / perDayPrice);
+      const perDayPrice =
+        daysCount > 0 ? Number(service_plan?.discounted_price) / daysCount : 0;
+      const totalDays =
+        perDayPrice > 0 ? Math.max(0, Math.round(capped / perDayPrice)) : 0;
       setDuration_day(totalDays);
     }
   };
@@ -253,6 +309,50 @@ const CreatePaymentLink = ({
       {/* If No Payment Link */}
       {!response?.cashfreeResponse?.payment_link && (
         <>
+          {/* LIMIT PANEL */}
+          <div className="rounded-xl border border-gray-200 p-4 bg-white">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="text-sm text-gray-600">
+                The user has paid{" "}
+                <span className="font-semibold text-gray-900">
+                  ₹{totalPaid}
+                </span>{" "}
+                so far. The total limit is{" "}
+                <span className="font-semibold text-gray-900">
+                  ₹{totalLimit}
+                </span>
+                . The remaining amount is{" "}
+                <span className="font-semibold text-green-700">
+                  ₹{remaining}
+                </span>
+                .
+              </div>
+              <div className="text-xs text-gray-500">
+                Number of Paid Payments:{" "}
+                <span className="font-semibold">
+                  {paymentLimit.paid_payments_count}
+                </span>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div className="mt-3">
+              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-2 bg-green-500"
+                  style={{ width: `${usedPct}%` }}
+                />
+              </div>
+              <div className="mt-1 text-xs text-gray-500">{usedPct}% used</div>
+            </div>
+
+            {/* Hard stop note */}
+            {remaining <= 0 && (
+              <div className="mt-3 text-sm text-red-600">
+                ⚠️ Limit exhausted. New payment cannot be generated.
+              </div>
+            )}
+          </div>
           {/* Customer Info */}
           <div className="bg-gray-50 rounded-xl p-4">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -268,8 +368,8 @@ const CreatePaymentLink = ({
                   val?.billing_cycle === "MONTHLY"
                     ? 30
                     : val?.billing_cycle === "YEARLY"
-                      ? 365
-                      : 0
+                    ? 365
+                    : 0
                 );
               }}
             />
@@ -299,23 +399,24 @@ const CreatePaymentLink = ({
               />
 
               {/* Service Types (shown as checkboxes, from selected service) */}
-              {Array.isArray(service_plan?.service_type) && service_plan?.service_type.length > 0 && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Types Available
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    {service_plan.service_type.map((stype) => (
-                      <span
-                        key={stype}
-                        className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 text-blue-800 text-xs font-semibold border border-blue-100"
-                      >
-                        {stype}
-                      </span>
-                    ))}
+              {Array.isArray(service_plan?.service_type) &&
+                service_plan?.service_type.length > 0 && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Service Types Available
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      {service_plan.service_type.map((stype) => (
+                        <span
+                          key={stype}
+                          className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 text-blue-800 text-xs font-semibold border border-blue-100"
+                        >
+                          {stype}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               <InputField
                 label="Description"
                 value={description}
@@ -343,14 +444,20 @@ const CreatePaymentLink = ({
                   <input
                     type="number"
                     step="0.01"
+                    min={0}
+                    max={remaining} // <-- cap at remaining
                     value={amount}
-                    onChange={(e) => {
-                      handleAmount(e.target.value);
-                    }}
+                    onChange={(e) => handleAmount(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium transition-all duration-200 bg-white shadow-sm hover:shadow-md"
-                    placeholder="0.00"
+                    placeholder={`0.00 (Max ₹${remaining})`}
+                    disabled={remaining <= 0}
                   />
                 </div>
+                {amount > remaining && (
+                  <p className="mt-2 text-sm text-red-600">
+                    Amount remaining (₹{remaining}) se zyada nahin ho sakta.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -396,48 +503,67 @@ const CreatePaymentLink = ({
             </div>
           </div>
 
+          <p className="text-sm text-gray-700">
+            The user has already paid ₹{totalPaid} out of a total limit of ₹
+            {totalLimit}. Now the client can only pay up to ₹{remaining}, not
+            more than that.
+          </p>
+
           {/* Payment Methods */}
           <div className="bg-blue-50 rounded-xl p-4 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
-              💳 Payment Methods
-            </h3>
-            <label className="inline-flex items-center mb-4 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                checked={allowAll}
-                onChange={handleSelectAll}
-              />
-              <span className="ml-3 text-gray-700 font-medium">
-                Enable All Payment Methods
-              </span>
-            </label>
-            {Object.entries(grouped).map(([cat, methods]) => (
-              <div key={cat} className="bg-white rounded-lg p-3">
-                <h4 className="text-sm font-semibold text-gray-600 mb-3">
-                  {labels[cat]}
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {methods.map((m) => (
-                    <label
-                      key={m.code}
-                      className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
-                    >
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        checked={selectedMethods.includes(m.code)}
-                        onChange={() => toggleMethod(m.code)}
-                      />
-                      <span className="ml-3 flex items-center">
-                        <span className="mr-2">{m.icon}</span>
-                        {m.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
+                💳 Payment Methods
+              </h3>
+              <button onClick={() => setIsOpentPaymentMode((val) => !val)}>
+                {isOpentPaymentMode ? (
+                  <ChevronUp size={20} />
+                ) : (
+                  <ChevronDown size={20} />
+                )}
+              </button>
+            </div>
+            {isOpentPaymentMode && (
+              <>
+                <label className="inline-flex items-center mb-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    checked={allowAll}
+                    onChange={handleSelectAll}
+                  />
+                  <span className="ml-3 text-gray-700 font-medium">
+                    Enable All Payment Methods
+                  </span>
+                </label>
+                {Object.entries(grouped).map(([cat, methods]) => (
+                  <div key={cat} className="bg-white rounded-lg p-3">
+                    <h4 className="text-sm font-semibold text-gray-600 mb-3">
+                      {labels[cat]}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {methods.map((m) => (
+                        <label
+                          key={m.code}
+                          className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
+                        >
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            checked={selectedMethods.includes(m.code)}
+                            onChange={() => toggleMethod(m.code)}
+                          />
+                          <span className="ml-3 flex items-center">
+                            <span className="mr-2">{m.icon}</span>
+                            {m.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {/* Error */}
@@ -489,10 +615,11 @@ const CreatePaymentLink = ({
               />
               <button
                 onClick={handleCopy}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${copied
-                  ? "bg-gray-200"
-                  : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  copied
+                    ? "bg-gray-200"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
               >
                 {copied ? "✅ Copied" : "📋 Copy"}
               </button>
@@ -510,7 +637,7 @@ const CreatePaymentLink = ({
   );
 };
 
-const ServiceCard = ({ selectService = {}, setSelectService = () => { } }) => {
+const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
   const [service_plan, setService_plan] = useState([]);
 
   useEffect(() => {
@@ -539,69 +666,71 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => { } }) => {
         WebkitScrollbar: { display: "none" },
       }}
     >
-      {Array.isArray(service_plan) && service_plan?.map((service) => (
-        <div
-          key={service.id}
-          onClick={() => handleSelect(service)}
-          className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${selectService?.id === service.id
-            ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
-            : "border-gray-200 hover:border-gray-300"
+      {Array.isArray(service_plan) &&
+        service_plan?.map((service) => (
+          <div
+            key={service.id}
+            onClick={() => handleSelect(service)}
+            className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${
+              selectService?.id === service.id
+                ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
+                : "border-gray-200 hover:border-gray-300"
             }`}
-        >
-          {/* Selected Badge */}
-          {selectService?.id === service.id && (
-            <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-md">
-              Selected
-            </div>
-          )}
+          >
+            {/* Selected Badge */}
+            {selectService?.id === service.id && (
+              <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-md">
+                Selected
+              </div>
+            )}
 
-          <div className="mt-1">
-            {/* Service Name */}
-            <div className="flex justify-between">
-              <h3 className="text-lg font-bold text-gray-800 mb-2 leading-tight">
-                {service.name}
-              </h3>
+            <div className="mt-1">
+              {/* Service Name */}
+              <div className="flex justify-between">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 leading-tight">
+                  {service.name}
+                </h3>
 
-              {/* Discount Badge */}
-              {service.discount_percent > 0 && (
-                <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-md font-bold">
-                  {service.discount_percent}% OFF
-                </div>
-              )}
-            </div>
-
-            {/* Description */}
-            <p className="text-sm text-gray-600 mb-3 leading-relaxed line-clamp-2">
-              {service.description}
-            </p>
-
-            {/* Price Section */}
-            <div className="mb-2 p-2 bg-gray-50 rounded-lg">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold text-gray-800">
-                  ₹{service.discounted_price}
-                </span>
+                {/* Discount Badge */}
                 {service.discount_percent > 0 && (
-                  <span className="text-sm line-through text-gray-400">
-                    ₹{service.price}
-                  </span>
+                  <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-md font-bold">
+                    {service.discount_percent}% OFF
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Billing Info */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Billing:</span>
-              <span className="text-gray-800 font-semibold">
-                {service.billing_cycle}
-                {service.billing_cycle === "CALL" && service.CALL && (
-                  <span className="text-gray-500 ml-1">({service.CALL})</span>
-                )}
-              </span>
+              {/* Description */}
+              <p className="text-sm text-gray-600 mb-3 leading-relaxed line-clamp-2">
+                {service.description}
+              </p>
+
+              {/* Price Section */}
+              <div className="mb-2 p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold text-gray-800">
+                    ₹{service.discounted_price}
+                  </span>
+                  {service.discount_percent > 0 && (
+                    <span className="text-sm line-through text-gray-400">
+                      ₹{service.price}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Billing Info */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Billing:</span>
+                <span className="text-gray-800 font-semibold">
+                  {service.billing_cycle}
+                  {service.billing_cycle === "CALL" && service.CALL && (
+                    <span className="text-gray-500 ml-1">({service.CALL})</span>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
 };
@@ -725,11 +854,8 @@ const CheckPayment = ({ phone }) => {
     const fetchHistory = async () => {
       setLoading(true);
       setError(null);
-      const today = new Date().toISOString().slice(0, 10);
       try {
-        const { data } = await axiosInstance.get(
-          `/payment/history/${phone}?date=${today}`
-        );
+        const { data } = await axiosInstance.get(`/payment/history/${phone}?`);
         setHistory(data);
       } catch (err) {
         console.error("API Error:", err);

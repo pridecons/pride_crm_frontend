@@ -67,19 +67,19 @@ export default function RationalPage() {
   }, [dateFrom, dateTo]);
 
 
-const fetchRationals = async (params = {}) => {
-  try {
-    setLoading(true);
-    const res = await axiosInstance.get(API_URL, {
-      params: { limit: 100, offset: 0, ...params },
-    });
-    setRationalList(res.data);
-  } catch (err) {
-    console.error('Failed to load rationals:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchRationals = async (params = {}) => {
+    try {
+      setLoading(true);
+      const res = await axiosInstance.get(API_URL, {
+        params: { limit: 100, offset: 0, ...params },
+      });
+      setRationalList(res.data);
+    } catch (err) {
+      console.error('Failed to load rationals:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchRationals();
@@ -96,16 +96,16 @@ const fetchRationals = async (params = {}) => {
   }, [openStatusDropdown]);
 
   const handleApplyDates = async () => {
-  // guard: if both empty, just refetch all
-  if (!dateFrom && !dateTo) {
-    fetchRationals();
-    return;
-  }
-  const params = {};
-  if (dateFrom) params.date_from = dateFrom; // "YYYY-MM-DD"
-  if (dateTo) params.date_to = dateTo;       // "YYYY-MM-DD"
-  await fetchRationals(params);
-};
+    // guard: if both empty, just refetch all
+    if (!dateFrom && !dateTo) {
+      fetchRationals();
+      return;
+    }
+    const params = {};
+    if (dateFrom) params.date_from = dateFrom; // "YYYY-MM-DD"
+    if (dateTo) params.date_to = dateTo;       // "YYYY-MM-DD"
+    await fetchRationals(params);
+  };
 
   const openModal = (item = null) => {
     if (item) {
@@ -224,91 +224,77 @@ const fetchRationals = async (params = {}) => {
       status,
     } = formData;
 
-    // 🐛 DEBUG: Check what we have before processing
-    console.log('🔍 Original recommendation_type:', recommendation_type);
-    console.log('🔍 Is array?', Array.isArray(recommendation_type));
-    console.log('🔍 Length:', recommendation_type?.length);
+    // Basic validation for create
+    if (!editId) {
+      if (entry_price === '' || stop_loss === '' || targets === '') {
+        alert('Entry Price, Stop Loss, and Target 1 are required.');
+        return;
+      }
+      if (!graph) {
+        setImageError('Please select an image to upload');
+        return;
+      }
+    }
 
-    // ✅ Validate image only on new entries
-    if (!editId && !graph) {
-      setImageError('Please select an image to upload');
-      return;
+    // Always send multipart/form-data (matches FastAPI Form(...) expectations)
+    const fd = new FormData();
+    const toNum = (v, def = '') => {
+      if (v === '' || v === undefined || v === null) return def;
+      const n = Number(v);
+      return Number.isFinite(n) ? String(n) : def;
+    };
+
+    fd.append('stock_name', (stock_name ?? '').trim());
+    fd.append('entry_price', toNum(entry_price));        // required by backend
+    fd.append('stop_loss', toNum(stop_loss));            // required by backend
+    fd.append('targets', toNum(targets));                // required by backend
+    fd.append('targets2', toNum(targets2, '0'));
+    fd.append('targets3', toNum(targets3, '0'));
+    fd.append('rational', (rational ?? '').trim());
+    fd.append('status', status || 'OPEN');
+
+    // list[str] in FastAPI: repeat the same key
+    (Array.isArray(recommendation_type) ? recommendation_type : [])
+      .filter(Boolean)
+      .forEach(rt => fd.append('recommendation_type', rt));
+
+    // Only include file if a new one is chosen
+    if (graph instanceof File) {
+      fd.append('graph', graph);
     }
 
     try {
-      let dataToSend;
-      let headers = {};
-
-      // ✅ Normalize data (KEEP recommendation_type as an ARRAY)
-      const cleanedData = {
-        stock_name: stock_name?.trim() || '',
-        entry_price: Number(entry_price),
-        stop_loss: Number(stop_loss),
-        targets: Number(targets),
-        targets2: Number(targets2),
-        targets3: Number(targets3),
-        rational: rational?.trim() || '',
-        recommendation_type: Array.isArray(recommendation_type)
-          ? recommendation_type
-          : recommendation_type
-            ? [recommendation_type]
-            : [],
-        status: status || 'OPEN',
+      const config = {
+        headers: {
+          // IMPORTANT: override any default json header from the instance
+          'Content-Type': 'multipart/form-data',
+        },
+        // If your instance has a transformRequest that JSON.stringifys,
+        // this pass-through disables that for this call.
+        transformRequest: [(data /*, headers */) => data],
       };
 
-      const isGraphFile = graph instanceof File;
+      // (Optional) debug: see exactly what you're sending
+      // for (const [k, v] of fd.entries()) console.log('FD:', k, v);
 
-      if (isGraphFile || (!editId && graph)) {
-        // ✅ Use FormData when uploading a file
-        dataToSend = new FormData();
-
-        // append primitives
-        Object.entries(cleanedData).forEach(([key, value]) => {
-          if (key === 'recommendation_type') return; // handle below
-          dataToSend.append(key, String(value));
-        });
-        // append list items so FastAPI/Pydantic sees a list[str]
-        cleanedData.recommendation_type.forEach((rt) => {
-          dataToSend.append('recommendation_type', rt);
-        });
-        // ✅ MISSING: Append the file
-        if (isGraphFile) {
-          dataToSend.append('graph', graph);
-        }
-
-        // 🐛 DEBUG: Log FormData contents
-        console.log('🔍 FormData contents:');
-        for (let pair of dataToSend.entries()) {
-          console.log(`${pair[0]}: ${pair[1]}`);
-        }
-
-        // Let Axios set the multipart boundary automatically:
-        // headers['Content-Type'] = 'multipart/form-data';
-      } else {
-        // ✅ JSON path (no new file) — send array as-is
-        dataToSend = { ...cleanedData, graph };
-        console.log('🔍 JSON data being sent:', dataToSend);
-        headers['Content-Type'] = 'application/json';
-      }
-
-      // ✅ Submit via POST or PUT
       if (editId) {
-        await axiosInstance.put(`${API_URL}${editId}/`, dataToSend, { headers });
+        await axiosInstance.put(`${API_URL}${editId}/`, fd, config);
       } else {
-        await axiosInstance.post(API_URL, dataToSend, { headers });
+        await axiosInstance.post(API_URL, fd, config);
       }
 
       setIsModalOpen(false);
-      fetchRationals(); // ✅ Refresh table
+      fetchRationals();
     } catch (err) {
-      if (err.response?.status === 422) {
+      if (err?.response?.status === 422) {
         console.error('Validation error:', err.response.data);
+        alert('Validation failed. Please check the required fields.');
       } else {
         console.error('Submit failed:', err);
+        alert('Submit failed. Check console for details.');
       }
     }
   };
-
 
   const getRecommendationBadge = (type) => {
     const colors = {
@@ -320,9 +306,9 @@ const fetchRationals = async (params = {}) => {
     return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-const filteredData = rationalList.filter((item) =>
-  (item.stock_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-);
+  const filteredData = rationalList.filter((item) =>
+    (item.stock_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
 
   const statusOptions = [
@@ -445,8 +431,8 @@ const filteredData = rationalList.filter((item) =>
           </div>
 
           {/* Divider */}
-          <div className="flex items-center text-gray-400 font-medium">
-            <span className="px-2 text-sm">to</span>
+          <div className="text-black text-3xl font-medium">
+            -
           </div>
 
           {/* Date To */}
@@ -471,14 +457,14 @@ const filteredData = rationalList.filter((item) =>
           </button>
 
           {/* Date toolbar section — add this button next to Clear */}
-<button
-  type="button"
-  onClick={handleApplyDates}
-  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
-  disabled={!dateFrom && !dateTo}
->
-  Apply
-</button>
+          <button
+            type="button"
+            onClick={handleApplyDates}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+            disabled={!dateFrom && !dateTo}
+          >
+            Apply
+          </button>
         </div>
 
 
@@ -568,11 +554,11 @@ function RationalModal({
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Entry Price</label>
-            <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode} />
+            <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" required={!isEditMode} />
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-            <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" disabled={isEditMode} />
+            <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" required={!isEditMode} />
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">
@@ -1133,7 +1119,7 @@ function RationalTable({
                   {/* Accordion Row */}
                   {isOpen && (
                     <tr className="bg-slate-50">
-                      <td colSpan={6} className="px-6 py-4">
+                      <td colSpan={7} className="px-6 py-4">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                           <div>
                             <p className="text-slate-500">Target 2</p>
@@ -1722,8 +1708,8 @@ function ExportXlsxModal({ onClose }) {
             className="border rounded px-3 py-2 text-sm"
             required
           >
-            <option value="desc">asc</option>
-            <option value="asc">desc</option>
+            <option value="asc">asc</option>
+            <option value="desc">desc</option>
           </select>
 
         </div>

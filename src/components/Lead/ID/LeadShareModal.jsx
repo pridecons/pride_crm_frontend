@@ -11,12 +11,10 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
   const [transferOwnership, setTransferOwnership] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Make employee code uppercase & trimmed as user types
   const cleanedCode = useMemo(
     () => targetUserId.toUpperCase().replace(/\s+/g, ""),
     [targetUserId]
   );
-
   const canShare = cleanedCode.length > 0 && !loading;
 
   const handleShare = async () => {
@@ -42,7 +40,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
     }
   };
 
-  // Submit on Enter (except in textarea)
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => {
@@ -53,13 +50,14 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, canShare]);
+  }, [isOpen, canShare]); // eslint-disable-line
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title=""
+      contentClassName="w-[42rem] max-w-2xl"
       actions={[
         <button
           key="cancel"
@@ -80,7 +78,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
         </button>,
       ]}
     >
-      {/* Fancy header */}
       <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
           <div className="flex items-center gap-3">
@@ -96,9 +93,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
           </div>
         </div>
 
-        {/* Body */}
         <div className="p-5 space-y-5 bg-white">
-          {/* Employee code with prefix adornment */}
           <div>
             <label className="block text-sm font-medium text-gray-800">
               Target Employee Code <span className="text-red-500">*</span>
@@ -120,7 +115,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
             </p>
           </div>
 
-          {/* Message */}
           <div>
             <label className="block text-sm font-medium text-gray-800">Message</label>
             <textarea
@@ -132,15 +126,12 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
             />
           </div>
 
-          {/* Toggle */}
           <div className="rounded-xl border border-gray-200 p-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="text-emerald-600" size={18} />
                 <span className="text-sm font-medium text-gray-800">Transfer Ownership</span>
               </div>
-
-              {/* iOS-style switch */}
               <button
                 type="button"
                 onClick={() => setTransferOwnership((v) => !v)}
@@ -162,7 +153,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
             </p>
           </div>
 
-          {/* Info callout */}
           <div className="flex items-start gap-2.5 rounded-xl bg-blue-50 border border-blue-100 p-3">
             <Info className="mt-0.5 text-blue-600" size={16} />
             <p className="text-xs text-blue-900">
@@ -170,7 +160,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
             </p>
           </div>
 
-          {/* Preview row */}
           <div className="flex items-center justify-between text-xs text-gray-500">
             <div>
               <span className="text-gray-400">Preview:</span>{" "}

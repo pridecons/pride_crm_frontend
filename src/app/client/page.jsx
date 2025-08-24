@@ -247,14 +247,19 @@ export default function ClientsPage() {
                         <div className="inline-flex rounded-md shadow-sm" role="group">
                             <button
                                 type="button"
-                                className={`px-4 py-3 text-sm font-medium border ${view === 'card' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} border-gray-300 rounded-l-lg hover:bg-gray-100`}
+                                className={`px-4 py-3 text-sm font-medium border ${view === 'card' ?  'bg-blue-600 text-white border-blue-600 shadow-md'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
+                                            } border-gray-300 rounded-l-lg`}
                                 onClick={() => setView("card")}
                             >
                                 Card View
                             </button>
                             <button
                                 type="button"
-                                className={`px-4 py-3 text-sm font-medium border ${view === 'table' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} border-gray-300 rounded-r-lg hover:bg-gray-100`}
+                                 className={`px-4 py-3 text-sm font-medium border ${view === 'table' ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300' 
+                                            } border-gray-300 rounded-r-lg`}
+                                // className={`px-4 py-3 text-sm font-medium border ${view === 'table' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-gray-700 hover:bg-gray-200 hover:text-black'} border-gray-300 rounded-r-lg`}
                                 onClick={() => setView("table")}
                             >
                                 Table View

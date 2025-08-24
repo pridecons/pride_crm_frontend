@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useParams } from "next/navigation";
-import { Edit3, Save, X, AlertCircle, MessageCircle, BookOpenText } from "lucide-react";
+import { Edit3, Save, X, AlertCircle, MessageCircle, BookOpenText, Building, UserCheck } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
 import toast from "react-hot-toast";
 import LoadingState from "@/components/LoadingState";
@@ -59,6 +59,9 @@ const Lead = () => {
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const [userNameMap, setUserNameMap] = useState({});     // { EMP006: "shivi", ... }
+  const [branchNameMap, setBranchNameMap] = useState({}); // { 1: "Main Branch", ... }
 
   // fetch guard (StrictMode)
   const didInit = useRef(false);
@@ -173,9 +176,11 @@ const Lead = () => {
 
   const fetchData = async () => {
     try {
-      const [sourcesRes, responsesRes] = await Promise.all([
+      const [sourcesRes, responsesRes, usersRes, branchesRes] = await Promise.all([
         apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
         apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
+        apiCall("GET", "/users/?skip=0&limit=100&active_only=false"),
+        apiCall("GET", "/branches/?skip=0&limit=100"),
       ]);
       setLeadSources(
         sourcesRes.map((src) => ({
@@ -189,6 +194,25 @@ const Lead = () => {
           label: res.name,
         }))
       );
+      // ---- Build user name map: { employee_code -> name }
+      const usersArr = Array.isArray(usersRes?.data) ? usersRes.data : Array.isArray(usersRes) ? usersRes : [];
+      const uMap = {};
+      usersArr.forEach((u) => {
+        if (u?.employee_code) uMap[u.employee_code] = u?.name || u.employee_code;
+      });
+      setUserNameMap(uMap);
+
+      // ---- Build branch name map: { id -> name }
+      const rawBranches =
+        Array.isArray(branchesRes?.data) ? branchesRes.data :
+          Array.isArray(branchesRes?.items) ? branchesRes.items :
+            Array.isArray(branchesRes?.branches) ? branchesRes.branches :
+              Array.isArray(branchesRes) ? branchesRes : [];
+      const bMap = {};
+      rawBranches.forEach((b) => {
+        if (b?.id != null) bMap[b.id] = b?.name || b?.branch_name || `Branch #${b.id}`;
+      });
+      setBranchNameMap(bMap);
     } catch (err) {
       console.log("Error fetching data:", err);
     }
@@ -340,6 +364,44 @@ const Lead = () => {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <LeadHeader currentLead={currentLead} />
 
+{/* === Compact Meta Info Bar (Assigned To + Branch) === */}
+{currentLead && (
+  <div className="mb-4">
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Assigned To */}
+      <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50">
+          <UserCheck size={14} className="text-indigo-600" />
+        </span>
+        <span className="font-medium text-slate-900">Assigned</span>
+        <span className="text-slate-400">•</span>
+        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={userNameMap[currentLead?.assigned_to_user] || currentLead?.assigned_to_user || "—"}>
+          {userNameMap[currentLead?.assigned_to_user] || "—"}
+          {currentLead?.assigned_to_user ? (
+            <span className="text-slate-500"> ({currentLead.assigned_to_user})</span>
+          ) : null}
+        </span>
+      </div>
+
+      {/* Branch */}
+      <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
+          <Building size={14} className="text-emerald-600" />
+        </span>
+        <span className="font-medium text-slate-900">Branch</span>
+        <span className="text-slate-400">•</span>
+        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={branchNameMap[currentLead?.branch_id] || (currentLead?.branch_id ? `#${currentLead.branch_id}` : "—")}>
+          {branchNameMap[currentLead?.branch_id] || "—"}
+          {currentLead?.branch_id ? (
+            <span className="text-slate-500"> (#{currentLead.branch_id})</span>
+          ) : null}
+        </span>
+      </div>
+    </div>
+  </div>
+)}
+
+
         {currentLead?.lead_response_id &&
           (() => {
             const respName = getResponseNameById(currentLead.lead_response_id);
@@ -445,16 +507,14 @@ const Lead = () => {
               onClick={() => (isEditMode ? handleCancelEdit() : setIsEditMode(true))}
               disabled={!currentLead}
               aria-pressed={isEditMode}
-              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${
-                isEditMode
+              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${isEditMode
                   ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
                   : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${
-                  isEditMode ? "bg-red-500" : "bg-indigo-500"
-                }`}
+                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"
+                  }`}
                 aria-hidden="true"
               />
               {isEditMode ? "Back" : "Edit"}

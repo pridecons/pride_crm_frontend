@@ -157,7 +157,7 @@ const menu = [
         ],
       },
       { href: '/user', icon: UserCheck, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-      { href: '/attendance', icon: CalendarCheck, label: 'Attendance', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+      { href: '/user/attendance', icon: CalendarCheck, label: 'Attendance', access: ["BRANCH MANAGER", "SUPERADMIN"] },
       { href: '/plans', icon: FileText, label: 'Plans' },
       { href: '/permission', icon: Shield, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
     ],

@@ -39,48 +39,6 @@ export default function SuperDashboard() {
     const [data, setData] = useState(null)
     const router = useRouter()
 
-    // Top 2 performers per branch (by revenue, then converted, then calls)
-    const topTwoByBranch = useMemo(() => {
-        if (!Array.isArray(data?.top_performers)) return [];
-
-        // 1) Filter by selected branch if SUPERADMIN picked one
-        let arr = data.top_performers;
-        if (role === 'SUPERADMIN' && branchId) {
-            const selectedBranchName = getBranchNameById(branchId);
-            arr = arr.filter((e) => e.branch_name === selectedBranchName);
-        }
-
-        // 2) Group by branch
-        const byBranch = new Map();
-        for (const e of arr) {
-            const key = e.branch_name || 'Unknown';
-            if (!byBranch.has(key)) byBranch.set(key, []);
-            byBranch.get(key).push(e);
-        }
-
-        // 3) For each branch, sort and pick top 2
-        const picked = [];
-        for (const [, list] of byBranch) {
-            list.sort((a, b) => {
-                const rev = (b.total_revenue || 0) - (a.total_revenue || 0);
-                if (rev !== 0) return rev;
-                const conv = (b.converted_leads || 0) - (a.converted_leads || 0);
-                if (conv !== 0) return conv;
-                return (b.called_leads || 0) - (a.called_leads || 0);
-            });
-            picked.push(...list.slice(0, 2));
-        }
-
-        // Optional: sort display by branch name, then revenue desc
-        picked.sort(
-            (a, b) =>
-                (a.branch_name || '').localeCompare(b.branch_name || '') ||
-                (b.total_revenue || 0) - (a.total_revenue || 0)
-        );
-
-        return picked;
-    }, [data?.top_performers, role, branchId, branches]);
-
     useEffect(() => {
         const token = Cookies.get('access_token')
         if (!token) {
@@ -201,6 +159,48 @@ export default function SuperDashboard() {
         new_leads_this_week: 'Upload Leads This Week',
         new_leads_this_month: 'Upload Leads This Month',
     };
+
+        // Top 2 performers per branch (by revenue, then converted, then calls)
+    const topTwoByBranch = useMemo(() => {
+        if (!Array.isArray(data?.top_performers)) return [];
+
+        // 1) Filter by selected branch if SUPERADMIN picked one
+        let arr = data.top_performers;
+        if (role === 'SUPERADMIN' && branchId) {
+            const selectedBranchName = getBranchNameById(branchId);
+            arr = arr.filter((e) => e.branch_name === selectedBranchName);
+        }
+
+        // 2) Group by branch
+        const byBranch = new Map();
+        for (const e of arr) {
+            const key = e.branch_name || 'Unknown';
+            if (!byBranch.has(key)) byBranch.set(key, []);
+            byBranch.get(key).push(e);
+        }
+
+        // 3) For each branch, sort and pick top 2
+        const picked = [];
+        for (const [, list] of byBranch) {
+            list.sort((a, b) => {
+                const rev = (b.total_revenue || 0) - (a.total_revenue || 0);
+                if (rev !== 0) return rev;
+                const conv = (b.converted_leads || 0) - (a.converted_leads || 0);
+                if (conv !== 0) return conv;
+                return (b.called_leads || 0) - (a.called_leads || 0);
+            });
+            picked.push(...list.slice(0, 2));
+        }
+
+        // Optional: sort display by branch name, then revenue desc
+        picked.sort(
+            (a, b) =>
+                (a.branch_name || '').localeCompare(b.branch_name || '') ||
+                (b.total_revenue || 0) - (a.total_revenue || 0)
+        );
+
+        return picked;
+    }, [data?.top_performers, role, branchId, branches]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

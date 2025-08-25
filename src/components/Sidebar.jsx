@@ -158,6 +158,7 @@ const menu = [
           { href: '/lead/manage/lead-upload', icon: Upload, label: 'Lead Upload', access:"lead_upload_page" },
           { href: '/lead/manage/analytics', icon: BarChart3, label: 'Lead Analytics', access:"" },
         ],
+        access:""
       },
       { href: '/user', icon: UserCheck, label: 'Users', access:"user_page" },
       { href: '/user/attendance', icon: CalendarCheck, label: 'Attendance', access:"attandance_page" },

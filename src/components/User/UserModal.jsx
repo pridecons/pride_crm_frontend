@@ -8,6 +8,13 @@ import UserPermissionsModal from "./UserPermissionsModal";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 
+// Helper to show branch name from id
+const getBranchName = (branches = [], id) => {
+  if (!id) return "";
+  const b = branches.find((x) => String(x.id) === String(id));
+  return b?.name || `Branch #${id}`;
+};
+
 export default function UserModal({
     mode = "add",
     isOpen,
@@ -91,60 +98,68 @@ export default function UserModal({
     };
 
     // Initialize form when opening
-    useEffect(() => {
-        if (!isOpen) return;
-        if (isEdit && user.employee_code) {
-            setFormData({
-                name: user.name || "",
-                email: user.email || "",
-                password: "",
-                phone_number: user.phone_number || "",
-                father_name: user.father_name || "",
-                pan: user.pan || "",
-                aadhaar: user.aadhaar || "",
-                address: user.address || "",
-                city: user.city || "",
-                state: user.state || "",
-                pincode: user.pincode || "",
-                comment: user.comment || "",
-                experience: user.experience?.toString() || "",
-                date_of_joining: user.date_of_joining
-                    ? formatToDDMMYYYY(user.date_of_joining)
-                    : "",
-                date_of_birth: user.date_of_birth
-                    ? formatToDDMMYYYY(user.date_of_birth)
-                    : "",
-                role: user.role || "",
-                branch_id: user.branch_id?.toString() || "",
-                sales_manager_id: user.sales_manager_id || "",
-                tl_id: user.tl_id || "",
-            });
-            setIsPanVerified(true); // assume existing PAN is already valid
-        } else {
-            setFormData({
-                name: "",
-                email: "",
-                phone_number: "",
-                father_name: "",
-                password: "",
-                pan: "",
-                aadhaar: "",
-                address: "",
-                city: "",
-                state: "",
-                pincode: "",
-                comment: "",
-                experience: "",
-                date_of_joining: "",
-                date_of_birth: "",
-                role: "",
-                branch_id: "",
-                sales_manager_id: "",
-                tl_id: "",
-            });
-            setIsPanVerified(false);
-        }
-    }, [isOpen, isEdit, user]);
+useEffect(() => {
+  if (!isOpen) return;
+
+  if (isEdit && user.employee_code) {
+    setFormData({
+      name: user.name || "",
+      email: user.email || "",
+      password: "",
+      phone_number: user.phone_number || "",
+      father_name: user.father_name || "",
+      pan: user.pan || "",
+      aadhaar: user.aadhaar || "",
+      address: user.address || "",
+      city: user.city || "",
+      state: user.state || "",
+      pincode: user.pincode || "",
+      comment: user.comment || "",
+      experience: user.experience?.toString() || "",
+      date_of_joining: user.date_of_joining ? formatToDDMMYYYY(user.date_of_joining) : "",
+      date_of_birth: user.date_of_birth ? formatToDDMMYYYY(user.date_of_birth) : "",
+      role: user.role || "",
+      branch_id: user.branch_id?.toString() || "",
+      sales_manager_id: user.sales_manager_id || "",
+      tl_id: user.tl_id || "",
+    });
+    setIsPanVerified(true);
+  } else {
+    setFormData({
+      name: "",
+      email: "",
+      phone_number: "",
+      father_name: "",
+      password: "",
+      pan: "",
+      aadhaar: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      comment: "",
+      experience: "",
+      date_of_joining: "",
+      date_of_birth: "",
+      role: "",
+      branch_id: "",
+      sales_manager_id: "",
+      tl_id: "",
+    });
+    setIsPanVerified(false);
+  }
+
+  // 🔒 Lock branch for non-SUPERADMIN (both add & edit)
+  if (currentUser?.role !== "SUPERADMIN") {
+    setFormData((p) => ({
+      ...p,
+      branch_id: String(
+        // prefer existing user branch while editing, else current user's branch
+        (isEdit && user?.branch_id) ? user.branch_id : currentUser?.branch_id || ""
+      ),
+    }));
+  }
+}, [isOpen, isEdit, user, currentUser]);
 
     // Filter roles by currentUser’s role
     useEffect(() => {
@@ -462,21 +477,38 @@ export default function UserModal({
                                 </div>
 
                                 {formData.role !== "RESEARCHER" && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
-                                        <select
-                                            className="w-full p-3 border rounded-xl bg-white"
-                                            value={formData.branch_id}
-                                            onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
-                                            required
-                                        >
-                                            <option value="">Select Branch</option>
-                                            {branches.map((b) => (
-                                                <option key={b.id} value={b.id}>{b.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
+
+    {currentUser?.role === "SUPERADMIN" ? (
+      // SUPERADMIN sees the dropdown
+      <select
+        className="w-full p-3 border rounded-xl bg-white"
+        value={formData.branch_id}
+        onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+        required
+      >
+        <option value="">Select Branch</option>
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>{b.name}</option>
+        ))}
+      </select>
+    ) : (
+      // Others see their branch, locked
+      <>
+        <div className="w-full p-3 border rounded-xl bg-gray-50 text-gray-700">
+          {getBranchName(branches, formData.branch_id || currentUser?.branch_id)}
+        </div>
+        {/* Keep branch_id in form submission */}
+        <input
+          type="hidden"
+          name="branch_id"
+          value={formData.branch_id || currentUser?.branch_id || ""}
+        />
+      </>
+    )}
+  </div>
+)}
 
                                 {(formData.role === "TL" || formData.role === "BA" || formData.role === "SBA") && (
                                     <div>

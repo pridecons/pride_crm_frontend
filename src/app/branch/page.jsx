@@ -6,6 +6,7 @@ import { Dialog, Transition } from "@headlessui/react";
 import LoadingState from "@/components/LoadingState";
 import toast from "react-hot-toast";
 import { usePermissions } from '@/context/PermissionsContext';
+import { Loader2, Check, Edit } from "lucide-react";
 // Helper: Empty manager fields
 const emptyManager = {
   manager_name: "",
@@ -35,8 +36,16 @@ const emptyBranch = {
   ...emptyManager,
 };
 
+// ---- PAN/Aadhaar helpers (same behavior as UserModal) ----
+const isValidMaskedAadhaar = (v = "") =>
+  /^\d{12}$/.test(v) || /^[Xx]{8}\d{4}$/.test(v);
+
+// Converts "DD-MM-YYYY" <-> "YYYY-MM-DD" if you later need it. Here we keep YYYY-MM-DD (native input type=date)
+const toMaskedAadhaarInput = (v = "") =>
+  v?.toString()?.replace(/[^0-9xX]/g, "").toUpperCase().slice(0, 12);
+
 const BranchesPage = () => {
-   const { hasPermission } = usePermissions();  // Branch list
+  const { hasPermission } = usePermissions();  // Branch list
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +61,9 @@ const BranchesPage = () => {
   // For Agreement viewing modal
   const [showAgreement, setShowAgreement] = useState(false);
   const [agreementUrl, setAgreementUrl] = useState("");
+  // Manager PAN verification state
+  const [loadingManagerPan, setLoadingManagerPan] = useState(false);
+  const [isManagerPanVerified, setIsManagerPanVerified] = useState(false);
 
   const BACKEND_URL = "https://crm.24x7techelp.com";
 
@@ -122,6 +134,33 @@ const BranchesPage = () => {
   };
 
   // Form handlers
+
+  // Convert various DOB formats to YYYY-MM-DD for <input type="date">
+  // Normalize many shapes to ISO (YYYY-MM-DD)
+  const normalizeDob = (raw = "") => {
+    if (!raw) return "";
+    const s = String(raw).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;               // ISO
+    let m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);       // DD/MM/YYYY or DD-MM-YYYY
+    if (m) { const [, dd, mm, yyyy] = m; return `${yyyy}-${mm}-${dd}`; }
+    m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);                 // MM/DD/YYYY (rare)
+    if (m) { const [, mm, dd, yyyy] = m; return `${yyyy}-${mm}-${dd}`; }
+    return s;
+  };
+
+  // ISO -> DD/MM/YYYY
+  const isoToDDMMYYYY = (iso = "") => {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+    const [yyyy, mm, dd] = iso.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  // Keep input as dd/mm/yyyy while typing
+  const allowDobInput = (s = "") =>
+    s.replace(/[^0-9/]/g, "").slice(0, 10); // only digits + '/' and max length 10
+
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -137,10 +176,21 @@ const BranchesPage = () => {
   // Add or Edit branch (add with manager; edit is just stubbed here)
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.manager_phone.replace(/\D/g, "").length !== 10) {
+      return toast.error("Manager phone must be 10 digits");
+    }
+    if (!isValidMaskedAadhaar(formData.manager_aadhaar)) {
+      return toast.error("Manager Aadhaar must be 12 digits or masked like XXXXXXXX1234");
+    }
+    // DOB must be DD/MM/YYYY in the UI, convert to ISO for API
+ if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob || "")) {
+   return toast.error("DOB must be in DD/MM/YYYY format");
+ }
+ const dobISO = normalizeDob(formData.manager_dob); // -> YYYY-MM-DD
     const data = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
       if (value !== null && value !== "") {
-        data.append(key, value);
+        data.append(key, key === "manager_dob" ? dobISO : value);
       }
     });
 
@@ -165,12 +215,57 @@ const BranchesPage = () => {
     }
   };
 
+  const handleVerifyManagerPan = async () => {
+    const pan = (formData.manager_pan || "").toUpperCase().trim();
+    if (!pan) return toast.error("Enter Manager PAN first");
+
+    setLoadingManagerPan(true);
+    toast.loading("Verifying PAN...");
+
+    try {
+      const res = await axiosInstance.post(
+        "/micro-pan-verification",
+        new URLSearchParams({ pannumber: pan }),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+      );
+      toast.dismiss();
+
+      if (res.data?.success && res.data?.data?.result) {
+        const r = res.data.data.result;
+
+        setFormData(prev => ({
+          ...prev,
+          manager_name: r.user_full_name || prev.manager_name,
+          manager_father_name: r.user_father_name || prev.manager_father_name,
+          // API returns user_dob (likely YYYY-MM-DD) — keep input type=date happy
+          manager_dob: isoToDDMMYYYY(normalizeDob(r.user_dob)) || prev.manager_dob,
+          manager_aadhaar: r.masked_aadhaar || prev.manager_aadhaar,
+          manager_address: r.user_address?.full || prev.manager_address,
+          manager_city: r.user_address?.city || prev.manager_city,
+          manager_state: r.user_address?.state || prev.manager_state,
+          manager_pincode: r.user_address?.zip || prev.manager_pincode,
+          manager_pan: pan,
+        }));
+
+        setIsManagerPanVerified(true);
+        toast.success("Manager PAN verified!");
+      } else {
+        toast.error("PAN verification failed");
+      }
+    } catch (e) {
+      toast.dismiss();
+      toast.error("Error verifying PAN");
+    } finally {
+      setLoadingManagerPan(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header Section */}
         <div className="flex justify-end mb-6">
-         {hasPermission("branch_add") &&  <button
+          {hasPermission("branch_add") && <button
             className="inline-flex items-center px-2 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
             onClick={openAddModal}
           >
@@ -260,7 +355,7 @@ const BranchesPage = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
-                       {hasPermission("branch_edit") && <button
+                          {hasPermission("branch_edit") && <button
                             className="inline-flex items-center px-3 py-2 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors duration-200"
                             onClick={() => openEditModal(branch)}
                           >
@@ -269,7 +364,7 @@ const BranchesPage = () => {
                             </svg>
                             Edit
                           </button>}
-                          {hasPermission("branch_details") &&<button
+                          {hasPermission("branch_details") && <button
                             className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200"
                             onClick={() => openDetails(branch.id)}
                           >
@@ -332,7 +427,7 @@ const BranchesPage = () => {
                     <button
                       type="button"
                       onClick={() => setIsOpen(false)}
-                      // className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    // className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
                     >
                       {/* Cancel Icon */}
                       <svg className="w-5 h-5 text-white-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,6 +545,7 @@ const BranchesPage = () => {
                             placeholder="Enter manager name"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
+                            disabled={isManagerPanVerified}
                           />
                         </div>
                         <div>
@@ -469,7 +565,10 @@ const BranchesPage = () => {
                           <input
                             name="manager_phone"
                             value={formData.manager_phone}
-                            onChange={handleChange}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                              setFormData(prev => ({ ...prev, manager_phone: digits }));
+                            }}
                             placeholder="Enter manager phone number"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
@@ -487,27 +586,76 @@ const BranchesPage = () => {
                             required
                           />
                         </div>
+
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Aadhaar *</label>
+                          <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Manager Aadhaar *</label>
+                            {formData.manager_aadhaar && !isValidMaskedAadhaar(formData.manager_aadhaar) && (
+                              <span className="text-xs text-red-600">Use 12 digits or XXXXXXXX1234</span>
+                            )}
+                          </div>
                           <input
                             name="manager_aadhaar"
                             value={formData.manager_aadhaar}
-                            onChange={handleChange}
-                            placeholder="Enter manager Aadhaar number"
+                            onChange={(e) =>
+                              setFormData(prev => ({ ...prev, manager_aadhaar: toMaskedAadhaarInput(e.target.value) }))
+                            }
+                            placeholder="12 digits or masked XXXXXXXX1234"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
+                            disabled={isManagerPanVerified}
                           />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Manager PAN *</label>
-                          <input
-                            name="manager_pan"
-                            value={formData.manager_pan}
-                            onChange={handleChange}
-                            placeholder="Enter manager PAN number"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
+                          <div className="flex gap-2 items-center">
+                            <input
+                              name="manager_pan"
+                              value={(formData.manager_pan || "").toUpperCase()}
+                              onChange={(e) =>
+                                setFormData(prev => ({ ...prev, manager_pan: e.target.value.toUpperCase() }))
+                              }
+                              placeholder="ABCDE1234F"
+                              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                              required
+                              disabled={loadingManagerPan || isManagerPanVerified}
+                            />
+
+                            {isManagerPanVerified ? (
+                              <>
+                                <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-600">
+                                  <Check className="w-5 h-5 text-white" />
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsManagerPanVerified(false)}
+                                  className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-700"
+                                  title="Edit PAN"
+                                >
+                                  <Edit className="w-5 h-5" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleVerifyManagerPan}
+                                disabled={loadingManagerPan}
+                                className="px-4 py-2 rounded-lg flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                {loadingManagerPan ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Verifying...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4" />
+                                    Verify
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Father's Name *</label>
@@ -518,6 +666,7 @@ const BranchesPage = () => {
                             placeholder="Enter father's name"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
+                            disabled={isManagerPanVerified}
                           />
                         </div>
                         <div>
@@ -525,12 +674,25 @@ const BranchesPage = () => {
                           <input
                             name="manager_dob"
                             value={formData.manager_dob}
-                            onChange={handleChange}
-                            placeholder="YYYY-MM-DD"
-                            type="date"
+                            onChange={(e) => {
+                              const next = allowDobInput(e.target.value);
+                              // Optional: auto-insert slashes as user types
+                              const digits = next.replace(/\//g, "");
+                              let pretty = digits;
+                              if (digits.length > 4) pretty = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+                              else if (digits.length > 2) pretty = `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
+                              setFormData(p => ({ ...p, manager_dob: pretty }));
+                            }}
+                            placeholder="DD/MM/YYYY"
+   inputMode="numeric"
+   type="text"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
+                            disabled={isManagerPanVerified}
                           />
+                          {formData.manager_dob && !/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob) && (
+   <span className="text-xs text-red-600">Use DD/MM/YYYY</span>
+ )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
@@ -711,21 +873,21 @@ const BranchesPage = () => {
                               </span>
                             )}
                           </div>
-                          {hasPermission("branch_agreement_view")  &&
-                          <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Agreement</label>
-                          <a
-                              href={branchDetails.branch.agreement_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                              View Agreement PDF
-                            </a>
-                          </div>}
+                          {hasPermission("branch_agreement_view") &&
+                            <div>
+                              <label className="block text-sm font-medium text-gray-600 mb-1">Agreement</label>
+                              <a
+                                href={branchDetails.branch.agreement_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                View Agreement PDF
+                              </a>
+                            </div>}
                         </div>
                       </div>
 

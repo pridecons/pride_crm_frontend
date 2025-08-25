@@ -356,7 +356,7 @@ export default function RationalPage() {
           <div className="flex flex-row gap-3 mt-4 md:mt-0">
             <div className="relative inline-block text-left">
               {/* Download Button */}
-             {hasPermission("rational_download")&& <button
+              {hasPermission("rational_download") && <button
                 onClick={() => setIsOpen((prev) => !prev)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
               >
@@ -414,7 +414,7 @@ export default function RationalPage() {
                 Recommendation
               </button>
             </div>}
-        
+
           </div>
 
         </div>
@@ -1018,7 +1018,7 @@ function RationalTable({
     else next.add(id);
     setExpanded(next);
   };
-   const { hasPermission } = usePermissions();
+  const { hasPermission } = usePermissions();
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -1070,7 +1070,7 @@ function RationalTable({
                       className="py-4 px-6 text-center relative"
                       onClick={(e) => e.stopPropagation()}
                     >
-                     {hasPermission("rational_status")&& <button
+                      {hasPermission("rational_status") && <button
                         onClick={() =>
                           setOpenStatusDropdown(
                             openStatusDropdown === item.id ? null : item.id
@@ -1164,27 +1164,35 @@ function RationalTable({
                             <p className="text-slate-500">Rational</p>
                             <p className="font-medium">{item.rational || "-"}</p>
                           </div>
-                          {hasPermission("rational_graf_model_view")&&<div>
-                            <p className="text-slate-500">Graph</p>
-                            {item.graph ? (
-                              <button
-                                onClick={() => openImageModal(item.graph)}
-                                className="text-blue-600 hover:underline text-sm"
-                              >
-                                View
-                              </button>
-                            ) : (
-                              <span className="text-gray-400">No Graph</span>
-                            )}
-                          </div>}
-                          <div>
-                            <p className="text-slate-500">PDF</p>
-                            {item.pdf ? <DownloadPDF id={item.id} /> : "-"}
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Actions</p>
+                          {hasPermission("rational_graf_model_view") && (
+                            <div className="space-y-1">
+                              <p className="text-slate-500">Graph</p>
+                              {item.graph ? (
+                                <button
+                                  onClick={() => openImageModal(item.graph)}
+                                  className="inline-flex items-center text-blue-600 hover:underline text-sm"
+                                >
+                                  View
+                                </button>
+                              ) : (
+                                <span className="text-gray-400 text-sm">No Graph</span>
+                              )}
+                            </div>
+                          )}
 
-                          </div>
+                          {hasPermission("rational_pdf_model_view") && (
+                            <div className="space-y-1">
+                              <p className="text-slate-500">PDF</p>
+                              {item.pdf ? (
+                                <DownloadPDF
+                                  id={item.id}
+                                  className="inline-flex items-center text-blue-600 hover:underline text-sm"
+                                />
+                              ) : (
+                                <span className="text-gray-400 text-sm">No PDF</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1222,7 +1230,7 @@ function DownloadPDF({ id, userId }) {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
- const { hasPermission } = usePermissions();
+  const { hasPermission } = usePermissions();
   const fetchPdf = async () => {
     setLoading(true);
     try {
@@ -1275,7 +1283,7 @@ function DownloadPDF({ id, userId }) {
                 className="border rounded"
               />
             </div>
-           {hasPermission("rational_pdf_model_download") && <div className="p-4 border-t flex justify-end">
+            {hasPermission("rational_pdf_model_download") && <div className="p-4 border-t flex justify-end">
               <a
                 href={pdfUrl}
                 download="recommendation.pdf"

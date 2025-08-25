@@ -444,9 +444,8 @@ const CreatePaymentLink = ({
                   <input
                     type="number"
                     step="0.01"
-                    min={0}
                     max={remaining} // <-- cap at remaining
-                    value={amount}
+                    value={amount===0? "":amount}
                     onChange={(e) => handleAmount(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium transition-all duration-200 bg-white shadow-sm hover:shadow-md"
                     placeholder={`0.00 (Max ₹${remaining})`}

@@ -28,8 +28,10 @@ import {
   Mail,
   CalendarCheck
 } from 'lucide-react'
+import { usePermissions } from '@/context/PermissionsContext';
 
 export default function Sidebar({ branchId, onClose }) {
+  const { hasPermission } = usePermissions();
   const router = useRouter()
   const pathname = usePathname()
   const [expandedSections, setExpandedSections] = useState({
@@ -121,7 +123,8 @@ const menu = [
             ? '/dashboard/super'
             : '/dashboard',
         icon: Home,
-        label: 'Home'
+        label: 'Home',
+        access:""
       },
     ],
   },
@@ -130,10 +133,10 @@ const menu = [
     section: 'leads',
     icon: Target,
     items: [
-      { href: '/lead', icon: Target, label: 'New Lead', access: [""] },
-      { href: '/lead/old', icon: Target, label: 'Old Lead', access: [""] },
-      { href: '/lead/add', icon: Plus, label: 'Add Lead', access: [""] },
-      { href: '/client', icon: Users, label: 'Client' },
+      { href: '/lead', icon: Target, label: 'New Lead', access:"new_lead_page"},
+      { href: '/lead/old', icon: Target, label: 'Old Lead', access:"old_lead_page" },
+      { href: '/lead/add', icon: Plus, label: 'Add Lead', access:"add_lead_page" },
+      { href: '/client', icon: Users, label: 'Client', access:"client_page" },
     ],
   },
   {
@@ -141,25 +144,25 @@ const menu = [
     section: 'configuration',
     icon: Settings,
     items: [
-      { href: '/branch', icon: Building, label: 'Branch', access: ["SUPERADMIN"] },
+      { href: '/branch', icon: Building, label: 'Branch', access:"branch_page" },
 
       {
         title: 'Management',
         section: 'management',
         icon: FileText,
         items: [
-          { href: '/lead/manage', icon: Target, label: 'Manage Leads', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-          { href: '/lead/manage/source', icon: Download, label: 'Lead Source', access: [""] },
-          { href: '/lead/manage/response', icon: MessageSquare, label: 'Lead Response', access: [""] },
-          { href: '/lead/manage/fetch-limit', icon: ArrowDownCircle, label: 'Fetch Limit', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-          { href: '/lead/manage/lead-upload', icon: Upload, label: 'Lead Upload', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-          { href: '/lead/manage/analytics', icon: BarChart3, label: 'Lead Analytics', access: [""] },
+          { href: '/lead/manage', icon: Target, label: 'Manage Leads', access:"lead_manage_page" },
+          { href: '/lead/manage/source', icon: Download, label: 'Lead Source', access:"lead_source_page" },
+          { href: '/lead/manage/response', icon: MessageSquare, label: 'Lead Response', access:"lead_response_page" },
+          { href: '/lead/manage/fetch-limit', icon: ArrowDownCircle, label: 'Fetch Limit', access:"fetch_limit_page"},
+          { href: '/lead/manage/lead-upload', icon: Upload, label: 'Lead Upload', access:"lead_upload_page" },
+          { href: '/lead/manage/analytics', icon: BarChart3, label: 'Lead Analytics', access:"" },
         ],
       },
-      { href: '/user', icon: UserCheck, label: 'Users', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-      { href: '/user/attendance', icon: CalendarCheck, label: 'Attendance', access: ["BRANCH MANAGER", "SUPERADMIN"] },
-      { href: '/plans', icon: FileText, label: 'Plans' },
-      { href: '/permission', icon: Shield, label: 'Permissions', access: ["BRANCH MANAGER", "SUPERADMIN"] },
+      { href: '/user', icon: UserCheck, label: 'Users', access:"user_page" },
+      { href: '/user/attendance', icon: CalendarCheck, label: 'Attendance', access:"attandance_page" },
+      { href: '/plans', icon: FileText, label: 'Plans', access:"plane_page" },
+      { href: '/permission', icon: Shield, label: 'Permissions', access:"permission_page" },
     ],
   },
   {
@@ -171,14 +174,15 @@ const menu = [
             ? '/admin-payment'
             : '/payment',
         icon: CreditCard,
-        label: 'Payment'
+        label: 'Payment',
+        access:"payment_page"
       },
     ],
   },
   {
     title: 'Researcher',
     items: [
-      { href: '/rational', icon: MessageCircle, label: 'Messenger' },
+      { href: '/rational', icon: MessageCircle, label: 'Messenger', access:"messanger_page" },
     ],
   },
   {
@@ -186,8 +190,8 @@ const menu = [
     section: 'Template',
     icon: FileText,
     items: [
-      { href: '/email', icon: Mail, label: 'Email', access: [""] },
-      { href: '/sms', icon: MessageSquare, label: 'SMS', access: [""] },
+      { href: '/email', icon: Mail, label: 'Email', access:"email_page" },
+      { href: '/sms', icon: MessageSquare, label: 'SMS', access:"sms_page" },
     ],
   },
 ]
@@ -224,7 +228,7 @@ const menu = [
                 </button>
                 {expandedSections[section.section] && (
                   <ul className="mt-2 ml-4 space-y-1">
-                    {section.items.map((item, i) =>
+                    {section.items.filter((val)=>hasPermission(val.access) || val.access==="").map((item, i) =>
                       // If it's a real link:
                       item.href ? (
                         <li key={i}>

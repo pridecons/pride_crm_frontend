@@ -36,19 +36,19 @@ export default function Main({ children }) {
         </div>
       )}
       {pathname !== "/login" && sidebarOpen && (
-  <div className="fixed inset-0 z-50 flex lg:hidden">
-    {/* Overlay */}
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50"
-      onClick={() => setSidebarOpen(false)}
-    ></div>
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setSidebarOpen(false)}
+          ></div>
 
-    {/* Sidebar panel */}
-    <div className="relative w-64 bg-white h-full shadow-md z-50">
-      <Sidebar onClose={() => setSidebarOpen(false)} />
-    </div>
-  </div>
-)}
+          {/* Sidebar panel */}
+          <div className="relative w-64 bg-white h-full shadow-md z-50">
+            <Sidebar onClose={() => setSidebarOpen(false)} />
+          </div>
+        </div>
+      )}
 
 
       {/* Main Content */}

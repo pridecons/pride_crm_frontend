@@ -204,7 +204,7 @@ export default function ServicesPage() {
             <p className="text-gray-600 text-lg">Manage and organize your plan offerings</p>
           </div>
 
-          {hasPermission("plans_create_plan") && <button
+          {hasPermission("plans_create") && <button
               onClick={() => { resetForm(); setIsModalOpen(true); }}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
             >

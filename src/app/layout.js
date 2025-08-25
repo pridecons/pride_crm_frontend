@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import 'react-datepicker/dist/react-datepicker.css';
 import Main from './Main'
 
 const geistSans = Geist({

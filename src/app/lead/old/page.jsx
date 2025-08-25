@@ -175,37 +175,57 @@ useEffect(() => {
   };
 
   // ✅ Update response & move lead to Old Leads
-  const handleResponseChange = async (lead, newResponseId) => {
-    const selectedResponse = responses.find((r) => r.id == newResponseId);
-    const responseName = selectedResponse?.name?.toLowerCase();
+// ✅ Replace your existing handleResponseChange with this
+const handleResponseChange = async (lead, newResponseId) => {
+  const id = Number(newResponseId);
+  if (!id) return;
 
-    if (responseName === "ft") {
-      // open modal for FT date input
-      setFTLead(lead);
-      setFTFromDate("");
-      setFTToDate("");
-      setShowFTModal(true);
-    } else {
-      // Non-FT response, update directly
-      try {
-        await axiosInstance.patch(`/leads/${lead.id}/response`, {
-          lead_response_id: parseInt(newResponseId),
-        });
+  const selectedResponse = responses.find((r) => r.id === id);
+  const responseName = (selectedResponse?.name || "").toLowerCase();
 
-        toast.success("Response updated!");
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === lead.id ? { ...l, lead_response_id: parseInt(newResponseId) } : l
-          )
-        );
+  // FT -> open FT modal
+  if (responseName === "ft") {
+    setFTLead(lead);
+    setFTFromDate("");
+    setFTToDate("");
+    setShowFTModal(true);
+    return;
+  }
 
-        setActiveTab("Old Leads");
-      } catch (error) {
-        console.error("Error updating response:", error);
-        toast.error("Failed to update response!");
-      }
+  // Call Back -> open CallBack modal
+  if (responseName === "call back" || responseName === "callback") {
+    setCallBackLead(lead);
+    // prefill datetime-local if existing
+    let dt = "";
+    if (lead.call_back_date) {
+      const d = new Date(lead.call_back_date);
+      dt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
-  };
+    setCallBackDate(dt);
+    setShowCallBackModal(true);
+    return;
+  }
+
+  // Other responses -> patch directly
+  try {
+    await axiosInstance.patch(`/leads/${lead.id}/response`, {
+      lead_response_id: id,
+    });
+
+    // Update local state first; keep the try block minimal
+    setLeads((prev) =>
+      prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: id } : l))
+    );
+
+    toast.success("Response updated!");
+    // ❌ DO NOT call setActiveTab here (it isn't defined in this component)
+    // if (typeof setActiveTab === "function") setActiveTab("Old Leads");
+  } catch (error) {
+    console.error("Error updating response:", error);
+    toast.error("Failed to update response!");
+  }
+};
+
 
 
   const getValidFTDates = () => {

@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useState, Fragment } from "react";
+import React, { useEffect, useState, Fragment, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { Dialog, Transition } from "@headlessui/react";
 import LoadingState from "@/components/LoadingState";
 import toast from "react-hot-toast";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
 import { Loader2, Check, Edit } from "lucide-react";
-// Helper: Empty manager fields
+
+// ---- helpers ---------------------------------------------------------------
 const emptyManager = {
   manager_name: "",
   manager_email: "",
@@ -28,24 +29,58 @@ const emptyManager = {
 const emptyBranch = {
   branch_name: "",
   branch_address: "",
-  authorized_person: "",
-  branch_pan: "",
-  branch_aadhaar: "",
-  agreement_pdf: null,
+  agreement_pdf: null, // required on create
   branch_active: true,
   ...emptyManager,
 };
 
-// ---- PAN/Aadhaar helpers (same behavior as UserModal) ----
+// Aadhaar helpers
 const isValidMaskedAadhaar = (v = "") =>
   /^\d{12}$/.test(v) || /^[Xx]{8}\d{4}$/.test(v);
 
-// Converts "DD-MM-YYYY" <-> "YYYY-MM-DD" if you later need it. Here we keep YYYY-MM-DD (native input type=date)
 const toMaskedAadhaarInput = (v = "") =>
   v?.toString()?.replace(/[^0-9xX]/g, "").toUpperCase().slice(0, 12);
 
+// DOB helpers
+const normalizeDob = (raw = "") => {
+  if (!raw) return "";
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  let m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (m) {
+    const [, mm2, dd2, yyyy2] = m;
+    return `${yyyy2}-${mm2}-${dd2}`;
+  }
+  return s;
+};
+const isoToDDMMYYYY = (iso = "") => {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const [yyyy, mm, dd] = iso.split("-");
+  return `${dd}/${mm}/${yyyy}`;
+};
+const allowDobInput = (s = "") => s.replace(/[^0-9/]/g, "").slice(0, 10);
+
+// validations ---------------------------------------------------------------
+const isValidEmail = (s = "") =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
+
+const isValidPhone10 = (s = "") =>
+  s.replace(/\D/g, "").length === 10;
+
+const isValidPincode = (s = "") =>
+  /^\d{6}$/.test(String(s).trim());
+
+const isPositiveNumber = (s = "") =>
+  /^\d+(\.\d+)?$/.test(String(s).trim());
+
+// Component -----------------------------------------------------------------
 const BranchesPage = () => {
-  const { hasPermission } = usePermissions();  // Branch list
+  const { hasPermission } = usePermissions();
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,21 +93,21 @@ const BranchesPage = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [branchDetails, setBranchDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  // For Agreement viewing modal
+
+  // Agreement viewer
   const [showAgreement, setShowAgreement] = useState(false);
   const [agreementUrl, setAgreementUrl] = useState("");
-  // Manager PAN verification state
+
+  // Manager PAN verification
   const [loadingManagerPan, setLoadingManagerPan] = useState(false);
   const [isManagerPanVerified, setIsManagerPanVerified] = useState(false);
 
   const BACKEND_URL = "https://crm.24x7techelp.com";
+  const fileInputRef = useRef(null);
 
   const openAgreementModal = (url) => {
-    // If url is already absolute, do nothing. If relative, prepend backend url.
     let absoluteUrl = url;
-    if (url && url.startsWith("/")) {
-      absoluteUrl = BACKEND_URL + url;
-    }
+    if (url && url.startsWith("/")) absoluteUrl = BACKEND_URL + url;
     setAgreementUrl(absoluteUrl);
     setShowAgreement(true);
   };
@@ -81,7 +116,6 @@ const BranchesPage = () => {
     fetchBranches();
   }, []);
 
-  // Fetch all branches
   const fetchBranches = async () => {
     setLoading(true);
     try {
@@ -95,31 +129,29 @@ const BranchesPage = () => {
     setLoading(false);
   };
 
-  // Open add modal
   const openAddModal = () => {
     setEditBranch(null);
     setFormData(emptyBranch);
     setIsOpen(true);
+    setIsManagerPanVerified(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Open edit modal
   const openEditModal = (branch) => {
     setEditBranch(branch);
     setFormData({
       ...emptyBranch,
       branch_name: branch.name || "",
       branch_address: branch.address || "",
-      authorized_person: branch.authorized_person || "",
-      branch_pan: branch.pan || "",
-      branch_aadhaar: branch.aadhaar || "",
-      agreement_pdf: null,
+      agreement_pdf: null, // optional on edit unless you want to force re-upload
       branch_active: branch.active,
-      // You might need to prefill manager fields on edit as per your needs
+      // NOTE: Prefill manager fields here if API returns them in details endpoint
     });
+    setIsManagerPanVerified(false);
     setIsOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Branch details
   const openDetails = async (branchId) => {
     setBranchDetails(null);
     setDetailsLoading(true);
@@ -133,34 +165,7 @@ const BranchesPage = () => {
     setDetailsLoading(false);
   };
 
-  // Form handlers
-
-  // Convert various DOB formats to YYYY-MM-DD for <input type="date">
-  // Normalize many shapes to ISO (YYYY-MM-DD)
-  const normalizeDob = (raw = "") => {
-    if (!raw) return "";
-    const s = String(raw).trim();
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;               // ISO
-    let m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);       // DD/MM/YYYY or DD-MM-YYYY
-    if (m) { const [, dd, mm, yyyy] = m; return `${yyyy}-${mm}-${dd}`; }
-    m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);                 // MM/DD/YYYY (rare)
-    if (m) { const [, mm, dd, yyyy] = m; return `${yyyy}-${mm}-${dd}`; }
-    return s;
-  };
-
-  // ISO -> DD/MM/YYYY
-  const isoToDDMMYYYY = (iso = "") => {
-    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
-    const [yyyy, mm, dd] = iso.split("-");
-    return `${dd}/${mm}/${yyyy}`;
-  };
-
-  // Keep input as dd/mm/yyyy while typing
-  const allowDobInput = (s = "") =>
-    s.replace(/[^0-9/]/g, "").slice(0, 10); // only digits + '/' and max length 10
-
-
+  // handlers ----------------------------------------------------------------
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -170,74 +175,164 @@ const BranchesPage = () => {
   };
 
   const handleFileChange = (e) => {
-    setFormData((prev) => ({ ...prev, agreement_pdf: e.target.files[0] }));
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setFormData((p) => ({ ...p, agreement_pdf: null }));
+      return;
+    }
+    // validations: pdf only and <= 10MB
+    const maxSize = 10 * 1024 * 1024;
+    const isPDF =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPDF) {
+      toast.error("Agreement must be a PDF file");
+      e.target.value = "";
+      setFormData((p) => ({ ...p, agreement_pdf: null }));
+      return;
+    }
+    if (file.size > maxSize) {
+      toast.error("Agreement PDF too large (max 10MB)");
+      e.target.value = "";
+      setFormData((p) => ({ ...p, agreement_pdf: null }));
+      return;
+    }
+    setFormData((prev) => ({ ...prev, agreement_pdf: file }));
   };
 
-  // Add or Edit branch (add with manager; edit is just stubbed here)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (formData.manager_phone.replace(/\D/g, "").length !== 10) {
-      return toast.error("Manager phone must be 10 digits");
+  const validateBeforeSubmit = () => {
+    // Branch validations
+    if (!formData.branch_name.trim()) {
+      toast.error("Branch name is required");
+      return false;
+    }
+    if (!formData.branch_address.trim()) {
+      toast.error("Branch address is required");
+      return false;
+    }
+    if (!editBranch && !formData.agreement_pdf) {
+      toast.error("Agreement PDF is required");
+      return false;
+    }
+
+    // Manager validations
+    if (!formData.manager_name.trim()) {
+      toast.error("Manager name is required");
+      return false;
+    }
+    if (!formData.manager_email.trim() || !isValidEmail(formData.manager_email)) {
+      toast.error("Enter a valid manager email");
+      return false;
+    }
+    if (!isValidPhone10(formData.manager_phone)) {
+      toast.error("Manager phone must be 10 digits");
+      return false;
+    }
+    if (!formData.manager_password || formData.manager_password.length < 6) {
+      toast.error("Manager password must be at least 6 characters");
+      return false;
     }
     if (!isValidMaskedAadhaar(formData.manager_aadhaar)) {
-      return toast.error("Manager Aadhaar must be 12 digits or masked like XXXXXXXX1234");
+      toast.error("Manager Aadhaar must be 12 digits or masked like XXXXXXXX1234");
+      return false;
     }
-    // DOB must be DD/MM/YYYY in the UI, convert to ISO for API
- if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob || "")) {
-   return toast.error("DOB must be in DD/MM/YYYY format");
- }
- const dobISO = normalizeDob(formData.manager_dob); // -> YYYY-MM-DD
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value !== null && value !== "") {
-        data.append(key, key === "manager_dob" ? dobISO : value);
-      }
-    });
-
-    try {
-      if (editBranch) {
-        // TODO: Implement edit logic (PUT endpoint)
-        toast("Edit not implemented yet");
-      } else {
-        await axiosInstance.post(`/branches/create-with-manager`, data, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        toast.success("Branch created successfully");
-        setIsOpen(false);
-        fetchBranches();
-      }
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        "Error saving branch"
-      );
+    if (!formData.manager_pan.trim()) {
+      toast.error("Manager PAN is required");
+      return false;
     }
+    if (!formData.manager_father_name.trim()) {
+      toast.error("Father's name is required");
+      return false;
+    }
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob || "")) {
+      toast.error("DOB must be in DD/MM/YYYY format");
+      return false;
+    }
+    if (!formData.manager_city.trim()) {
+      toast.error("City is required");
+      return false;
+    }
+    if (!formData.manager_state.trim()) {
+      toast.error("State is required");
+      return false;
+    }
+    if (!isValidPincode(formData.manager_pincode)) {
+      toast.error("Pincode must be 6 digits");
+      return false;
+    }
+    if (!isPositiveNumber(formData.manager_experience)) {
+      toast.error("Experience must be a valid number");
+      return false;
+    }
+    if (!formData.manager_address.trim()) {
+      toast.error("Manager address is required");
+      return false;
+    }
+    return true;
   };
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!validateBeforeSubmit()) return;
+
+  const dobISO = normalizeDob(formData.manager_dob);
+  const data = new FormData();
+
+  // ✅ Map manager details to top-level branch fields
+  data.append("authorized_person", formData.manager_name);
+  data.append("branch_pan", formData.manager_pan);
+  data.append("branch_aadhaar", formData.manager_aadhaar);
+
+  // append all other fields
+  Object.entries(formData).forEach(([key, value]) => {
+    if (value !== null && value !== "") {
+      data.append(key, key === "manager_dob" ? dobISO : value);
+    }
+  });
+
+  try {
+    if (editBranch) {
+      await axiosInstance.put(`/branches/${editBranch.id}`, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Branch updated successfully");
+    } else {
+      await axiosInstance.post(`/branches/create-with-manager`, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Branch created successfully");
+    }
+    setIsOpen(false);
+    fetchBranches();
+  } catch (error) {
+    const msg =
+      error?.response?.data?.detail ||
+      error?.response?.data?.message ||
+      "Error saving branch";
+    toast.error(String(msg));
+  }
+};
 
   const handleVerifyManagerPan = async () => {
     const pan = (formData.manager_pan || "").toUpperCase().trim();
     if (!pan) return toast.error("Enter Manager PAN first");
 
     setLoadingManagerPan(true);
-    toast.loading("Verifying PAN...");
-
+    const tId = toast.loading("Verifying PAN...");
     try {
       const res = await axiosInstance.post(
         "/micro-pan-verification",
         new URLSearchParams({ pannumber: pan }),
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
       );
-      toast.dismiss();
 
+      toast.dismiss(tId);
       if (res.data?.success && res.data?.data?.result) {
         const r = res.data.data.result;
-
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           manager_name: r.user_full_name || prev.manager_name,
           manager_father_name: r.user_father_name || prev.manager_father_name,
-          // API returns user_dob (likely YYYY-MM-DD) — keep input type=date happy
           manager_dob: isoToDDMMYYYY(normalizeDob(r.user_dob)) || prev.manager_dob,
           manager_aadhaar: r.masked_aadhaar || prev.manager_aadhaar,
           manager_address: r.user_address?.full || prev.manager_address,
@@ -246,36 +341,39 @@ const BranchesPage = () => {
           manager_pincode: r.user_address?.zip || prev.manager_pincode,
           manager_pan: pan,
         }));
-
         setIsManagerPanVerified(true);
         toast.success("Manager PAN verified!");
       } else {
         toast.error("PAN verification failed");
       }
-    } catch (e) {
-      toast.dismiss();
+    } catch {
+      toast.dismiss(tId);
       toast.error("Error verifying PAN");
     } finally {
       setLoadingManagerPan(false);
     }
   };
 
+  // -------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header Section */}
+        {/* Header */}
         <div className="flex justify-end mb-6">
-          {hasPermission("branch_add") && <button
-            className="inline-flex items-center px-2 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
-            onClick={openAddModal}
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add
-          </button>}</div>
+          {hasPermission("branch_add") && (
+            <button
+              className="inline-flex items-center px-2 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+              onClick={openAddModal}
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+            </button>
+          )}
+        </div>
 
-        {/* Main Content */}
+        {/* Table */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="p-12">
@@ -307,7 +405,6 @@ const BranchesPage = () => {
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Branch ID</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Branch Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Authorized Person</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Agreement</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -315,17 +412,14 @@ const BranchesPage = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {branches.map((branch, index) => (
-                    <tr key={branch.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                    <tr key={branch.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                          #{branch.id.toString().padStart(3, '0')}
+                          #{String(branch.id).padStart(3, "0")}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-semibold text-gray-900">{branch.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-700">{branch.authorized_person}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {branch.active ? (
@@ -355,24 +449,28 @@ const BranchesPage = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
-                          {hasPermission("branch_edit") && <button
-                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors duration-200"
-                            onClick={() => openEditModal(branch)}
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                          </button>}
-                          {hasPermission("branch_details") && <button
-                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200"
-                            onClick={() => openDetails(branch.id)}
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Details
-                          </button>}
+                          {hasPermission("branch_edit") && (
+                            <button
+                              className="inline-flex items-center px-3 py-2 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors duration-200"
+                              onClick={() => openEditModal(branch)}
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                          )}
+                          {hasPermission("branch_details") && (
+                            <button
+                              className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200"
+                              onClick={() => openDetails(branch.id)}
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Details
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -384,31 +482,15 @@ const BranchesPage = () => {
         </div>
       </div>
 
-      {/* ✅ Add/Edit Branch with Manager Modal */}
+      {/* Add/Edit Modal */}
       <Transition appear show={isOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
+            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
                 <div className="flex justify-between items-start bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
                   <div>
@@ -423,24 +505,16 @@ const BranchesPage = () => {
                     </p>
                   </div>
 
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setIsOpen(false)}
-                    // className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
-                    >
-                      {/* Cancel Icon */}
-                      <svg className="w-5 h-5 text-white-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+                  <button type="button" onClick={() => setIsOpen(false)}>
+                    <svg className="w-5 h-5 text-white-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-
 
                 <div className="p-8 overflow-y-auto max-h-[calc(90vh-140px)]">
                   <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Branch Information Section */}
+                    {/* Branch Information */}
                     <div className="bg-gray-50 rounded-xl p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                         <svg className="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -460,17 +534,7 @@ const BranchesPage = () => {
                             required
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Authorized Person *</label>
-                          <input
-                            name="authorized_person"
-                            value={formData.authorized_person}
-                            onChange={handleChange}
-                            placeholder="Enter authorized person name"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
+
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">Branch Address *</label>
                           <textarea
@@ -483,37 +547,21 @@ const BranchesPage = () => {
                             required
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">PAN NUMBER *</label>
-                          <input
-                            name="branch_pan"
-                            value={formData.branch_pan}
-                            onChange={handleChange}
-                            placeholder="Enter branch PAN number"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Aadhaar NUMBER *</label>
-                          <input
-                            name="branch_aadhaar"
-                            value={formData.branch_aadhaar}
-                            onChange={handleChange}
-                            placeholder="Enter branch Aadhaar number"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Agreement PDF</label>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Agreement PDF *</label>
                           <input
                             type="file"
-                            accept=".pdf"
+                            accept=".pdf,application/pdf"
                             onChange={handleFileChange}
+                            ref={fileInputRef}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                           />
+                          <p className="mt-1 text-xs text-gray-500">
+                            Upload a valid PDF file (max 10MB). Required when creating a branch.
+                          </p>
                         </div>
+
                         <div className="flex items-center">
                           <input
                             type="checkbox"
@@ -527,7 +575,7 @@ const BranchesPage = () => {
                       </div>
                     </div>
 
-                    {/* Manager Information Section */}
+                    {/* Manager Information */}
                     <div className="bg-indigo-50 rounded-xl p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                         <svg className="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -536,76 +584,7 @@ const BranchesPage = () => {
                         Branch Manager Details
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
-                          <input
-                            name="manager_name"
-                            value={formData.manager_name}
-                            onChange={handleChange}
-                            placeholder="Enter manager name"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                            disabled={isManagerPanVerified}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Email *</label>
-                          <input
-                            name="manager_email"
-                            value={formData.manager_email}
-                            onChange={handleChange}
-                            placeholder="Enter manager email"
-                            type="email"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Phone *</label>
-                          <input
-                            name="manager_phone"
-                            value={formData.manager_phone}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                              setFormData(prev => ({ ...prev, manager_phone: digits }));
-                            }}
-                            placeholder="Enter manager phone number"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Password *</label>
-                          <input
-                            name="manager_password"
-                            value={formData.manager_password}
-                            onChange={handleChange}
-                            placeholder="Enter manager password"
-                            type="password"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
 
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Manager Aadhaar *</label>
-                            {formData.manager_aadhaar && !isValidMaskedAadhaar(formData.manager_aadhaar) && (
-                              <span className="text-xs text-red-600">Use 12 digits or XXXXXXXX1234</span>
-                            )}
-                          </div>
-                          <input
-                            name="manager_aadhaar"
-                            value={formData.manager_aadhaar}
-                            onChange={(e) =>
-                              setFormData(prev => ({ ...prev, manager_aadhaar: toMaskedAadhaarInput(e.target.value) }))
-                            }
-                            placeholder="12 digits or masked XXXXXXXX1234"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                            disabled={isManagerPanVerified}
-                          />
-                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Manager PAN *</label>
                           <div className="flex gap-2 items-center">
@@ -613,7 +592,10 @@ const BranchesPage = () => {
                               name="manager_pan"
                               value={(formData.manager_pan || "").toUpperCase()}
                               onChange={(e) =>
-                                setFormData(prev => ({ ...prev, manager_pan: e.target.value.toUpperCase() }))
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  manager_pan: e.target.value.toUpperCase(),
+                                }))
                               }
                               placeholder="ABCDE1234F"
                               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
@@ -658,6 +640,84 @@ const BranchesPage = () => {
                           </div>
                         </div>
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
+                          <input
+                            name="manager_name"
+                            value={formData.manager_name}
+                            onChange={handleChange}
+                            placeholder="Enter manager name"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            required
+                            disabled={isManagerPanVerified}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Email *</label>
+                          <input
+                            name="manager_email"
+                            value={formData.manager_email}
+                            onChange={handleChange}
+                            placeholder="Enter manager email"
+                            type="email"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Phone *</label>
+                          <input
+                            name="manager_phone"
+                            value={formData.manager_phone}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                              setFormData((prev) => ({ ...prev, manager_phone: digits }));
+                            }}
+                            placeholder="Enter manager phone number"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Password *</label>
+                          <input
+                            name="manager_password"
+                            value={formData.manager_password}
+                            onChange={handleChange}
+                            placeholder="Enter manager password"
+                            type="password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Manager Aadhaar *</label>
+                            {formData.manager_aadhaar &&
+                              !isValidMaskedAadhaar(formData.manager_aadhaar) && (
+                                <span className="text-xs text-red-600">
+                                  Use 12 digits or XXXXXXXX1234
+                                </span>
+                              )}
+                          </div>
+                          <input
+                            name="manager_aadhaar"
+                            value={formData.manager_aadhaar}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                manager_aadhaar: toMaskedAadhaarInput(e.target.value),
+                              }))
+                            }
+                            placeholder="12 digits or masked XXXXXXXX1234"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            required
+                            disabled={isManagerPanVerified}
+                          />
+                        </div>
+
+
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Father's Name *</label>
                           <input
                             name="manager_father_name"
@@ -669,6 +729,7 @@ const BranchesPage = () => {
                             disabled={isManagerPanVerified}
                           />
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
                           <input
@@ -676,24 +737,27 @@ const BranchesPage = () => {
                             value={formData.manager_dob}
                             onChange={(e) => {
                               const next = allowDobInput(e.target.value);
-                              // Optional: auto-insert slashes as user types
                               const digits = next.replace(/\//g, "");
                               let pretty = digits;
-                              if (digits.length > 4) pretty = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
-                              else if (digits.length > 2) pretty = `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
-                              setFormData(p => ({ ...p, manager_dob: pretty }));
+                              if (digits.length > 4)
+                                pretty = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+                              else if (digits.length > 2)
+                                pretty = `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
+                              setFormData((p) => ({ ...p, manager_dob: pretty }));
                             }}
                             placeholder="DD/MM/YYYY"
-   inputMode="numeric"
-   type="text"
+                            inputMode="numeric"
+                            type="text"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                             disabled={isManagerPanVerified}
                           />
-                          {formData.manager_dob && !/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob) && (
-   <span className="text-xs text-red-600">Use DD/MM/YYYY</span>
- )}
+                          {formData.manager_dob &&
+                            !/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob) && (
+                              <span className="text-xs text-red-600">Use DD/MM/YYYY</span>
+                            )}
                         </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
                           <input
@@ -721,19 +785,27 @@ const BranchesPage = () => {
                           <input
                             name="manager_pincode"
                             value={formData.manager_pincode}
-                            onChange={handleChange}
-                            placeholder="Enter pincode"
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+                              setFormData((prev) => ({ ...prev, manager_pincode: digits }));
+                            }}
+                            placeholder="6-digit pincode"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Experience *</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Experience (years) *</label>
                           <input
                             name="manager_experience"
                             value={formData.manager_experience}
-                            onChange={handleChange}
-                            placeholder="Enter years of experience"
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                manager_experience: e.target.value.replace(/[^0-9.]/g, ""),
+                              }))
+                            }
+                            placeholder="e.g. 3"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
@@ -764,7 +836,7 @@ const BranchesPage = () => {
                       </div>
                     </div>
 
-                    {/* Submit Button */}
+                    {/* Submit */}
                     <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                       <button
                         type="button"
@@ -788,31 +860,15 @@ const BranchesPage = () => {
         </Dialog>
       </Transition>
 
-      {/* ✅ Branch Details Modal */}
+      {/* Details Modal */}
       <Transition appear show={showDetails} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setShowDetails(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
+            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-2">
                   <Dialog.Title className="text-2xl font-bold text-white flex items-center">
@@ -848,18 +904,6 @@ const BranchesPage = () => {
                             <p className="text-gray-900">{branchDetails.branch.address}</p>
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Authorized Person</label>
-                            <p className="text-gray-900">{branchDetails.branch.authorized_person}</p>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">PAN Number</label>
-                            <p className="text-gray-900 font-mono">{branchDetails.branch.pan}</p>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-600 mb-1">Aadhaar Number</label>
-                            <p className="text-gray-900 font-mono">{branchDetails.branch.aadhaar}</p>
-                          </div>
-                          <div>
                             <label className="block text-sm font-medium text-gray-600 mb-1">Status</label>
                             {branchDetails.branch.active ? (
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
@@ -873,8 +917,8 @@ const BranchesPage = () => {
                               </span>
                             )}
                           </div>
-                          {hasPermission("branch_agreement_view") &&
-                            <div>
+                          {hasPermission("branch_agreement_view") && (
+                            <div className="md:col-span-2">
                               <label className="block text-sm font-medium text-gray-600 mb-1">Agreement</label>
                               <a
                                 href={branchDetails.branch.agreement_url}
@@ -887,7 +931,8 @@ const BranchesPage = () => {
                                 </svg>
                                 View Agreement PDF
                               </a>
-                            </div>}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -930,7 +975,7 @@ const BranchesPage = () => {
                         )}
                       </div>
 
-                      {/* Users Information */}
+                      {/* Users */}
                       <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                           <svg className="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -955,7 +1000,7 @@ const BranchesPage = () => {
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
                                 {branchDetails.users.map((user, index) => (
-                                  <tr key={user.employee_code} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                  <tr key={user.employee_code} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                                     <td className="px-4 py-3 whitespace-nowrap">
                                       <span className="text-sm font-mono text-gray-900">{user.employee_code}</span>
                                     </td>
@@ -1029,31 +1074,15 @@ const BranchesPage = () => {
         </Dialog>
       </Transition>
 
-      {/* ✅ Agreement Viewing Modal */}
+      {/* Agreement Viewer */}
       <Transition appear show={showAgreement} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setShowAgreement(false)}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
+            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
                 <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-8 py-6">
                   <Dialog.Title className="text-2xl font-bold text-white flex items-center justify-between">
@@ -1098,6 +1127,7 @@ const BranchesPage = () => {
                         <div className="text-center">
                           <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
                             <svg className="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.482 16.5c-.77.833.192 2.5 1.732 2.5z" />
                             </svg>
                           </div>

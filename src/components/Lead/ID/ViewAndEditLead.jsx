@@ -327,6 +327,7 @@ const handleResponseSelectSafely = (newId, mode /* "view" | "edit" */) => {
       "country",
       "aadhaar",
       "gender",
+      "mobile",
     ];
     const isLocked = (name) => {
       // always allow editing PAN

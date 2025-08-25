@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
 import {
   X,
@@ -10,23 +11,55 @@ import {
   Trash2,
   Database,
   User,
-  FileText,
   Search,
-  ChevronRight,
   CheckCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
+
+// ---- helpers ---------------------------------------------------------------
+const getCurrentUserName = () => {
+  try {
+    const raw = Cookies.get("user_info");
+    if (!raw) return "";
+    const p = JSON.parse(raw);
+
+    // Try common fields (adjust to your structure)
+    return (
+      p?.username ||
+      p?.name ||
+      p?.user?.username ||
+      p?.user?.name ||
+      p?.employee_code || // e.g., EMP005
+      p?.sub || // from JWT-like payload if present
+      ""
+    );
+  } catch {
+    return "";
+  }
+};
 
 export default function LeadSourcesPage() {
   const { hasPermission } = usePermissions();
   const router = useRouter();
+
   const [sources, setSources] = useState([]);
   const [isCreateNew, setIsCreateNew] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", created_by: "" });
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    created_by: getCurrentUserName(),
+  });
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // keep created_by fresh if cookie changes while mounted
+  useEffect(() => {
+    if (!editingId && isCreateNew) {
+      setForm((f) => ({ ...f, created_by: getCurrentUserName() }));
+    }
+  }, [isCreateNew, editingId]);
 
   // Fetch on mount
   useEffect(() => {
@@ -35,8 +68,10 @@ export default function LeadSourcesPage() {
 
   const fetchSources = async () => {
     try {
-      const { data } = await axiosInstance.get("/lead-config/sources/?skip=0&limit=100");
-      setSources(data);
+      const { data } = await axiosInstance.get(
+        "/lead-config/sources/?skip=0&limit=100"
+      );
+      setSources(data || []);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load sources");
@@ -44,7 +79,7 @@ export default function LeadSourcesPage() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", description: "", created_by: "" });
+    setForm({ name: "", description: "", created_by: getCurrentUserName() });
     setEditingId(null);
     setIsCreateNew(false);
   };
@@ -54,13 +89,20 @@ export default function LeadSourcesPage() {
     setIsSubmitting(true);
     try {
       if (editingId) {
+        // Update: do not send created_by
         await axiosInstance.put(`/lead-config/sources/${editingId}`, {
           name: form.name,
           description: form.description,
         });
         toast.success("Source updated successfully!");
       } else {
-        await axiosInstance.post("/lead-config/sources/", form);
+        // Create: enforce created_by from cookie at submit time
+        const payload = {
+          name: form.name,
+          description: form.description,
+          created_by: getCurrentUserName() || form.created_by || "system",
+        };
+        await axiosInstance.post("/lead-config/sources/", payload);
         toast.success("Source created successfully!");
       }
       resetForm();
@@ -75,7 +117,12 @@ export default function LeadSourcesPage() {
 
   const handleEdit = (src) => {
     setEditingId(src.id);
-    setForm({ name: src.name, description: src.description, created_by: src.created_by });
+    // Keep created_by as-is (read-only in UI)
+    setForm({
+      name: src.name || "",
+      description: src.description || "",
+      created_by: src.created_by || "",
+    });
     setIsCreateNew(true);
   };
 
@@ -91,32 +138,32 @@ export default function LeadSourcesPage() {
     }
   };
 
-  // const filteredSources = sources.filter((src) => {
-  //   const term = searchTerm.toLowerCase();
-  //   return (
-  //     src.name.toLowerCase().includes(term) ||
-  //     src.description.toLowerCase().includes(term) ||
-  //     src.created_by.toLowerCase().includes(term)
-  //   );
-  // })
-  ; const filteredSources = sources.filter((src) => {
+  const filteredSources = useMemo(() => {
     const term = (searchTerm || "").toLowerCase();
-    return (
-      (src?.name || "").toLowerCase().includes(term) ||
-      (src?.description || "").toLowerCase().includes(term) ||
-      (src?.created_by || "").toLowerCase().includes(term)
-    );
-  });
-
+    return (sources || []).filter((src) => {
+      return (
+        (src?.name || "").toLowerCase().includes(term) ||
+        (src?.description || "").toLowerCase().includes(term) ||
+        (src?.created_by || "").toLowerCase().includes(term)
+      );
+    });
+  }, [sources, searchTerm]);
 
   return (
     <div className="p-6">
-
       {/* Header */}
       <div className="flex items-center justify-end mb-6">
         {!isCreateNew && hasPermission("create_lead") && (
           <button
-            onClick={() => setIsCreateNew(true)}
+            onClick={() => {
+              setEditingId(null);
+              setForm({
+                name: "",
+                description: "",
+                created_by: getCurrentUserName(),
+              });
+              setIsCreateNew(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
           >
             <Plus className="w-5 h-5" />
@@ -124,7 +171,6 @@ export default function LeadSourcesPage() {
           </button>
         )}
       </div>
-
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -157,7 +203,9 @@ export default function LeadSourcesPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-purple-600">Filtered</p>
-              <p className="text-2xl font-bold text-purple-900">{filteredSources.length}</p>
+              <p className="text-2xl font-bold text-purple-900">
+                {filteredSources.length}
+              </p>
             </div>
           </div>
         </div>
@@ -177,38 +225,49 @@ export default function LeadSourcesPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Source Name</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Source Name
+                </label>
                 <input
                   type="text"
                   value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, name: e.target.value }))
+                  }
                   required
                   className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
-              {!editingId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Created By</label>
-                  <input
-                    type="text"
-                    value={form.created_by}
-                    onChange={(e) => setForm((f) => ({ ...f, created_by: e.target.value }))}
-                    required
-                    className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                </div>
-              )}
+
+              {/* Created By (auto, read-only) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Created By
+                </label>
+                <input
+                  type="text"
+                  value={form.created_by}
+                  readOnly
+                  className="mt-1 block w-full border border-gray-200 rounded-md p-2 bg-gray-100 text-gray-600"
+                />
+              </div>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
               <textarea
                 value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
                 rows={3}
                 required
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"
               />
             </div>
+
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -227,8 +286,8 @@ export default function LeadSourcesPage() {
                     ? "Updating..."
                     : "Creating..."
                   : editingId
-                    ? "Update Source"
-                    : "Create Source"}
+                  ? "Update Source"
+                  : "Create Source"}
               </button>
             </div>
           </form>
@@ -254,11 +313,21 @@ export default function LeadSourcesPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Source Name</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Created By</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                Source Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                Description
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                Created By
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -278,7 +347,10 @@ export default function LeadSourcesPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <p className="text-sm text-gray-600 truncate max-w-xs" title={src.description}>
+                  <p
+                    className="text-sm text-gray-600 truncate max-w-xs"
+                    title={src.description}
+                  >
                     {src.description}
                   </p>
                 </td>
@@ -287,21 +359,34 @@ export default function LeadSourcesPage() {
                     <div className="bg-gray-100 rounded-full p-1">
                       <User className="w-3 h-3 text-gray-600" />
                     </div>
-                    <span className="text-sm text-gray-900">{src.created_by}</span>
+                    <span className="text-sm text-gray-900">
+                      {src.created_by}
+                    </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
-                  {hasPermission("edit_lead")&& <button onClick={() => handleEdit(src)} className="p-2 hover:bg-blue-50 rounded">
-                      <Edit className="w-4 h-4 text-blue-600" />
-                    </button>}
-                 {hasPermission("delete_lead")&&     <button onClick={() => handleDelete(src.id)} className="p-2 hover:bg-red-50 rounded">
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>}
+                    {hasPermission("edit_lead") && (
+                      <button
+                        onClick={() => handleEdit(src)}
+                        className="p-2 hover:bg-blue-50 rounded"
+                      >
+                        <Edit className="w-4 h-4 text-blue-600" />
+                      </button>
+                    )}
+                    {hasPermission("delete_lead") && (
+                      <button
+                        onClick={() => handleDelete(src.id)}
+                        className="p-2 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
             ))}
+
             {filteredSources.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center">

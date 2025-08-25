@@ -355,7 +355,7 @@ export default function ServicesPage() {
               {/* Modal Header */}
               <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">{editId ? 'Edit Service' : 'Create Service'}</h2>
+                  <h2 className="text-2xl font-bold">{editId ? 'Edit Plan' : 'Create Plan'}</h2>
                   <button onClick={() => setIsModalOpen(false)} className="text-white text-lg">✕</button>
                 </div>
               </div>
@@ -531,7 +531,7 @@ export default function ServicesPage() {
                       className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl"
                       disabled={loading}
                     >
-                      {loading ? 'Saving...' : editId ? 'Update Service' : 'Create Service'}
+                      {loading ? 'Saving...' : editId ? 'Update Plan' : 'Create Plan'}
                     </button>
                   </div>
                 </form>

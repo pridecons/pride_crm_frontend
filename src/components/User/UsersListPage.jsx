@@ -16,32 +16,47 @@ import UserModal from "./UserModal";
 
 export default function UsersListPage() {
   const { hasPermission } = usePermissions();
-  const { branchId } = useParams(); // in case you use it later
-  const didFetch = useRef(false);   // <-- prevents double fetch in React 18 StrictMode
+  const { branchId } = useParams(); // reserved for future use
+  const didFetch = useRef(false);   // prevent double fetch (React 18 StrictMode)
 
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [roles, setRoles] = useState([]);
   const [branchMap, setBranchMap] = useState({});
 
-  const [editingUser, setEditingUser] = useState(null);
   const [detailsUser, setDetailsUser] = useState(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Modal control
+  const [modalMode, setModalMode] = useState(null); // "add" | "edit" | null
+  const [modalUser, setModalUser] = useState(null);
+  const [modalKey, setModalKey] = useState(0); // force remount of UserModal
+
+  // Filters
   const [selectedRole, setSelectedRole] = useState("All");
   const [selectedBranch, setSelectedBranch] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Permissions modal
   const [permissionsUser, setPermissionsUser] = useState(null);
-  const [modalMode, setModalMode] = useState(null); // "add" or "edit"
-  const [modalUser, setModalUser] = useState(null);
+
+  // Only open permissions automatically after a successful ADD (not edit)
+  const openPermAfterSuccessRef = useRef(false);
 
   const openAdd = () => {
-    setModalMode("add");
+    // Reset any stale state before opening Add again
+    setPermissionsUser(null);
+    openPermAfterSuccessRef.current = true; // only Add should auto-open permissions
     setModalUser(null);
+    setModalMode("add");
+    setModalKey((k) => k + 1); // force a clean mount
   };
 
   const openEdit = (u) => {
-    setModalMode("edit");
+    setPermissionsUser(null);
+    openPermAfterSuccessRef.current = false; // do NOT auto-open permissions on edit
     setModalUser(u);
+    setModalMode("edit");
+    setModalKey((k) => k + 1); // force a clean mount
   };
 
   useEffect(() => {
@@ -154,7 +169,9 @@ export default function UsersListPage() {
           onDetails={(u) => setDetailsUser(u)}
         />
 
+        {/* Create/Edit Modal */}
         <UserModal
+          key={modalKey}              // <— force fresh mount each open
           mode={modalMode}
           isOpen={!!modalMode}
           onClose={() => setModalMode(null)}
@@ -162,18 +179,31 @@ export default function UsersListPage() {
           roles={roles}
           branches={branches}
           onSuccess={(u) => {
+            // Refresh list
             fetchUsers();
-            setPermissionsUser(u);
+
+            // Only open permissions automatically after a successful ADD
+            if (openPermAfterSuccessRef.current && u) {
+              setPermissionsUser(u);
+            }
+
+            // Reset the flag so next "Add" starts clean
+            openPermAfterSuccessRef.current = false;
+
+            // Close the add/edit modal
+            setModalMode(null);
           }}
         />
 
-        {/* Modals */}
+        {/* Details Modal */}
         <UserDetailsModal
           isOpen={!!detailsUser}
           onClose={() => setDetailsUser(null)}
           user={detailsUser}
           branchMap={branchMap}
         />
+
+        {/* Permissions Modal */}
         <UserPermissionsModal
           isOpen={!!permissionsUser}
           onClose={() => setPermissionsUser(null)}

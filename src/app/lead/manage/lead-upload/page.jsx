@@ -17,20 +17,30 @@ export default function BulkUploadPage() {
   const [branches, setBranches] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
+  const [leadSources, setLeadSources] = useState([]);
 
-  // fetch branches on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await axiosInstance.get(
-          "/branches/?skip=0&limit=100&active_only=false"
-        );
-        setBranches(data);
-      } catch (err) {
-        console.error("Failed to load branches:", err);
-      }
-    })();
-  }, []);
+  // fetch branches + lead sources on mount
+useEffect(() => {
+  (async () => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/branches/?skip=0&limit=100&active_only=false"
+      );
+      setBranches(data);
+    } catch (err) {
+      console.error("Failed to load branches:", err);
+    }
+
+    try {
+      const { data } = await axiosInstance.get(
+        "/lead-config/sources/?skip=0&limit=100"
+      );
+      setLeadSources(data);
+    } catch (err) {
+      console.error("Failed to load lead sources:", err);
+    }
+  })();
+}, []);
 
   // submit CSV
   const handleSubmit = async (e) => {
@@ -157,44 +167,54 @@ export default function BulkUploadPage() {
             </section>
 
             {/* Configuration */}
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <span className="text-blue-600">⚙️</span>
-                Configuration
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <span className="text-lg">🏢</span>
-                    Select Branch
-                  </label>
-                  <select
-                    name="branch_id"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                  >
-                    <option value="">Choose a branch…</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <span className="text-lg">🔖</span>
-                    Lead Source ID
-                  </label>
-                  <input
-                    type="text"
-                    name="lead_source_id"
-                    defaultValue="1"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                  />
-                </div>
-              </div>
-            </section>
+<section className="space-y-3">
+  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+    <span className="text-blue-600">⚙️</span>
+    Configuration
+  </h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Branch dropdown */}
+    <div className="space-y-1">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <span className="text-lg">🏢</span>
+        Select Branch
+      </label>
+      <select
+        name="branch_id"
+        required
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+      >
+        <option value="">Choose a branch…</option>
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Lead source dropdown */}
+    <div className="space-y-1">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <span className="text-lg">🔖</span>
+        Select Lead Source
+      </label>
+      <select
+        name="lead_source_id"
+        required
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+      >
+        <option value="">Choose a source…</option>
+        {leadSources.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+</section>
+
 
             {/* Submit */}
             <button

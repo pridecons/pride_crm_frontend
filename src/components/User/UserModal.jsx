@@ -3,13 +3,31 @@
 
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
-import { X, Loader2, Check, Edit } from "lucide-react";
+import { X, Loader2, Check, Edit, Eye, EyeOff } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import UserPermissionsModal from "./UserPermissionsModal";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
+import dynamic from "next/dynamic";
+const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
 
-// ---- helpers ---------------------------------------------------------------
+const INPUT_CLS = "w-full h-11 px-3 border rounded-xl bg-white text-gray-900 placeholder-gray-400";
+
+// Convert "DD-MM-YYYY" -> Date
+const dmyToDate = (s) => {
+    if (!s) return null;
+    const [dd, mm, yyyy] = s.split("-").map((v) => parseInt(v, 10));
+    const d = new Date(yyyy, (mm || 1) - 1, dd || 1);
+    return isNaN(d.getTime()) ? null : d;
+};
+// Convert Date -> "DD-MM-YYYY"
+const dateToDMY = (d) => {
+    if (!d) return "";
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+};
 
 // ---- helpers ---------------------------------------------------------------
 const roleKey = (r) => (r || "").toString().toUpperCase().replace(/\s+/g, "");
@@ -102,7 +120,63 @@ export default function UserModal({
     const [teamLeads, setTeamLeads] = useState([]);
     const [showPermissionsModal, setShowPermissionsModal] = useState(false);
     const [createdUser, setCreatedUser] = useState(null);
-    const [newPassword, setNewPassword] = useState("");
+    const [showPwd, setShowPwd] = useState(false);
+
+    // PAN format: ABCDE1234F
+    const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+    // Map backend field keys -> nice labels for toasts
+    const FIELD_LABELS = {
+        name: "Full Name",
+        email: "Email",
+        phone_number: "Phone number",
+        father_name: "Father's Name",
+        pan: "PAN",
+        aadhaar: "Aadhaar",
+        address: "Address",
+        city: "City",
+        state: "State",
+        pincode: "Pincode",
+        comment: "Comments",
+        experience: "Experience",
+        date_of_joining: "Date of Joining",
+        date_of_birth: "Date of Birth",
+        role: "Role",
+        branch_id: "Branch",
+        sales_manager_id: "Sales Manager",
+        tl_id: "Team Lead",
+    };
+
+    // if "07-12-2001" -> "2001-12-07", else undefined
+    const toISOorUndefined = (ddmmyyyy) => {
+        if (!ddmmyyyy) return undefined;
+        if (!/^\d{2}-\d{2}-\d{4}$/.test(ddmmyyyy)) return undefined;
+        const [dd, mm, yyyy] = ddmmyyyy.split("-");
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Show readable toasts from FastAPI/Pydantic error shape
+    const showApiErrors = (err) => {
+        const details = err?.response?.data?.detail;
+        if (Array.isArray(details) && details.length) {
+            // show one toast per error item
+            details.forEach((d) => {
+                // last part of loc is usually the field name
+                const loc = Array.isArray(d.loc) ? d.loc[d.loc.length - 1] : "";
+                const label = FIELD_LABELS[loc] || (typeof loc === "string" ? loc : "Field");
+                const msg = d?.msg || "Invalid value";
+                toast.error(`${label}: ${msg}`);
+            });
+            return true; // handled
+        }
+        // fallback single message
+        const fallback =
+            err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            "Something went wrong, please try again";
+        toast.error(fallback);
+        return true;
+    };
 
     // ---- utils ----------------------------------------------------------------
 
@@ -296,41 +370,54 @@ export default function UserModal({
         }
     };
 
-    const handleResetPassword = async () => {
-        if (!newPassword) return toast.error("Enter a new password first");
-        try {
-            const res = await axiosInstance.post(
-                `/users/${user.employee_code}/reset-password`,
-                { new_password: newPassword }
-            );
-            toast.success(res.data.message);
-            setNewPassword("");
-        } catch (err) {
-            toast.error("Password reset failed");
-        }
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // --- Required field checks ---
+        if (!formData.name.trim()) return toast.error("Full Name is required");
+        if (!formData.email.trim()) return toast.error("Email is required");
+        if (!formData.phone_number.trim()) return toast.error("Phone number is required");
+        if (!formData.role) return toast.error("Role selection is required");
+        if (!formData.branch_id && currentRoleKey === "SUPERADMIN")
+            return toast.error("Branch selection is required");
+
+        // PAN checks
+        if (!formData.pan.trim()) return toast.error("PAN is required");
+        if (formData.pan.trim().length !== 10) return toast.error("PAN must be 10 characters");
+        if (!PAN_REGEX.test(formData.pan.trim()))
+            return toast.error("Enter a valid PAN (e.g., ABCDE1234F)");
+
+        // Aadhaar validation
         if (formData.aadhaar && !isValidAadhaar(formData.aadhaar))
             return toast.error("Aadhaar must be 12 digits or masked like XXXXXXXX1234");
+
+        // Phone validation
         if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number))
             return toast.error("Phone must be 10 digits");
-        if (!isEdit && !passwordRegex.test(formData.password))
-            return toast.error(
-                "Password must be ≥6 chars, include a number & special char"
-            );
+
+        // Password validation
+        if (!isEdit && !passwordRegex.test(formData.password)) {
+            return toast.error("Password must be ≥6 chars, include a number & special char");
+        }
+        if (isEdit && formData.password && !passwordRegex.test(formData.password)) {
+            return toast.error("Password must be ≥6 chars, include a number & special char");
+        }
+
+        // Role specific validations
         if (formData.role === "TL" && !formData.sales_manager_id)
             return toast.error("Sales Manager is required for TL");
         if ((formData.role === "BA" || formData.role === "SBA") && !formData.tl_id)
             return toast.error("Team Lead is required for BA/SBA");
 
+        // --- Submit logic ---
         setIsSubmitting(true);
         toast.loading(isEdit ? "Updating…" : "Adding user…");
         try {
-            let res;
+            const { password: _pwd, ...rest } = formData;
+
             const payload = {
-                ...formData,
+                ...rest,
                 branch_id:
                     Number(
                         currentRoleKey === "SUPERADMIN"
@@ -338,11 +425,19 @@ export default function UserModal({
                             : formData.branch_id || currentUser?.branch_id
                     ) || undefined,
                 experience: Number(formData.experience) || 0,
-                date_of_joining: formatToISO(formData.date_of_joining),
-                date_of_birth: formatToISO(formData.date_of_birth),
+                // send undefined (omit) rather than "" to avoid Pydantic "too short" date errors
+                date_of_joining: toISOorUndefined(formData.date_of_joining),
+                date_of_birth: toISOorUndefined(formData.date_of_birth),
             };
 
+            // strip empty strings so backend doesn't see ""
+            Object.keys(payload).forEach((k) => {
+                if (payload[k] === "") delete payload[k];
+            });
+
+            let res;
             if (isEdit) {
+                if (formData.password) payload.password = formData.password;
                 res = await axiosInstance.put(`/users/${user.employee_code}`, payload);
             } else {
                 res = await axiosInstance.post("/users/", {
@@ -351,19 +446,22 @@ export default function UserModal({
                     is_active: true,
                 });
             }
+
             toast.dismiss();
             toast.success(isEdit ? "Updated!" : "Added!");
             onSuccess(res.data);
             setCreatedUser(res.data);
             setShowPermissionsModal(true);
             onClose();
-        } catch {
+        } catch (err) {
             toast.dismiss();
-            toast.error(isEdit ? "Update failed" : "Add failed");
+            // 👇 show field-wise server messages (like your screenshot)
+            showApiErrors(err);
         } finally {
             setIsSubmitting(false);
         }
     };
+
 
     // ---- render ---------------------------------------------------------------
 
@@ -378,10 +476,8 @@ export default function UserModal({
             ? "Must be 10 digits"
             : "";
     const passwordError =
-        !isEdit &&
-            formData.password.length > 0 &&
-            !passwordRegex.test(formData.password)
-            ? "Invalid password"
+        formData.password.length > 0 && !passwordRegex.test(formData.password)
+            ? "Password must be ≥6 chars with a number & special char"
             : "";
 
     return (
@@ -460,15 +556,42 @@ export default function UserModal({
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                                    {passwordError && <div className="mb-1 text-xs text-red-600 font-medium">{passwordError}</div>}
-                                    <input
-                                        className="w-full p-3 border rounded-xl"
-                                        type="password"
-                                        value={formData.password ?? ""}
-                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        required
-                                    />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        {isEdit ? "Reset Password" : "Password *"}
+                                    </label>
+                                    {isEdit && (
+                                        <p className="text-xs text-gray-500 mb-1">Leave blank to keep existing password.</p>
+                                    )}
+                                    {passwordError && (
+                                        <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
+                                            {passwordError}
+                                        </div>
+                                    )}
+                                    <div className="relative">
+                                        <input
+                                            className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
+                                            type={showPwd ? "text" : "password"}
+                                            value={formData.password ?? ""}
+                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                            autoComplete="new-password"
+                                            required={!isEdit}
+                                            placeholder={isEdit ? "Enter new password" : "Create a password"}
+                                            aria-invalid={!!passwordError}
+                                            aria-describedby={passwordError ? "pwd-error" : undefined}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPwd((v) => !v)}
+                                            className="absolute inset-y-0 right-3 flex items-center"
+                                            aria-label={showPwd ? "Hide password" : "Show password"}
+                                        >
+                                            {showPwd ? (
+                                                <EyeOff className="w-5 h-5 text-gray-500" />
+                                            ) : (
+                                                <Eye className="w-5 h-5 text-gray-500" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -660,49 +783,73 @@ export default function UserModal({
                         </div>
 
                         {/* Additional Info */}
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <h4 className="font-semibold text-gray-900">Additional Info</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                            {/* Dates row (compact, aligned) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                                {/* DOJ */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining (DD-MM-YYYY)</label>
-                                    <input className="p-3 border rounded-xl w-full" value={formData.date_of_joining} onChange={(e) => handleDateChange("date_of_joining", e.target.value)} disabled={isPanVerified} />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Date of Joining (DD-MM-YYYY)
+                                    </label>
+                                    <DatePicker
+                                        selected={dmyToDate(formData.date_of_joining)}
+                                        onChange={(date) =>
+                                            setFormData((p) => ({ ...p, date_of_joining: dateToDMY(date) }))
+                                        }
+                                        dateFormat="dd-MM-yyyy"
+                                        placeholderText="DD-MM-YYYY"
+                                        className={INPUT_CLS}
+                                        isClearable
+                                        showPopperArrow={false}
+                                    />
                                 </div>
+
+                                {/* DOB — locked after PAN verification */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth (DD-MM-YYYY)</label>
-                                    <input className="p-3 border rounded-xl w-full" value={formData.date_of_birth} onChange={(e) => handleDateChange("date_of_birth", e.target.value)} disabled={isPanVerified} />
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Date of Birth (DD-MM-YYYY)
+                                        </label>
+                                    <DatePicker
+                                        selected={dmyToDate(formData.date_of_birth)}
+                                        onChange={(date) =>
+                                            setFormData((p) => ({ ...p, date_of_birth: dateToDMY(date) }))
+                                        }
+                                        dateFormat="dd-MM-yyyy"
+                                        placeholderText="DD-MM-YYYY"
+                                        className={`${INPUT_CLS} ${isPanVerified ? "opacity-80 pointer-events-none bg-gray-50" : ""}`}
+                                        isClearable
+                                        showPopperArrow={false}
+                                        disabled={isPanVerified}     // <- disables DOB after PAN fetch
+                                        title={isPanVerified ? "DOB is locked after PAN verification" : undefined}
+                                    />
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Experience (Years)</label>
-                                <input className="p-3 border rounded-xl w-full" type="number" value={formData.experience} onChange={(e) => setFormData({ ...formData, experience: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Comments</label>
-                                <textarea className="w-full p-3 border rounded-xl resize-none" rows="3" value={formData.comment} onChange={(e) => setFormData({ ...formData, comment: e.target.value })} />
                             </div>
 
-                            {isEdit && (
-                                <div className="mt-4 space-y-2">
-                                    <h4 className="font-semibold text-gray-900">Reset Password</h4>
-                                    <div className="flex gap-2 items-center">
-                                        <input
-                                            type="password"
-                                            className="flex-1 p-3 border rounded-xl"
-                                            placeholder="Enter new password"
-                                            value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={handleResetPassword}
-                                            className="px-4 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700"
-                                        >
-                                            Reset
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            {/* Experience */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Experience (Years)</label>
+                                <input
+                                    className={INPUT_CLS}
+                                    type="number"
+                                    value={formData.experience}
+                                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                                />
+                            </div>
+
+                            {/* Comments */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Comments</label>
+                                <textarea
+                                    className="w-full px-3 py-2 border rounded-xl resize-none"
+                                    rows="3"
+                                    value={formData.comment}
+                                    onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                                />
+                            </div>
                         </div>
+
                     </div>
 
                     {/* Footer */}

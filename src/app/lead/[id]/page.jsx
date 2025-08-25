@@ -25,10 +25,11 @@ import ConfirmCalledModal from "@/components/Lead/ID/ConfirmCalledModal";
 import DocumentsModal from "@/components/Lead/ID/DocumentsModal";
 import LeadHeader from "@/components/Lead/ID/LeadHeader";
 import ErrorState from "@/components/ErrorState";
+import { usePermissions } from '@/context/PermissionsContext';
 
 const Lead = () => {
   const { id } = useParams();
-
+  const { hasPermission } = usePermissions();
   const [isOpenPayment, setIsOpenPayment] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -364,42 +365,42 @@ const Lead = () => {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <LeadHeader currentLead={currentLead} />
 
-{/* === Compact Meta Info Bar (Assigned To + Branch) === */}
-{currentLead && (
-  <div className="mb-4">
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Assigned To */}
-      <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50">
-          <UserCheck size={14} className="text-indigo-600" />
-        </span>
-        <span className="font-medium text-slate-900">Assigned</span>
-        <span className="text-slate-400">•</span>
-        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={userNameMap[currentLead?.assigned_to_user] || currentLead?.assigned_to_user || "—"}>
-          {userNameMap[currentLead?.assigned_to_user] || "—"}
-          {currentLead?.assigned_to_user ? (
-            <span className="text-slate-500"> ({currentLead.assigned_to_user})</span>
-          ) : null}
-        </span>
-      </div>
+        {/* === Compact Meta Info Bar (Assigned To + Branch) === */}
+        {currentLead && (
+          <div className="mb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Assigned To */}
+              <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50">
+                  <UserCheck size={14} className="text-indigo-600" />
+                </span>
+                <span className="font-medium text-slate-900">Assigned</span>
+                <span className="text-slate-400">•</span>
+                <span className="truncate max-w-[160px] sm:max-w-[220px]" title={userNameMap[currentLead?.assigned_to_user] || currentLead?.assigned_to_user || "—"}>
+                  {userNameMap[currentLead?.assigned_to_user] || "—"}
+                  {currentLead?.assigned_to_user ? (
+                    <span className="text-slate-500"> ({currentLead.assigned_to_user})</span>
+                  ) : null}
+                </span>
+              </div>
 
-      {/* Branch */}
-      <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
-          <Building size={14} className="text-emerald-600" />
-        </span>
-        <span className="font-medium text-slate-900">Branch</span>
-        <span className="text-slate-400">•</span>
-        <span className="truncate max-w-[160px] sm:max-w-[220px]" title={branchNameMap[currentLead?.branch_id] || (currentLead?.branch_id ? `#${currentLead.branch_id}` : "—")}>
-          {branchNameMap[currentLead?.branch_id] || "—"}
-          {currentLead?.branch_id ? (
-            <span className="text-slate-500"> (#{currentLead.branch_id})</span>
-          ) : null}
-        </span>
-      </div>
-    </div>
-  </div>
-)}
+              {/* Branch */}
+              {hasPermission("lead_branch_view") && <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
+                  <Building size={14} className="text-emerald-600" />
+                </span>
+                <span className="font-medium text-slate-900">Branch</span>
+                <span className="text-slate-400">•</span>
+                <span className="truncate max-w-[160px] sm:max-w-[220px]" title={branchNameMap[currentLead?.branch_id] || (currentLead?.branch_id ? `#${currentLead.branch_id}` : "—")}>
+                  {branchNameMap[currentLead?.branch_id] || "—"}
+                  {currentLead?.branch_id ? (
+                    <span className="text-slate-500"> (#{currentLead.branch_id})</span>
+                  ) : null}
+                </span>
+              </div>}
+            </div>
+          </div>
+        )}
 
 
         {currentLead?.lead_response_id &&
@@ -485,13 +486,13 @@ const Lead = () => {
         {/* Toolbar */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="flex items-center gap-2 ml-4">
-            <button
+            {hasPermission("lead_story_view") && <button
               onClick={() => setIsStoryModalOpen(true)}
               className="w-10 h-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
               title="View Story"
             >
               <BookOpenText size={20} />
-            </button>
+            </button>}
 
             <button
               onClick={() => setIsCommentsModalOpen(true)}
@@ -508,8 +509,8 @@ const Lead = () => {
               disabled={!currentLead}
               aria-pressed={isEditMode}
               className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${isEditMode
-                  ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
-                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
+                : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span

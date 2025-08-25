@@ -8,8 +8,10 @@ import { jwtDecode } from 'jwt-decode'
 import { axiosInstance } from '@/api/Axios'
 import toast from 'react-hot-toast'
 import { createPortal } from "react-dom";
+import { usePermissions } from "@/context/PermissionsContext";
 
 export default function Header({ onMenuClick, onSearch }) {
+  const { hasPermission } = usePermissions();
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [user, setUser] = useState(null);
@@ -51,26 +53,26 @@ export default function Header({ onMenuClick, onSearch }) {
 
   const [anchorRect, setAnchorRect] = useState(null);
 
-    // add near other refs
-const lookupsLoadedRef = useRef(false);
+  // add near other refs
+  const lookupsLoadedRef = useRef(false);
 
-const loadLookupsIfNeeded = useCallback(async () => {
-  if (lookupsLoadedRef.current) return;     // guard against StrictMode double-mount
-  lookupsLoadedRef.current = true;
-  try {
-    const [{ data: responses }, { data: sources }, { data: branches }] =
-      await Promise.all([
-        axiosInstance.get('/lead-config/responses/'),
-        axiosInstance.get('/lead-config/sources/'),
-        axiosInstance.get('/branches/?skip=0&limit=200'),
-      ]);
-    setRespOptions(Array.isArray(responses) ? responses : []);
-    setSourceOptions(Array.isArray(sources) ? sources : []);
-    setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
-  } catch (e) {
-    console.error('Failed loading lookups', e);
-  }
-}, []);
+  const loadLookupsIfNeeded = useCallback(async () => {
+    if (lookupsLoadedRef.current) return;     // guard against StrictMode double-mount
+    lookupsLoadedRef.current = true;
+    try {
+      const [{ data: responses }, { data: sources }, { data: branches }] =
+        await Promise.all([
+          axiosInstance.get('/lead-config/responses/'),
+          axiosInstance.get('/lead-config/sources/'),
+          axiosInstance.get('/branches/?skip=0&limit=200'),
+        ]);
+      setRespOptions(Array.isArray(responses) ? responses : []);
+      setSourceOptions(Array.isArray(sources) ? sources : []);
+      setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
+    } catch (e) {
+      console.error('Failed loading lookups', e);
+    }
+  }, []);
 
 
   const respSummary = useMemo(() => {
@@ -152,10 +154,10 @@ const loadLookupsIfNeeded = useCallback(async () => {
     return out;
   }, [groupedByResponse, openGroups]);
 
-// ✅ Load when search opens
-useEffect(() => {
-  if (open) loadLookupsIfNeeded();
-}, [open, loadLookupsIfNeeded]);
+  // ✅ Load when search opens
+  useEffect(() => {
+    if (open) loadLookupsIfNeeded();
+  }, [open, loadLookupsIfNeeded]);
 
   const buildResponseMatches = (q) => {
     if (!q || q.trim().length < 2) return [];
@@ -243,13 +245,13 @@ useEffect(() => {
 
     // Keep overlay open even if term is short; just clear lists.
     if (term.length < 2) {
-    try { abortRef.current?.abort(); } catch {}
-    setSuggestions([]);
-    setRespCounts({});
-    setRespMatches([]);
-    setResponseCounts({});
-    setLoading(false);
-    return;
+      try { abortRef.current?.abort(); } catch { }
+      setSuggestions([]);
+      setRespCounts({});
+      setRespMatches([]);
+      setResponseCounts({});
+      setLoading(false);
+      return;
     }
 
     try { abortRef.current?.abort(); } catch { }
@@ -305,11 +307,11 @@ useEffect(() => {
   }, [respOptions]);
 
 
-useEffect(() => {
-  if (!open) return;                 // do nothing until search is opened
-  const id = setTimeout(() => { fetchSuggestions(query); }, 250);
-  return () => clearTimeout(id);
-}, [open, query, fetchSuggestions]);
+  useEffect(() => {
+    if (!open) return;                 // do nothing until search is opened
+    const id = setTimeout(() => { fetchSuggestions(query); }, 250);
+    return () => clearTimeout(id);
+  }, [open, query, fetchSuggestions]);
 
   // keep overlay perfectly aligned + resized like Chrome
   useEffect(() => {
@@ -396,7 +398,7 @@ useEffect(() => {
         </div>
 
         {/* -------- Global Search -------- */}
-        <div
+        {hasPermission("header_global_search")&& <div
           className={`flex-1 ${searchWidthCls} mx-3 hidden sm:block transition-all duration-200`}
           ref={searchWrapRef}
         >
@@ -468,7 +470,7 @@ useEffect(() => {
             )}
 
           </div>
-        </div>
+        </div>}
         {/* -------- /Global Search -------- */}
 
         {/* Right cluster */}

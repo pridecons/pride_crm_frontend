@@ -5,7 +5,7 @@ import { axiosInstance } from "@/api/Axios";
 import { Dialog, Transition } from "@headlessui/react";
 import LoadingState from "@/components/LoadingState";
 import toast from "react-hot-toast";
-
+import { usePermissions } from '@/context/PermissionsContext';
 // Helper: Empty manager fields
 const emptyManager = {
   manager_name: "",
@@ -36,7 +36,7 @@ const emptyBranch = {
 };
 
 const BranchesPage = () => {
-  // Branch list
+   const { hasPermission } = usePermissions();  // Branch list
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -170,7 +170,7 @@ const BranchesPage = () => {
       <div className="max-w-7xl mx-auto p-6">
         {/* Header Section */}
         <div className="flex justify-end mb-6">
-          <button
+         {hasPermission("branch_add") &&  <button
             className="inline-flex items-center px-2 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
             onClick={openAddModal}
           >
@@ -178,7 +178,7 @@ const BranchesPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
             Add
-          </button></div>
+          </button>}</div>
 
         {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
@@ -260,7 +260,7 @@ const BranchesPage = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
-                          <button
+                       {hasPermission("branch_edit") && <button
                             className="inline-flex items-center px-3 py-2 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors duration-200"
                             onClick={() => openEditModal(branch)}
                           >
@@ -268,8 +268,8 @@ const BranchesPage = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             Edit
-                          </button>
-                          <button
+                          </button>}
+                          {hasPermission("branch_details") &&<button
                             className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200"
                             onClick={() => openDetails(branch.id)}
                           >
@@ -277,7 +277,7 @@ const BranchesPage = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             Details
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -711,9 +711,10 @@ const BranchesPage = () => {
                               </span>
                             )}
                           </div>
+                          {hasPermission("branch_agreement_view")  &&
                           <div>
                             <label className="block text-sm font-medium text-gray-600 mb-1">Agreement</label>
-                            <a
+                          <a
                               href={branchDetails.branch.agreement_url}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -724,7 +725,7 @@ const BranchesPage = () => {
                               </svg>
                               View Agreement PDF
                             </a>
-                          </div>
+                          </div>}
                         </div>
                       </div>
 

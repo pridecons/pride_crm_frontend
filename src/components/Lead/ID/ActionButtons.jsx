@@ -92,16 +92,16 @@ export function ActionButtons({
       </button>
 
       {/* Recordings */}
-      <button
+     {hasPermission("lead_recording_view")&& <button
         onClick={onRecordingsClick}
         className={`${btnBase} border-pink-500 text-pink-600 hover:bg-pink-100`}
       >
         <Mic size={16} className="mr-2" />
         Recordings
-      </button>
+      </button>}
 
       {/* Documents */}
-      <button
+    <button
         onClick={onDocumentsClick}
         className={`${btnBase} border-yellow-500 text-yellow-600 hover:bg-yellow-100`}
       >
@@ -110,7 +110,7 @@ export function ActionButtons({
       </button>
 
       {/* Invoices */}
-      <button
+   <button
         onClick={onInvoiceClick}
         className={`${btnBase} border-indigo-500 text-indigo-600 hover:bg-indigo-100`}
       >
@@ -119,13 +119,13 @@ export function ActionButtons({
       </button>
 
       {/* Transfer */}
-      <button
+   {hasPermission("lead_transfer") && <button
         onClick={onShareClick}
         className={`${btnBase} border-purple-600 text-purple-700 hover:bg-purple-100`}
       >
         <Share2 size={16} className="mr-2" />
         Transfer
-      </button>
+      </button>}
     </div>
   );
 }

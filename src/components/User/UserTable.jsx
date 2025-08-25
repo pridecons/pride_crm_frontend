@@ -7,11 +7,12 @@ import { jwtDecode } from "jwt-decode";
 import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
+import { usePermissions } from '@/context/PermissionsContext';
 
 function useRoleBranch() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
-
+const { hasPermission } = usePermissions();
   useEffect(() => {
     try {
       const ui = Cookies.get("user_info");
@@ -47,6 +48,7 @@ export default function UserTable({
   refreshUsers
 }) {
   const { isSuperAdmin, branchId } = useRoleBranch();
+  const { hasPermission } = usePermissions();
 
   // FE safety: scope visible users to own branch unless SUPERADMIN
   const visibleUsers = useMemo(() => {
@@ -136,11 +138,10 @@ export default function UserTable({
 
                   <td className="px-5 py-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        u.is_active
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${u.is_active
                           ? "bg-green-100 text-green-700 border border-green-200"
                           : "bg-red-100 text-red-700 border border-red-200"
-                      }`}
+                        }`}
                     >
                       {u.is_active ? "Active" : "Inactive"}
                     </span>
@@ -148,7 +149,7 @@ export default function UserTable({
 
                   <td className="px-5 py-4 text-center">
                     <div className="flex justify-center gap-3">
-                      {onDetails && (
+                      {onDetails && hasPermission("user_view_user_details") && (
                         <button
                           onClick={() => onDetails(u)}
                           className="p-2 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition"
@@ -157,7 +158,8 @@ export default function UserTable({
                           <Eye className="w-4 h-4" />
                         </button>
                       )}
-                      {onEdit && (
+
+                      {onEdit && hasPermission("user_edit_user") && (
                         <button
                           onClick={() => onEdit(u)}
                           className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
@@ -166,15 +168,19 @@ export default function UserTable({
                           <Edit className="w-4 h-4" />
                         </button>
                       )}
-                      <button
-                        onClick={() => handleDelete(u.employee_code)}
-                        className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition"
-                        title="Deactivate User"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      {hasPermission("user_delete_user") && (
+                        <button
+                          onClick={() => handleDelete(u.employee_code)}
+                          className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition"
+                          title="Deactivate User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
+
                 </tr>
               ))
             ) : (

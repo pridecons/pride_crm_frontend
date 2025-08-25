@@ -9,8 +9,10 @@ import CommentModal from "@/components/Lead/CommentModal";
 import InvoiceList from "@/components/Lead/InvoiceList";
 import { Pencil, FileText, BookOpenText, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { usePermissions } from '@/context/PermissionsContext';
 
 export default function ClientsPage() {
+    const {hasPermission} = usePermissions();
     const [role, setRole] = useState(null);
     const [branchId, setBranchId] = useState(null);
     const [branches, setBranches] = useState([]);
@@ -203,7 +205,7 @@ export default function ClientsPage() {
                 {/* Branch Filter and View Toggle */}
                 {(role === "SUPERADMIN" || role === "BRANCH MANAGER") && (
                     <div className="mb-4 flex flex-col gap-4">
-                        {role === "SUPERADMIN" && (
+                        {role === "SUPERADMIN" && hasPermission("client_select_branch") && (
                             <div>
                                 <label className="text-sm font-semibold text-gray-700 mb-1 block">
                                     Select Branch
@@ -310,7 +312,7 @@ export default function ClientsPage() {
                                             <td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-green-600">₹{client.total_amount_paid}</td>
                                             <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 <div className="flex items-center gap-1.5">
-                                                    <button
+                                                 {hasPermission("client_invoice") &&    <button
                                                         onClick={() => {
                                                             setSelectedLead(client);
                                                             setIsInvoiceModalOpen(true);
@@ -319,8 +321,8 @@ export default function ClientsPage() {
                                                         aria-label="View Invoices"
                                                     >
                                                         <FileText size={18} />
-                                                    </button>
-                                                    <button
+                                                    </button>}
+                                                    {hasPermission("client_story") && <button
                                                         onClick={() => {
                                                             setStoryLead(client);
                                                             setIsStoryModalOpen(true);
@@ -329,9 +331,9 @@ export default function ClientsPage() {
                                                         title="View Story"
                                                     >
                                                         <BookOpenText size={18} />
-                                                    </button>
+                                                    </button>}
 
-                                                    <button
+                                                    {hasPermission("client_comments") && <button
                                                         onClick={() => {
                                                             setSelectedLeadId(client.lead_id);
                                                             setIsCommentModalOpen(true);
@@ -340,7 +342,7 @@ export default function ClientsPage() {
                                                         title="Comment"
                                                     >
                                                         <MessageCircle size={16} />
-                                                    </button>
+                                                    </button>}
                                                 </div>
                                             </td>
                                         </tr>

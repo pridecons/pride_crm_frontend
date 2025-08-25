@@ -13,8 +13,10 @@ import {
   Search,
   TrendingUp,
 } from "lucide-react";
+import { usePermissions } from '@/context/PermissionsContext';
 
 const ResponseModel = ({ open, setOpen }) => {
+  const { hasPermission } = usePermissions(); 
   const [responses, setResponses] = useState([]);
   const [form, setForm] = useState({ name: "", lead_limit: "" });
   const [editingId, setEditingId] = useState(null);
@@ -219,7 +221,7 @@ const ResponseModel = ({ open, setOpen }) => {
             </div>
           ) : (
             <div className="flex justify-center mb-6">
-              <button
+              {hasPermission("create_new_lead_response") && <button
                 onClick={() => {
                   resetForm();
                   setIsFormVisible(true);
@@ -228,7 +230,7 @@ const ResponseModel = ({ open, setOpen }) => {
               >
                 <Plus className="w-5 h-5" />
                 Create New Response
-              </button>
+              </button>}
             </div>
           )}
 
@@ -268,20 +270,25 @@ const ResponseModel = ({ open, setOpen }) => {
                       <td className="px-6 py-4">{resp.lead_limit}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => fetchResponseById(resp.id)}
-                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(resp.id)}
-                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {hasPermission("edit_response") && (
+                            <button
+                              onClick={() => fetchResponseById(resp.id)}
+                              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {hasPermission("delete_response") && (
+                            <button
+                              onClick={() => handleDelete(resp.id)}
+                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -294,6 +301,7 @@ const ResponseModel = ({ open, setOpen }) => {
                     </tr>
                   )}
                 </tbody>
+
               </table>
             </div>
           </div>

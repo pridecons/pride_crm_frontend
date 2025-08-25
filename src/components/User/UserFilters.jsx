@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { Search } from "lucide-react";
+import { usePermissions } from '@/context/PermissionsContext';
 
 function useRoleBranch() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
+ const { hasPermission } = usePermissions();
 
   useEffect(() => {
     try {
@@ -42,6 +44,7 @@ export default function UserFilters({
   selectedBranch, setSelectedBranch,
   roles, branches
 }) {
+  const { hasPermission } = usePermissions();
   const { isSuperAdmin, branchId } = useRoleBranch();
 
   // For non-SUPERADMIN: lock the selected branch to the user’s branch
@@ -64,7 +67,7 @@ export default function UserFilters({
         />
       </div>
 
-      <div className="flex gap-3">
+       {hasPermission("user_all_roles")  &&<div className="flex gap-3">
         <select
           value={selectedRole}
           onChange={(e) => setSelectedRole(e.target.value)}
@@ -77,7 +80,7 @@ export default function UserFilters({
         </select>
 
         {/* Branch filter visible ONLY for SUPERADMIN */}
-        {isSuperAdmin && (
+        {isSuperAdmin && hasPermission("user_all_branches") && (
           <select
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
@@ -89,7 +92,7 @@ export default function UserFilters({
             ))}
           </select>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

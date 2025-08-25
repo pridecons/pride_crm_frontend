@@ -10,8 +10,10 @@ const emptyForm = {
   sourceAddress: "",
   allowedRoles: [],
 };
+import { usePermissions } from '@/context/PermissionsContext';
 
 export default function SMSTemplatesSimplePage() {
+  const { hasPermission } = usePermissions();
   const [templates, setTemplates] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -171,7 +173,7 @@ export default function SMSTemplatesSimplePage() {
                 Manage your SMS templates and messaging configurations
               </p>
             </div>
-            <button
+           {hasPermission("sms_add")  && <button
               onClick={() => openModal()}
               className="px-3 py-2 bg-gradient-to-br from-indigo-500 to-purple-700 text-white rounded-xl shadow-lg flex items-center gap-2 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
             >
@@ -179,7 +181,7 @@ export default function SMSTemplatesSimplePage() {
                 <path d="M12 5v14M5 12h14" />
               </svg>
               Add
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -359,7 +361,7 @@ export default function SMSTemplatesSimplePage() {
                       </td>
                       <td className="px-5 py-4 text-gray-800 align-middle">
                         <div className="flex items-center gap-2">
-                          <button
+                        {hasPermission("sms_edit") && <button
                             onClick={() => openModal(tpl)}
                             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-transform duration-200 ease-in-out hover:-translate-y-1 flex items-center gap-1"
                           >
@@ -368,8 +370,8 @@ export default function SMSTemplatesSimplePage() {
                               <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
                             Edit
-                          </button>
-                          <button
+                          </button>}
+                         {hasPermission("sms_delete") &&  <button
                             onClick={() => setDeleteId(tpl.id)}
                             className="px-4 py-2 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-semibold text-sm transition-transform duration-200 ease-in-out hover:-translate-y-1 flex items-center gap-1"
                           >
@@ -378,7 +380,7 @@ export default function SMSTemplatesSimplePage() {
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>
                             Delete
-                          </button>
+                          </button>}
                           {deleteId === tpl.id && (
                             <div className="flex items-center gap-2 ml-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
                               <span className="text-red-600 font-semibold text-[13px]">

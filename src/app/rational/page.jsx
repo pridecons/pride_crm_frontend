@@ -356,7 +356,7 @@ export default function RationalPage() {
           <div className="flex flex-row gap-3 mt-4 md:mt-0">
             <div className="relative inline-block text-left">
               {/* Download Button */}
-              <button
+             {hasPermission("rational_download")&& <button
                 onClick={() => setIsOpen((prev) => !prev)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
               >
@@ -365,7 +365,7 @@ export default function RationalPage() {
                   size={16}
                   className={`transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
                 />
-              </button>
+              </button>}
 
               {/* Dropdown */}
               {isOpen && (
@@ -403,7 +403,7 @@ export default function RationalPage() {
             {showXlsxModal && <ExportXlsxModal onClose={() => setShowXlsxModal(false)} open={showXlsxModal} />}
 
 
-            {/* {hasPermission("rational_add_rational") &&  */}<div>
+            {hasPermission("rational_add_recommadation") && <div>
               <button
                 onClick={() => openModal()}
                 className="bg-gradient-to-r from-green-600 to-green-700 px-4 py-2 flex justify-center items-center text-white rounded-md w-auto whitespace-nowrap"
@@ -413,8 +413,8 @@ export default function RationalPage() {
                 </svg>
                 Recommendation
               </button>
-            </div>
-            {/* } */}
+            </div>}
+        
           </div>
 
         </div>
@@ -1012,14 +1012,13 @@ function RationalTable({
   statusOptions,
 }) {
   const [expanded, setExpanded] = useState(new Set());
-
   const toggleRow = (id) => {
     const next = new Set(expanded);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setExpanded(next);
   };
-
+   const { hasPermission } = usePermissions();
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -1071,7 +1070,7 @@ function RationalTable({
                       className="py-4 px-6 text-center relative"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
+                     {hasPermission("rational_status")&& <button
                         onClick={() =>
                           setOpenStatusDropdown(
                             openStatusDropdown === item.id ? null : item.id
@@ -1083,7 +1082,7 @@ function RationalTable({
                           statusOptions.find((opt) => opt.value === item.status)
                             ?.label || item.status || "N/A"
                         }
-                      </button>
+                      </button>}
 
                       {openStatusDropdown === item.id && item.status === "OPEN" && (
                         <div className="absolute z-50 mt-2 bg-white border border-gray-300 rounded shadow-lg w-36 left-1/2 -translate-x-1/2">
@@ -1106,7 +1105,7 @@ function RationalTable({
                         </div>
                       )}
                     </td>
-                    <td className="py-4 px-6"> {!item.rational && (
+                    <td className="py-4 px-6"> {!item.rational && hasPermission("rational_edit") && (
                       <button
                         onClick={() => openModal(item)}
                         className="text-blue-600 hover:underline text-sm"
@@ -1165,7 +1164,7 @@ function RationalTable({
                             <p className="text-slate-500">Rational</p>
                             <p className="font-medium">{item.rational || "-"}</p>
                           </div>
-                          <div>
+                          {hasPermission("rational_graf_model_view")&&<div>
                             <p className="text-slate-500">Graph</p>
                             {item.graph ? (
                               <button
@@ -1177,7 +1176,7 @@ function RationalTable({
                             ) : (
                               <span className="text-gray-400">No Graph</span>
                             )}
-                          </div>
+                          </div>}
                           <div>
                             <p className="text-slate-500">PDF</p>
                             {item.pdf ? <DownloadPDF id={item.id} /> : "-"}
@@ -1223,7 +1222,7 @@ function DownloadPDF({ id, userId }) {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+ const { hasPermission } = usePermissions();
   const fetchPdf = async () => {
     setLoading(true);
     try {
@@ -1276,7 +1275,7 @@ function DownloadPDF({ id, userId }) {
                 className="border rounded"
               />
             </div>
-            <div className="p-4 border-t flex justify-end">
+           {hasPermission("rational_pdf_model_download") && <div className="p-4 border-t flex justify-end">
               <a
                 href={pdfUrl}
                 download="recommendation.pdf"
@@ -1290,7 +1289,7 @@ function DownloadPDF({ id, userId }) {
               >
                 Close
               </button>
-            </div>
+            </div>}
           </div>
         </div>
       )}

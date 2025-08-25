@@ -22,8 +22,10 @@ import {
   Save,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { usePermissions } from '@/context/PermissionsContext';
 
 export default function FetchLimitConfigPage() {
+  const { hasPermission } = usePermissions();
   const router = useRouter();
   const [configs, setConfigs] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -186,7 +188,7 @@ export default function FetchLimitConfigPage() {
         <h1 className="text-2xl font-semibold text-gray-900">
           Fetch Limit Configuration
         </h1>
-        {!isCreateNew && (
+        {hasPermission("fetch_limit_create_new") && !isCreateNew && (
           <button
             onClick={handleCreateClick}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
@@ -194,8 +196,9 @@ export default function FetchLimitConfigPage() {
             <Plus className="w-5 h-5" />
             Create New
           </button>
-        )}
+        )}  
       </div>
+
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -371,18 +374,18 @@ export default function FetchLimitConfigPage() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
-                    <button
+                {hasPermission("fetch_limit_edit") &&    <button
                       onClick={() => handleEditClick(cfg)}
                       className="p-2 rounded hover:bg-blue-50"
                     >
                       <Edit className="w-4 h-4 text-blue-600" />
-                    </button>
-                    <button
+                    </button>}
+                   {hasPermission("fetch_limit_delete") &&  <button
                       onClick={() => handleDelete(cfg.id)}
                       className="p-2 rounded hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
+                    </button>}
                   </div>
                 </td>
               </tr>

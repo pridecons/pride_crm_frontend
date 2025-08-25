@@ -16,8 +16,10 @@ import {
   CheckCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { usePermissions } from '@/context/PermissionsContext';
 
 export default function LeadSourcesPage() {
+  const { hasPermission } = usePermissions();
   const router = useRouter();
   const [sources, setSources] = useState([]);
   const [isCreateNew, setIsCreateNew] = useState(false);
@@ -97,14 +99,14 @@ export default function LeadSourcesPage() {
   //     src.created_by.toLowerCase().includes(term)
   //   );
   // })
-  ;const filteredSources = sources.filter((src) => {
-  const term = (searchTerm || "").toLowerCase();
-  return (
-    (src?.name || "").toLowerCase().includes(term) ||
-    (src?.description || "").toLowerCase().includes(term) ||
-    (src?.created_by || "").toLowerCase().includes(term)
-  );
-});
+  ; const filteredSources = sources.filter((src) => {
+    const term = (searchTerm || "").toLowerCase();
+    return (
+      (src?.name || "").toLowerCase().includes(term) ||
+      (src?.description || "").toLowerCase().includes(term) ||
+      (src?.created_by || "").toLowerCase().includes(term)
+    );
+  });
 
 
   return (
@@ -112,7 +114,7 @@ export default function LeadSourcesPage() {
 
       {/* Header */}
       <div className="flex items-center justify-end mb-6">
-        {!isCreateNew && (
+        {!isCreateNew && hasPermission("create_lead") && (
           <button
             onClick={() => setIsCreateNew(true)}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
@@ -122,6 +124,7 @@ export default function LeadSourcesPage() {
           </button>
         )}
       </div>
+
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -224,8 +227,8 @@ export default function LeadSourcesPage() {
                     ? "Updating..."
                     : "Creating..."
                   : editingId
-                  ? "Update Source"
-                  : "Create Source"}
+                    ? "Update Source"
+                    : "Create Source"}
               </button>
             </div>
           </form>
@@ -289,12 +292,12 @@ export default function LeadSourcesPage() {
                 </td>
                 <td className="px-6 py-4 text-center">
                   <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => handleEdit(src)} className="p-2 hover:bg-blue-50 rounded">
+                  {hasPermission("edit_lead")&& <button onClick={() => handleEdit(src)} className="p-2 hover:bg-blue-50 rounded">
                       <Edit className="w-4 h-4 text-blue-600" />
-                    </button>
-                    <button onClick={() => handleDelete(src.id)} className="p-2 hover:bg-red-50 rounded">
+                    </button>}
+                 {hasPermission("delete_lead")&&     <button onClick={() => handleDelete(src.id)} className="p-2 hover:bg-red-50 rounded">
                       <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>
+                    </button>}
                   </div>
                 </td>
               </tr>

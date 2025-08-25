@@ -523,6 +523,7 @@ const ShowNotifications = ({ setIsConnect, employee_code }) => {
   const wrapperRef = useRef(null);
 
   useEffect(() => {
+    if(!employee_code) return;
     const connect = () => {
       const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/${employee_code}`);
       socketRef.current = socket;

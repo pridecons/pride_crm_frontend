@@ -413,7 +413,7 @@ export default function ServicesPage() {
                       value="CALL"
                       onChange={handleChange}
                       className="p-4 border rounded-xl w-full bg-gray-100"
-                      disabled
+                      // disabled
                     >
                       {billingCycles.map((bc) => (
                         <option key={bc} value={bc}>{bc}</option>

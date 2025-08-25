@@ -575,7 +575,7 @@ const ShowNotifications = ({ setIsConnect, employee_code }) => {
 
     connect();
     return () => { socketRef.current?.close(); };
-  }, [setIsConnect]);
+  }, [setIsConnect, employee_code]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

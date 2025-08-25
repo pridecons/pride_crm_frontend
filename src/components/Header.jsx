@@ -16,6 +16,8 @@ export default function Header({ onMenuClick, onSearch }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [user, setUser] = useState(null);
 
+  console.log("user : ",user)
+
   // ---- Global Search state ----
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -475,7 +477,7 @@ export default function Header({ onMenuClick, onSearch }) {
 
         {/* Right cluster */}
         <div className="flex items-center gap-6">
-          <ShowNotifications setIsConnect={setIsConnect} />
+          <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
           {/* Clock */}
           <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">
@@ -513,7 +515,7 @@ export default function Header({ onMenuClick, onSearch }) {
 }
 
 /* ---------------- Notifications (unchanged) ---------------- */
-const ShowNotifications = ({ setIsConnect }) => {
+const ShowNotifications = ({ setIsConnect, employee_code }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [messages, setMessages] = useState([]);
   const retryCountRef = useRef(0);
@@ -522,7 +524,7 @@ const ShowNotifications = ({ setIsConnect }) => {
 
   useEffect(() => {
     const connect = () => {
-      const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/Admin001`);
+      const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/${employee_code}`);
       socketRef.current = socket;
 
       socket.onopen = () => {

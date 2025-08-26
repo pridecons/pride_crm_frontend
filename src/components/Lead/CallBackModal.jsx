@@ -27,7 +27,7 @@ export default function CallBackModal({
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
         <h2 className="text-lg font-semibold mb-4">Set Call Back Date & Time</h2>
-                {/* Helper Text */}
+        {/* Helper Text */}
         <p className="mb-2 text-xs text-red-500 italic">
           Tip: Select date & time, then click <strong>anywhere outside</strong> / press <kbd>ESC</kbd> to close.
         </p>
@@ -44,17 +44,6 @@ export default function CallBackModal({
             onChange={(e) => setDateValue(e.target.value)}
             className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
           />
-        </div>
-
-        {/* Done Button */}
-        <div className="mt-4">
-          <button
-            onClick={handleDone}
-            className="w-full px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-            disabled={loading}
-          >
-            Done
-          </button>
         </div>
 
         {/* Footer Buttons */}

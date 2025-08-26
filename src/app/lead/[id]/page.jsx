@@ -14,7 +14,6 @@ import EmailModalWithLogs from "@/components/Lead/EmailModalWithTabs";
 import InvoiceList from "@/components/Lead/InvoiceList";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
-import { useFTAndCallbackPatch } from "@/components/Lead/useFTAndCallbackPatch";
 import { ActionButtons } from "@/components/Lead/ID/ActionButtons";
 import { ViewAndEditLead } from "@/components/Lead/ID/ViewAndEditLead";
 import SMSModalWithLogs from "@/components/Lead/ID/SMSModalWithLogs";
@@ -30,6 +29,7 @@ import { usePermissions } from '@/context/PermissionsContext';
 const Lead = () => {
   const { id } = useParams();
   const { hasPermission } = usePermissions();
+
   const [isOpenPayment, setIsOpenPayment] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +64,14 @@ const Lead = () => {
   const [userNameMap, setUserNameMap] = useState({});     // { EMP006: "shivi", ... }
   const [branchNameMap, setBranchNameMap] = useState({}); // { 1: "Main Branch", ... }
 
+  // === NewLeadsTable-style modal state (extracted logic) ===
+  const [showFTModal, setShowFTModal] = useState(false);
+  const [ftFromDate, setFTFromDate] = useState("");
+  const [ftToDate, setFTToDate] = useState("");
+  const [showCallBackModal, setShowCallBackModal] = useState(false);
+  const [callBackDate, setCallBackDate] = useState("");
+  const [pendingPrevResponseId, setPendingPrevResponseId] = useState(null); // to revert if closed
+
   // fetch guard (StrictMode)
   const didInit = useRef(false);
 
@@ -91,30 +99,6 @@ const Lead = () => {
       setLoading(false);
     }
   };
-
-  const responseListForHook = leadResponses.map((r) => ({
-    id: r.value,
-    name: r.label,
-  }));
-
-  const {
-    showFTModal,
-    setShowFTModal,
-    ftFromDate,
-    setFTFromDate,
-    ftToDate,
-    setFTToDate,
-    showCallBackModal,
-    setShowCallBackModal,
-    callBackDate,
-    setCallBackDate,
-    handleResponseChange,
-    cancelFT,
-    cancelCallBack,
-  } = useFTAndCallbackPatch({
-    responses: responseListForHook,
-    onPatched: fetchCurrentLead,
-  });
 
   const fetchKycUserDetails = async () => {
     if (!currentLead?.mobile) {
@@ -313,8 +297,8 @@ const Lead = () => {
   }
   const displaySegment = parsedSegment.join(", ");
 
-  const getResponseNameById = (id) => {
-    const match = leadResponses.find((r) => r.value === id || r.id === id);
+  const getResponseNameById = (rid) => {
+    const match = leadResponses.find((r) => r.value === rid || r.id === rid);
     return match?.label?.toLowerCase?.() ?? match?.name?.toLowerCase?.() ?? "";
   };
 
@@ -341,17 +325,62 @@ const Lead = () => {
     return `${y}-${m}-${day}T${hh}:${mmn}`;
   };
 
+  // ---- Inline Edit buttons should open the same modals (like NewLeadsTable flow) ----
   const handleEditFTInline = () => {
+    // currentLead.ft_* are stored as DD-MM-YYYY; convert to YYYY-MM-DD for inputs
     const ymdFrom = currentLead?.ft_from_date ? dmyToYmd(currentLead.ft_from_date) : "";
     const ymdTo = currentLead?.ft_to_date ? dmyToYmd(currentLead.ft_to_date) : "";
     setFTFromDate(ymdFrom);
     setFTToDate(ymdTo);
+    setPendingPrevResponseId(currentLead?.lead_response_id ?? null);
     setShowFTModal(true);
   };
 
   const handleEditCallbackInline = () => {
     setCallBackDate(isoToDatetimeLocal(currentLead?.call_back_date || ""));
+    setPendingPrevResponseId(currentLead?.lead_response_id ?? null);
     setShowCallBackModal(true);
+  };
+
+  // ========= NewLeadsTable EXACT behavior for onChange =========
+  // Works if ViewAndEditLead calls it as handleLeadResponseChange(newId) or handleLeadResponseChange(lead, newId)
+  const handleResponseChange = async (maybeLeadOrId, maybeId) => {
+    const lead = typeof maybeId === "undefined" ? currentLead : maybeLeadOrId;
+    const newResponseId = typeof maybeId === "undefined" ? maybeLeadOrId : maybeId;
+
+    const selected = leadResponses.find((r) => r.value == newResponseId || r.id == newResponseId);
+    const responseName = (selected?.label || selected?.name || "").toLowerCase();
+
+    if (responseName === "ft") {
+      setFTFromDate("");
+      setFTToDate("");
+      setPendingPrevResponseId(lead?.lead_response_id ?? null);
+      setShowFTModal(true);
+      // Also reflect selection in UI immediately (optional)
+      setEditFormData((p) => ({ ...p, lead_response_id: selected?.value ?? selected?.id }));
+      return;
+    }
+    if (responseName === "call back" || responseName === "callback") {
+      setCallBackDate("");
+      setPendingPrevResponseId(lead?.lead_response_id ?? null);
+      setShowCallBackModal(true);
+      // Reflect selection in UI (optional)
+      setEditFormData((p) => ({ ...p, lead_response_id: selected?.value ?? selected?.id }));
+      return;
+    }
+
+    try {
+      await axiosInstance.patch(`/leads/${lead.id}/response`, {
+        lead_response_id: parseInt(selected?.value ?? selected?.id, 10),
+      });
+      toast.success("Response updated!");
+      await fetchCurrentLead();
+    } catch (error) {
+      console.error("Error updating response:", error);
+      toast.error("Failed to update response!");
+      // revert locally if needed
+      setEditFormData((p) => ({ ...p, lead_response_id: lead?.lead_response_id ?? null }));
+    }
   };
 
   if (loading && !currentLead) return <LoadingState />;
@@ -401,7 +430,6 @@ const Lead = () => {
             </div>
           </div>
         )}
-
 
         {currentLead?.lead_response_id &&
           (() => {
@@ -486,13 +514,15 @@ const Lead = () => {
         {/* Toolbar */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="flex items-center gap-2 ml-4">
-            {hasPermission("lead_story_view") && <button
-              onClick={() => setIsStoryModalOpen(true)}
-              className="w-10 h-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
-              title="View Story"
-            >
-              <BookOpenText size={20} />
-            </button>}
+            {hasPermission("lead_story_view") && (
+              <button
+                onClick={() => setIsStoryModalOpen(true)}
+                className="w-10 h-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
+                title="View Story"
+              >
+                <BookOpenText size={20} />
+              </button>
+            )}
 
             <button
               onClick={() => setIsCommentsModalOpen(true)}
@@ -508,14 +538,14 @@ const Lead = () => {
               onClick={() => (isEditMode ? handleCancelEdit() : setIsEditMode(true))}
               disabled={!currentLead}
               aria-pressed={isEditMode}
-              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${isEditMode
-                ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
-                : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${
+                isEditMode
+                  ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
+                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"
-                  }`}
+                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"}`}
                 aria-hidden="true"
               />
               {isEditMode ? "Back" : "Edit"}
@@ -555,6 +585,7 @@ const Lead = () => {
           setAadharFrontPreview={setAadharFrontPreview}
           setAadharBackPreview={setAadharBackPreview}
           setPanPicPreview={setPanPicPreview}
+          // 👇 NewLeadsTable-style handler
           handleLeadResponseChange={handleResponseChange}
           fetchCurrentLead={fetchCurrentLead}
         />
@@ -630,30 +661,37 @@ const Lead = () => {
           />
         )}
 
+        {/* === NewLeadsTable-style FT & Callback Modals === */}
         <FTModal
           open={showFTModal}
           onClose={() => {
-            const prev = cancelFT();
-            if (prev != null) setEditFormData((p) => ({ ...p, lead_response_id: prev }));
+            setShowFTModal(false);
+            // revert UI selection if user cancels
+            if (pendingPrevResponseId != null) {
+              setEditFormData((p) => ({ ...p, lead_response_id: pendingPrevResponseId }));
+            }
           }}
-          onSave={async (payload) => {
+          onSave={async () => {
             try {
+              if (!ftFromDate || !ftToDate) return toast.error("Both dates required");
+              // find FT response id from leadResponses
               const ftResp = leadResponses.find((r) => (r.label || r.name || "").toLowerCase() === "ft");
               const ftResponseId = ftResp?.value ?? ftResp?.id;
               if (!ftResponseId) throw new Error("FT response not found");
 
               await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
                 lead_response_id: ftResponseId,
-                ft_from_date: payload.ft_from_date,
-                ft_to_date: payload.ft_to_date,
-                segment: payload.segment,
-                ft_service_type: payload.ft_service_type,
+                // Convert YYYY-MM-DD -> DD-MM-YYYY like NewLeadsTable
+                ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                ft_to_date: ftToDate.split("-").reverse().join("-"),
               });
-              toast.success("FT dates updated");
+              toast.success("FT response and dates saved!");
               setShowFTModal(false);
-              fetchCurrentLead();
-            } catch (e) {
-              toast.error(e?.message || "Failed to save FT");
+              setPendingPrevResponseId(null);
+              await fetchCurrentLead();
+            } catch (err) {
+              console.error(err);
+              toast.error("Failed to save FT response");
             }
           }}
           fromDate={ftFromDate}
@@ -665,12 +703,16 @@ const Lead = () => {
         <CallBackModal
           open={showCallBackModal}
           onClose={() => {
-            const prev = cancelCallBack();
-            if (prev != null) setEditFormData((p) => ({ ...p, lead_response_id: prev }));
+            setShowCallBackModal(false);
+            // revert UI selection if user cancels
+            if (pendingPrevResponseId != null) {
+              setEditFormData((p) => ({ ...p, lead_response_id: pendingPrevResponseId }));
+            }
           }}
           onSave={async () => {
             try {
-              if (!callBackDate) throw new Error("Call back date is required");
+              if (!callBackDate) return toast.error("Call back date is required");
+              // find Call Back response id from leadResponses
               const cbResp = leadResponses.find((r) => {
                 const n = (r.label || r.name || "").toLowerCase();
                 return n === "call back" || n === "callback";
@@ -682,11 +724,13 @@ const Lead = () => {
                 lead_response_id: cbResponseId,
                 call_back_date: new Date(callBackDate).toISOString(),
               });
-              toast.success("Call back updated");
+              toast.success("Call Back response and date saved!");
               setShowCallBackModal(false);
-              fetchCurrentLead();
-            } catch (e) {
-              toast.error(e?.message || "Failed to save Call Back");
+              setPendingPrevResponseId(null);
+              await fetchCurrentLead();
+            } catch (err) {
+              console.error(err);
+              toast.error("Failed to save Call Back response");
             }
           }}
           dateValue={callBackDate}

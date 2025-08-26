@@ -59,9 +59,15 @@ export default function PaymentHistoryPage() {
   const [selectedUserName, setSelectedUserName] = useState("");
   const [userHL, setUserHL] = useState(0);
 
-  // Date & paging
-  const [date_from, setDateFrom] = useState("");
-  const [date_to, setDateTo] = useState("");
+  // ---- Date filter (draft vs applied) ----
+  // Draft (what user is typing/selecting)
+  const [dateFromDraft, setDateFromDraft] = useState("");
+  const [dateToDraft, setDateToDraft] = useState("");
+  // Applied (used for API)
+  const [date_from, setDateFromApplied] = useState("");
+  const [date_to, setDateToApplied] = useState("");
+
+  // Paging
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [offset, setOffset] = useState(0);
 
@@ -101,7 +107,7 @@ export default function PaymentHistoryPage() {
     axiosInstance
       .get("/profile-role/recommendation-type/")
       .then((res) => setServices(res.data))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Plans (by service)
@@ -176,7 +182,7 @@ export default function PaymentHistoryPage() {
           const params = {
             name: isPhoneSearch ? undefined : (base.name || undefined),
             email: base.email || undefined,
-            phone_number: !shortPhone && isPhoneSearch ? digits : undefined,
+            phone_number: (!shortPhone && isPhoneSearch) ? digits : undefined,
             phone_contains: shortPhone ? digits : undefined,
             limit: 20,
             offset: 0,
@@ -190,8 +196,8 @@ export default function PaymentHistoryPage() {
           let list = Array.isArray(res?.data?.payments)
             ? res.data.payments
             : Array.isArray(res?.data?.data)
-            ? res.data.data
-            : [];
+              ? res.data.data
+              : [];
 
           if (list.length === 0 && shortPhone) {
             const res2 = await axiosInstance.get(`/payment/all/employee/history`, {
@@ -201,8 +207,8 @@ export default function PaymentHistoryPage() {
             list = Array.isArray(res2?.data?.payments)
               ? res2.data.payments
               : Array.isArray(res2?.data?.data)
-              ? res2.data.data
-              : [];
+                ? res2.data.data
+                : [];
           }
 
           const seen = new Set();
@@ -287,6 +293,30 @@ export default function PaymentHistoryPage() {
     setOffset(0);
   };
 
+  // Apply/Clear for dates
+  const applyDateFilter = () => {
+    // If only one date is provided, treat as a single-day filter
+    if (dateFromDraft && !dateToDraft) {
+      setDateFromApplied(dateFromDraft);
+      setDateToApplied(dateFromDraft);
+    } else if (!dateFromDraft && dateToDraft) {
+      setDateFromApplied(dateToDraft);
+      setDateToApplied(dateToDraft);
+    } else {
+      setDateFromApplied(dateFromDraft || "");
+      setDateToApplied(dateToDraft || "");
+    }
+    setOffset(0);
+  };
+
+  const clearDateFilter = () => {
+    setDateFromDraft("");
+    setDateToDraft("");
+    setDateFromApplied("");
+    setDateToApplied("");
+    setOffset(0);
+  };
+
   // Fetch payments with ALL filters
   const fetchPayments = async () => {
     setLoading(true);
@@ -302,6 +332,7 @@ export default function PaymentHistoryPage() {
           ? clientFilter
           : parseClientQuery(clientQuery);
 
+      // Build params; if only one of applied dates is present, we already set both equal above
       const params = {
         service: service || undefined,
         plan_id: plan || undefined,
@@ -334,7 +365,7 @@ export default function PaymentHistoryPage() {
     }
   };
 
-  // Auto-fetch
+  // Auto-fetch when filters (except draft dates) change
   useEffect(() => {
     if (role) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,8 +376,8 @@ export default function PaymentHistoryPage() {
     plan,
     clientFilter,
     selectedUserId,
-    date_from,
-    date_to,
+    date_from,        // <-- applied dates only
+    date_to,          // <-- applied dates only
     limit,
     offset,
   ]);
@@ -367,9 +398,8 @@ export default function PaymentHistoryPage() {
                   setBranchId("");
                   setOffset(0);
                 }}
-                className={`px-4 py-2 rounded ${
-                  branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                }`}
+                className={`px-4 py-2 rounded ${branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                  }`}
               >
                 All Branches
               </button>
@@ -388,9 +418,8 @@ export default function PaymentHistoryPage() {
                     setOffset(0);
                   }}
                   disabled={isBranchDropdownDisabled}
-                  className={`px-4 py-2 rounded ${
-                    isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                  } ${isBranchDropdownDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`px-4 py-2 rounded ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                    } ${isBranchDropdownDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {b.name || b.branch_name || `Branch ${bid}`}
                 </button>
@@ -539,9 +568,8 @@ export default function PaymentHistoryPage() {
                   key={u.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleUserSelect(u)}
-                  className={`px-3 py-2 cursor-pointer ${
-                    idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"
-                  }`}
+                  className={`px-3 py-2 cursor-pointer ${idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"
+                    }`}
                 >
                   <div className="flex justify-between">
                     <span className="font-medium">{u.name || "Unknown"}</span>
@@ -556,24 +584,49 @@ export default function PaymentHistoryPage() {
           )}
         </div>
 
-        <input
-          className="input"
-          type="date"
-          value={date_from}
-          onChange={(e) => {
-            setDateFrom(e.target.value);
-            setOffset(0);
-          }}
-        />
-        <input
-          className="input"
-          type="date"
-          value={date_to}
-          onChange={(e) => {
-            setDateTo(e.target.value);
-            setOffset(0);
-          }}
-        />
+        {/* Date filter (draft inputs + action buttons in same row) */}
+        <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+          <input
+            className="input"
+            type="date"
+            value={dateFromDraft}
+            onChange={(e) => setDateFromDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyDateFilter()}
+            placeholder="From"
+          />
+          <input
+            className="input"
+            type="date"
+            value={dateToDraft}
+            onChange={(e) => setDateToDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyDateFilter()}
+            placeholder="To"
+          />
+          <button
+            type="button"
+            onClick={applyDateFilter}
+            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={clearDateFilter}
+            className="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 transition"
+          >
+            Clear
+          </button>
+          {(date_from || date_to) && (
+            <span className="text-xs text-gray-600">
+              Applied: {date_from}{date_to && date_to !== date_from ? ` → ${date_to}` : ""}
+            </span>
+          )}
+        </div>
+        <p className="md:col-span-2 text-xs text-gray-500 mt-1">
+          Tip: Leave one side empty for a single-day filter — we’ll apply that same date as both
+          <code className="px-1">from</code> and <code className="px-1">to</code>.
+        </p>
+
       </div>
 
       {/* Results */}
@@ -616,13 +669,12 @@ export default function PaymentHistoryPage() {
                     <td className="py-2 px-3 font-semibold">₹{p.paid_amount}</td>
                     <td className="py-2 px-3">
                       <span
-                        className={`px-2 py-1 rounded text-xs font-semibold ${
-                          p.status === "PAID"
+                        className={`px-2 py-1 rounded text-xs font-semibold ${p.status === "PAID"
                             ? "bg-green-100 text-green-700"
                             : p.status === "ACTIVE" || p.status === "PENDING"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
                       >
                         {p.status === "ACTIVE" ? "PENDING" : p.status}
                       </span>
@@ -677,10 +729,10 @@ export default function PaymentHistoryPage() {
                             <p>
                               {Array.isArray(p.Service)
                                 ? p.Service.map((s, i) => (
-                                    <span key={i} className="block">
-                                      {s}
-                                    </span>
-                                  ))
+                                  <span key={i} className="block">
+                                    {s}
+                                  </span>
+                                ))
                                 : p.Service || "-"}
                             </p>
                           </div>
@@ -689,13 +741,13 @@ export default function PaymentHistoryPage() {
                             <div>
                               {Array.isArray(p.plan)
                                 ? p.plan.map((pl) => (
-                                    <div key={pl.id} className="mb-1">
-                                      <span className="font-semibold">{pl.name}</span>
-                                      <span className="ml-2 text-xs text-gray-500">
-                                        {pl.description}
-                                      </span>
-                                    </div>
-                                  ))
+                                  <div key={pl.id} className="mb-1">
+                                    <span className="font-semibold">{pl.name}</span>
+                                    <span className="ml-2 text-xs text-gray-500">
+                                      {pl.description}
+                                    </span>
+                                  </div>
+                                ))
                                 : "-"}
                             </div>
                           </div>

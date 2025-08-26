@@ -155,24 +155,29 @@ export default function RationalPage() {
     setIsModalOpen(true);
   };
 
+
   const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    if (name === 'recommendation_type') {
-      const selected = Array.from(
-        e.target.selectedOptions,
-        (option) => option.value
-      );
-      setFormData((prev) => ({
-        ...prev,
-        [name]: selected,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === 'number' ? Number(value) : value,
-      }));
-    }
-  };
+  const { name, value, type } = e.target;
+
+  if (name === 'recommendation_type') {
+    const selected = Array.from(
+      e.target.selectedOptions,
+      (option) => option.value
+    );
+    setFormData((prev) => ({
+      ...prev,
+      [name]: selected,
+    }));
+  } else {
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === 'number'
+          ? value === '' ? '' : Number(value) // ✅ allow empty string
+          : value,
+    }));
+  }
+};
 
   const handleExport = async () => {
     try {
@@ -554,11 +559,11 @@ function RationalModal({
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Entry Price</label>
-            <input type="number" name="entry_price" value={formData.entry_price} onChange={handleChange} className="p-3 border rounded" required={!isEditMode} />
+            <input type="number" name="entry_price" value={formData.entry_price ?? ""} onChange={handleChange} className="p-3 border rounded" required={!isEditMode}  disabled={isEditMode}/>
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-            <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" required={!isEditMode} />
+            <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" required={!isEditMode} disabled={isEditMode} />
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">
@@ -1209,10 +1214,8 @@ function RationalTable({
               No rationals found
             </h3>
           </div>
-        )}{rationalList.length === 0 && (
+        )}{rationalList.length === 0 && hasPermission("rational_add_recommadation") && (
           <div className="text-center py-12">
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">No rationals found</h3>
-            <p className="text-slate-600 mb-4">Add your first stock rational</p>
             <button
               onClick={() => openModal()}
               className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"

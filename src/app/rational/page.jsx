@@ -67,19 +67,21 @@ export default function RationalPage() {
   }, [dateFrom, dateTo]);
 
 
-  const fetchRationals = async (params = {}) => {
-    try {
-      setLoading(true);
-      const res = await axiosInstance.get(API_URL, {
-        params: { limit: 100, offset: 0, ...params },
-      });
-      setRationalList(res.data);
-    } catch (err) {
-      console.error('Failed to load rationals:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchRationals = async (params = {}) => {
+  try {
+    setLoading(true);
+    const res = await axiosInstance.get(API_URL, {
+      params: { limit: 100, offset: 0, _ts: Date.now(), ...params }, // <- cache buster
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    setRationalList(res.data);
+  } catch (err) {
+    console.error('Failed to load rationals:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchRationals();
@@ -107,54 +109,50 @@ export default function RationalPage() {
     await fetchRationals(params);
   };
 
-  const openModal = (item = null) => {
-    if (item) {
-      setEditId(item.id);
-      setIsEditMode(true);
-      let recommendationArray = [];
-      try {
-        const parsed = typeof item.recommendation_type === 'string'
-          ? JSON.parse(item.recommendation_type)
-          : item.recommendation_type;
-        recommendationArray = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
-      } catch (err) {
-        recommendationArray = Array.isArray(item.recommendation_type)
-          ? item.recommendation_type
-          : item.recommendation_type ? [item.recommendation_type] : [];
-      }
-      setFormData({
-        stock_name: item.stock_name || '',
-        entry_price: item.entry_price || '',
-        stop_loss: item.stop_loss || '',
-        targets: item.targets || '',
-        targets2: item.targets2 || '',
-        targets3: item.targets3 || '',
-        rational: item.rational || '',
-        recommendation_type: recommendationArray,
-        graph: item.graph || null,
-        status: item.status || 'OPEN',
-      });
-    } else {
-      setEditId(null);
-      setIsEditMode(false);
-      setFormData({
-        stock_name: '',
-        entry_price: '',
-        stop_loss: '',
-        targets: '',
-        targets2: '',
-        targets3: '',
-        rational: '',
-        recommendation_type: [],
-        graph: null,
-        status: 'OPEN',
-      });
-    }
+const openModal = (item = null) => {
+  if (item) {
+    setEditId(item.id);
+    setIsEditMode(true);
 
-    setImageError('');
-    setIsModalOpen(true);
-  };
+    // ✅ backend already sends array of strings (fallback to single string)
+    const recommendationArray = Array.isArray(item.recommendation_type)
+      ? item.recommendation_type
+      : item.recommendation_type
+        ? [String(item.recommendation_type)]
+        : [];
 
+    setFormData({
+      stock_name: item.stock_name || '',
+      entry_price: item.entry_price ?? '',
+      stop_loss: item.stop_loss ?? '',
+      targets: item.targets ?? '',
+      targets2: item.targets2 ?? '',
+      targets3: item.targets3 ?? '',
+      rational: item.rational || '',
+      recommendation_type: recommendationArray,   // ← keep as array of strings
+      graph: item.graph || null,
+      status: item.status || 'OPEN',
+    });
+  } else {
+    setEditId(null);
+    setIsEditMode(false);
+    setFormData({
+      stock_name: '',
+      entry_price: '',
+      stop_loss: '',
+      targets: '',
+      targets2: '',
+      targets3: '',
+      rational: '',
+      recommendation_type: [],  // ← start empty
+      graph: null,
+      status: 'OPEN',
+    });
+  }
+
+  setImageError('');
+  setIsModalOpen(true);
+};
 
   const handleChange = (e) => {
   const { name, value, type } = e.target;
@@ -212,25 +210,50 @@ export default function RationalPage() {
     setModalImage(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setImageError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setImageError('');
 
-    const {
-      stock_name,
-      entry_price,
-      stop_loss,
-      targets,
-      targets2,
-      targets3,
-      rational,
-      recommendation_type,
-      graph,
-      status,
-    } = formData;
+  const {
+    stock_name,
+    entry_price,
+    stop_loss,
+    targets,
+    targets2,
+    targets3,
+    rational,
+    recommendation_type,
+    graph,
+    status,
+  } = formData;
 
-    // Basic validation for create
-    if (!editId) {
+  // require at least one type
+  if (!Array.isArray(recommendation_type) || recommendation_type.length === 0) {
+    alert('Please select at least one Recommendation Type.');
+    return;
+  }
+
+  try {
+    if (editId) {
+      // 👉 EDIT: send JSON, not multipart
+      const payload = {
+        stock_name: String(stock_name ?? '').trim(),
+        entry_price: entry_price === '' ? null : Number(entry_price),
+        stop_loss:  stop_loss  === '' ? null : Number(stop_loss),
+        targets:    targets    === '' ? null : Number(targets),
+        targets2:   targets2   === '' ? 0    : Number(targets2),
+        targets3:   targets3   === '' ? 0    : Number(targets3),
+        rational: String(rational ?? '').trim(),
+        status: status || 'OPEN',
+        recommendation_type: recommendation_type, // array of strings
+      };
+
+      await axiosInstance.put(`${API_URL}${editId}/`, payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+    } else {
+      // 👉 CREATE: multipart (backend expects Form/File)
       if (entry_price === '' || stop_loss === '' || targets === '') {
         alert('Entry Price, Stop Loss, and Target 1 are required.');
         return;
@@ -239,67 +262,45 @@ export default function RationalPage() {
         setImageError('Please select an image to upload');
         return;
       }
-    }
 
-    // Always send multipart/form-data (matches FastAPI Form(...) expectations)
-    const fd = new FormData();
-    const toNum = (v, def = '') => {
-      if (v === '' || v === undefined || v === null) return def;
-      const n = Number(v);
-      return Number.isFinite(n) ? String(n) : def;
-    };
-
-    fd.append('stock_name', (stock_name ?? '').trim());
-    fd.append('entry_price', toNum(entry_price));        // required by backend
-    fd.append('stop_loss', toNum(stop_loss));            // required by backend
-    fd.append('targets', toNum(targets));                // required by backend
-    fd.append('targets2', toNum(targets2, '0'));
-    fd.append('targets3', toNum(targets3, '0'));
-    fd.append('rational', (rational ?? '').trim());
-    fd.append('status', status || 'OPEN');
-
-    // list[str] in FastAPI: repeat the same key
-    (Array.isArray(recommendation_type) ? recommendation_type : [])
-      .filter(Boolean)
-      .forEach(rt => fd.append('recommendation_type', rt));
-
-    // Only include file if a new one is chosen
-    if (graph instanceof File) {
-      fd.append('graph', graph);
-    }
-
-    try {
-      const config = {
-        headers: {
-          // IMPORTANT: override any default json header from the instance
-          'Content-Type': 'multipart/form-data',
-        },
-        // If your instance has a transformRequest that JSON.stringifys,
-        // this pass-through disables that for this call.
-        transformRequest: [(data /*, headers */) => data],
+      const fd = new FormData();
+      const toNum = (v, def = '') => {
+        if (v === '' || v === undefined || v === null) return def;
+        const n = Number(v);
+        return Number.isFinite(n) ? String(n) : def;
       };
 
-      // (Optional) debug: see exactly what you're sending
-      // for (const [k, v] of fd.entries()) console.log('FD:', k, v);
+      fd.append('stock_name', (stock_name ?? '').trim());
+      fd.append('entry_price', toNum(entry_price));
+      fd.append('stop_loss',  toNum(stop_loss));
+      fd.append('targets',    toNum(targets));
+      fd.append('targets2',   toNum(targets2, '0'));
+      fd.append('targets3',   toNum(targets3, '0'));
+      fd.append('rational',   (rational ?? '').trim());
+      fd.append('status',     status || 'OPEN');
 
-      if (editId) {
-        await axiosInstance.put(`${API_URL}${editId}/`, fd, config);
-      } else {
-        await axiosInstance.post(API_URL, fd, config);
-      }
+      // repeat key for FastAPI List[str]
+      recommendation_type.filter(Boolean).forEach(rt => fd.append('recommendation_type', rt));
 
-      setIsModalOpen(false);
-      fetchRationals();
-    } catch (err) {
-      if (err?.response?.status === 422) {
-        console.error('Validation error:', err.response.data);
-        alert('Validation failed. Please check the required fields.');
-      } else {
-        console.error('Submit failed:', err);
-        alert('Submit failed. Check console for details.');
-      }
+      if (graph instanceof File) fd.append('graph', graph);
+
+      await axiosInstance.post(API_URL, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        transformRequest: [d => d],
+      });
     }
-  };
+
+    setIsModalOpen(false);
+    await fetchRationals(); // refresh
+  } catch (err) {
+    console.error('Submit failed:', err?.response?.data || err);
+    const msg = err?.response?.data?.detail
+      ? JSON.stringify(err.response.data.detail)
+      : 'Submit failed. Please check console for details.';
+    alert(msg);
+  }
+};
+
 
   const getRecommendationBadge = (type) => {
     const colors = {

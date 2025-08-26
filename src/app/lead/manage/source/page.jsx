@@ -10,7 +10,6 @@ import {
   Edit,
   Trash2,
   Database,
-  User,
   Search,
   CheckCircle,
   Building,
@@ -19,30 +18,26 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 
 // ---- helpers ---------------------------------------------------------------
-const getCurrentBranchName = () => {
+const getUserMeta = () => {
   try {
     const raw = Cookies.get("user_info");
-    if (!raw) return "";
+    if (!raw) return { role: "", branch_id: null, branch_name: "" };
     const p = JSON.parse(raw);
 
-    // If SUPERADMIN, show "SUPERADMIN"
     const role = (p?.role || p?.user?.role || "").toUpperCase();
-    if (role === "SUPERADMIN") return "SUPERADMIN"; // change text if you prefer "SuperAdmin"
+    const branch_id =
+      p?.branch_id ?? p?.user?.branch_id ?? p?.branch?.id ?? null;
 
-    // Otherwise use branch name (fallback to Branch-<id>)
-    const name =
+    const branch_name =
       p?.branch_name ||
       p?.branch?.name ||
       p?.user?.branch_name ||
       p?.user?.branch?.name ||
-      "";
+      (branch_id ? `Branch-${branch_id}` : "");
 
-    if (name) return name;
-
-    const id = p?.branch_id ?? p?.user?.branch_id ?? null;
-    return id ? `Branch-${id}` : "";
+    return { role, branch_id, branch_name };
   } catch {
-    return "";
+    return { role: "", branch_id: null, branch_name: "" };
   }
 };
 
@@ -50,25 +45,74 @@ export default function LeadSourcesPage() {
   const { hasPermission } = usePermissions();
   const router = useRouter();
 
+  const { role, branch_id: userBranchId, branch_name: userBranchName } =
+    getUserMeta();
+  const isSuperAdmin = role === "SUPERADMIN";
+
+  const [branches, setBranches] = useState([]);
   const [sources, setSources] = useState([]);
   const [isCreateNew, setIsCreateNew] = useState(false);
+
+  // form now uses branch_id instead of created_by
   const [form, setForm] = useState({
     name: "",
     description: "",
-    created_by: getCurrentBranchName(),
+    branch_id: isSuperAdmin ? "" : userBranchId || "",
   });
+
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // keep created_by fresh if cookie changes while mounted
-  useEffect(() => {
-    if (!editingId && isCreateNew) {
-      setForm((f) => ({ ...f, created_by: getCurrentBranchName() }));
-    }
-  }, [isCreateNew, editingId]);
+  const [branchMap, setBranchMap] = useState({});
 
-  // Fetch on mount
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/branches/?skip=0&limit=100&active_only=true"
+        );
+        const list = Array.isArray(data) ? data : [];
+        setBranches(list);
+        setBranchMap(
+          Object.fromEntries(
+            list.map(b => [b.id, b.name || `Branch-${b.id}`])
+          )
+        );
+      } catch (err) {
+        console.error("Failed to load branches", err);
+        toast.error("Failed to load branches");
+      }
+    })();
+  }, [isSuperAdmin]);
+
+  // fetch branches only for SUPERADMIN (to populate dropdown)
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/branches/?skip=0&limit=100&active_only=true"
+        );
+        setBranches(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load branches", err);
+        toast.error("Failed to load branches");
+      }
+    })();
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (isSuperAdmin) return;
+    if (userBranchId) {
+      setBranchMap({
+        [userBranchId]: userBranchName || `Branch-${userBranchId}`,
+      });
+    }
+  }, [isSuperAdmin, userBranchId, userBranchName]);
+
+  // Fetch sources on mount
   useEffect(() => {
     fetchSources();
   }, []);
@@ -86,37 +130,61 @@ export default function LeadSourcesPage() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", description: "", created_by: getCurrentBranchName() });
+    setForm({
+      name: "",
+      description: "",
+      branch_id: isSuperAdmin ? "" : userBranchId || "",
+    });
     setEditingId(null);
     setIsCreateNew(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSuperAdmin && !form.branch_id) {
+      toast.error("Please select a branch");
+      return;
+    }
+    if (!isSuperAdmin && !form.branch_id) {
+      toast.error("No branch assigned to your account");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (editingId) {
-        // Update: do not send created_by
+        // Update (branch_id immutable here; adjust if your API allows editing)
         await axiosInstance.put(`/lead-config/sources/${editingId}`, {
           name: form.name,
           description: form.description,
         });
         toast.success("Source updated successfully!");
       } else {
-        // Create: enforce created_by from cookie at submit time
+        // Create via the EXACT endpoint you provided (absolute URL)
         const payload = {
           name: form.name,
           description: form.description,
-          created_by: getCurrentBranchName() || form.created_by || "system",
+          branch_id: Number(form.branch_id),
         };
-        await axiosInstance.post("/lead-config/sources/", payload);
+
+        await axiosInstance.post(
+          "https://crm.24x7techelp.com/api/v1/lead-config/sources/",
+          payload
+        );
+
         toast.success("Source created successfully!");
       }
       resetForm();
       await fetchSources();
     } catch (err) {
       console.error(err);
-      toast.error("Save failed! Please try again.");
+      const msg =
+        err?.response?.data?.detail?.message ||
+        err?.response?.data?.detail ||
+        "Save failed! Please try again.";
+      toast.error(
+        typeof msg === "string" ? msg : "Save failed! Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -124,11 +192,11 @@ export default function LeadSourcesPage() {
 
   const handleEdit = (src) => {
     setEditingId(src.id);
-    // Keep created_by as-is (read-only in UI)
     setForm({
       name: src.name || "",
       description: src.description || "",
-      created_by: src.created_by || "",
+      // keep existing branch selection locked; most APIs don’t allow changing branch post-create
+      branch_id: src.branch_id ?? (isSuperAdmin ? "" : userBranchId || ""),
     });
     setIsCreateNew(true);
   };
@@ -151,10 +219,55 @@ export default function LeadSourcesPage() {
       return (
         (src?.name || "").toLowerCase().includes(term) ||
         (src?.description || "").toLowerCase().includes(term) ||
-        (src?.created_by || "").toLowerCase().includes(term)
+        (src?.created_by || "").toLowerCase().includes(term) ||
+        String(src?.branch_id || "").toLowerCase().includes(term)
       );
     });
   }, [sources, searchTerm]);
+
+  const renderBranchField = () => {
+    if (isSuperAdmin) {
+      return (
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Branch
+          </label>
+          <select
+            value={form.branch_id}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, branch_id: e.target.value }))
+            }
+            required
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"
+          >
+            <option value="" disabled>
+              Select branch…
+            </option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name || `Branch-${b.id}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    // Non-superadmin: lock to their branch, show read-only
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Branch
+        </label>
+        <input
+          type="text"
+          value={userBranchName || (userBranchId ? `Branch-${userBranchId}` : "")}
+          readOnly
+          className="mt-1 block w-full border border-gray-200 rounded-md p-2 bg-gray-100 text-gray-600"
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="p-6">
@@ -167,7 +280,7 @@ export default function LeadSourcesPage() {
               setForm({
                 name: "",
                 description: "",
-                created_by: getCurrentBranchName(),
+                branch_id: isSuperAdmin ? "" : userBranchId || "",
               });
               setIsCreateNew(true);
             }}
@@ -246,18 +359,8 @@ export default function LeadSourcesPage() {
                 />
               </div>
 
-              {/* Created By (auto, read-only) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Created By
-                </label>
-                <input
-                  type="text"
-                  value={form.created_by}
-                  readOnly
-                  className="mt-1 block w-full border border-gray-200 rounded-md p-2 bg-gray-100 text-gray-600"
-                />
-              </div>
+              {/* Branch selector / read-only branch */}
+              {renderBranchField()}
             </div>
 
             <div>
@@ -293,8 +396,8 @@ export default function LeadSourcesPage() {
                     ? "Updating..."
                     : "Creating..."
                   : editingId
-                  ? "Update Source"
-                  : "Create Source"}
+                    ? "Update Source"
+                    : "Create Source"}
               </button>
             </div>
           </form>
@@ -330,7 +433,7 @@ export default function LeadSourcesPage() {
                 Description
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
-                Created By
+                Branch
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">
                 Actions
@@ -367,7 +470,10 @@ export default function LeadSourcesPage() {
                       <Building className="w-3 h-3 text-blue-600" />
                     </div>
                     <span className="text-sm text-gray-900">
-                      {src.created_by}
+                      {branchMap[src.branch_id] ||
+                        src.branch_name ||
+                        src?.branch?.name ||
+                        (src.branch_id != null ? `Branch-${src.branch_id}` : "—")}
                     </span>
                   </div>
                 </td>

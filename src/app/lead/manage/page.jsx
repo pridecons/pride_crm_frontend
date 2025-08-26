@@ -59,12 +59,12 @@ const LeadManage = () => {
 
   const [role, setRole] = useState(null);
   // after: const [role, setRole] = useState(null);
-const ALLOWED_ROLES_FOR_CARDS = new Set([
-  "SUPERADMIN",
-  "BRANCH MANAGER",    // your app often uses this
-  "BRANCH_MANAGER",    // safety if enum-style role shows up
-]);
-const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(role);
+  const ALLOWED_ROLES_FOR_CARDS = new Set([
+    "SUPERADMIN",
+    "BRANCH MANAGER",    // your app often uses this
+    "BRANCH_MANAGER",    // safety if enum-style role shows up
+  ]);
+  const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(role);
 
   const [branchId, setBranchId] = useState(null);
   const isSuperAdmin = role === "SUPERADMIN";
@@ -293,38 +293,38 @@ const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(role);
   };
 
   // Quick stats
-useEffect(() => {
-  if (!canViewCards) {
-    // Hide cards for disallowed roles
-    setDashboardData(null);
-    return;
-  }
-
-  let cancelled = false;
-
-  (async () => {
-    try {
-      const { data } = await axiosInstance.get(
-        "/analytics/leads/admin/dashboard-card?days=30"
-      );
-      if (!cancelled) setDashboardData(data);
-    } catch (error) {
-      // If forbidden, just hide the cards without throwing/logging noisy errors
-      if (error?.response?.status === 403) {
-        if (!cancelled) setDashboardData(null);
-        // no console.error / toast — stay silent
-      } else {
-        // Keep logs minimal & non-breaking for unexpected issues
-        console.debug("Dashboard cards fetch skipped:", error?.message || error);
-        if (!cancelled) setDashboardData(null);
-      }
+  useEffect(() => {
+    if (!canViewCards) {
+      // Hide cards for disallowed roles
+      setDashboardData(null);
+      return;
     }
-  })();
 
-  return () => {
-    cancelled = true;
-  };
-}, [canViewCards]);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/analytics/leads/admin/dashboard-card?days=30"
+        );
+        if (!cancelled) setDashboardData(data);
+      } catch (error) {
+        // If forbidden, just hide the cards without throwing/logging noisy errors
+        if (error?.response?.status === 403) {
+          if (!cancelled) setDashboardData(null);
+          // no console.error / toast — stay silent
+        } else {
+          // Keep logs minimal & non-breaking for unexpected issues
+          console.debug("Dashboard cards fetch skipped:", error?.message || error);
+          if (!cancelled) setDashboardData(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewCards]);
 
 
   return (
@@ -354,82 +354,82 @@ useEffect(() => {
         </div>
       </div>
 
-{/* Quick Stats */}
-{canViewCards && (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    {/* Total Leads */}
-    <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Total Leads</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {dashboardData?.overall?.total_leads ?? "--"}
-          </p>
-          <p className="text-xs text-green-600 flex items-center gap-1">
-            <TrendingUp size={12} /> Active pipeline
-          </p>
-        </div>
-        <div className="bg-blue-50 rounded-full p-3 group-hover:bg-blue-100 transition-colors">
-          <Users size={24} className="text-blue-600" />
-        </div>
-      </div>
-    </div>
+      {/* Quick Stats */}
+      {canViewCards && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Leads */}
+          <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Total Leads</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {dashboardData?.overall?.total_leads ?? "--"}
+                </p>
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <TrendingUp size={12} /> Active pipeline
+                </p>
+              </div>
+              <div className="bg-blue-50 rounded-full p-3 group-hover:bg-blue-100 transition-colors">
+                <Users size={24} className="text-blue-600" />
+              </div>
+            </div>
+          </div>
 
-    {/* Old Leads */}
-    <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Old Leads</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {dashboardData?.overall?.old_leads ?? "--"}
-          </p>
-          <p className="text-xs text-amber-600 flex items-center gap-1">
-            <Clock size={12} /> Existing pipeline
-          </p>
-        </div>
-        <div className="bg-amber-50 rounded-full p-3 group-hover:bg-amber-100 transition-colors">
-          <Clock size={24} className="text-amber-600" />
-        </div>
-      </div>
-    </div>
+          {/* Old Leads */}
+          <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Old Leads</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {dashboardData?.overall?.old_leads ?? "--"}
+                </p>
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <Clock size={12} /> Existing pipeline
+                </p>
+              </div>
+              <div className="bg-amber-50 rounded-full p-3 group-hover:bg-amber-100 transition-colors">
+                <Clock size={24} className="text-amber-600" />
+              </div>
+            </div>
+          </div>
 
-    {/* New Leads */}
-    <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">New Leads</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {dashboardData?.overall?.new_leads ?? "--"}
-          </p>
-          <p className="text-xs text-emerald-600 flex items-center gap-1">
-            <CheckCircle size={12} /> Recently added
-          </p>
-        </div>
-        <div className="bg-emerald-50 rounded-full p-3 group-hover:bg-emerald-100 transition-colors">
-          <CheckCircle size={24} className="text-emerald-600" />
-        </div>
-      </div>
-    </div>
+          {/* New Leads */}
+          <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">New Leads</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {dashboardData?.overall?.new_leads ?? "--"}
+                </p>
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  <CheckCircle size={12} /> Recently added
+                </p>
+              </div>
+              <div className="bg-emerald-50 rounded-full p-3 group-hover:bg-emerald-100 transition-colors">
+                <CheckCircle size={24} className="text-emerald-600" />
+              </div>
+            </div>
+          </div>
 
-    {/* Clients */}
-    <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Clients</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {dashboardData?.overall?.total_clients ?? "--"}
-          </p>
-          <p className="text-xs text-purple-600 flex items-center gap-1">
-            <Database size={12} /> Converted leads
-          </p>
+          {/* Clients */}
+          <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">Clients</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {dashboardData?.overall?.total_clients ?? "--"}
+                </p>
+                <p className="text-xs text-purple-600 flex items-center gap-1">
+                  <Database size={12} /> Converted leads
+                </p>
+              </div>
+              <div className="bg-purple-50 rounded-full p-3 group-hover:bg-purple-100 transition-colors">
+                <Database size={24} className="text-purple-600" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="bg-purple-50 rounded-full p-3 group-hover:bg-purple-100 transition-colors">
-          <Database size={24} className="text-purple-600" />
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
 
       {/* Search & Filters */}
@@ -443,11 +443,10 @@ useEffect(() => {
                   <button
                     key={opt.value}
                     onClick={() => setBranchFilter(opt.value)}
-                    className={`px-4 py-2 rounded-lg border whitespace-nowrap ${
-                      branchFilter === opt.value
+                    className={`px-4 py-2 rounded-lg border whitespace-nowrap ${branchFilter === opt.value
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                    }`}
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -728,11 +727,10 @@ useEffect(() => {
             <button
               key={i}
               onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 border rounded ${
-                currentPage === i + 1
+              className={`px-3 py-1 border rounded ${currentPage === i + 1
                   ? "bg-blue-600 text-white border-blue-600"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-              }`}
+                }`}
             >
               {i + 1}
             </button>

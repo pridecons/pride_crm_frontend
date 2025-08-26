@@ -1,46 +1,79 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
-import {
-  ArrowDownToLine,
-  X,
-  Search,
-  Database,
-} from "lucide-react";
+import { ArrowDownToLine, Database } from "lucide-react";
 
 export default function BulkUploadPage() {
   const router = useRouter();
 
   // state
   const [branches, setBranches] = useState([]);
+  const [leadSources, setLeadSources] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
-  const [leadSources, setLeadSources] = useState([]);
 
-  // fetch branches + lead sources on mount
-useEffect(() => {
-  (async () => {
+  // auth-derived
+  const [role, setRole] = useState(null);
+  const [branchId, setBranchId] = useState(null);
+
+  const isSuperAdmin = role === "SUPERADMIN";
+
+  // derive my branch object for non-superadmins
+  const myBranch = useMemo(
+    () => branches.find((b) => String(b.id) === String(branchId)),
+    [branches, branchId]
+  );
+
+  // read user_info + fetch branches & lead sources
+  useEffect(() => {
+    // 1) read role/branch from cookie
     try {
-      const { data } = await axiosInstance.get(
-        "/branches/?skip=0&limit=100&active_only=false"
-      );
-      setBranches(data);
-    } catch (err) {
-      console.error("Failed to load branches:", err);
+      const raw = Cookies.get("user_info");
+      if (raw) {
+        const u = JSON.parse(raw);
+        const r =
+          u?.role ||
+          u?.user?.role ||
+          u?.user_info?.role ||
+          u?.user_info?.user?.role ||
+          null;
+        const b =
+          u?.branch_id ||
+          u?.user?.branch_id ||
+          u?.user_info?.branch_id ||
+          null;
+
+        setRole(r);
+        setBranchId(b);
+      }
+    } catch (e) {
+      console.warn("Failed to parse user_info cookie:", e);
     }
 
-    try {
-      const { data } = await axiosInstance.get(
-        "/lead-config/sources/?skip=0&limit=100"
-      );
-      setLeadSources(data);
-    } catch (err) {
-      console.error("Failed to load lead sources:", err);
-    }
-  })();
-}, []);
+    // 2) load branches + lead sources
+    (async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/branches/?skip=0&limit=100&active_only=false"
+        );
+        setBranches(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load branches:", err);
+      }
+
+      try {
+        const { data } = await axiosInstance.get(
+          "/lead-config/sources/?skip=0&limit=100"
+        );
+        setLeadSources(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load lead sources:", err);
+      }
+    })();
+  }, []);
 
   // submit CSV
   const handleSubmit = async (e) => {
@@ -86,18 +119,17 @@ useEffect(() => {
       Array.isArray(err.errors) ? err.errors.join("; ") : err.errors || "",
     ]);
 
-    const csvContent =
-      [headers, ...rows]
-        .map((r) =>
-          r
-            .map((v) => {
-              if (v == null) return "";
-              const s = String(v).replace(/"/g, '""');
-              return s.includes(",") ? `"${s}"` : s;
-            })
-            .join(",")
-        )
-        .join("\r\n");
+    const csvContent = [headers, ...rows]
+      .map((r) =>
+        r
+          .map((v) => {
+            if (v == null) return "";
+            const s = String(v).replace(/"/g, '""');
+            return s.includes(",") ? `"${s}"` : s;
+          })
+          .join(",")
+      )
+      .join("\r\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const link = document.createElement("a");
@@ -110,7 +142,6 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      {/* Main Content */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Upload Form */}
         <div className="flex-1 bg-white rounded-2xl shadow p-6 overflow-y-auto">
@@ -167,54 +198,72 @@ useEffect(() => {
             </section>
 
             {/* Configuration */}
-<section className="space-y-3">
-  <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-    <span className="text-blue-600">⚙️</span>
-    Configuration
-  </h2>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    {/* Branch dropdown */}
-    <div className="space-y-1">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        <span className="text-lg">🏢</span>
-        Select Branch
-      </label>
-      <select
-        name="branch_id"
-        required
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-      >
-        <option value="">Choose a branch…</option>
-        {branches.map((b) => (
-          <option key={b.id} value={b.id}>
-            {b.name}
-          </option>
-        ))}
-      </select>
-    </div>
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <span className="text-blue-600">⚙️</span>
+                Configuration
+              </h2>
 
-    {/* Lead source dropdown */}
-    <div className="space-y-1">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        <span className="text-lg">🔖</span>
-        Select Lead Source
-      </label>
-      <select
-        name="lead_source_id"
-        required
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-      >
-        <option value="">Choose a source…</option>
-        {leadSources.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-    </div>
-  </div>
-</section>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Branch (dropdown only for SUPERADMIN) */}
+                <div className="space-y-1">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <span className="text-lg">🏢</span>
+                    Select Branch
+                  </label>
 
+                  {isSuperAdmin ? (
+                    <select
+                      name="branch_id"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>
+                        Choose a branch…
+                      </option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <>
+                      {/* Hidden field sent to backend */}
+                      <input type="hidden" name="branch_id" value={branchId ?? ""} />
+                      {/* Read-only chip */}
+                      <div className="px-3 py-2 rounded-lg border bg-gray-50 text-gray-700">
+                        {myBranch?.name || "Your Branch"}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Lead source dropdown */}
+                <div className="space-y-1">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <span className="text-lg">🔖</span>
+                    Select Lead Source
+                  </label>
+                  <select
+                    name="lead_source_id"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Choose a source…
+                    </option>
+                    {leadSources.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </section>
 
             {/* Submit */}
             <button
@@ -296,9 +345,7 @@ useEffect(() => {
                     className="flex justify-between text-sm text-gray-700"
                   >
                     <span>{label}</span>
-                    <span className="font-semibold">
-                      {val ?? 0}
-                    </span>
+                    <span className="font-semibold">{val ?? 0}</span>
                   </div>
                 ))}
               </div>

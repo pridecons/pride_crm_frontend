@@ -13,27 +13,34 @@ import {
   User,
   Search,
   CheckCircle,
+  Building,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 
 // ---- helpers ---------------------------------------------------------------
-const getCurrentUserName = () => {
+const getCurrentBranchName = () => {
   try {
     const raw = Cookies.get("user_info");
     if (!raw) return "";
     const p = JSON.parse(raw);
 
-    // Try common fields (adjust to your structure)
-    return (
-      p?.username ||
-      p?.name ||
-      p?.user?.username ||
-      p?.user?.name ||
-      p?.employee_code || // e.g., EMP005
-      p?.sub || // from JWT-like payload if present
-      ""
-    );
+    // If SUPERADMIN, show "SUPERADMIN"
+    const role = (p?.role || p?.user?.role || "").toUpperCase();
+    if (role === "SUPERADMIN") return "SUPERADMIN"; // change text if you prefer "SuperAdmin"
+
+    // Otherwise use branch name (fallback to Branch-<id>)
+    const name =
+      p?.branch_name ||
+      p?.branch?.name ||
+      p?.user?.branch_name ||
+      p?.user?.branch?.name ||
+      "";
+
+    if (name) return name;
+
+    const id = p?.branch_id ?? p?.user?.branch_id ?? null;
+    return id ? `Branch-${id}` : "";
   } catch {
     return "";
   }
@@ -48,7 +55,7 @@ export default function LeadSourcesPage() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    created_by: getCurrentUserName(),
+    created_by: getCurrentBranchName(),
   });
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +64,7 @@ export default function LeadSourcesPage() {
   // keep created_by fresh if cookie changes while mounted
   useEffect(() => {
     if (!editingId && isCreateNew) {
-      setForm((f) => ({ ...f, created_by: getCurrentUserName() }));
+      setForm((f) => ({ ...f, created_by: getCurrentBranchName() }));
     }
   }, [isCreateNew, editingId]);
 
@@ -79,7 +86,7 @@ export default function LeadSourcesPage() {
   };
 
   const resetForm = () => {
-    setForm({ name: "", description: "", created_by: getCurrentUserName() });
+    setForm({ name: "", description: "", created_by: getCurrentBranchName() });
     setEditingId(null);
     setIsCreateNew(false);
   };
@@ -100,7 +107,7 @@ export default function LeadSourcesPage() {
         const payload = {
           name: form.name,
           description: form.description,
-          created_by: getCurrentUserName() || form.created_by || "system",
+          created_by: getCurrentBranchName() || form.created_by || "system",
         };
         await axiosInstance.post("/lead-config/sources/", payload);
         toast.success("Source created successfully!");
@@ -160,7 +167,7 @@ export default function LeadSourcesPage() {
               setForm({
                 name: "",
                 description: "",
-                created_by: getCurrentUserName(),
+                created_by: getCurrentBranchName(),
               });
               setIsCreateNew(true);
             }}
@@ -357,7 +364,7 @@ export default function LeadSourcesPage() {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-1">
                     <div className="bg-gray-100 rounded-full p-1">
-                      <User className="w-3 h-3 text-gray-600" />
+                      <Building className="w-3 h-3 text-blue-600" />
                     </div>
                     <span className="text-sm text-gray-900">
                       {src.created_by}

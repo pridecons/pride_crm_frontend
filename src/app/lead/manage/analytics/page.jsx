@@ -556,44 +556,38 @@ function DashboardTables({ isSuperAdmin, branchId }) {
                             </span>
                         </div>
 
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 table-fixed">
-                                <thead className="bg-gray-50">
+                        <div className="overflow-x-auto max-h-[320px]">
+                            <table className="min-w-full divide-y divide-gray-200 table-fixed tabular-nums">
+                                <thead className="bg-gray-50 top-0 ">
                                     <tr>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                             Response
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                             Total Leads
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                             Percentage
                                         </th>
                                     </tr>
                                 </thead>
-                            </table>
-                        </div>
-
-                        <div className="max-h-[260px] overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200 table-fixed">
                                 <tbody className="bg-white divide-y divide-gray-100">
                                     {responseRows.map((r, idx) => (
                                         <tr key={idx} className="hover:bg-gray-50">
                                             <td className="px-6 py-3 font-medium text-gray-900">
                                                 {r.response_name}
                                             </td>
-                                            <td className="px-6 py-3 text-blue-700">
+                                            <td className="px-6 py-3 text-right text-blue-700">
                                                 {r.total_leads}
                                             </td>
-                                            <td className="px-6 py-3">{r.percentage}%</td>
+                                            <td className="px-6 py-3 text-right">
+                                                {r.percentage}%
+                                            </td>
                                         </tr>
                                     ))}
                                     {responseRows.length === 0 && (
                                         <tr>
-                                            <td
-                                                colSpan={3}
-                                                className="px-6 py-6 text-center text-gray-500"
-                                            >
+                                            <td colSpan={3} className="px-6 py-6 text-center text-gray-500">
                                                 No data
                                             </td>
                                         </tr>
@@ -601,6 +595,9 @@ function DashboardTables({ isSuperAdmin, branchId }) {
                                 </tbody>
                             </table>
                         </div>
+
+
+
                     </>
                 )}
             </div>

@@ -47,13 +47,20 @@ export default function OldLeadsTable() {
     setUserId(userInfo.employee_code || "Admin001");
   }, []);
 
-  // ✅ Fetch data on mount
-  // refetch leads whenever filters or page change
-useEffect(() => {
-  if (applied || responseFilterId !== null) {
+  // 🔁 Always refetch when page / response / search change
+  useEffect(() => {
     fetchLeads();
-  }
-}, [applied, page, responseFilterId, searchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, responseFilterId, searchQuery]);
+
+  // ✅ Only refetch with date params when Apply is pressed
+  useEffect(() => {
+    if (applied) {
+      fetchLeads(fromDate, toDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied]);
+
 
 
 
@@ -74,7 +81,7 @@ useEffect(() => {
           fromdate: customFrom || undefined,
           todate: customTo || undefined,
           search: searchQuery || undefined,
-          response_id: responseFilterId || undefined,
+          response_id: responseFilterId ?? undefined,
         },
       });
 
@@ -105,10 +112,9 @@ useEffect(() => {
     setFromDate("");
     setToDate("");
     setApplied(false);
+    setPage(1);
     fetchLeads("", ""); // ✅ fetch without date filters
   };
-
-
 
   const fetchResponses = async () => {
     try {
@@ -175,56 +181,56 @@ useEffect(() => {
   };
 
   // ✅ Update response & move lead to Old Leads
-// ✅ Replace your existing handleResponseChange with this
-const handleResponseChange = async (lead, newResponseId) => {
-  const id = Number(newResponseId);
-  if (!id) return;
+  // ✅ Replace your existing handleResponseChange with this
+  const handleResponseChange = async (lead, newResponseId) => {
+    const id = Number(newResponseId);
+    if (!id) return;
 
-  const selectedResponse = responses.find((r) => r.id === id);
-  const responseName = (selectedResponse?.name || "").toLowerCase();
+    const selectedResponse = responses.find((r) => r.id === id);
+    const responseName = (selectedResponse?.name || "").toLowerCase();
 
-  // FT -> open FT modal
-  if (responseName === "ft") {
-    setFTLead(lead);
-    setFTFromDate("");
-    setFTToDate("");
-    setShowFTModal(true);
-    return;
-  }
-
-  // Call Back -> open CallBack modal
-  if (responseName === "call back" || responseName === "callback") {
-    setCallBackLead(lead);
-    // prefill datetime-local if existing
-    let dt = "";
-    if (lead.call_back_date) {
-      const d = new Date(lead.call_back_date);
-      dt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    // FT -> open FT modal
+    if (responseName === "ft") {
+      setFTLead(lead);
+      setFTFromDate("");
+      setFTToDate("");
+      setShowFTModal(true);
+      return;
     }
-    setCallBackDate(dt);
-    setShowCallBackModal(true);
-    return;
-  }
 
-  // Other responses -> patch directly
-  try {
-    await axiosInstance.patch(`/leads/${lead.id}/response`, {
-      lead_response_id: id,
-    });
+    // Call Back -> open CallBack modal
+    if (responseName === "call back" || responseName === "callback") {
+      setCallBackLead(lead);
+      // prefill datetime-local if existing
+      let dt = "";
+      if (lead.call_back_date) {
+        const d = new Date(lead.call_back_date);
+        dt = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      }
+      setCallBackDate(dt);
+      setShowCallBackModal(true);
+      return;
+    }
 
-    // Update local state first; keep the try block minimal
-    setLeads((prev) =>
-      prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: id } : l))
-    );
+    // Other responses -> patch directly
+    try {
+      await axiosInstance.patch(`/leads/${lead.id}/response`, {
+        lead_response_id: id,
+      });
 
-    toast.success("Response updated!");
-    // ❌ DO NOT call setActiveTab here (it isn't defined in this component)
-    // if (typeof setActiveTab === "function") setActiveTab("Old Leads");
-  } catch (error) {
-    console.error("Error updating response:", error);
-    toast.error("Failed to update response!");
-  }
-};
+      // Update local state first; keep the try block minimal
+      setLeads((prev) =>
+        prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: id } : l))
+      );
+
+      toast.success("Response updated!");
+      // ❌ DO NOT call setActiveTab here (it isn't defined in this component)
+      // if (typeof setActiveTab === "function") setActiveTab("Old Leads");
+    } catch (error) {
+      console.error("Error updating response:", error);
+      toast.error("Failed to update response!");
+    }
+  };
 
 
 

@@ -16,8 +16,6 @@ export default function Header({ onMenuClick, onSearch }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [user, setUser] = useState(null);
 
-  console.log("user : ",user)
-
   // ---- Global Search state ----
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);

@@ -254,7 +254,7 @@ const menu = [
                           </button>
                           {expandedSections.manageLeads && (
                             <ul className="mt-1 ml-4 space-y-1">
-                              {item.items.map((sub, j) => (
+                              {item.items.filter((val)=>hasPermission(val.access) || val.access==="").map((sub, j) => (
                                 <li key={j}>
                                   <NavItem {...sub} />
                                 </li>
@@ -273,7 +273,7 @@ const menu = [
                   {section.title}
                 </p>
                 <ul className="space-y-1">
-                  {section.items.map((item, i) => (
+                  {section.items.filter((val)=>hasPermission(val.access) || val.access==="").map((item, i) => (
                     <li key={i}>
                       <NavItem {...item} />
                     </li>

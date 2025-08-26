@@ -305,10 +305,12 @@ const BranchesPage = () => {
     setIsOpen(false);
     fetchBranches();
   } catch (error) {
+
+    const detail = error?.response?.data?.detail;
     const msg =
-      error?.response?.data?.detail ||
-      error?.response?.data?.message ||
-      "Error saving branch";
+      Array.isArray(detail?.errors)
+        ? detail.errors.join(", ")
+        : detail?.errors || detail?.message || "Error saving branch";
     toast.error(String(msg));
   }
 };

@@ -407,8 +407,8 @@ export default function UserModal({
         // Role specific validations
         if (formData.role === "TL" && !formData.sales_manager_id)
             return toast.error("Sales Manager is required for TL");
-        if ((formData.role === "BA" || formData.role === "SBA") && !formData.tl_id)
-            return toast.error("Team Lead is required for BA/SBA");
+        // if ((formData.role === "BA" || formData.role === "SBA") && !formData.tl_id)
+        //     return toast.error("Team Lead is required for BA/SBA");
 
         // --- Submit logic ---
         setIsSubmitting(true);
@@ -453,10 +453,18 @@ export default function UserModal({
             setCreatedUser(res.data);
             setShowPermissionsModal(true);
             onClose();
-        } catch (err) {
+        } catch (error) {
             toast.dismiss();
-            // 👇 show field-wise server messages (like your screenshot)
-            showApiErrors(err);
+            console.log("error : ",error)
+            const detail = error?.response?.data?.detail;
+            const msg =
+            Array.isArray(detail?.errors)
+                ? detail.errors.join(", ")
+                : detail?.errors || detail?.message || detail
+            toast.error(msg)
+            // toast.dismiss();
+            // // 👇 show field-wise server messages (like your screenshot)
+            // showApiErrors(err);
         } finally {
             setIsSubmitting(false);
         }
@@ -722,7 +730,7 @@ export default function UserModal({
                                             className="w-full p-3 border rounded-xl bg-white"
                                             value={formData.sales_manager_id}
                                             onChange={(e) => setFormData({ ...formData, sales_manager_id: e.target.value })}
-                                            required={formData.role === "TL"}
+                                            // required={formData.role === "TL"}
                                         >
                                             <option value="">Select Sales Manager</option>
                                             {salesManagers.map((sm) => (
@@ -741,7 +749,7 @@ export default function UserModal({
                                             className="w-full p-3 border rounded-xl bg-white"
                                             value={formData.tl_id}
                                             onChange={(e) => setFormData({ ...formData, tl_id: e.target.value })}
-                                            required
+                                            // required
                                             disabled={!formData.sales_manager_id}
                                         >
                                             <option value="">Select Team Lead</option>

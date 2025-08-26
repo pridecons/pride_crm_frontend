@@ -5,8 +5,6 @@ import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
-import LeadCommentSection from "@/components/Lead/LeadCommentSection";
-import LoadingState from "@/components/LoadingState";
 import { Pencil, BookOpenText, MessageCircle, Eye, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -139,7 +137,13 @@ export default function NewLeadsTable() {
     setLoading(true);
     try {
       const { data } = await axiosInstance.post("/leads/fetch");
-      toast.success(`${data.fetched_count} new leads fetched`);
+
+      if (data.fetched_count === 0 && data.message?.includes("active assignments")) {
+        toast.error("No leads available at the moment, please complete all your assigned leads before fetching new ones.");
+      } else {
+        toast.success(`${data.fetched_count} new leads fetched`);
+      }
+
       await fetchLeads(); // refresh full table
     } catch (error) {
       console.error("Error fetching leads:", error);

@@ -203,7 +203,6 @@ const segmentOptions = useMemo(
         comment: '',
         call_back_date: '',
         lead_status: '',
-        profile: '',
       });
       setAadharFront(null);
       setAadharBack(null);
@@ -561,18 +560,6 @@ const segmentOptions = useMemo(
             value={formData.experience}
             onChange={handleChange}
             placeholder="Experience"
-            className="p-2 border rounded w-full"
-          />
-        </div>
-
-        {/* Profile */}
-        <div>
-          <label className="block mb-1 font-medium">Profile</label>
-          <input
-            name="profile"
-            value={formData.profile}
-            onChange={handleChange}
-            placeholder="Profile"
             className="p-2 border rounded w-full"
           />
         </div>

@@ -453,8 +453,6 @@ export default function ClientsPage() {
                     "Name",
                     "Email",
                     "Mobile",
-                    "City",
-                    "Occupation",
                     "Investment",
                     "Services",
                     "Last Payment",
@@ -496,20 +494,6 @@ export default function ClientsPage() {
                         <td className="px-4 py-3 text-sm text-gray-700">
                           <span className="whitespace-nowrap">
                             {client.mobile || "—"}
-                          </span>
-                        </td>
-
-                        {/* CITY */}
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <span className="line-clamp-1">
-                            {client.city || "—"}
-                          </span>
-                        </td>
-
-                        {/* OCCUPATION */}
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <span className="line-clamp-1">
-                            {client.occupation || "—"}
                           </span>
                         </td>
 

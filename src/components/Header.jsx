@@ -9,6 +9,7 @@ import { axiosInstance } from '@/api/Axios';
 import toast from 'react-hot-toast';
 import { createPortal } from "react-dom";
 import { usePermissions } from "@/context/PermissionsContext";
+import ShowNotifications from "./Notofication/ShowNotifications";
 
 /** ---------- helpers ---------- */
 function toPrettyRole(r = '') {
@@ -508,140 +509,140 @@ export default function Header({ onMenuClick, onSearch }) {
 }
 
 /* ---------------- Notifications (unchanged) ---------------- */
-const ShowNotifications = ({ setIsConnect, employee_code }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const retryCountRef = useRef(0);
-  const socketRef = useRef(null);
-  const wrapperRef = useRef(null);
+// const ShowNotifications = ({ setIsConnect, employee_code }) => {
+//   const [showNotifications, setShowNotifications] = useState(false);
+//   const [messages, setMessages] = useState([]);
+//   const retryCountRef = useRef(0);
+//   const socketRef = useRef(null);
+//   const wrapperRef = useRef(null);
 
-  useEffect(() => {
-    if (!employee_code) return;
-    const connect = () => {
-      const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/${employee_code}`);
-      socketRef.current = socket;
+//   useEffect(() => {
+//     if (!employee_code) return;
+//     const connect = () => {
+//       const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/${employee_code}`);
+//       socketRef.current = socket;
 
-      socket.onopen = () => { setIsConnect(true); retryCountRef.current = 0; };
+//       socket.onopen = () => { setIsConnect(true); retryCountRef.current = 0; };
 
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (!["connection_confirmed", "ping", "pong"].includes(data.type)) {
-          const messageWithTime = { ...data, received_at: new Date() };
-          setMessages((prev) => [...prev, messageWithTime]);
+//       socket.onmessage = (event) => {
+//         const data = JSON.parse(event.data);
+//         if (!["connection_confirmed", "ping", "pong"].includes(data.type)) {
+//           const messageWithTime = { ...data, received_at: new Date() };
+//           setMessages((prev) => [...prev, messageWithTime]);
 
-          toast.custom((t) => (
-            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
-              <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 w-full">
-                <div className="bg-blue-100 rounded-full p-2">
-                  <Bell size={16} className="text-blue-600" />
-                </div>
-                <div className="flex-1 w-full">
-                  <p className="text-sm font-medium text-gray-900">{data?.title}</p>
-                  <p className="text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: data.message }} />
-                  <p className="text-[10px] text-right text-gray-400 mt-1">
-                    {(() => {
-                      const date = new Date(messageWithTime.received_at);
-                      let hours = date.getHours();
-                      const minutes = String(date.getMinutes()).padStart(2, '0');
-                      const ampm = hours >= 12 ? 'PM' : 'AM';
-                      hours = hours % 12 || 12;
-                      return `${hours}:${minutes} ${ampm}`;
-                    })()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ));
-        }
-      };
+//           toast.custom((t) => (
+//             <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+//               <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 w-full">
+//                 <div className="bg-blue-100 rounded-full p-2">
+//                   <Bell size={16} className="text-blue-600" />
+//                 </div>
+//                 <div className="flex-1 w-full">
+//                   <p className="text-sm font-medium text-gray-900">{data?.title}</p>
+//                   <p className="text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: data.message }} />
+//                   <p className="text-[10px] text-right text-gray-400 mt-1">
+//                     {(() => {
+//                       const date = new Date(messageWithTime.received_at);
+//                       let hours = date.getHours();
+//                       const minutes = String(date.getMinutes()).padStart(2, '0');
+//                       const ampm = hours >= 12 ? 'PM' : 'AM';
+//                       hours = hours % 12 || 12;
+//                       return `${hours}:${minutes} ${ampm}`;
+//                     })()}
+//                   </p>
+//                 </div>
+//               </div>
+//             </div>
+//           ));
+//         }
+//       };
 
-      socket.onclose = () => {
-        setIsConnect(false);
-        if (retryCountRef.current < 10) {
-          retryCountRef.current += 1;
-          setTimeout(connect, 1000);
-        }
-      };
-    };
+//       socket.onclose = () => {
+//         setIsConnect(false);
+//         if (retryCountRef.current < 10) {
+//           retryCountRef.current += 1;
+//           setTimeout(connect, 1000);
+//         }
+//       };
+//     };
 
-    connect();
-    return () => { socketRef.current?.close(); };
-  }, [setIsConnect, employee_code]);
+//     connect();
+//     return () => { socketRef.current?.close(); };
+//   }, [setIsConnect, employee_code]);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-        setShowNotifications(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => { document.removeEventListener("mousedown", handleClickOutside); };
-  }, []);
+//   useEffect(() => {
+//     const handleClickOutside = (event) => {
+//       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+//         setShowNotifications(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => { document.removeEventListener("mousedown", handleClickOutside); };
+//   }, []);
 
-  return (
-    <div className="relative" ref={wrapperRef}>
-      <button
-        onClick={() => setShowNotifications(!showNotifications)}
-        className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-      >
-        <Bell size={20} />
-        {messages.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
-            {messages.length}
-          </span>
-        )}
-      </button>
+//   return (
+//     <div className="relative" ref={wrapperRef}>
+//       <button
+//         onClick={() => setShowNotifications(!showNotifications)}
+//         className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
+//       >
+//         <Bell size={20} />
+//         {messages.length > 0 && (
+//           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
+//             {messages.length}
+//           </span>
+//         )}
+//       </button>
 
-      {showNotifications && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
-              <div className="flex items-center space-x-2">
-                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{messages?.length}</span>
-                {messages.length > 0 && (
-                  <button onClick={() => setMessages([])} className="text-xs text-blue-600 hover:underline hover:text-blue-800">
-                    Clear All
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+//       {showNotifications && (
+//         <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
+//           <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
+//             <div className="flex items-center justify-between">
+//               <h3 className="font-semibold text-gray-900">Notifications</h3>
+//               <div className="flex items-center space-x-2">
+//                 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{messages?.length}</span>
+//                 {messages.length > 0 && (
+//                   <button onClick={() => setMessages([])} className="text-xs text-blue-600 hover:underline hover:text-blue-800">
+//                     Clear All
+//                   </button>
+//                 )}
+//               </div>
+//             </div>
+//           </div>
 
-          <div className="p-4 max-h-60 overflow-y-auto space-y-3">
-            {messages?.map((val, index) => (
-              <div key={index} className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 max-w-full">
-                <div className="bg-blue-100 rounded-full p-2">
-                  <Bell size={16} className="text-blue-600" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <p className="text-sm font-medium text-gray-900">{val?.title}</p>
-                  <p className="text-xs text-gray-500 break-words whitespace-normal w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: val.message }} />
-                  {val?.received_at && (
-                    <p className="text-[10px] text-right text-gray-400 mt-1">
-                      {new Date(val.received_at).toLocaleTimeString()}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    const updated = [...messages];
-                    updated.splice(index, 1);
-                    setMessages(updated);
-                  }}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
-                  title="Delete"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+//           <div className="p-4 max-h-60 overflow-y-auto space-y-3">
+//             {messages?.map((val, index) => (
+//               <div key={index} className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 max-w-full">
+//                 <div className="bg-blue-100 rounded-full p-2">
+//                   <Bell size={16} className="text-blue-600" />
+//                 </div>
+//                 <div className="flex-1 overflow-hidden">
+//                   <p className="text-sm font-medium text-gray-900">{val?.title}</p>
+//                   <p className="text-xs text-gray-500 break-words whitespace-normal w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: val.message }} />
+//                   {val?.received_at && (
+//                     <p className="text-[10px] text-right text-gray-400 mt-1">
+//                       {new Date(val.received_at).toLocaleTimeString()}
+//                     </p>
+//                   )}
+//                 </div>
+//                 <button
+//                   onClick={() => {
+//                     const updated = [...messages];
+//                     updated.splice(index, 1);
+//                     setMessages(updated);
+//                   }}
+//                   className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+//                   title="Delete"
+//                 >
+//                   <X size={14} />
+//                 </button>
+//               </div>
+//             ))}
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
 
 /* ---------------- SearchOverlay (unchanged except props pass-through) ---------------- */
 function SearchOverlay({

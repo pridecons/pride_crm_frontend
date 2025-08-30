@@ -171,99 +171,105 @@ export default function LeadForm() {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!branchId) {
-      toast.error('Branch not found for current user. Please re-login or contact admin.');
-      return;
+  if (!formData.lead_response_id) {
+    toast.error('Please select a Lead Response.');
+    return;
+  }
+
+  if (!formData.lead_source_id) {
+    toast.error('Please select a Lead Source.');
+    return;
+  }
+
+  setSubmitting(true);
+  try {
+    // Build payload explicitly to avoid sending unsupported fields (like pan_type)
+    const payload = {
+      full_name: (formData.full_name || '').trim(),
+      father_name: (formData.father_name || '').trim(),
+      email: (formData.email || '').trim(),
+      mobile: (formData.mobile || '').trim(),
+      alternate_mobile: (formData.alternate_mobile || '').trim() || null,
+      aadhaar: (formData.aadhaar || '').trim() || null,
+      pan: (formData.pan || '').trim() || null,
+      gstin: (formData.gstin || '').trim() || null,
+      state: (formData.state || '').trim(),
+      city: (formData.city || '').trim(),
+      district: (formData.district || '').trim() || null,
+      address: (formData.address || '').trim() || null,
+      pincode: (formData.pincode || '').trim() || null,
+      dob: formatForInput(formData.dob),
+      occupation: (formData.occupation || '').trim() || null,
+      segment: Array.isArray(formData.segment) ? formData.segment : [],
+      experience: (formData.experience || '').trim() || null,
+      lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
+      lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
+      comment: typeof formData.comment === 'object' ? (formData.comment?.text || '') : (formData.comment || ''),
+      call_back_date: formatForInput(formData.call_back_date),
+      // Only send branch_id if the role is not SUPERADMIN
+      ...(Cookies.get('user_info') && !JSON.parse(Cookies.get('user_info'))?.role === 'SUPERADMIN' && { branch_id: branchId }),
+      // profile: formData.profile || '', // include only if your backend expects it
+    };
+
+    const { data } = await axiosInstance.post('/leads/', payload);
+    const leadId = data.id;
+
+    if (aadharFront || aadharBack || panPic) {
+      const uploadData = new FormData();
+      if (aadharFront) uploadData.append('aadhar_front', aadharFront);
+      if (aadharBack) uploadData.append('aadhar_back', aadharBack);
+      if (panPic) uploadData.append('pan_pic', panPic);
+
+      await axiosInstance.post(
+        `/leads/${leadId}/upload-documents`,
+        uploadData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
     }
 
-    setSubmitting(true);
-    try {
-      // Build payload explicitly to avoid sending unsupported fields (like pan_type)
-      const payload = {
-        full_name: (formData.full_name || '').trim(),
-        father_name: (formData.father_name || '').trim(),
-        email: (formData.email || '').trim(),
-        mobile: (formData.mobile || '').trim(),
-        alternate_mobile: (formData.alternate_mobile || '').trim() || null,
-        aadhaar: (formData.aadhaar || '').trim() || null,
-        pan: (formData.pan || '').trim() || null,
-        gstin: (formData.gstin || '').trim() || null,
-        state: (formData.state || '').trim(),
-        city: (formData.city || '').trim(),
-        district: (formData.district || '').trim() || null,
-        address: (formData.address || '').trim() || null,
-        pincode: (formData.pincode || '').trim() || null,
-        dob: formatForInput(formData.dob),
-        occupation: (formData.occupation || '').trim() || null,
-        segment: Array.isArray(formData.segment) ? formData.segment : [],
-        experience: (formData.experience || '').trim() || null,
-        lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
-        lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
-        comment: typeof formData.comment === 'object' ? (formData.comment?.text || '') : (formData.comment || ''),
-        call_back_date: formatForInput(formData.call_back_date),
-        branch_id: branchId, // ← inject hidden branch
-        // profile: formData.profile || '', // include only if your backend expects it
-      };
-
-      const { data } = await axiosInstance.post('/leads/', payload);
-      const leadId = data.id;
-
-      if (aadharFront || aadharBack || panPic) {
-        const uploadData = new FormData();
-        if (aadharFront) uploadData.append('aadhar_front', aadharFront);
-        if (aadharBack) uploadData.append('aadhar_back', aadharBack);
-        if (panPic) uploadData.append('pan_pic', panPic);
-
-        await axiosInstance.post(
-          `/leads/${leadId}/upload-documents`,
-          uploadData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
-        );
-      }
-
-      toast.success('Lead and documents uploaded successfully');
-      // reset all
-      setFormData({
-        full_name: '',
-        father_name: '',
-        email: '',
-        mobile: '',
-        alternate_mobile: '',
-        aadhaar: '',
-        pan: '',
-        pan_type: '',
-        gstin: '',
-        state: '',
-        city: '',
-        district: '',
-        address: '',
-        dob: '',
-        occupation: '',
-        segment: [],
-        experience: '',
-        lead_response_id: '',
-        lead_source_id: '',
-        comment: '',
-        call_back_date: '',
-        profile: '',
-      });
-      setAadharFront(null);
-      setAadharBack(null);
-      setPanPic(null);
-      setAadharFrontPreview(null);
-      setAadharBackPreview(null);
-      setPanPicPreview(null);
-      setPanVerified(false);
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.response?.data?.detail || 'Error creating lead or uploading documents');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    toast.success('Lead and documents uploaded successfully');
+    // reset all
+    setFormData({
+      full_name: '',
+      father_name: '',
+      email: '',
+      mobile: '',
+      alternate_mobile: '',
+      aadhaar: '',
+      pan: '',
+      pan_type: '',
+      gstin: '',
+      state: '',
+      city: '',
+      district: '',
+      address: '',
+      dob: '',
+      occupation: '',
+      segment: [],
+      experience: '',
+      lead_response_id: '',
+      lead_source_id: '',
+      comment: '',
+      call_back_date: '',
+      profile: '',
+    });
+    setAadharFront(null);
+    setAadharBack(null);
+    setPanPic(null);
+    setAadharFrontPreview(null);
+    setAadharBackPreview(null);
+    setPanPicPreview(null);
+    setPanVerified(false);
+  } catch (err) {
+    console.error(err);
+    toast.error(err?.response?.data?.detail || 'Error creating lead or uploading documents');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const formatDob = dobString => dobString || '';
   const formatForInput = (ddmmyyyy = '') => {

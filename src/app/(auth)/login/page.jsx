@@ -5,9 +5,7 @@ import Cookies from 'js-cookie'
 import { jwtDecode } from 'jwt-decode'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff } from 'lucide-react'
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? 'https://crm.24x7techelp.com/api/v1'
+import { axiosInstance } from '@/api/Axios'  // Import axiosInstance
 
 // Map numeric role_id → canonical key
 const ROLE_ID_TO_KEY = {
@@ -129,21 +127,18 @@ export default function LoginPage() {
       body.append('client_id', 'string')
       body.append('client_secret', 'string')
 
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
+      const res = await axiosInstance.post('/auth/login', body, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           Accept: 'application/json',
         },
-        body,
       })
 
       let payload = null
-      try { payload = await res.json() } catch {}
+      try { payload = res.data } catch {}
 
-      if (!res.ok) {
-        const apiDetail =
-          (payload && (payload.detail || payload.message)) || `HTTP ${res.status}`
+      if (!res.status === 200) {
+        const apiDetail = payload?.detail || payload?.message || `HTTP ${res.status}`
         let msg = 'Invalid username or password'
         if (typeof apiDetail === 'string') {
           if (/missing/i.test(apiDetail) && /username|password/i.test(apiDetail)) {

@@ -27,53 +27,61 @@ export default function BulkUploadPage() {
     [branches, branchId]
   );
 
-  // read user_info + fetch branches & lead sources
-  useEffect(() => {
-    // 1) read role/branch from cookie
-    try {
-      const raw = Cookies.get("user_info");
-      if (raw) {
-        const u = JSON.parse(raw);
-        const r =
-          u?.role ||
-          u?.user?.role ||
-          u?.user_info?.role ||
-          u?.user_info?.user?.role ||
-          null;
-        const b =
-          u?.branch_id ||
-          u?.user?.branch_id ||
-          u?.user_info?.branch_id ||
-          null;
+// read user_info + fetch branches & lead sources
+useEffect(() => {
+  try {
+    const raw = Cookies.get("user_info");
+    if (raw) {
+      const u = JSON.parse(raw);
 
-        setRole(r);
-        setBranchId(b);
-      }
-    } catch (e) {
-      console.warn("Failed to parse user_info cookie:", e);
+      // Normalize role (prefer role_name if available)
+      const r =
+        u?.role_name ||
+        u?.role ||
+        u?.user?.role_name ||
+        u?.user?.role ||
+        u?.user_info?.role_name ||
+        u?.user_info?.role ||
+        null;
+
+      // Normalize branch id (handle nested branch object too)
+      const b =
+        u?.branch_id ||
+        u?.branch?.id ||
+        u?.user?.branch_id ||
+        u?.user?.branch?.id ||
+        u?.user_info?.branch_id ||
+        u?.user_info?.branch?.id ||
+        null;
+
+      setRole(String(r).toUpperCase());
+      setBranchId(b ? String(b) : null);
+    }
+  } catch (e) {
+    console.warn("Failed to parse user_info cookie:", e);
+  }
+
+  // load branches + lead sources
+  (async () => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/branches/?skip=0&limit=100&active_only=false"
+      );
+      setBranches(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load branches:", err);
     }
 
-    // 2) load branches + lead sources
-    (async () => {
-      try {
-        const { data } = await axiosInstance.get(
-          "/branches/?skip=0&limit=100&active_only=false"
-        );
-        setBranches(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load branches:", err);
-      }
-
-      try {
-        const { data } = await axiosInstance.get(
-          "/lead-config/sources/?skip=0&limit=100"
-        );
-        setLeadSources(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load lead sources:", err);
-      }
-    })();
-  }, []);
+    try {
+      const { data } = await axiosInstance.get(
+        "/lead-config/sources/?skip=0&limit=100"
+      );
+      setLeadSources(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load lead sources:", err);
+    }
+  })();
+}, []);
 
   // submit CSV
   const handleSubmit = async (e) => {

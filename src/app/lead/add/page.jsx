@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Cookies from 'js-cookie'
 import { axiosInstance } from '@/api/Axios'
 import toast from 'react-hot-toast';
 import { MultiSelectWithCheckboxes } from '@/components/Lead/ID/MultiSelectWithCheckboxes';
@@ -14,7 +15,7 @@ export default function LeadForm() {
     alternate_mobile: '',
     aadhaar: '',
     pan: '',
-    pan_type: '',           // ← added
+    pan_type: '',           // used only for PAN verification (NOT sent in payload)
     gstin: '',
     state: '',
     city: '',
@@ -25,14 +26,14 @@ export default function LeadForm() {
     occupation: '',
     segment: [],
     experience: '',
-    // investment: '',
     lead_response_id: '',
     lead_source_id: '',
     comment: '',
     call_back_date: '',
-    // lead_status: '',
     profile: '',
   })
+
+  const [branchId, setBranchId] = useState(null) // ← auto from cookie
 
   const [aadharFront, setAadharFront] = useState(null);
   const [aadharBack, setAadharBack] = useState(null);
@@ -46,13 +47,12 @@ export default function LeadForm() {
   const [panVerified, setPanVerified] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-const [segmentsList, setSegmentsList] = useState([]);
+  const [segmentsList, setSegmentsList] = useState([]);
 
-const segmentOptions = useMemo(
-  () => (segmentsList || []).map((s) => ({ label: s, value: s })),
-  [segmentsList]
-);
-
+  const segmentOptions = useMemo(
+    () => (segmentsList || []).map((s) => ({ label: s, value: s })),
+    [segmentsList]
+  );
 
   const handleFileChange = (e, setter, previewSetter) => {
     const file = e.target.files[0];
@@ -63,12 +63,33 @@ const segmentOptions = useMemo(
   };
 
   useEffect(() => {
+    // Pull branch_id from cookie: user_info (fallbacks included)
+    try {
+      const raw = Cookies.get('user_info');
+      if (raw) {
+        const u = JSON.parse(raw);
+        const b =
+          u?.branch_id ??
+          u?.user?.branch_id ??
+          u?.branch?.id ??
+          null;
+        setBranchId(b);
+      }
+    } catch (e) {
+      console.warn('Failed to read user_info cookie', e);
+    }
+
     axiosInstance.get('/lead-config/sources/?skip=0&limit=100')
       .then(res => setLeadSources(res.data || []))
+      .catch(() => setLeadSources([]));
+
     axiosInstance.get('/lead-config/responses/?skip=0&limit=100')
       .then(res => setLeadResponses(res.data || []))
+      .catch(() => setLeadResponses([]));
+
     axiosInstance.get('/profile-role/recommendation-type')
-      .then(res => setSegmentsList(res.data || []));
+      .then(res => setSegmentsList(res.data || []))
+      .catch(() => setSegmentsList([]));
   }, [])
 
   const handleChange = (e) => {
@@ -104,9 +125,8 @@ const segmentOptions = useMemo(
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
 
-      if (res.data.success && res.data.data?.result) {
+      if (res.data?.success && res.data.data?.result) {
         const r = res.data.data.result;
-        // if selected pan_type doesn't match API, show toast and switch
         if (formData.pan_type !== r.pan_type) {
           toast(`Switching PAN type to "${r.pan_type === 'Person' ? 'Individual' : 'Company'}"`, { icon: 'ℹ️' });
         }
@@ -121,7 +141,7 @@ const segmentOptions = useMemo(
           district: r.user_address?.district || prev.district,
           pincode: r.user_address?.zip || prev.pincode,
           address: r.user_address?.full || prev.address,
-          pan_type: r.pan_type,     // enforce API value
+          pan_type: r.pan_type, // keep in form, not sent to backend
         }));
         setPanVerified(true);
         toast.success('PAN verified and details autofilled!');
@@ -147,18 +167,45 @@ const segmentOptions = useMemo(
       city: '',
       state: '',
       district: '',
-      pan_type: '',   // clear selection
+      pan_type: '',
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!branchId) {
+      toast.error('Branch not found for current user. Please re-login or contact admin.');
+      return;
+    }
+
     setSubmitting(true);
     try {
+      // Build payload explicitly to avoid sending unsupported fields (like pan_type)
       const payload = {
-        ...formData,
+        full_name: (formData.full_name || '').trim(),
+        father_name: (formData.father_name || '').trim(),
+        email: (formData.email || '').trim(),
+        mobile: (formData.mobile || '').trim(),
+        alternate_mobile: (formData.alternate_mobile || '').trim() || null,
+        aadhaar: (formData.aadhaar || '').trim() || null,
+        pan: (formData.pan || '').trim() || null,
+        gstin: (formData.gstin || '').trim() || null,
+        state: (formData.state || '').trim(),
+        city: (formData.city || '').trim(),
+        district: (formData.district || '').trim() || null,
+        address: (formData.address || '').trim() || null,
+        pincode: (formData.pincode || '').trim() || null,
         dob: formatForInput(formData.dob),
+        occupation: (formData.occupation || '').trim() || null,
+        segment: Array.isArray(formData.segment) ? formData.segment : [],
+        experience: (formData.experience || '').trim() || null,
+        lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
+        lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
+        comment: typeof formData.comment === 'object' ? (formData.comment?.text || '') : (formData.comment || ''),
         call_back_date: formatForInput(formData.call_back_date),
+        branch_id: branchId, // ← inject hidden branch
+        // profile: formData.profile || '', // include only if your backend expects it
       };
 
       const { data } = await axiosInstance.post('/leads/', payload);
@@ -197,12 +244,11 @@ const segmentOptions = useMemo(
         occupation: '',
         segment: [],
         experience: '',
-        investment: '',
         lead_response_id: '',
         lead_source_id: '',
         comment: '',
         call_back_date: '',
-        lead_status: '',
+        profile: '',
       });
       setAadharFront(null);
       setAadharBack(null);
@@ -213,16 +259,19 @@ const segmentOptions = useMemo(
       setPanVerified(false);
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.detail || 'Error creating lead or uploading documents');
+      toast.error(err?.response?.data?.detail || 'Error creating lead or uploading documents');
     } finally {
       setSubmitting(false);
     }
   };
 
   const formatDob = dobString => dobString || '';
-  const formatForInput = ddmmyyyy => {
-    const [dd, mm, yyyy] = ddmmyyyy.split("-");
-    return (dd && mm && yyyy) ? `${yyyy}-${mm}-${dd}` : "";
+  const formatForInput = (ddmmyyyy = '') => {
+    const parts = ddmmyyyy.split('-');
+    if (parts.length !== 3) return '';
+    const [dd, mm, yyyy] = parts;
+    if (!dd || !mm || !yyyy) return '';
+    return `${yyyy}-${mm}-${dd}`;
   };
 
   return (
@@ -263,7 +312,7 @@ const segmentOptions = useMemo(
               required
               maxLength={10}
               minLength={10}
-              pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
+              pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
               className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
             />
             {panVerified ? (
@@ -326,7 +375,7 @@ const segmentOptions = useMemo(
             required
             maxLength={10}
             minLength={10}
-            pattern="\d{10}"
+            pattern="^[0-9]{10}$"
             className="p-2 border rounded w-full"
           />
         </div>
@@ -355,7 +404,7 @@ const segmentOptions = useMemo(
             placeholder="Alternate Mobile"
             maxLength={10}
             minLength={10}
-            pattern="\d{10}"
+            pattern="^[0-9]{10}$"
             className="p-2 border rounded w-full"
           />
         </div>
@@ -369,7 +418,7 @@ const segmentOptions = useMemo(
             placeholder="DD-MM-YYYY"
             value={formData.dob}
             onChange={handleChange}
-            pattern="\d{2}-\d{2}-\d{4}"
+            pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
             disabled={panVerified}
             required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
@@ -388,7 +437,7 @@ const segmentOptions = useMemo(
             required
             maxLength={12}
             minLength={12}
-            pattern="\d{12}"
+            pattern="^[0-9]{12}$"
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           />
         </div>
@@ -526,31 +575,18 @@ const segmentOptions = useMemo(
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-t-0 rounded-b">
         {/* Segments */}
-<div>
-  <label className="block mb-1 font-medium">Segments</label>
-  <MultiSelectWithCheckboxes
-    options={segmentOptions}
-    value={formData.segment}
-    onChange={(vals) => setFormData(prev => ({ ...prev, segment: vals }))}
-    placeholder="Select segment(s)"
-  />
-  <p className="text-xs text-gray-500 mt-1">
-    You can choose multiple segments.
-  </p>
-</div>
-
-
-        {/* Investment */}
-        {/* <div>
-          <label className="block mb-1 font-medium">Investment</label>
-          <input
-            name="investment"
-            value={formData.investment}
-            onChange={handleChange}
-            placeholder="Investment"
-            className="p-2 border rounded w-full"
+        <div>
+          <label className="block mb-1 font-medium">Segments</label>
+          <MultiSelectWithCheckboxes
+            options={segmentOptions}
+            value={formData.segment}
+            onChange={(vals) => setFormData(prev => ({ ...prev, segment: vals }))}
+            placeholder="Select segment(s)"
           />
-        </div> */}
+          <p className="text-xs text-gray-500 mt-1">
+            You can choose multiple segments.
+          </p>
+        </div>
 
         {/* Experience */}
         <div>
@@ -592,18 +628,6 @@ const segmentOptions = useMemo(
           </select>
         </div>
 
-        {/* Lead Status */}
-        {/* <div>
-          <label className="block mb-1 font-medium">Lead Status</label>
-          <input
-            name="lead_status"
-            value={formData.lead_status}
-            onChange={handleChange}
-            placeholder="Lead Status"
-            className="p-2 border rounded w-full"
-          />
-        </div> */}
-
         {/* Call Back Date */}
         <div>
           <label className="block mb-1 font-medium">Call Back Date (DD-MM-YYYY)</label>
@@ -613,7 +637,7 @@ const segmentOptions = useMemo(
             placeholder="DD-MM-YYYY"
             value={formData.call_back_date}
             onChange={handleChange}
-            pattern="\d{2}-\d{2}-\d{4}"
+            pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
             className="p-2 border rounded w-full"
           />
         </div>
@@ -623,7 +647,7 @@ const segmentOptions = useMemo(
           <label className="block mb-1 font-medium">Comment / Description</label>
           <textarea
             name="comment"
-            value={formData.comment.text || ""}
+            value={typeof formData.comment === 'object' ? (formData.comment.text || '') : (formData.comment || '')}
             onChange={handleChange}
             placeholder="Description"
             className="p-2 border rounded w-full"

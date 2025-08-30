@@ -5,11 +5,13 @@ import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
-import { Pencil, BookOpenText, MessageCircle, Eye, Download } from "lucide-react";
+import { Pencil, BookOpenText, MessageCircle, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import LeadsDataTable from "@/components/Lead/LeadsTable";
+// ✨ same helpers as Lead page
+import { formatCallbackForAPI, isoToDatetimeLocal } from "@/utils/dateUtils";
 
 export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
@@ -17,7 +19,6 @@ export default function NewLeadsTable() {
   const [sources, setSources] = useState([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
-  const [total, setTotal] = useState(0);
   const [editId, setEditId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
@@ -25,23 +26,23 @@ export default function NewLeadsTable() {
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [loading, setLoading] = useState(false);
+
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftLead, setFTLead] = useState(null);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
+
   const [showCallBackModal, setShowCallBackModal] = useState(false);
   const [callBackLead, setCallBackLead] = useState(null);
   const [callBackDate, setCallBackDate] = useState("");
 
   const router = useRouter();
 
-  // ✅ Load user info for comments
   useEffect(() => {
     const userInfo = JSON.parse(localStorage.getItem("user_info")) || {};
     setUserId(userInfo.employee_code || "Admin001");
   }, []);
 
-  // ✅ Fetch data on mount
   useEffect(() => {
     fetchLeads();
     fetchResponses();
@@ -53,18 +54,15 @@ export default function NewLeadsTable() {
     try {
       const { data } = await axiosInstance.get("/leads/assignments/my");
       const items = data.assignments || [];
-
       const leadsWithIds = items.map((item) => ({
         ...item.lead,
         assignment_id: item.assignment_id,
         tempComment: "",
         showComments: false,
         fetchedComments: false,
-        allComments: [], // to store fetched comment history
+        allComments: [],
       }));
-
       setLeads(leadsWithIds);
-      setTotal(data.total_count || leadsWithIds.length);
     } catch (error) {
       console.error("Error fetching leads:", error);
       toast.error("Failed to load leads!");
@@ -73,41 +71,22 @@ export default function NewLeadsTable() {
     }
   };
 
-  const handleToggleComments = async (leadId) => {
-    setLeads((prevLeads) =>
-      prevLeads.map((lead) => {
-        if (lead.id === leadId) {
-          if (!lead.fetchedComments) {
-            // First time fetching comments
-            axiosInstance
-              .get(`/leads/${leadId}/comments`)
-              .then((res) => {
-                setLeads((updated) =>
-                  updated.map((l) =>
-                    l.id === leadId
-                      ? {
-                        ...l,
-                        allComments: res.data || [],
-                        showComments: true,
-                        fetchedComments: true,
-                      }
-                      : l
-                  )
-                );
-              })
-              .catch((err) => {
-                console.error("Error fetching comments:", err);
-                toast.error("Failed to load comments");
-              });
-            return { ...lead, showComments: true }; // Temporary state change while loading
-          } else {
-            // Toggle visibility
-            return { ...lead, showComments: !lead.showComments };
-          }
-        }
-        return lead;
-      })
-    );
+  const handleFetchLeads = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axiosInstance.post("/leads/fetch");
+      if (data.fetched_count === 0 && data.message?.includes("active assignments")) {
+        toast.error("No leads available at the moment, please complete all your assigned leads before fetching new ones.");
+      } else {
+        toast.success(`${data.fetched_count} new leads fetched`);
+      }
+      await fetchLeads();
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      toast.error("Failed to fetch new leads!");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchResponses = async () => {
@@ -132,45 +111,19 @@ export default function NewLeadsTable() {
     }
   };
 
-  // ✅ Fetch New Leads Button
-  const handleFetchLeads = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.post("/leads/fetch");
-
-      if (data.fetched_count === 0 && data.message?.includes("active assignments")) {
-        toast.error("No leads available at the moment, please complete all your assigned leads before fetching new ones.");
-      } else {
-        toast.success(`${data.fetched_count} new leads fetched`);
-      }
-
-      await fetchLeads(); // refresh full table
-    } catch (error) {
-      console.error("Error fetching leads:", error);
-      toast.error("Failed to fetch new leads!");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Save comment
   const handleSaveComment = async (lead) => {
     if (!userId) return toast.error("User not loaded!");
     if (!lead.tempComment || !lead.tempComment.trim())
       return toast.error("Comment cannot be empty!");
-
     try {
       const { data } = await axiosInstance.post(
         `/leads/${lead.id}/comments`,
         null,
         { params: { comment: lead.tempComment } }
       );
-
       toast.success("Comment saved!");
       setLeads((prev) =>
-        prev.map((l) =>
-          l.id === lead.id ? { ...l, comment: data.comment, tempComment: "" } : l
-        )
+        prev.map((l) => (l.id === lead.id ? { ...l, comment: data.comment, tempComment: "" } : l))
       );
     } catch (error) {
       console.error("Error saving comment:", error);
@@ -189,35 +142,38 @@ export default function NewLeadsTable() {
     }
   };
 
+  // 🔁 Response change (FT / Callback / others)
   const handleResponseChange = async (lead, newResponseId) => {
-    const selectedResponse = responses.find((r) => r.id == newResponseId);
-    const responseName = selectedResponse?.name?.toLowerCase();
+    const selected = responses.find((r) => r.id == newResponseId);
+    const responseName = selected?.name?.toLowerCase();
 
     if (responseName === "ft") {
       setFTLead(lead);
       setFTFromDate("");
       setFTToDate("");
       setShowFTModal(true);
-    } else if (responseName === "call back" || responseName === "callback") {
-      setCallBackLead(lead);
-      setCallBackDate("");
-      setShowCallBackModal(true);
-    } else {
-      try {
-        await axiosInstance.patch(`/leads/${lead.id}/response`, {
-          lead_response_id: parseInt(newResponseId),
-        });
+      return;
+    }
 
-        toast.success("Response updated!");
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === lead.id ? { ...l, lead_response_id: parseInt(newResponseId) } : l
-          )
-        );
-      } catch (error) {
-        console.error("Error updating response:", error);
-        toast.error("Failed to update response!");
-      }
+    if (responseName === "call back" || responseName === "callback") {
+      setCallBackLead(lead);
+      // ✅ fill input using IST-safe helper
+      setCallBackDate(isoToDatetimeLocal(lead.call_back_date || ""));
+      setShowCallBackModal(true);
+      return;
+    }
+
+    try {
+      await axiosInstance.patch(`/leads/${lead.id}/response`, {
+        lead_response_id: parseInt(newResponseId, 10),
+      });
+      toast.success("Response updated!");
+      setLeads((prev) =>
+        prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: parseInt(newResponseId, 10) } : l))
+      );
+    } catch (error) {
+      console.error("Error updating response:", error);
+      toast.error("Failed to update response!");
     }
   };
 
@@ -231,9 +187,7 @@ export default function NewLeadsTable() {
             value={lead.full_name}
             onChange={(e) =>
               setLeads((prev) =>
-                prev.map((l) =>
-                  l.id === lead.id ? { ...l, full_name: e.target.value } : l
-                )
+                prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
               )
             }
             onBlur={() => handleUpdateName(lead)}
@@ -243,10 +197,7 @@ export default function NewLeadsTable() {
           <span>{lead.full_name}</span>
         ),
     },
-    {
-      header: "Mobile",
-      render: (lead) => lead.mobile,
-    },
+    { header: "Mobile", render: (lead) => lead.mobile },
     {
       header: "Response",
       render: (lead) => (
@@ -308,9 +259,7 @@ export default function NewLeadsTable() {
     },
   ];
 
-  // Filter and paginate as before
   const filteredLeads = leads.filter((l) => !l.lead_response_id);
-  const filteredTotal = filteredLeads.length;
   const paginatedLeads = filteredLeads.slice((page - 1) * limit, page * limit);
 
   return (
@@ -331,36 +280,27 @@ export default function NewLeadsTable() {
           columns={columns}
           page={page}
           limit={limit}
-          total={filteredTotal}
+          total={filteredLeads.length}
           onPageChange={setPage}
         />
       </div>
 
-      {/* ✅ Correctly Placed Modal */}
       {storyLead && (
-        <StoryModal
-          isOpen={isStoryModalOpen}
-          onClose={() => setIsStoryModalOpen(false)}
-          leadId={storyLead.id}
-        />
+        <StoryModal isOpen={isStoryModalOpen} onClose={() => setIsStoryModalOpen(false)} leadId={storyLead.id} />
       )}
 
-      <CommentModal
-        isOpen={isCommentModalOpen}
-        onClose={() => setIsCommentModalOpen(false)}
-        leadId={selectedLeadId}
-      />
+      <CommentModal isOpen={isCommentModalOpen} onClose={() => setIsCommentModalOpen(false)} leadId={selectedLeadId} />
 
-
-      {/* ✅ FT Modal */}
+      {/* FT modal unchanged */}
       <FTModal
         open={showFTModal}
         onClose={() => setShowFTModal(false)}
         onSave={async () => {
           if (!ftFromDate || !ftToDate) return toast.error("Both dates required");
           try {
+            const ftId = responses.find((r) => r.name.toLowerCase() === "ft")?.id;
             await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-              lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
+              lead_response_id: ftId,
               ft_from_date: ftFromDate.split("-").reverse().join("-"),
               ft_to_date: ftToDate.split("-").reverse().join("-"),
             });
@@ -369,11 +309,11 @@ export default function NewLeadsTable() {
               prev.map((l) =>
                 l.id === ftLead.id
                   ? {
-                    ...l,
-                    lead_response_id: responses.find((r) => r.name.toLowerCase() === "ft")?.id,
-                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                    ft_to_date: ftToDate.split("-").reverse().join("-"),
-                  }
+                      ...l,
+                      lead_response_id: ftId,
+                      ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                      ft_to_date: ftToDate.split("-").reverse().join("-"),
+                    }
                   : l
               )
             );
@@ -388,32 +328,33 @@ export default function NewLeadsTable() {
         setFromDate={setFTFromDate}
         setToDate={setFTToDate}
       />
+
+      {/* ✅ Callback modal uses the same IST conversion as Lead page */}
       <CallBackModal
         open={showCallBackModal}
         onClose={() => setShowCallBackModal(false)}
         onSave={async () => {
           if (!callBackDate) return toast.error("Call back date is required");
           try {
+            const cbId = responses.find((r) => {
+              const n = r.name.toLowerCase();
+              return n === "call back" || n === "callback";
+            })?.id;
+
             await axiosInstance.patch(`/leads/${callBackLead.id}/response`, {
-              lead_response_id: responses.find(
-                (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
-              )?.id,
-              call_back_date: new Date(callBackDate).toISOString(),
+              lead_response_id: cbId,
+              call_back_date: formatCallbackForAPI(callBackDate),
             });
-            toast.success("Call Back response and date saved!");
+
+            // store ISO so future prefill uses isoToDatetimeLocal correctly
+            const savedISO = formatCallbackForAPI(callBackDate);
             setLeads((prev) =>
               prev.map((l) =>
-                l.id === callBackLead.id
-                  ? {
-                    ...l,
-                    lead_response_id: responses.find(
-                      (r) => r.name.toLowerCase() === "call back" || r.name.toLowerCase() === "callback"
-                    )?.id,
-                    call_back_date: callBackDate,
-                  }
-                  : l
+                l.id === callBackLead.id ? { ...l, lead_response_id: cbId, call_back_date: savedISO } : l
               )
             );
+
+            toast.success("Call Back response and date saved!");
             setShowCallBackModal(false);
           } catch (err) {
             console.error(err);
@@ -423,8 +364,6 @@ export default function NewLeadsTable() {
         dateValue={callBackDate}
         setDateValue={setCallBackDate}
       />
-
     </div>
   );
-
 }

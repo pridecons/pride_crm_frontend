@@ -107,8 +107,7 @@ const getPermissionIcon = (perm) => {
     internal_mailing: MessageSquare,
     chatting: MessageSquare,
     targets: Target,
-    reports: BarChart3,
-    fetch_lead: Download,
+    reports: BarChart3
   };
   return iconMap[perm] || Settings;
 };

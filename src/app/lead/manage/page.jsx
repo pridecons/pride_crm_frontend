@@ -23,6 +23,24 @@ import CommentModal from "@/components/Lead/CommentModal";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
 
+/* ---------- helpers ---------- */
+const normalizeRole = (r) => {
+  if (!r) return null;
+  const up = String(r).toUpperCase().trim();
+  const map = {
+    "1": "SUPERADMIN",
+    "2": "BRANCH MANAGER",
+    "SUPERADMIN": "SUPERADMIN",
+    "BRANCH_MANAGER": "BRANCH MANAGER",
+    "BRANCH MANAGER": "BRANCH MANAGER",
+    "HR": "HR",
+    "SALES_MANAGER": "SALES MANAGER",
+    "SALES MANAGER": "SALES MANAGER",
+    "TL": "TL",
+  };
+  return map[up] || up;
+};
+
 const LeadManage = () => {
   const router = useRouter();
 
@@ -32,7 +50,6 @@ const LeadManage = () => {
   const [employees, setEmployees] = useState([]);
   const [sourcesList, setSourcesList] = useState([]);
   const [responsesList, setResponsesList] = useState([]);
-
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -40,37 +57,77 @@ const LeadManage = () => {
   const [sourceFilter, setSourceFilter] = useState("All");
   const [responseFilter, setResponseFilter] = useState("All");
   const [branchFilter, setBranchFilter] = useState("All");
-  const [kycFilter, setKycFilter] = useState("All"); // 'All' | 'Completed' | 'Pending'
+  const [kycFilter, setKycFilter] = useState("All");
 
-  // Employee autocomplete: selected code + text input
-  const [employeeFilter, setEmployeeFilter] = useState("All"); // selected employee_code
-  const [employeeQuery, setEmployeeQuery] = useState(""); // text shown in input
+  // Employee autocomplete
+  const [employeeFilter, setEmployeeFilter] = useState("All");
+  const [employeeQuery, setEmployeeQuery] = useState("");
   const [showEmpDrop, setShowEmpDrop] = useState(false);
 
   // Accordion
   const [openLead, setOpenLead] = useState(null);
 
+  // Cards
   const [dashboardData, setDashboardData] = useState(null);
+
+  // Role / branch (use role_name!)
+  const [role, setRole] = useState(null);          // normalized role_name
+  const [branchId, setBranchId] = useState(null);  // string
+  const [ready, setReady] = useState(false);       // when role/branch is resolved
+
+  const isSuperAdmin = role === "SUPERADMIN";
+  const ALLOWED_ROLES_FOR_CARDS = new Set(["SUPERADMIN", "BRANCH MANAGER"]);
+  const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(role);
+
   // Story & Comments modals
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [storyLeadId, setStoryLeadId] = useState(null);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [commentLeadId, setCommentLeadId] = useState(null);
 
-  const [role, setRole] = useState(null);
-  // after: const [role, setRole] = useState(null);
-  const ALLOWED_ROLES_FOR_CARDS = new Set([
-    "SUPERADMIN",
-    "BRANCH MANAGER",    // your app often uses this
-    "BRANCH_MANAGER",    // safety if enum-style role shows up
-  ]);
-  const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(role);
-
-  const [branchId, setBranchId] = useState(null);
-  const isSuperAdmin = role === "SUPERADMIN";
-
-  // Load dropdown lists
+  /* ---------- read role_name + branch once ---------- */
   useEffect(() => {
+    try {
+      let r = null;
+      let b = null;
+
+      const ui = Cookies.get("user_info");
+      if (ui) {
+        const parsed = JSON.parse(ui);
+        r = parsed?.role_name ?? parsed?.user?.role_name ?? null; // ✅ role_name
+        b =
+          parsed?.branch_id ??
+          parsed?.user?.branch_id ??
+          parsed?.branch?.id ??
+          null;
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const payload = jwtDecode(token);
+          r = payload?.role_name ?? payload?.user?.role_name ?? null; // ✅ role_name
+          b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
+        }
+      }
+
+      const normRole = normalizeRole(r);
+      setRole(normRole);
+      const bid = b ? String(b) : null;
+      setBranchId(bid);
+
+      if (normRole !== "SUPERADMIN" && bid) {
+        setBranchFilter(bid);
+      }
+    } catch (e) {
+      console.error("Failed to read user info from cookies/JWT", e);
+    } finally {
+      setReady(true);
+    }
+  }, []);
+
+  /* ---------- load dropdown lists ---------- */
+  useEffect(() => {
+    if (!ready) return;
+
     const loadFilterLists = async () => {
       try {
         const [bRes, uRes, sRes, rRes] = await Promise.all([
@@ -99,65 +156,55 @@ const LeadManage = () => {
       }
     };
 
-    if (isSuperAdmin || branchId) loadFilterLists();
-  }, [isSuperAdmin, branchId]);
+    loadFilterLists();
+  }, [ready, isSuperAdmin, branchId]);
 
-  // Identify role/branch from cookies or token
+  /* ---------- load leads ---------- */
   useEffect(() => {
-    try {
-      const ui = Cookies.get("user_info");
-      if (ui) {
-        const parsed = JSON.parse(ui);
-        const r = parsed?.role || parsed?.user?.role || null;
-        const b =
-          parsed?.branch_id ??
-          parsed?.user?.branch_id ??
-          parsed?.branch?.id ??
-          null;
-        setRole(r);
-        setBranchId(b ? String(b) : null);
-        return;
-      }
+    if (!ready) return;
 
-      const token = Cookies.get("access_token");
-      if (token) {
-        const payload = jwtDecode(token);
-        const r = payload?.role || null;
-        const b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
-        setRole(r);
-        setBranchId(b ? String(b) : null);
-      }
-    } catch (e) {
-      console.error("Failed to read user info from cookies", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isSuperAdmin && branchId) {
-      setBranchFilter(String(branchId));
-    }
-  }, [isSuperAdmin, branchId]);
-
-  // Load leads
-  useEffect(() => {
     const fetchLeadData = async () => {
       try {
         setLoading(true);
         const base = "/leads/?skip=0&limit=100&kyc_only=false";
-        const url = !isSuperAdmin && branchId ? `${base}&branch_id=${branchId}` : base;
+        const url = isSuperAdmin || !branchId ? base : `${base}&branch_id=${branchId}`;
         const { data } = await axiosInstance.get(url);
         setLeadData(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error(error);
+        console.error("Lead fetch failed:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (isSuperAdmin || branchId) fetchLeadData();
-  }, [isSuperAdmin, branchId]);
+    fetchLeadData();
+  }, [ready, isSuperAdmin, branchId]);
 
-  // Name helpers
+  /* ---------- quick cards (admins only) ---------- */
+  useEffect(() => {
+    if (!canViewCards) {
+      setDashboardData(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/analytics/leads/admin/dashboard-card?days=30"
+        );
+        if (!cancelled) setDashboardData(data);
+      } catch (error) {
+        if (!cancelled) setDashboardData(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewCards]);
+
+  /* ---------- name helpers ---------- */
   const getSourceName = (id) =>
     sourcesList.find((s) => String(s.id) === String(id))?.name ||
     (id == null ? "—" : id);
@@ -174,7 +221,7 @@ const LeadManage = () => {
     employees.find((e) => String(e.employee_code) === String(code))?.name ||
     (code == null ? "—" : code);
 
-  // Select options (source/response only used)
+  /* ---------- options ---------- */
   const sourceOptions = useMemo(
     () => [{ value: "All", label: "All Sources" }, ...sourcesList.map((s) => ({ value: String(s.id), label: s.name }))],
     [sourcesList]
@@ -184,7 +231,7 @@ const LeadManage = () => {
     [responsesList]
   );
 
-  // Filtered list
+  /* ---------- filtering ---------- */
   const filteredLeads = useMemo(() => {
     let updated = [...leadData];
 
@@ -234,30 +281,27 @@ const LeadManage = () => {
     kycFilter,
   ]);
 
-  // Pagination
+  /* ---------- pagination ---------- */
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-
   const totalPages = Math.ceil(filteredLeads.length / pageSize);
   const paginatedLeads = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
     return filteredLeads.slice(startIndex, startIndex + pageSize);
-  }, [filteredLeads, currentPage, pageSize]);
+  }, [filteredLeads, currentPage]);
 
-  // Reset page & close any open accordion when filters/search change
   useEffect(() => {
     setCurrentPage(1);
     setOpenLead(null);
   }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter]);
 
-  // Close open lead when page changes
   useEffect(() => {
     setOpenLead(null);
   }, [currentPage]);
 
   const totalLeads = leadData.length;
 
-  // Employee autocomplete behavior
+  /* ---------- employee autocomplete ---------- */
   const empMatches = useMemo(() => {
     const q = employeeQuery.trim().toLowerCase();
     if (!q) return [];
@@ -282,7 +326,7 @@ const LeadManage = () => {
     setShowEmpDrop(false);
   };
 
-  // Modals
+  /* ---------- modals ---------- */
   const openStory = (leadId) => {
     setStoryLeadId(leadId);
     setIsStoryModalOpen(true);
@@ -292,41 +336,7 @@ const LeadManage = () => {
     setIsCommentModalOpen(true);
   };
 
-  // Quick stats
-  useEffect(() => {
-    if (!canViewCards) {
-      // Hide cards for disallowed roles
-      setDashboardData(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const { data } = await axiosInstance.get(
-          "/analytics/leads/admin/dashboard-card?days=30"
-        );
-        if (!cancelled) setDashboardData(data);
-      } catch (error) {
-        // If forbidden, just hide the cards without throwing/logging noisy errors
-        if (error?.response?.status === 403) {
-          if (!cancelled) setDashboardData(null);
-          // no console.error / toast — stay silent
-        } else {
-          // Keep logs minimal & non-breaking for unexpected issues
-          console.debug("Dashboard cards fetch skipped:", error?.message || error);
-          if (!cancelled) setDashboardData(null);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canViewCards]);
-
-
+  /* ===================== UI ===================== */
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
       {/* Header */}
@@ -357,7 +367,6 @@ const LeadManage = () => {
       {/* Quick Stats */}
       {canViewCards && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Leads */}
           <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200">
             <div className="flex items-center justify-between">
               <div>
@@ -375,7 +384,6 @@ const LeadManage = () => {
             </div>
           </div>
 
-          {/* Old Leads */}
           <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-amber-200">
             <div className="flex items-center justify-between">
               <div>
@@ -393,7 +401,6 @@ const LeadManage = () => {
             </div>
           </div>
 
-          {/* New Leads */}
           <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-emerald-200">
             <div className="flex items-center justify-between">
               <div>
@@ -411,7 +418,6 @@ const LeadManage = () => {
             </div>
           </div>
 
-          {/* Clients */}
           <div className="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200">
             <div className="flex items-center justify-between">
               <div>
@@ -430,7 +436,6 @@ const LeadManage = () => {
           </div>
         </div>
       )}
-
 
       {/* Search & Filters */}
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-4 border border-gray-100">
@@ -483,11 +488,11 @@ const LeadManage = () => {
                   }}
                   onFocus={() => setShowEmpDrop(Boolean(employeeQuery))}
                 />
-                {employeeFilter !== "All" || employeeQuery ? (
+                {(employeeFilter !== "All" || employeeQuery) && (
                   <button className="p-2 rounded hover:bg-gray-100" onClick={clearEmployee} title="Clear">
                     <X size={16} />
                   </button>
-                ) : null}
+                )}
               </div>
 
               {showEmpDrop && empMatches.length > 0 && (
@@ -586,7 +591,7 @@ const LeadManage = () => {
                         </div>
                       </button>
 
-                      {/* Right: Actions (always visible) */}
+                      {/* Right: Actions */}
                       <div className="flex items-center gap-2 ml-4">
                         <button
                           onClick={() => router.push(`/lead/${lead.id}`)}
@@ -623,7 +628,7 @@ const LeadManage = () => {
 
                     {/* Expanded details */}
                     {isOpen && (
-                      <div className="px-4 sm:px-6 pb-5 text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="px-4 sm:px-6 pb-5 text-sm text-gray-700 grid grid-cols-1 md/grid-cols-2 lg:grid-cols-3 gap-3">
                         <div><span className="font-medium">Email:</span> {lead.email || "—"}</div>
                         <div><span className="font-medium">PAN:</span> {lead.pan || "—"}</div>
                         <div><span className="font-medium">Branch:</span> {getBranchName(lead.branch_id)}</div>
@@ -713,7 +718,7 @@ const LeadManage = () => {
         </div>
       )}
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-3">
           <button
@@ -745,7 +750,7 @@ const LeadManage = () => {
         </div>
       )}
 
-      {/* Story & Comments Modals */}
+      {/* Modals */}
       {storyLeadId && (
         <StoryModal
           isOpen={isStoryModalOpen}

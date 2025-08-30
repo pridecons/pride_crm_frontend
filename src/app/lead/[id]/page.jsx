@@ -4,7 +4,16 @@
 import React, { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useParams } from "next/navigation";
-import { Edit3, Save, X, AlertCircle, MessageCircle, BookOpenText, Building, UserCheck } from "lucide-react";
+import {
+  Edit3,
+  Save,
+  X,
+  AlertCircle,
+  MessageCircle,
+  BookOpenText,
+  Building,
+  UserCheck,
+} from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
 import toast from "react-hot-toast";
 import LoadingState from "@/components/LoadingState";
@@ -24,11 +33,100 @@ import ConfirmCalledModal from "@/components/Lead/ID/ConfirmCalledModal";
 import DocumentsModal from "@/components/Lead/ID/DocumentsModal";
 import LeadHeader from "@/components/Lead/ID/LeadHeader";
 import ErrorState from "@/components/ErrorState";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
+
+// NEW: robust SUPERADMIN detector
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
+
+// ---- role helpers -----------------------------------------------------------
+const ROLE_ID_TO_KEY = {
+  "1": "SUPERADMIN",
+  "2": "BRANCH_MANAGER",
+  "3": "HR",
+  "4": "SALES_MANAGER",
+  "5": "TL",
+  "6": "SBA",
+  "7": "BA",
+  "8": "BA",
+  "9": "RESEARCHER",
+  "10": "COMPLIANCE_OFFICER",
+  "11": "TESTPROFILE",
+};
+
+const canonRole = (s) => {
+  if (!s) return "";
+  let x = String(s).trim().toUpperCase();
+  x = x.replace(/\s+/g, "_"); // "BRANCH MANAGER" -> "BRANCH_MANAGER"
+  if (x === "SUPER_ADMINISTRATOR") x = "SUPERADMIN";
+  return x;
+};
+
+function useIsSuperAdmin() {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    try {
+      // Try cookie user_info first
+      const uiRaw = Cookies.get("user_info");
+      let roleKey = "";
+
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        const r =
+          ui?.role_name ||
+          ui?.role ||
+          ui?.profile_role?.name ||
+          ui?.user?.role_name ||
+          ui?.user?.role ||
+          null;
+        roleKey = canonRole(r);
+
+        if (!roleKey) {
+          const rid =
+            ui?.role_id ?? ui?.user?.role_id ?? ui?.profile_role?.id ?? null;
+          if (rid != null) {
+            roleKey = ROLE_ID_TO_KEY[String(rid)] || "";
+          }
+        }
+      }
+
+      // Fallback to JWT if needed
+      if (!roleKey) {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const d = jwtDecode(token) || {};
+          const rTok =
+            d?.role_name ||
+            d?.role ||
+            d?.profile_role?.name ||
+            d?.user?.role_name ||
+            d?.user?.role ||
+            null;
+          roleKey = canonRole(rTok);
+
+          if (!roleKey) {
+            const rid =
+              d?.role_id ?? d?.user?.role_id ?? d?.profile_role?.id ?? null;
+            if (rid != null) roleKey = ROLE_ID_TO_KEY[String(rid)] || "";
+          }
+        }
+      }
+
+      setIsSuperAdmin(roleKey === "SUPERADMIN");
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
+
+  return isSuperAdmin;
+}
 
 const Lead = () => {
   const { id } = useParams();
   const { hasPermission } = usePermissions();
+  const isSuperAdmin = useIsSuperAdmin(); // <-- use this to show Branch ONLY for SUPERADMIN
 
   const [isOpenPayment, setIsOpenPayment] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
@@ -61,16 +159,16 @@ const Lead = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const [userNameMap, setUserNameMap] = useState({});     // { EMP006: "shivi", ... }
+  const [userNameMap, setUserNameMap] = useState({}); // { EMP006: "shivi", ... }
   const [branchNameMap, setBranchNameMap] = useState({}); // { 1: "Main Branch", ... }
 
-  // === NewLeadsTable-style modal state (extracted logic) ===
+  // === NewLeadsTable-style modal state ===
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
   const [showCallBackModal, setShowCallBackModal] = useState(false);
   const [callBackDate, setCallBackDate] = useState("");
-  const [pendingPrevResponseId, setPendingPrevResponseId] = useState(null); // to revert if closed
+  const [pendingPrevResponseId, setPendingPrevResponseId] = useState(null);
 
   // fetch guard (StrictMode)
   const didInit = useRef(false);
@@ -82,7 +180,9 @@ const Lead = () => {
       const response = await axiosInstance(config);
       return response.data;
     } catch (err) {
-      throw new Error(err.response?.data?.detail || `Failed to ${method} ${endpoint}`);
+      throw new Error(
+        err.response?.data?.detail || `Failed to ${method} ${endpoint}`
+      );
     }
   };
 
@@ -116,7 +216,10 @@ const Lead = () => {
       });
       toast.success("KYC initiated successfully!");
     } catch (err) {
-      toast.error("Failed to initiate KYC: " + (err.response?.data?.detail || err.message));
+      toast.error(
+        "Failed to initiate KYC: " +
+          (err.response?.data?.detail || err.message)
+      );
     } finally {
       setKycLoading(false);
     }
@@ -146,8 +249,11 @@ const Lead = () => {
 
   const handleViewKyc = async () => {
     try {
-      const { data } = await axiosInstance.post(`/agreement/view/${currentLead?.id}`);
-      const signedUrl = data.complete_signed_url || data.signed_url || data.latest_signed_url;
+      const { data } = await axiosInstance.post(
+        `/agreement/view/${currentLead?.id}`
+      );
+      const signedUrl =
+        data.complete_signed_url || data.signed_url || data.latest_signed_url;
       if (!signedUrl) {
         toast.error("Failed to get KYC document link!");
         return;
@@ -161,12 +267,13 @@ const Lead = () => {
 
   const fetchData = async () => {
     try {
-      const [sourcesRes, responsesRes, usersRes, branchesRes] = await Promise.all([
-        apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
-        apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
-        apiCall("GET", "/users/?skip=0&limit=100&active_only=false"),
-        apiCall("GET", "/branches/?skip=0&limit=100"),
-      ]);
+      const [sourcesRes, responsesRes, usersRes, branchesRes] =
+        await Promise.all([
+          apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
+          apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
+          apiCall("GET", "/users/?skip=0&limit=100&active_only=false"),
+          apiCall("GET", "/branches/?skip=0&limit=100"),
+        ]);
       setLeadSources(
         sourcesRes.map((src) => ({
           value: src.id,
@@ -179,23 +286,33 @@ const Lead = () => {
           label: res.name,
         }))
       );
-      // ---- Build user name map: { employee_code -> name }
-      const usersArr = Array.isArray(usersRes?.data) ? usersRes.data : Array.isArray(usersRes) ? usersRes : [];
+      // Build user name map
+      const usersArr = Array.isArray(usersRes?.data)
+        ? usersRes.data
+        : Array.isArray(usersRes)
+        ? usersRes
+        : [];
       const uMap = {};
       usersArr.forEach((u) => {
-        if (u?.employee_code) uMap[u.employee_code] = u?.name || u.employee_code;
+        if (u?.employee_code)
+          uMap[u.employee_code] = u?.name || u.employee_code;
       });
       setUserNameMap(uMap);
 
-      // ---- Build branch name map: { id -> name }
-      const rawBranches =
-        Array.isArray(branchesRes?.data) ? branchesRes.data :
-          Array.isArray(branchesRes?.items) ? branchesRes.items :
-            Array.isArray(branchesRes?.branches) ? branchesRes.branches :
-              Array.isArray(branchesRes) ? branchesRes : [];
+      // Build branch name map
+      const rawBranches = Array.isArray(branchesRes?.data)
+        ? branchesRes.data
+        : Array.isArray(branchesRes?.items)
+        ? branchesRes.items
+        : Array.isArray(branchesRes?.branches)
+        ? branchesRes.branches
+        : Array.isArray(branchesRes)
+        ? branchesRes
+        : [];
       const bMap = {};
       rawBranches.forEach((b) => {
-        if (b?.id != null) bMap[b.id] = b?.name || b?.branch_name || `Branch #${b.id}`;
+        if (b?.id != null)
+          bMap[b.id] = b?.name || b?.branch_name || `Branch #${b.id}`;
       });
       setBranchNameMap(bMap);
     } catch (err) {
@@ -227,7 +344,7 @@ const Lead = () => {
           setLoading(false);
           return;
         }
-        updateData.call_back_date = new Date(updateData.call_back_date).toISOString();
+        updateData.call_back_date = formatCallbackForAPI(updateData.call_back_date);
       }
       if (updateData.segment && typeof updateData.segment === "string") {
         updateData.segment = updateData.segment
@@ -239,7 +356,11 @@ const Lead = () => {
         updateData.comment = { text: updateData.comment };
       }
 
-      const response = await apiCall("PUT", `/leads/${currentLead.id}`, updateData);
+      const response = await apiCall(
+        "PUT",
+        `/leads/${currentLead.id}`,
+        updateData
+      );
       setCurrentLead(response);
       setIsEditMode(false);
 
@@ -249,9 +370,13 @@ const Lead = () => {
         if (aadharBack) formData.append("aadhar_back", aadharBack);
         if (panPic) formData.append("pan_pic", panPic);
 
-        await axiosInstance.post(`/leads/${currentLead.id}/upload-documents`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await axiosInstance.post(
+          `/leads/${currentLead.id}/upload-documents`,
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          }
+        );
         toast.success("Documents uploaded successfully!");
       }
 
@@ -267,7 +392,10 @@ const Lead = () => {
 
   const handleMarkAsCalled = async () => {
     try {
-      await apiCall("PUT", `/leads/navigation/mark-called/${currentLead.assignment_id}`);
+      await apiCall(
+        "PUT",
+        `/leads/navigation/mark-called/${currentLead.assignment_id}`
+      );
       await fetchCurrentLead();
       setIsOpenSource(false);
     } catch (err) {
@@ -300,7 +428,7 @@ const Lead = () => {
   const getResponseNameById = (rid) => {
     const match = leadResponses.find((r) => r.value === rid || r.id === rid);
     return match?.label?.toLowerCase?.() ?? match?.name?.toLowerCase?.() ?? "";
-  };
+    };
 
   const dmyToYmd = (dmy) => {
     if (!dmy) return "";
@@ -325,11 +453,14 @@ const Lead = () => {
     return `${y}-${m}-${day}T${hh}:${mmn}`;
   };
 
-  // ---- Inline Edit buttons should open the same modals (like NewLeadsTable flow) ----
+  // ---- Inline Edit buttons mimic NewLeadsTable ----
   const handleEditFTInline = () => {
-    // currentLead.ft_* are stored as DD-MM-YYYY; convert to YYYY-MM-DD for inputs
-    const ymdFrom = currentLead?.ft_from_date ? dmyToYmd(currentLead.ft_from_date) : "";
-    const ymdTo = currentLead?.ft_to_date ? dmyToYmd(currentLead.ft_to_date) : "";
+    const ymdFrom = currentLead?.ft_from_date
+      ? dmyToYmd(currentLead.ft_from_date)
+      : "";
+    const ymdTo = currentLead?.ft_to_date
+      ? dmyToYmd(currentLead.ft_to_date)
+      : "";
     setFTFromDate(ymdFrom);
     setFTToDate(ymdTo);
     setPendingPrevResponseId(currentLead?.lead_response_id ?? null);
@@ -342,30 +473,37 @@ const Lead = () => {
     setShowCallBackModal(true);
   };
 
-  // ========= NewLeadsTable EXACT behavior for onChange =========
-  // Works if ViewAndEditLead calls it as handleLeadResponseChange(newId) or handleLeadResponseChange(lead, newId)
   const handleResponseChange = async (maybeLeadOrId, maybeId) => {
-    const lead = typeof maybeId === "undefined" ? currentLead : maybeLeadOrId;
-    const newResponseId = typeof maybeId === "undefined" ? maybeLeadOrId : maybeId;
+    const lead =
+      typeof maybeId === "undefined" ? currentLead : maybeLeadOrId;
+    const newResponseId =
+      typeof maybeId === "undefined" ? maybeLeadOrId : maybeId;
 
-    const selected = leadResponses.find((r) => r.value == newResponseId || r.id == newResponseId);
-    const responseName = (selected?.label || selected?.name || "").toLowerCase();
+    const selected = leadResponses.find(
+      (r) => r.value == newResponseId || r.id == newResponseId
+    );
+    const responseName = (selected?.label || selected?.name || "")
+      .toLowerCase();
 
     if (responseName === "ft") {
       setFTFromDate("");
       setFTToDate("");
       setPendingPrevResponseId(lead?.lead_response_id ?? null);
       setShowFTModal(true);
-      // Also reflect selection in UI immediately (optional)
-      setEditFormData((p) => ({ ...p, lead_response_id: selected?.value ?? selected?.id }));
+      setEditFormData((p) => ({
+        ...p,
+        lead_response_id: selected?.value ?? selected?.id,
+      }));
       return;
     }
     if (responseName === "call back" || responseName === "callback") {
       setCallBackDate("");
       setPendingPrevResponseId(lead?.lead_response_id ?? null);
       setShowCallBackModal(true);
-      // Reflect selection in UI (optional)
-      setEditFormData((p) => ({ ...p, lead_response_id: selected?.value ?? selected?.id }));
+      setEditFormData((p) => ({
+        ...p,
+        lead_response_id: selected?.value ?? selected?.id,
+      }));
       return;
     }
 
@@ -378,16 +516,16 @@ const Lead = () => {
     } catch (error) {
       console.error("Error updating response:", error);
       toast.error("Failed to update response!");
-      // revert locally if needed
-      setEditFormData((p) => ({ ...p, lead_response_id: lead?.lead_response_id ?? null }));
+      setEditFormData((p) => ({
+        ...p,
+        lead_response_id: lead?.lead_response_id ?? null,
+      }));
     }
   };
 
   if (loading && !currentLead) return <LoadingState />;
-  if (error && !currentLead) return <ErrorState error={error} onRetry={fetchCurrentLead} />;
-
-  const userInfo =
-    typeof window !== "undefined" ? JSON.parse(localStorage.getItem("user_info")) : null;
+  if (error && !currentLead)
+    return <ErrorState error={error} onRetry={fetchCurrentLead} />;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -405,28 +543,51 @@ const Lead = () => {
                 </span>
                 <span className="font-medium text-slate-900">Assigned</span>
                 <span className="text-slate-400">•</span>
-                <span className="truncate max-w-[160px] sm:max-w-[220px]" title={userNameMap[currentLead?.assigned_to_user] || currentLead?.assigned_to_user || "—"}>
+                <span
+                  className="truncate max-w-[160px] sm:max-w-[220px]"
+                  title={
+                    userNameMap[currentLead?.assigned_to_user] ||
+                    currentLead?.assigned_to_user ||
+                    "—"
+                  }
+                >
                   {userNameMap[currentLead?.assigned_to_user] || "—"}
                   {currentLead?.assigned_to_user ? (
-                    <span className="text-slate-500"> ({currentLead.assigned_to_user})</span>
+                    <span className="text-slate-500">
+                      {" "}
+                      ({currentLead.assigned_to_user})
+                    </span>
                   ) : null}
                 </span>
               </div>
 
-              {/* Branch */}
-              {hasPermission("lead_branch_view") && <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
-                  <Building size={14} className="text-emerald-600" />
-                </span>
-                <span className="font-medium text-slate-900">Branch</span>
-                <span className="text-slate-400">•</span>
-                <span className="truncate max-w-[160px] sm:max-w-[220px]" title={branchNameMap[currentLead?.branch_id] || (currentLead?.branch_id ? `#${currentLead.branch_id}` : "—")}>
-                  {branchNameMap[currentLead?.branch_id] || "—"}
-                  {currentLead?.branch_id ? (
-                    <span className="text-slate-500"> (#{currentLead.branch_id})</span>
-                  ) : null}
-                </span>
-              </div>}
+              {/* Branch — SHOW ONLY TO SUPERADMIN */}
+              {isSuperAdmin && (
+                <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
+                    <Building size={14} className="text-emerald-600" />
+                  </span>
+                  <span className="font-medium text-slate-900">Branch</span>
+                  <span className="text-slate-400">•</span>
+                  <span
+                    className="truncate max-w-[160px] sm:max-w-[220px]"
+                    title={
+                      branchNameMap[currentLead?.branch_id] ||
+                      (currentLead?.branch_id
+                        ? `#${currentLead.branch_id}`
+                        : "—")
+                    }
+                  >
+                    {branchNameMap[currentLead?.branch_id] || "—"}
+                    {currentLead?.branch_id ? (
+                      <span className="text-slate-500">
+                        {" "}
+                        (#{currentLead.branch_id})
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -464,9 +625,7 @@ const Lead = () => {
                     <div className="font-semibold">Call Back</div>
                     <div className="mt-1">
                       <span className="font-medium">Call Back Date:</span>{" "}
-                      {currentLead?.call_back_date
-                        ? new Date(currentLead.call_back_date).toLocaleString()
-                        : "N/A"}
+                      {toIST(currentLead?.call_back_date)}
                     </div>
                   </div>
                   <button
@@ -486,8 +645,15 @@ const Lead = () => {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-center">
               <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <p>{typeof error === "string" ? error : error?.message || JSON.stringify(error)}</p>
-              <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
+              <p>
+                {typeof error === "string"
+                  ? error
+                  : error?.message || JSON.stringify(error)}
+              </p>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-400 hover:text-red-600"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -545,7 +711,9 @@ const Lead = () => {
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"}`}
+                className={`h-2 w-2 rounded-full ${
+                  isEditMode ? "bg-red-500" : "bg-indigo-500"
+                }`}
                 aria-hidden="true"
               />
               {isEditMode ? "Back" : "Edit"}
@@ -585,7 +753,6 @@ const Lead = () => {
           setAadharFrontPreview={setAadharFrontPreview}
           setAadharBackPreview={setAadharBackPreview}
           setPanPicPreview={setPanPicPreview}
-          // 👇 NewLeadsTable-style handler
           handleLeadResponseChange={handleResponseChange}
           fetchCurrentLead={fetchCurrentLead}
         />
@@ -635,21 +802,32 @@ const Lead = () => {
           open={isKycModalOpen}
           onClose={() => setIsKycModalOpen(false)}
           url={kycUrl}
-          canDownload={(typeof window !== "undefined"
-            ? JSON.parse(localStorage.getItem("user_info"))?.role
-            : "") === "SUPERADMIN"}
+          // Only SUPERADMIN can download
+          canDownload={isSuperAdmin}
         />
 
         {isCommentsModalOpen && (
-          <CommentModal isOpen onClose={() => setIsCommentsModalOpen(false)} leadId={currentLead?.id} />
+          <CommentModal
+            isOpen
+            onClose={() => setIsCommentsModalOpen(false)}
+            leadId={currentLead?.id}
+          />
         )}
 
         {isInvoiceModalOpen && (
-          <InvoiceList isOpen onClose={() => setIsInvoiceModalOpen(false)} leadId={currentLead?.id} />
+          <InvoiceList
+            isOpen
+            onClose={() => setIsInvoiceModalOpen(false)}
+            leadId={currentLead?.id}
+          />
         )}
 
         {isRecordingsModalOpen && (
-          <RecordingsModal open onClose={() => setIsRecordingsModalOpen(false)} leadId={currentLead?.id} />
+          <RecordingsModal
+            open
+            onClose={() => setIsRecordingsModalOpen(false)}
+            leadId={currentLead?.id}
+          />
         )}
 
         {isShareModalOpen && (
@@ -661,27 +839,31 @@ const Lead = () => {
           />
         )}
 
-        {/* === NewLeadsTable-style FT & Callback Modals === */}
+        {/* === FT & Callback Modals === */}
         <FTModal
           open={showFTModal}
           onClose={() => {
             setShowFTModal(false);
-            // revert UI selection if user cancels
             if (pendingPrevResponseId != null) {
-              setEditFormData((p) => ({ ...p, lead_response_id: pendingPrevResponseId }));
+              setEditFormData((p) => ({
+                ...p,
+                lead_response_id: pendingPrevResponseId,
+              }));
             }
           }}
           onSave={async () => {
             try {
-              if (!ftFromDate || !ftToDate) return toast.error("Both dates required");
-              // find FT response id from leadResponses
-              const ftResp = leadResponses.find((r) => (r.label || r.name || "").toLowerCase() === "ft");
+              if (!ftFromDate || !ftToDate)
+                return toast.error("Both dates required");
+              const ftResp = leadResponses.find(
+                (r) =>
+                  (r.label || r.name || "").toLowerCase() === "ft"
+              );
               const ftResponseId = ftResp?.value ?? ftResp?.id;
               if (!ftResponseId) throw new Error("FT response not found");
 
               await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
                 lead_response_id: ftResponseId,
-                // Convert YYYY-MM-DD -> DD-MM-YYYY like NewLeadsTable
                 ft_from_date: ftFromDate.split("-").reverse().join("-"),
                 ft_to_date: ftToDate.split("-").reverse().join("-"),
               });
@@ -704,15 +886,16 @@ const Lead = () => {
           open={showCallBackModal}
           onClose={() => {
             setShowCallBackModal(false);
-            // revert UI selection if user cancels
             if (pendingPrevResponseId != null) {
-              setEditFormData((p) => ({ ...p, lead_response_id: pendingPrevResponseId }));
+              setEditFormData((p) => ({
+                ...p,
+                lead_response_id: pendingPrevResponseId,
+              }));
             }
           }}
           onSave={async () => {
             try {
               if (!callBackDate) return toast.error("Call back date is required");
-              // find Call Back response id from leadResponses
               const cbResp = leadResponses.find((r) => {
                 const n = (r.label || r.name || "").toLowerCase();
                 return n === "call back" || n === "callback";
@@ -722,7 +905,7 @@ const Lead = () => {
 
               await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
                 lead_response_id: cbResponseId,
-                call_back_date: new Date(callBackDate).toISOString(),
+                call_back_date: formatCallbackForAPI(callBackDate),
               });
               toast.success("Call Back response and date saved!");
               setShowCallBackModal(false);
@@ -750,10 +933,21 @@ const Lead = () => {
         />
       )}
 
-      {isStoryModalOpen && <StoryModal isOpen onClose={() => setIsStoryModalOpen(false)} leadId={currentLead?.id} />}
+      {isStoryModalOpen && (
+        <StoryModal
+          isOpen
+          onClose={() => setIsStoryModalOpen(false)}
+          leadId={currentLead?.id}
+        />
+      )}
 
       {isEmailModalOpen && (
-        <EmailModalWithLogs open onClose={() => setIsEmailModalOpen(false)} leadEmail={currentLead?.email} leadName={currentLead?.full_name} />
+        <EmailModalWithLogs
+          open
+          onClose={() => setIsEmailModalOpen(false)}
+          leadEmail={currentLead?.email}
+          leadName={currentLead?.full_name}
+        />
       )}
     </div>
   );

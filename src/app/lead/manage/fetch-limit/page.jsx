@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { axiosInstance } from "@/api/Axios";
 import {
@@ -28,11 +28,11 @@ export default function FetchLimitConfigPage() {
   const { hasPermission } = usePermissions();
   const router = useRouter();
   const [configs, setConfigs] = useState([]);
-  const [roles, setRoles] = useState([]);
+  const [roles, setRoles] = useState([]);        // [{id, name}, ...]
   const [branches, setBranches] = useState([]);
   const [isCreateNew, setIsCreateNew] = useState(false);
   const [form, setForm] = useState({
-    role: "",
+    role_id: "",
     branch_id: "",
     per_request_limit: "",
     daily_call_limit: "",
@@ -44,6 +44,19 @@ export default function FetchLimitConfigPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Map role_id -> role_name for quick lookup
+  const roleMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (roles || []).map((r) => [String(r.id), String(r.name)])
+      ),
+    [roles]
+  );
+
+  // Convenience to get a human-readable role name from a config row
+  const getRoleName = (cfg) =>
+    roleMap[String(cfg.role_id)] || cfg.role_name || String(cfg.role_id);
+
   useEffect(() => {
     fetchConfigs();
     fetchRoles();
@@ -52,7 +65,7 @@ export default function FetchLimitConfigPage() {
 
   const fetchConfigs = async () => {
     try {
-      const { data } = await axiosInstance.get("/lead-fetch-config/?skip=0&limit=100");
+      const { data } = await axiosInstance.get("/lead-fetch-config/");
       setConfigs(data);
     } catch {
       toast.error("Failed to load configurations");
@@ -79,7 +92,7 @@ export default function FetchLimitConfigPage() {
 
   const resetForm = () => {
     setForm({
-      role: "",
+      role_id: "",
       branch_id: "",
       per_request_limit: "",
       daily_call_limit: "",
@@ -99,7 +112,7 @@ export default function FetchLimitConfigPage() {
   const handleEditClick = (cfg) => {
     setEditingId(cfg.id);
     setForm({
-      role: cfg.role,
+      role_id: String(cfg.role_id),
       branch_id: String(cfg.branch_id),
       per_request_limit: String(cfg.per_request_limit),
       daily_call_limit: String(cfg.daily_call_limit),
@@ -115,7 +128,7 @@ export default function FetchLimitConfigPage() {
     setIsSubmitting(true);
 
     const payload = {
-      role: form.role,
+      role_id: String(form.role_id),
       branch_id: Number(form.branch_id),
       per_request_limit: Number(form.per_request_limit),
       daily_call_limit: Number(form.daily_call_limit),
@@ -152,22 +165,25 @@ export default function FetchLimitConfigPage() {
     }
   };
 
-  const filtered = configs.filter(
-    (c) =>
-      c.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.branch_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter uses role_name & branch_name (NOT role_id)
+  const filtered = configs.filter((c) => {
+    const rn = getRoleName(c).toLowerCase();
+    const bn = (c.branch_name ?? "").toLowerCase();
+    const q = searchTerm.toLowerCase();
+    return rn.includes(q) || bn.includes(q);
+  });
 
   // Stats
   const totalConfigs = configs.length;
-  const totalDailyLimit = configs.reduce((sum, c) => sum + c.daily_call_limit, 0);
+  const totalDailyLimit = configs.reduce((sum, c) => sum + (c.daily_call_limit || 0), 0);
   const averagePerRequest =
     configs.length > 0
       ? Math.round(
-        configs.reduce((sum, c) => sum + c.per_request_limit, 0) / configs.length
-      )
+          configs.reduce((sum, c) => sum + (c.per_request_limit || 0), 0) / configs.length
+        )
       : 0;
-  const uniqueRoles = new Set(configs.map((c) => c.role)).size;
+  // Unique roles should be counted by role_name
+  const uniqueRoles = new Set(configs.map((c) => getRoleName(c))).size;
 
   return (
     <div className="p-6">
@@ -196,9 +212,8 @@ export default function FetchLimitConfigPage() {
             <Plus className="w-5 h-5" />
             Create New
           </button>
-        )}  
+        )}
       </div>
-
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -225,9 +240,12 @@ export default function FetchLimitConfigPage() {
               <SelectField
                 icon={<Users />}
                 label="Role"
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                options={[{ value: "", label: "Select role" }, ...roles.map((r) => ({ value: r, label: r }))]}
+                value={form.role_id}
+                onChange={(e) => setForm((f) => ({ ...f, role_id: e.target.value }))}
+                options={[
+                  { value: "", label: "Select role" },
+                  ...roles.map((r) => ({ value: String(r.id), label: r.name })),
+                ]}
                 required
               />
               <SelectField
@@ -235,12 +253,15 @@ export default function FetchLimitConfigPage() {
                 label="Branch"
                 value={form.branch_id}
                 onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
-                options={[{ value: "", label: "Select branch" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]}
+                options={[
+                  { value: "", label: "Select branch" },
+                  ...branches.map((b) => ({ value: String(b.id), label: b.name })),
+                ]}
                 required
               />
               <InputField
                 icon={<Clock />}
-                label="Old Lead Remove (Days before old leads are deleted)"
+                label="Old Lead Remove (days)"
                 type="number"
                 value={form.old_lead_remove_days}
                 onChange={(e) =>
@@ -250,7 +271,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Target />}
-                label="Per Request Limit (Max leads per fetch)"
+                label="Per Request Limit"
                 type="number"
                 value={form.per_request_limit}
                 onChange={(e) =>
@@ -260,7 +281,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<BarChart3 />}
-                label="Daily Fetch Limit (Max fetches per day)"
+                label="Daily Call Limit"
                 type="number"
                 value={form.daily_call_limit}
                 onChange={(e) =>
@@ -270,7 +291,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Download />}
-                label="Refetch Threshold (fetch allowed when remaining leads ≤ this number)"
+                label="Last Fetch Threshold"
                 type="number"
                 value={form.last_fetch_limit}
                 onChange={(e) =>
@@ -280,7 +301,7 @@ export default function FetchLimitConfigPage() {
               />
               <InputField
                 icon={<Timer />}
-                label="Auto-Unassign After (hours)"
+                label="Assignment TTL (hours)"
                 type="number"
                 value={form.assignment_ttl_hours}
                 onChange={(e) =>
@@ -363,29 +384,33 @@ export default function FetchLimitConfigPage() {
             {filtered.map((cfg) => (
               <tr key={cfg.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">#{cfg.id}</td>
-                <td className="px-6 py-4">{cfg.role}</td>
+                <td className="px-6 py-4">{getRoleName(cfg)}</td>
                 <td className="px-6 py-4">{cfg.per_request_limit}</td>
                 <td className="px-6 py-4">{cfg.daily_call_limit}</td>
                 <td className="px-6 py-4">{cfg.last_fetch_limit}</td>
                 <td className="px-6 py-4">{cfg.old_lead_remove_days}</td>
                 <td className="px-6 py-4">{cfg.assignment_ttl_hours}h</td>
-                <td className="px-6 py-4 max-w-xs truncate" title={cfg.branch_name}>
+                <td className="px-6 py-4 max-w-xs truncate" title={cfg.branch_address}>
                   {cfg.branch_name}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
-                {hasPermission("fetch_limit_edit") &&    <button
-                      onClick={() => handleEditClick(cfg)}
-                      className="p-2 rounded hover:bg-blue-50"
-                    >
-                      <Edit className="w-4 h-4 text-blue-600" />
-                    </button>}
-                   {hasPermission("fetch_limit_delete") &&  <button
-                      onClick={() => handleDelete(cfg.id)}
-                      className="p-2 rounded hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </button>}
+                    {hasPermission("fetch_limit_edit") && (
+                      <button
+                        onClick={() => handleEditClick(cfg)}
+                        className="p-2 rounded hover:bg-blue-50"
+                      >
+                        <Edit className="w-4 h-4 text-blue-600" />
+                      </button>
+                    )}
+                    {hasPermission("fetch_limit_delete") && (
+                      <button
+                        onClick={() => handleDelete(cfg.id)}
+                        className="p-2 rounded hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -420,17 +445,30 @@ function StatCard({ icon, label, value, color }) {
   );
 }
 
-function SelectField({ icon, label, options, ...props }) {
+function SelectField({
+  icon,
+  label,
+  options = [],
+  value,
+  onChange,
+  placeholder = "Select…",
+}) {
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        {icon}
-        {label}
-      </label>
+      {label && (
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          {icon}
+          {label}
+        </label>
+      )}
       <select
-        {...props}
+        value={value ?? ""}
+        onChange={onChange}
         className="w-full border border-gray-500 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
       >
+        <option value="" disabled>
+          {placeholder}
+        </option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
@@ -452,7 +490,6 @@ function InputField({ icon, label, ...props }) {
         {...props}
         className="w-full border border-gray-500 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500"
       />
-
     </div>
   );
 }

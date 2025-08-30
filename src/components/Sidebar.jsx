@@ -53,7 +53,7 @@ export default function Sidebar({ branchId, onClose }) {
       const decoded = jwtDecode(accessToken)
       setUser({
         ...JSON.parse(userInfo),
-        role: decoded.role,
+        role: decoded.role_name,
       })
     }
   }, [])
@@ -119,7 +119,7 @@ const menu = [
     items: [
       {
         href:
-          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
+          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH_MANAGER')
             ? '/dashboard/super'
             : '/dashboard',
         icon: Home,
@@ -171,7 +171,7 @@ const menu = [
     items: [
       {
         href:
-          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH MANAGER')
+          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH_MANAGER')
             ? '/admin-payment'
             : '/payment',
         icon: CreditCard,

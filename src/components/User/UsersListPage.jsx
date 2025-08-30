@@ -9,15 +9,32 @@ import StatsCards from "./StatsCards";
 import UserFilters from "./UserFilters";
 import UserTable from "./UserTable";
 import UserDetailsModal from "./UserDetailsModal";
-import UserPermissionsModal from "./UserPermissionsModal";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import UserModal from "./UserModal";
 
+// Canonical role map by ID
+const ROLE_MAP = {
+  "1": "SUPERADMIN",
+  "2": "BRANCH MANAGER",
+  "3": "HR",
+  "4": "SALES MANAGER",
+  "5": "TL",
+  "6": "SBA",
+  "7": "BA",
+};
+
+// Normalize API users to include a readable .role for filters/display
+const normalizeUsers = (list) =>
+  (Array.isArray(list) ? list : []).map((u) => ({
+    ...u,
+    role: ROLE_MAP[u.role_id] || u.role || "Unknown",
+  }));
+
 export default function UsersListPage() {
   const { hasPermission } = usePermissions();
-  const { branchId } = useParams(); // reserved for future use
-  const didFetch = useRef(false);   // prevent double fetch (React 18 StrictMode)
+  const { branchId } = useParams(); // (reserved)
+  const didFetch = useRef(false);
 
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -29,34 +46,23 @@ export default function UsersListPage() {
   // Modal control
   const [modalMode, setModalMode] = useState(null); // "add" | "edit" | null
   const [modalUser, setModalUser] = useState(null);
-  const [modalKey, setModalKey] = useState(0); // force remount of UserModal
+  const [modalKey, setModalKey] = useState(0);
 
   // Filters
   const [selectedRole, setSelectedRole] = useState("All");
   const [selectedBranch, setSelectedBranch] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Permissions modal
-  const [permissionsUser, setPermissionsUser] = useState(null);
-
-  // Only open permissions automatically after a successful ADD (not edit)
-  const openPermAfterSuccessRef = useRef(false);
-
   const openAdd = () => {
-    // Reset any stale state before opening Add again
-    setPermissionsUser(null);
-    openPermAfterSuccessRef.current = true; // only Add should auto-open permissions
     setModalUser(null);
     setModalMode("add");
-    setModalKey((k) => k + 1); // force a clean mount
+    setModalKey((k) => k + 1);
   };
 
   const openEdit = (u) => {
-    setPermissionsUser(null);
-    openPermAfterSuccessRef.current = false; // do NOT auto-open permissions on edit
     setModalUser(u);
     setModalMode("edit");
-    setModalKey((k) => k + 1); // force a clean mount
+    setModalKey((k) => k + 1);
   };
 
   useEffect(() => {
@@ -66,7 +72,7 @@ export default function UsersListPage() {
     const load = async () => {
       try {
         const [usersRes, branchesRes, rolesRes] = await Promise.all([
-          axiosInstance.get("/users/?skip=0&limit=100&active_only=true"),
+          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
           axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
           axiosInstance.get("/profile-role/"),
         ]);
@@ -85,6 +91,7 @@ export default function UsersListPage() {
         setRoles(rolesRes.data || []);
       } catch (err) {
         console.error("Failed initial load:", err);
+        toast.error("Failed to load users or metadata.");
       }
     };
 
@@ -93,10 +100,12 @@ export default function UsersListPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await axiosInstance.get("/users/?skip=0&limit=100&active_only=true");
-      setUsers(Array.isArray(res.data?.data) ? res.data.data : []);
+      const res = await axiosInstance.get("/users/?skip=0&limit=100&active_only=false");
+      const list = Array.isArray(res.data?.data) ? res.data.data : [];
+      setUsers(normalizeUsers(list));
     } catch (err) {
       console.error("Failed to fetch users:", err);
+      toast.error("Failed to refresh users.");
     }
   };
 
@@ -112,17 +121,25 @@ export default function UsersListPage() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const roleMatch = selectedRole === "All" || u.role === selectedRole;
-    const branchMatch = selectedBranch === "All" || u.branch_id === Number(selectedBranch);
-    const q = searchQuery.toLowerCase();
-    const searchMatch =
-      u.name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.phone_number?.includes(searchQuery) ||
-      u.employee_code?.toLowerCase().includes(q);
-    return roleMatch && branchMatch && searchMatch;
-  });
+const filteredUsers = users.filter((u) => {
+  // compare by ROLE ID
+  const userRoleId = String(u?.profile_role?.id ?? u?.role_id ?? "");
+  const roleMatch = selectedRole === "All" || userRoleId === String(selectedRole);
+
+  const branchMatch =
+    selectedBranch === "All" || String(u.branch_id) === String(selectedBranch);
+
+  const q = searchQuery.toLowerCase().trim();
+  if (!q) return roleMatch && branchMatch;
+
+  const searchMatch =
+    u.name?.toLowerCase().includes(q) ||
+    u.email?.toLowerCase().includes(q) ||
+    u.phone_number?.includes(q) ||
+    u.employee_code?.toLowerCase().includes(q);
+
+  return roleMatch && branchMatch && !!searchMatch;
+});
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
@@ -167,30 +184,20 @@ export default function UsersListPage() {
           onEdit={openEdit}
           onDelete={handleDelete}
           onDetails={(u) => setDetailsUser(u)}
+          refreshUsers={fetchUsers}
         />
 
         {/* Create/Edit Modal */}
         <UserModal
-          key={modalKey}              // <— force fresh mount each open
+          key={modalKey}
           mode={modalMode}
           isOpen={!!modalMode}
           onClose={() => setModalMode(null)}
           user={modalUser}
           roles={roles}
           branches={branches}
-          onSuccess={(u) => {
-            // Refresh list
+          onSuccess={() => {
             fetchUsers();
-
-            // Only open permissions automatically after a successful ADD
-            if (openPermAfterSuccessRef.current && u) {
-              setPermissionsUser(u);
-            }
-
-            // Reset the flag so next "Add" starts clean
-            openPermAfterSuccessRef.current = false;
-
-            // Close the add/edit modal
             setModalMode(null);
           }}
         />
@@ -201,13 +208,6 @@ export default function UsersListPage() {
           onClose={() => setDetailsUser(null)}
           user={detailsUser}
           branchMap={branchMap}
-        />
-
-        {/* Permissions Modal */}
-        <UserPermissionsModal
-          isOpen={!!permissionsUser}
-          onClose={() => setPermissionsUser(null)}
-          user={permissionsUser}
         />
       </div>
     </div>

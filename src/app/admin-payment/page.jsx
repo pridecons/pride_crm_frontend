@@ -25,6 +25,8 @@ function parseClientQuery(q = "") {
 export default function PaymentHistoryPage() {
   // Role/branch state
   const [role, setRole] = useState(null);
+  console.log("role", role);
+
   const [branchId, setBranchId] = useState("");
   const [branches, setBranches] = useState([]);
   const router = useRouter();
@@ -91,16 +93,64 @@ export default function PaymentHistoryPage() {
       return;
     }
     const decoded = jwtDecode(token);
-    const userRole = decoded.role;
+
+    // ✅ Use role_name instead of role
+    const userRole = (decoded.role_name || "").toUpperCase();
     setRole(userRole);
-    if (userRole === "BRANCH MANAGER") {
+
+    if (userRole === "BRANCH_MANAGER") {
       setBranchId(decoded.branch_id?.toString() || "");
     }
+
     axiosInstance
       .get("/branches/")
       .then((res) => setBranches(res.data.branches || res.data || []))
       .catch(() => setBranches([]));
   }, [router]);
+
+  // ...
+
+  // Branch chips
+  <div className="bg-white p-4 rounded-lg shadow mb-6 gap-4">
+    {(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
+      <div className="flex space-x-2 overflow-x-auto">
+        {role === "SUPERADMIN" && (
+          <button
+            onClick={() => {
+              setBranchId("");
+              setOffset(0);
+            }}
+            className={`px-4 py-2 rounded ${branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+              }`}
+          >
+            All Branches
+          </button>
+        )}
+        {(role === "SUPERADMIN"
+          ? branches
+          : branches.filter((b) => String((b.id ?? b.branch_id)) === String(branchId))
+        ).map((b) => {
+          const bid = b.id ?? b.branch_id;
+          const isActive = String(branchId) === String(bid);
+          return (
+            <button
+              key={bid}
+              onClick={() => {
+                setBranchId(String(bid));
+                setOffset(0);
+              }}
+              disabled={role === "BRANCH_MANAGER"} // ✅ only superadmin can switch
+              className={`px-4 py-2 rounded ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              {b.name || b.branch_name || `Branch ${bid}`}
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
+
 
   // Services list
   useEffect(() => {
@@ -390,7 +440,7 @@ export default function PaymentHistoryPage() {
 
       {/* Branch chips */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 gap-4">
-        {(role === "SUPERADMIN" || role === "BRANCH MANAGER") && (
+        {(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
           <div className="flex space-x-2 overflow-x-auto">
             {role === "SUPERADMIN" && (
               <button
@@ -417,9 +467,9 @@ export default function PaymentHistoryPage() {
                     setBranchId(String(bid));
                     setOffset(0);
                   }}
-                  disabled={isBranchDropdownDisabled}
+                  disabled={role === "BRANCH_MANAGER"} // ✅ only superadmin can switch
                   className={`px-4 py-2 rounded ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                    } ${isBranchDropdownDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                    } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {b.name || b.branch_name || `Branch ${bid}`}
                 </button>
@@ -670,10 +720,10 @@ export default function PaymentHistoryPage() {
                     <td className="py-2 px-3">
                       <span
                         className={`px-2 py-1 rounded text-xs font-semibold ${p.status === "PAID"
-                            ? "bg-green-100 text-green-700"
-                            : p.status === "ACTIVE" || p.status === "PENDING"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-600"
+                          ? "bg-green-100 text-green-700"
+                          : p.status === "ACTIVE" || p.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-gray-100 text-gray-600"
                           }`}
                       >
                         {p.status === "ACTIVE" ? "PENDING" : p.status}

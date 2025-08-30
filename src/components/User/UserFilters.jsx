@@ -1,35 +1,66 @@
+// UserFilters.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { Search } from "lucide-react";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
+
+const toStringSafe = (v) => (v == null ? "" : String(v));
+
+const getBranchId = (b) =>
+  b?.id != null ? String(b.id) : b?.branch_id != null ? String(b.branch_id) : "";
+
+const getBranchLabel = (b) =>
+  b?.name || b?.branch_name || (b?.id != null ? `Branch ${b.id}` : "Unknown");
+
+const branchKey = (b, i) => {
+  const idPart =
+    b?.id != null ? `id-${b.id}` : b?.branch_id != null ? `bid-${b.branch_id}` : `idx-${i}`;
+  return `branch-${idPart}`;
+};
 
 function useRoleBranch() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
- const { hasPermission } = usePermissions();
 
   useEffect(() => {
     try {
-      const ui = Cookies.get("user_info");
-      if (ui) {
-        const parsed = JSON.parse(ui);
-        const r = parsed?.role || parsed?.user?.role || null;
-        const b = parsed?.branch_id ?? parsed?.user?.branch_id ?? parsed?.branch?.id ?? null;
-        setRole(r || null);
-        setBranchId(b != null ? String(b) : null);
-        return;
+      const uiRaw = Cookies.get("user_info");
+      let r = null;
+      let b = null;
+
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        r =
+          ui?.role_name ||
+          ui?.role ||
+          ui?.user?.role_name ||
+          ui?.user?.role ||
+          ui?.profile_role?.name ||
+          null;
+
+        b =
+          ui?.branch_id ??
+          ui?.user?.branch_id ??
+          ui?.branch?.id ??
+          ui?.user?.branch?.id ??
+          null;
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const p = jwtDecode(token);
+          r = p?.role_name || p?.role || null;
+          b = p?.branch_id ?? p?.user?.branch_id ?? null;
+        }
       }
-      const token = Cookies.get("access_token");
-      if (token) {
-        const p = jwtDecode(token);
-        const r = p?.role || null;
-        const b = p?.branch_id ?? p?.user?.branch_id ?? null;
-        setRole(r || null);
-        setBranchId(b != null ? String(b) : null);
-      }
+
+      const canon = String(r || "").toUpperCase().trim().replace(/\s+/g, " ");
+      const fixedRole = canon === "SUPER ADMINISTRATOR" ? "SUPERADMIN" : canon;
+
+      setRole(fixedRole || null);
+      setBranchId(b != null ? String(b) : null);
     } catch (e) {
       console.error("role/branch decode failed", e);
     }
@@ -39,15 +70,43 @@ function useRoleBranch() {
 }
 
 export default function UserFilters({
-  searchQuery, setSearchQuery,
-  selectedRole, setSelectedRole,
-  selectedBranch, setSelectedBranch,
-  roles, branches
+  searchQuery,
+  setSearchQuery,
+  selectedRole,       // <-- holds role ID or "All"
+  setSelectedRole,
+  selectedBranch,
+  setSelectedBranch,
+  roles = [],         // <-- from /profile-role/ (has .id and .name)
+  branches = [],
 }) {
   const { hasPermission } = usePermissions();
   const { isSuperAdmin, branchId } = useRoleBranch();
 
-  // For non-SUPERADMIN: lock the selected branch to the user’s branch
+  // Role options: value=id (string), label=name
+  const normalizedRoles = useMemo(() => {
+    const out = [];
+    (roles || []).forEach((r, i) => {
+      if (r?.id == null || !r?.name) return;
+      out.push({
+        value: String(r.id),     // use id for filtering
+        label: String(r.name),   // show name
+        raw: r,
+      });
+    });
+    return out;
+  }, [roles]);
+
+  const normalizedBranches = useMemo(
+    () =>
+      (branches || []).map((b) => ({
+        id: toStringSafe(getBranchId(b)),
+        label: toStringSafe(getBranchLabel(b)),
+        raw: b,
+      })),
+    [branches]
+  );
+
+  // Non-superadmins: lock to own branch
   useEffect(() => {
     if (!isSuperAdmin && branchId && selectedBranch !== String(branchId)) {
       setSelectedBranch(String(branchId));
@@ -67,32 +126,49 @@ export default function UserFilters({
         />
       </div>
 
-       {hasPermission("user_all_roles")  &&<div className="flex gap-3">
-        <select
-          value={selectedRole}
-          onChange={(e) => setSelectedRole(e.target.value)}
-          className="border rounded-xl px-4 py-3"
-        >
-          <option value="All">All Roles</option>
-          {roles.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-3 items-center">
+        {/* Role filter (by role ID) */}
+        {hasPermission("user_all_roles") && (
+          <select
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="border rounded-xl px-4 py-3"
+          >
+            <option value="All">All Roles</option>
+            {normalizedRoles.map((r) => (
+              <option key={`role-${r.value}`} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        )}
 
-        {/* Branch filter visible ONLY for SUPERADMIN */}
-        {isSuperAdmin && hasPermission("user_all_branches") && (
+        {/* Branch filter: ONLY SUPERADMIN */}
+        {isSuperAdmin && hasPermission("user_all_branches") ? (
           <select
             value={selectedBranch}
             onChange={(e) => setSelectedBranch(e.target.value)}
             className="border rounded-xl px-4 py-3"
           >
             <option value="All">All Branches</option>
-            {branches.map((b) => (
-              <option key={b.id} value={String(b.id)}>{b.name}</option>
+            {normalizedBranches.map((b, i) => (
+              <option key={branchKey(b.raw, i)} value={b.id}>
+                {b.label}
+              </option>
             ))}
           </select>
+        ) : (
+          branchId && (
+            <span className="px-3 py-2 text-sm rounded-xl bg-gray-100 border border-gray-200">
+              Branch:{" "}
+              {
+                normalizedBranches.find((b) => String(b.id) === String(branchId))
+                  ?.label || branchId
+              }
+            </span>
+          )
         )}
-      </div>}
+      </div>
     </div>
   );
 }

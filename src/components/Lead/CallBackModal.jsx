@@ -40,7 +40,8 @@ export default function CallBackModal({
           <input
             ref={inputRef}
             type="datetime-local"
-            value={dateValue}
+            value={dateValue || ""}
+step="60"
             onChange={(e) => setDateValue(e.target.value)}
             className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
           />

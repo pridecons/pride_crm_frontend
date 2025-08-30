@@ -7,37 +7,59 @@ import { jwtDecode } from "jwt-decode";
 import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
+
+const canon = (s) => String(s || "").toUpperCase().trim();
 
 function useRoleBranch() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
-const { hasPermission } = usePermissions();
+  const { hasPermission } = usePermissions();
+
   useEffect(() => {
     try {
-      const ui = Cookies.get("user_info");
-      if (ui) {
-        const parsed = JSON.parse(ui);
-        const r = parsed?.role || parsed?.user?.role || null;
-        const b = parsed?.branch_id ?? parsed?.user?.branch_id ?? parsed?.branch?.id ?? null;
-        setRole(r || null);
-        setBranchId(b != null ? String(b) : null);
-        return;
+      const uiRaw = Cookies.get("user_info");
+      let r = null;
+      let b = null;
+
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        r =
+          ui?.role_name ||
+          ui?.role ||
+          ui?.user?.role_name ||
+          ui?.user?.role ||
+          ui?.profile_role?.name ||
+          null;
+        b =
+          ui?.branch_id ??
+          ui?.user?.branch_id ??
+          ui?.branch?.id ??
+          ui?.user?.branch?.id ??
+          null;
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const p = jwtDecode(token);
+          r = p?.role_name || p?.role || null;
+          b = p?.branch_id ?? p?.user?.branch_id ?? null;
+        }
       }
-      const token = Cookies.get("access_token");
-      if (token) {
-        const p = jwtDecode(token);
-        const r = p?.role || null;
-        const b = p?.branch_id ?? p?.user?.branch_id ?? null;
-        setRole(r || null);
-        setBranchId(b != null ? String(b) : null);
-      }
+
+      const rCanon = canon(r).replace(/\s+/g, " ");
+      const roleFixed =
+        rCanon === "SUPER ADMINISTRATOR" ? "SUPERADMIN" : rCanon;
+
+      setRole(roleFixed || null);
+      setBranchId(b != null ? String(b) : null);
     } catch (e) {
       console.error("role/branch decode failed", e);
     }
   }, []);
 
-  return { role, branchId, isSuperAdmin: role === "SUPERADMIN" };
+  const isSuperAdmin = role === "SUPERADMIN";
+
+  return { role, branchId, isSuperAdmin };
 }
 
 export default function UserTable({
@@ -45,29 +67,27 @@ export default function UserTable({
   branchMap = {},
   onEdit,
   onDetails,
-  refreshUsers
+  refreshUsers,
 }) {
   const { isSuperAdmin, branchId } = useRoleBranch();
-  const { hasPermission } = usePermissions();
 
-  // FE safety: scope visible users to own branch unless SUPERADMIN
   const visibleUsers = useMemo(() => {
     if (isSuperAdmin) return users;
-    if (!branchId) return [];
-    return users.filter(u => String(u.branch_id) === String(branchId));
+    if (!branchId) return users;
+    return users.filter((u) => String(u.branch_id) === String(branchId));
   }, [users, isSuperAdmin, branchId]);
 
-  const getRoleColorClass = (role) => {
+  const getRoleColorClass = (roleName) => {
     const roleColors = {
       SUPERADMIN: "text-blue-800",
-      "BRANCH MANAGER": "text-red-700",
-      "SALES MANAGER": "text-green-800",
+      "BRANCH_MANAGER": "text-red-700",
+      "SALES_MANAGER": "text-green-800",
       HR: "text-pink-800",
       TL: "text-yellow-800",
       SBA: "text-indigo-800",
       BA: "text-gray-800",
     };
-    return roleColors[role] || "bg-gray-100 text-gray-700 border border-gray-200";
+    return roleColors[roleName] || "bg-gray-100 text-gray-700 border border-gray-200";
   };
 
   const handleDelete = async (employeeCode) => {
@@ -101,75 +121,83 @@ export default function UserTable({
 
           <tbody className="divide-y divide-gray-100">
             {visibleUsers.length > 0 ? (
-              visibleUsers.map((u, index) => (
-                <tr key={u.employee_code} className="hover:bg-gray-50 transition duration-200 ease-in-out">
-                  <td className="px-5 py-4">{index + 1}</td>
+              visibleUsers.map((u, index) => {
+                // Prefer profile_role.name → fallback to role → fallback to role_id
+                const roleName =
+                  u.profile_role?.name ||
+                  u.role_name ||
+                  u.role ||
+                  "Unknown";
 
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-blue-100 flex items-center justify-center rounded-full">
-                        <User className="w-5 h-5 text-blue-600" />
+                return (
+                  <tr key={u.employee_code} className="hover:bg-gray-50 transition duration-200 ease-in-out">
+                    <td className="px-5 py-4">{index + 1}</td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-blue-100 flex items-center justify-center rounded-full">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <span className="font-medium text-gray-800 truncate">{u.name}</span>
                       </div>
-                      <span className="font-medium text-gray-800 truncate">{u.name}</span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4">
-                    <span className={`py-0.5 rounded-full text-xs font-semibold ${getRoleColorClass(u.role)}`}>
-                      {u.role}
-                    </span>
-                  </td>
+                    <td className="px-5 py-4">
+                      <span className={`py-0.5 rounded-full text-xs font-semibold ${getRoleColorClass(roleName)}`}>
+                        {roleName}
+                      </span>
+                    </td>
 
-                  <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
+                    <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
 
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      {u.phone_number}
-                    </div>
-                  </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        {u.phone_number}
+                      </div>
+                    </td>
 
-                  <td className="px-5 py-4 truncate max-w-[240px]">
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="truncate">{u.email}</span>
-                    </div>
-                  </td>
+                    <td className="px-5 py-4 truncate max-w-[240px]">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">{u.email}</span>
+                      </div>
+                    </td>
 
-                  <td className="px-5 py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${u.is_active
-                          ? "bg-green-100 text-green-700 border border-green-200"
-                          : "bg-red-100 text-red-700 border border-red-200"
+                    <td className="px-5 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          u.is_active
+                            ? "bg-green-100 text-green-700 border border-green-200"
+                            : "bg-red-100 text-red-700 border border-red-200"
                         }`}
-                    >
-                      {u.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
+                      >
+                        {u.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
 
-                  <td className="px-5 py-4 text-center">
-                    <div className="flex justify-center gap-3">
-                      {onDetails && hasPermission("user_view_user_details") && (
-                        <button
-                          onClick={() => onDetails(u)}
-                          className="p-2 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      )}
+                    <td className="px-5 py-4 text-center">
+                      <div className="flex justify-center gap-3">
+                        {onDetails && (
+                          <button
+                            onClick={() => onDetails(u)}
+                            className="p-2 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 transition"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
 
-                      {onEdit && hasPermission("user_edit_user") && (
-                        <button
-                          onClick={() => onEdit(u)}
-                          className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                          title="Edit User"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      )}
+                        {onEdit && (
+                          <button
+                            onClick={() => onEdit(u)}
+                            className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                            title="Edit User"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
 
-                      {hasPermission("user_delete_user") && (
                         <button
                           onClick={() => handleDelete(u.employee_code)}
                           className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition"
@@ -177,12 +205,11 @@ export default function UserTable({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
-                  </td>
-
-                </tr>
-              ))
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan="8" className="px-5 py-8 text-center text-gray-500">

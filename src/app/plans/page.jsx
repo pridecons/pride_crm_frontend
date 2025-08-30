@@ -412,7 +412,7 @@ export default function ServicesPage() {
                       name="billing_cycle"
                       value="CALL"
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full bg-gray-100"
+                      className="p-4 border rounded-xl w-full bg-gray-100 appearance-none"
                       // disabled
                     >
                       {billingCycles.map((bc) => (

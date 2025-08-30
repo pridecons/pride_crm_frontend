@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, Fragment, useRef } from "react";
-import { axiosInstance } from "@/api/Axios";
+import { axiosInstance, BASE_URL } from "@/api/Axios";
 import { Dialog, Transition } from "@headlessui/react";
 import LoadingState from "@/components/LoadingState";
 import toast from "react-hot-toast";
@@ -102,12 +102,11 @@ const BranchesPage = () => {
   const [loadingManagerPan, setLoadingManagerPan] = useState(false);
   const [isManagerPanVerified, setIsManagerPanVerified] = useState(false);
 
-  const BACKEND_URL = "https://crm.24x7techelp.com";
   const fileInputRef = useRef(null);
 
   const openAgreementModal = (url) => {
     let absoluteUrl = url;
-    if (url && url.startsWith("/")) absoluteUrl = BACKEND_URL + url;
+    if (url && url.startsWith("/")) absoluteUrl = BASE_URL + url;
     setAgreementUrl(absoluteUrl);
     setShowAgreement(true);
   };

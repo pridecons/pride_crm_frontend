@@ -187,7 +187,7 @@ export default function BulkUploadModal({ isOpen, onClose, branches }) {
                                         { name: "investment_column", label: "Investment Column", icon: "💰" },
                                     ].map(({ name, label, icon }) => (
                                         <div key={name} className="group">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                                            <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                                                 <span className="text-lg">{icon}</span>
                                                 {label}
                                             </label>
@@ -209,7 +209,7 @@ export default function BulkUploadModal({ isOpen, onClose, branches }) {
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="group">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                                        <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                                             <span className="text-lg">🏢</span>
                                             Select Branch
                                         </label>
@@ -225,7 +225,7 @@ export default function BulkUploadModal({ isOpen, onClose, branches }) {
                                         </select>
                                     </div>
                                     <div className="group">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                                        <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                                             <span className="text-lg">🔖</span>
                                             Lead Source ID
                                         </label>

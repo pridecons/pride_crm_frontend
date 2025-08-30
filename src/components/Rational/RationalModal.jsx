@@ -1,6 +1,5 @@
-import React from 'react';
-import { BASE_URL } from '@/api/Axios';
-import SmsTemplateSelector from './SmsTemplateSelector';
+import React, { useEffect, useState } from "react";
+import { BASE_URL } from "@/api/Axios";
 
 function RationalModal({
   isEditMode,
@@ -18,25 +17,101 @@ function RationalModal({
 }) {
   if (!isModalOpen) return null;
 
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch(
+          "https://crm.24x7techelp.com/api/v1/sms-templates/"
+        );
+        const data = await res.json();
+        setTemplates(data);
+      } catch (err) {
+        console.error("Failed to fetch templates", err);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
+
+  const handleSelect = (e) => {
+    const id = parseInt(e.target.value);
+    setSelectedTemplateId(id);
+    const template = templates.find((t) => t.id === id);
+     setFormData((prev) => ({
+      ...prev,
+      "message": template?.template || "",
+    }));
+    setFormData((prev) => ({
+      ...prev,
+      "templateId": template?.dlt_template_id || "",
+    }));
+    setSelectedTemplate(template?.template)
+  };
+
+  useEffect(() => {
+    const temp = selectedTemplate?.replace("{stock_name}",formData.stock_name)?.replace("{entry_price}",formData.entry_price)?.replace("{stop_loss}",formData.stop_loss)?.replace("{targets}",`${formData.targets}${formData.targets2? `-${formData.targets2}`:""}${formData.targets3? `-${formData.targets3}`:""}`)
+
+    setFormData((prev) => ({
+      ...prev,
+      "message": temp || "",
+    }));
+  }, [selectedTemplate, formData.stock_name, formData.entry_price, formData.stop_loss, formData.targets, formData.targets2, formData.targets3]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-3xl mx-auto relative max-h-[90vh] overflow-y-auto">
-        <button className="absolute top-2 right-3 text-gray-500 text-2xl" onClick={() => setIsModalOpen(false)}>
+        <button
+          className="absolute top-2 right-3 text-gray-500 text-2xl"
+          onClick={() => setIsModalOpen(false)}
+        >
           &times;
         </button>
-        <h2 className="text-xl font-semibold mb-4">{editId ? 'Edit Rational' : 'Create Rational'}</h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h2 className="text-xl font-semibold mb-4">
+          {editId ? "Edit Rational" : "Create Rational"}
+        </h2>
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Stock Name</label>
-            <input type="text" name="stock_name" value={formData.stock_name} onChange={handleChange} className="p-3 border rounded" required disabled={isEditMode} />
+            <input
+              type="text"
+              name="stock_name"
+              value={formData.stock_name}
+              onChange={handleChange}
+              className="p-3 border rounded"
+              required
+              disabled={isEditMode}
+            />
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Entry Price</label>
-            <input type="number" name="entry_price" value={formData.entry_price ?? ""} onChange={handleChange} className="p-3 border rounded" required={!isEditMode}  disabled={isEditMode}/>
+            <input
+              type="number"
+              name="entry_price"
+              value={formData.entry_price ?? ""}
+              onChange={handleChange}
+              className="p-3 border rounded"
+              required={!isEditMode}
+              disabled={isEditMode}
+            />
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">Stop Loss</label>
-            <input type="number" name="stop_loss" value={formData.stop_loss} onChange={handleChange} className="p-3 border rounded" required={!isEditMode} disabled={isEditMode} />
+            <input
+              type="number"
+              name="stop_loss"
+              value={formData.stop_loss}
+              onChange={handleChange}
+              className="p-3 border rounded"
+              required={!isEditMode}
+              disabled={isEditMode}
+            />
           </div>
           <div className="flex flex-col">
             <label className="mb-1 text-gray-700 text-sm">
@@ -45,7 +120,7 @@ function RationalModal({
             <input
               type="number"
               name="targets"
-              value={formData.targets ?? ''}
+              value={formData.targets ?? ""}
               onChange={handleChange}
               required
               className="p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -58,7 +133,7 @@ function RationalModal({
             <input
               type="number"
               name="targets2"
-              value={formData.targets2 ?? ''}
+              value={formData.targets2 ?? ""}
               onChange={handleChange}
               className="p-3 border rounded"
               disabled={isEditMode}
@@ -70,41 +145,58 @@ function RationalModal({
             <input
               type="number"
               name="targets3"
-              value={formData.targets3 ?? ''}
+              value={formData.targets3 ?? ""}
               onChange={handleChange}
               className="p-3 border rounded"
               disabled={isEditMode}
             />
           </div>
           <div className="flex flex-col md:col-span-2 relative">
-            <label className="mb-1 text-gray-700 text-sm font-medium">Recommendation Type</label>
+            <label className="mb-1 text-gray-700 text-sm font-medium">
+              Recommendation Type
+            </label>
 
             <div
               onClick={() => {
-                if (!isEditMode) setOpenDropdown(prev => !prev);
+                if (!isEditMode) setOpenDropdown((prev) => !prev);
               }}
-              className={`p-3 border border-black rounded-lg bg-white cursor-pointer transition-all duration-200 flex items-center justify-between ${isEditMode ? 'bg-gray-50 cursor-not-allowed text-gray-500 pointer-events-none' : ''
-                }`}
+              className={`p-3 border border-black rounded-lg bg-white cursor-pointer transition-all duration-200 flex items-center justify-between ${
+                isEditMode
+                  ? "bg-gray-50 cursor-not-allowed text-gray-500 pointer-events-none"
+                  : ""
+              }`}
             >
               <div className="flex flex-wrap gap-1">
                 {formData.recommendation_type?.length > 0 ? (
-                  formData.recommendation_type.map(type => (
-                    <span key={type} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                  formData.recommendation_type.map((type) => (
+                    <span
+                      key={type}
+                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium"
+                    >
                       {type}
                     </span>
                   ))
                 ) : (
-                  <span className="text-gray-500">Select Recommendation Type</span>
+                  <span className="text-gray-500">
+                    Select Recommendation Type
+                  </span>
                 )}
               </div>
               {!isEditMode && (
                 <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ml-2 flex-shrink-0 ${openDropdown ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ml-2 flex-shrink-0 ${
+                    openDropdown ? "rotate-180" : ""
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               )}
             </div>
@@ -119,7 +211,10 @@ function RationalModal({
                     <button
                       type="button"
                       onClick={() => {
-                        setFormData(prev => ({ ...prev, recommendation_type: [] }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          recommendation_type: [],
+                        }));
                       }}
                       className="text-xs text-red-600 hover:text-red-800"
                     >
@@ -134,8 +229,8 @@ function RationalModal({
                   "Stock Option",
                   "MCX Bullion",
                   "MCX Base Metal",
-                  "MCX Energy"
-                ].map(option => (
+                  "MCX Energy",
+                ].map((option) => (
                   <label
                     key={option}
                     className="flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors duration-150 border-b border-gray-100 last:border-b-0"
@@ -147,15 +242,26 @@ function RationalModal({
                       onChange={() => {
                         const current = formData.recommendation_type || [];
                         const updated = current.includes(option)
-                          ? current.filter(item => item !== option)
+                          ? current.filter((item) => item !== option)
                           : [...current, option];
-                        setFormData(prev => ({ ...prev, recommendation_type: updated }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          recommendation_type: updated,
+                        }));
                       }}
                     />
                     <span className="text-gray-800 font-medium">{option}</span>
                     {formData.recommendation_type?.includes(option) && (
-                      <svg className="w-4 h-4 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        className="w-4 h-4 text-blue-600 ml-auto"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                   </label>
@@ -166,8 +272,16 @@ function RationalModal({
                     onClick={() => setOpenDropdown(false)}
                     className="w-full bg-green-600 text-white py-2 px-4 rounded text-sm hover:bg-green-700 transition-colors duration-150 flex items-center justify-center gap-2"
                   >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     Done ({formData.recommendation_type?.length || 0} selected)
                   </button>
@@ -175,8 +289,44 @@ function RationalModal({
               </div>
             )}
           </div>
-          <div className='col-span-2'>
-            <SmsTemplateSelector />
+
+          <div className="col-span-2">
+            <div className="flex flex-col md:col-span-2 relative">
+              <label className="mb-1 text-gray-700 text-sm font-medium">
+                SMS Template
+              </label>
+              <select
+                onChange={handleSelect}
+                value={selectedTemplateId ?? ""}
+                className="p-3 border  rounded-lg bg-white cursor-pointer border-black transition-all duration-200"
+              >
+                <option value="" disabled>
+                  Select a template
+                </option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.title}
+                  </option>
+                ))}
+              </select>
+
+              {formData.message && (
+                <>
+                  <label className="mt-4 mb-1 text-gray-700 text-sm font-medium">
+                    SMS Body
+                  </label>
+                  <textarea
+                  readOnly
+                    className="p-3 border border-gray-300 rounded-lg bg-gray-50 w-full h-32 text-sm text-gray-800"
+                    value={formData.message}
+                    onChange={(e) => setFormData((prev) => ({
+                        ...prev,
+                        "message": e.target.value || "",
+                      }))}
+                  />
+                </>
+              )}
+            </div>
           </div>
 
           {!isEditMode && (
@@ -184,7 +334,7 @@ function RationalModal({
               <label className="mb-1 text-gray-700 text-sm">Status</label>
               <select
                 name="status"
-                value={formData.status || 'OPEN'}
+                value={formData.status || "OPEN"}
                 onChange={handleChange}
                 className="p-3 border rounded"
                 required
@@ -221,7 +371,7 @@ function RationalModal({
                       ...prev,
                       graph: e.target.files[0],
                     }));
-                    if (e.target.files[0]) setImageError('');
+                    if (e.target.files[0]) setImageError("");
                   }}
                   className="hidden"
                   id="rationalImageUpload"
@@ -229,8 +379,10 @@ function RationalModal({
                 <label
                   htmlFor="rationalImageUpload"
                   className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
-                  title="Upload image">
-                  Upload Image {!editId && <span className="text-red-300">*</span>}
+                  title="Upload image"
+                >
+                  Upload Image{" "}
+                  {!editId && <span className="text-red-300">*</span>}
                 </label>
               </div>
             )}
@@ -271,8 +423,11 @@ function RationalModal({
           </div>
 
           <div className="md:col-span-2">
-            <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition-colors duration-150">
-              {editId ? 'Update Rational' : 'Submit'}
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition-colors duration-150"
+            >
+              {editId ? "Update Rational" : "Submit"}
             </button>
           </div>
         </form>
@@ -282,4 +437,3 @@ function RationalModal({
 }
 
 export default RationalModal;
-

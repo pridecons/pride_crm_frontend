@@ -41,6 +41,8 @@ export default function RationalPage() {
     rational: '',
     recommendation_type: [],
     graph: null,
+    message:"",
+    templateId: ""
   });
   const [selectedDate, setSelectedDate] = useState('');
 
@@ -137,6 +139,8 @@ const openModal = (item = null) => {
       recommendation_type: recommendationArray,   // ← keep as array of strings
       graph: item.graph || null,
       status: item.status || 'OPEN',
+      message: item.message || '',
+      templateId: item.templateId || '',
     });
   } else {
     setEditId(null);
@@ -152,6 +156,8 @@ const openModal = (item = null) => {
       recommendation_type: [],  // ← start empty
       graph: null,
       status: 'OPEN',
+      message: "",
+      templateId: ""
     });
   }
 
@@ -230,6 +236,8 @@ const handleSubmit = async (e) => {
     recommendation_type,
     graph,
     status,
+    message,
+    templateId
   } = formData;
 
   // require at least one type
@@ -251,6 +259,8 @@ const handleSubmit = async (e) => {
         rational: String(rational ?? '').trim(),
         status: status || 'OPEN',
         recommendation_type: recommendation_type, // array of strings
+        message: message,
+        templateId: templateId,
       };
 
       await axiosInstance.put(`${API_URL}${editId}/`, payload, {
@@ -263,10 +273,10 @@ const handleSubmit = async (e) => {
         alert('Entry Price, Stop Loss, and Target 1 are required.');
         return;
       }
-      if (!graph) {
-        setImageError('Please select an image to upload');
-        return;
-      }
+      // if (!graph) {
+      //   setImageError('Please select an image to upload');
+      //   return;
+      // }
 
       const fd = new FormData();
       const toNum = (v, def = '') => {
@@ -283,6 +293,8 @@ const handleSubmit = async (e) => {
       fd.append('targets3',   toNum(targets3, '0'));
       fd.append('rational',   (rational ?? '').trim());
       fd.append('status',     status || 'OPEN');
+      fd.append('message',     message || '');
+      fd.append('templateId',  templateId || '');
 
       // repeat key for FastAPI List[str]
       recommendation_type.filter(Boolean).forEach(rt => fd.append('recommendation_type', rt));

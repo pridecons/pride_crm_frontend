@@ -110,11 +110,11 @@ export default function LeadForm() {
 
   const handleVerifyPan = async () => {
     if (!formData.pan) {
-      toast.error('Please enter a PAN number first');
+       ErrorHandling({defaultError:"Please enter a PAN number first"});
       return;
     }
     if (!formData.pan_type) {
-      toast.error('Please select PAN type before verifying');
+      ErrorHandling({defaultError:"Please select PAN type before verifying"});
       return;
     }
     setLoadingPan(true);
@@ -146,11 +146,11 @@ export default function LeadForm() {
         setPanVerified(true);
         toast.success('PAN verified and details autofilled!');
       } else {
-        toast.error('PAN verification failed');
+         ErrorHandling({defaultError:"PAN verification failed"});
       }
     } catch (err) {
       console.error(err);
-      toast.error('Error verifying PAN');
+      ErrorHandling({ error: err, defaultError: "Error verifying PAN"});
     } finally {
       setLoadingPan(false);
     }
@@ -175,12 +175,12 @@ const handleSubmit = async (e) => {
   e.preventDefault();
 
   if (!formData.lead_response_id) {
-    toast.error('Please select a Lead Response.');
+     ErrorHandling({defaultError:"Please select a Lead Response."});
     return;
   }
 
   if (!formData.lead_source_id) {
-    toast.error('Please select a Lead Source.');
+    ErrorHandling({defaultError:"Please select a Lead Source."});
     return;
   }
 
@@ -264,9 +264,7 @@ const handleSubmit = async (e) => {
     setPanPicPreview(null);
     setPanVerified(false);
   } catch (err) {
-    console.error(err);
-    const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || 'Error creating lead or uploading documents'
-    toast.error(msg);
+     ErrorHandling({ error: err, defaultError:"Error creating lead or uploading documents"});
   } finally {
     setSubmitting(false);
   }

@@ -84,7 +84,7 @@ export default function EmailTemplates() {
         const { data } = await axiosInstance.get("/profile-role/");
         setRoleOptions(data);
       } catch (err) {
-        toast.error("Failed to load template types");
+        ErrorHandling({ error: err, defaultError: "Failed to  load templates types" });
       }
     };
     loadRoles();
@@ -96,7 +96,7 @@ export default function EmailTemplates() {
       const { data } = await axiosInstance.get("/email/templates/");
       setTemplates(data);
     } catch (error) {
-      toast.error("Failed to load templates");
+      ErrorHandling({ error: error, defaultError: "Failed to  load templates" });
     } finally {
       setLoading(false);
     }
@@ -167,7 +167,7 @@ export default function EmailTemplates() {
       setIsModalOpen(false);
       setIsDropdownOpen(false);
     } catch (error) {
-      toast.error("Failed to save template");
+      ErrorHandling({ error: error, defaultError: "Failed to save template" });
     }
   };
 
@@ -178,7 +178,8 @@ export default function EmailTemplates() {
       toast.success("Template deleted");
       fetchTemplates();
     } catch (error) {
-      toast.error("Failed to delete template");
+      ErrorHandling({ error: error, defaultError: "Failed to delete template" });
+
     }
   };
 

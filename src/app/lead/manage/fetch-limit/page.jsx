@@ -67,8 +67,8 @@ export default function FetchLimitConfigPage() {
     try {
       const { data } = await axiosInstance.get("/lead-fetch-config/");
       setConfigs(data);
-    } catch {
-      toast.error("Failed to load configurations");
+    } catch(error) {
+      ErrorHandling({ error: error, defaultError: "Failed to load configurations"});
     }
   };
 
@@ -76,8 +76,8 @@ export default function FetchLimitConfigPage() {
     try {
       const { data } = await axiosInstance.get("/profile-role/");
       setRoles(data);
-    } catch {
-      toast.error("Failed to load roles");
+    } catch (error) {
+      ErrorHandling({ error: error, defaultError: "Failed to load roles"});
     }
   };
 
@@ -85,8 +85,8 @@ export default function FetchLimitConfigPage() {
     try {
       const { data } = await axiosInstance.get("/branches/?skip=0&limit=100&active_only=false");
       setBranches(data);
-    } catch {
-      toast.error("Failed to load branches");
+    } catch (error){
+       ErrorHandling({ error: error, defaultError: "Failed to load branches"});
     }
   };
 

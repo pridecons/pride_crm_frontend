@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Users, Target, TrendingUp, PieChart } from 'lucide-react';
 import { axiosInstance } from '@/api/Axios'; 

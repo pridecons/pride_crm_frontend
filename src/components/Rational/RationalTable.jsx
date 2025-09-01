@@ -19,8 +19,8 @@ const StatusBadge = ({ label }) => {
     label === "OPEN"
       ? "bg-blue-50 text-blue-700 ring-blue-200"
       : label === "CLOSED"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : "bg-slate-50 text-slate-700 ring-slate-200";
+        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+        : "bg-slate-50 text-slate-700 ring-slate-200";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tone}`}
@@ -145,48 +145,59 @@ function RationalTable({
                       onClick={(e) => e.stopPropagation()}
                     >
                       {hasPermission("rational_status") ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id)
-                            }
-                            className="inline-flex items-center gap-1.5"
-                          >
-                            <StatusBadge
-                              label={
-                                statusOptions.find((opt) => opt.value === item.status)?.label ||
-                                item.status ||
-                                "N/A"
-                              }
-                            />
-                            <ChevronDown size={14} className="text-slate-500" />
-                          </button>
+                        (() => {
+                          const current = (item.status || "").toString().trim();
+                          const normalized = current.toUpperCase();
+                          const isEditable = normalized === "OPEN"; // only editable when status is OPEN
 
-                          {openStatusDropdown === item.id && (
-                            <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 w-40 rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
-                              {statusOptions.map(({ label, value }) => {
-                                const active = item.status === value;
-                                return (
-                                  <button
-                                    key={value}
-                                    onClick={() => {
-                                      handleStatusChange(item.id, value);
-                                      setOpenStatusDropdown(null);
-                                    }}
-                                    className={`w-full text-left px-3.5 py-2 text-sm transition-colors ${
-                                      active
-                                        ? "bg-blue-50 text-blue-700"
-                                        : "hover:bg-slate-50 text-slate-700"
-                                    }`}
-                                  >
-                                    {label} {active && <span className="ml-1">✓</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </>
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isEditable) return;
+                                  setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
+                                }}
+                                className={`inline-flex items-center gap-1.5 ${isEditable ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+                                  }`}
+                                aria-disabled={!isEditable}
+                              >
+                                <StatusBadge
+                                  label={
+                                    statusOptions.find((opt) => opt.value === item.status)?.label ||
+                                    item.status ||
+                                    "N/A"
+                                  }
+                                />
+                                <ChevronDown size={14} className="text-slate-500" />
+                              </button>
+
+                              {isEditable && openStatusDropdown === item.id && (
+                                <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 w-40 rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                                  {statusOptions.map(({ label, value }) => {
+                                    const active = item.status === value;
+                                    return (
+                                      <button
+                                        key={value}
+                                        onClick={() => {
+                                          if (active) return; // no-op if selecting same value
+                                          handleStatusChange(item.id, value);
+                                          setOpenStatusDropdown(null);
+                                        }}
+                                        className={`w-full text-left px-3.5 py-2 text-sm transition-colors ${active
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "hover:bg-slate-50 text-slate-700"
+                                          }`}
+                                      >
+                                        {label} {active && <span className="ml-1">✓</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()
                       ) : (
                         <StatusBadge label={item.status || "N/A"} />
                       )}

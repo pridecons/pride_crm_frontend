@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, FileDown, FileSpreadsheet } from "lucide-react"
 import RationalModal from '@/components/Rational/RationalModal';
 import AnalyticsDashboard from '@/components/Rational/AnalyticsDashboard';
 import RationalTable from '@/components/Rational/RationalTable';
+import ExportPdfModal from '@/components/Rational/pdf_export';
 
 
 const API_URL = '/recommendations/';
@@ -422,8 +423,7 @@ const handleSubmit = async (e) => {
               )}
             </div>
             {/* Render modals conditionally */}
-            {/* {showPdfModal && <ExportPdfModal onClose={() => setShowPdfModal(false)} open={showPdfModal} />} */}
-            {showPdfModal && <ExportXlsxModal onClose={() => setShowPdfModal(false)} open={showPdfModal} />}
+            {showPdfModal && <ExportPdfModal onClose={() => setShowPdfModal(false)} open={showPdfModal} />} 
             {showXlsxModal && <ExportXlsxModal onClose={() => setShowXlsxModal(false)} open={showXlsxModal} />}
 
 

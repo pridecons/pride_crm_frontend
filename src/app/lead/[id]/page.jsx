@@ -40,6 +40,7 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
 import DocumentViewer from "@/components/DocumentViewer";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // ---- role helpers -----------------------------------------------------------
 const ROLE_ID_TO_KEY = {
@@ -176,7 +177,7 @@ const Lead = () => {
   const [docTitle, setDocTitle] = useState("");
 
   const openDocViewer = (url, title = "Invoice") => {
-    if (!url) return toast.error("Document URL not available");
+    if (!url) return ErrorHandling({ defaultError: "Document URL not available" });
     setDocUrl(url);
     setDocTitle(title);
     setDocOpen(true);
@@ -214,7 +215,7 @@ const Lead = () => {
 
   const fetchKycUserDetails = async () => {
     if (!currentLead?.mobile) {
-      toast.error("Mobile number not found for this lead.");
+      ErrorHandling({ defaultError: "Mobile number not found for this lead." });
       return;
     }
     setKycLoading(true);
@@ -228,10 +229,10 @@ const Lead = () => {
       });
       toast.success("KYC initiated successfully!");
     } catch (err) {
-      toast.error(
-        "Failed to initiate KYC: " +
-        (err.response?.data?.detail || err.message)
-      );
+      // toast.error(
+      //   "Failed to initiate KYC: " +
+      //   (err.response?.data?.detail || err.message)
+        ErrorHandling({ error: err, defaultError: "Failed to initiate KYC:" });
     } finally {
       setKycLoading(false);
     }
@@ -241,7 +242,7 @@ const Lead = () => {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("File size must be under 2MB");
+      ErrorHandling({ defaultError: "File size must be under 2MB" });
       return;
     }
     setter(file);
@@ -267,13 +268,13 @@ const Lead = () => {
       const signedUrl =
         data.complete_signed_url || data.signed_url || data.latest_signed_url;
       if (!signedUrl) {
-        toast.error("Failed to get KYC document link!");
+        ErrorHandling({ defaultError: "Failed to get KYC document link!" });
         return;
       }
       setKycUrl(signedUrl);
       setIsKycModalOpen(true);
     } catch (error) {
-      toast.error("Unable to fetch KYC document");
+      ErrorHandling({ error: error, defaultError: "Unable to fetch KYC document" });
     }
   };
 
@@ -343,7 +344,7 @@ const Lead = () => {
       }
       if (respName === "ft") {
         if (!updateData.ft_from_date || !updateData.ft_to_date) {
-          toast.error("Please set both FT From and FT To dates before saving.");
+          ErrorHandling({ defaultError: "Please set both FT From and FT To dates before saving." });
           setLoading(false);
           return;
         }
@@ -352,7 +353,7 @@ const Lead = () => {
       }
       if (respName === "call back" || respName === "callback") {
         if (!updateData.call_back_date) {
-          toast.error("Please set a Call Back date & time before saving.");
+          ErrorHandling({ defaultError: "Please set a Call Back date & time before saving." });
           setLoading(false);
           return;
         }
@@ -396,7 +397,7 @@ const Lead = () => {
       setError(null);
     } catch (err) {
       setError(err);
-      toast.error("Error updating lead");
+      ErrorHandling({ error: err, defaultError: "Error updating lead" });
     } finally {
       setLoading(false);
     }
@@ -516,8 +517,7 @@ const Lead = () => {
       toast.success("Response updated!");
       await fetchCurrentLead();
     } catch (error) {
-      console.error("Error updating response:", error);
-      toast.error("Failed to update response!");
+      ErrorHandling({ error: error, defaultError: "Failed to update response!" });
       setEditFormData((p) => ({
         ...p,
         lead_response_id: lead?.lead_response_id ?? null,
@@ -864,7 +864,7 @@ const Lead = () => {
           onSave={async () => {
             try {
               if (!ftFromDate || !ftToDate)
-                return toast.error("Both dates required");
+                return ErrorHandling({ defaultError: "Both dates required" });
               const ftResp = leadResponses.find(
                 (r) =>
                   (r.label || r.name || "").toLowerCase() === "ft"
@@ -882,8 +882,7 @@ const Lead = () => {
               setPendingPrevResponseId(null);
               await fetchCurrentLead();
             } catch (err) {
-              console.error(err);
-              toast.error("Failed to save FT response");
+              ErrorHandling({ error: err, defaultError: "Failed to save FT response" });
             }
           }}
           fromDate={ftFromDate}
@@ -905,7 +904,7 @@ const Lead = () => {
           }}
           onSave={async () => {
             try {
-              if (!callBackDate) return toast.error("Call back date is required");
+              if (!callBackDate) return ErrorHandling({ defaultError: "Call back date is required" });
               const cbResp = leadResponses.find((r) => {
                 const n = (r.label || r.name || "").toLowerCase();
                 return n === "call back" || n === "callback";
@@ -922,8 +921,7 @@ const Lead = () => {
               setPendingPrevResponseId(null);
               await fetchCurrentLead();
             } catch (err) {
-              console.error(err);
-              toast.error("Failed to save Call Back response");
+              ErrorHandling({ error: err, defaultError: "Failed to save Call Back response" });
             }
           }}
           dateValue={callBackDate}

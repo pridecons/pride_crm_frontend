@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { Loader2, Check, Edit, Eye, EyeOff } from "lucide-react";
 import DocumentViewer from "@/components/DocumentViewer";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // ---- helpers ---------------------------------------------------------------
 const emptyManager = {
@@ -41,6 +42,11 @@ const isValidMaskedAadhaar = (v = "") =>
 
 const toMaskedAadhaarInput = (v = "") =>
   v?.toString()?.replace(/[^0-9xX]/g, "").toUpperCase().slice(0, 12);
+
+// PAN helpers
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const toPanInput = (s = "") => s.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 10);
+const isValidPAN = (s = "") => PAN_REGEX.test(String(s).toUpperCase());
 
 // DOB helpers
 const normalizeDob = (raw = "") => {
@@ -136,7 +142,7 @@ const BranchesPage = () => {
       );
       setBranches(data);
     } catch (error) {
-      toast.error("Failed to fetch branches");
+      ErrorHandling({ error: error, defaultError: "Failed to fetch branches" });
     }
     setLoading(false);
   };
@@ -172,7 +178,7 @@ const BranchesPage = () => {
       const { data } = await axiosInstance.get(`/branches/${branchId}/details`);
       setBranchDetails(data);
     } catch (e) {
-      toast.error("Failed to fetch branch details");
+      ErrorHandling({ error: e, defaultError: "Failed to fetch branches" });
     }
     setDetailsLoading(false);
   };
@@ -197,13 +203,13 @@ const BranchesPage = () => {
     const isPDF =
       file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (!isPDF) {
-      toast.error("Agreement must be a PDF file");
+      ErrorHandling({ defaultError: "Agreement must be a PDF file" });
       e.target.value = "";
       setFormData((p) => ({ ...p, agreement_pdf: null }));
       return;
     }
     if (file.size > maxSize) {
-      toast.error("Agreement PDF too large (max 10MB)");
+      ErrorHandling({ defaultError: "Agreement PDF too large (max 10MB)" });
       e.target.value = "";
       setFormData((p) => ({ ...p, agreement_pdf: null }));
       return;
@@ -212,76 +218,85 @@ const BranchesPage = () => {
   };
 
   const validateBeforeSubmit = () => {
+    // PAN: must be 10 chars & valid format
+if (!formData.manager_pan.trim()) {
+  ErrorHandling({ defaultError: "Manager PAN is required" });
+  return false;
+}
+if (toPanInput(formData.manager_pan).length < 10) {
+  ErrorHandling({ defaultError: "Manager PAN must be 10 characters" });
+  return false;
+}
+if (!isValidPAN(formData.manager_pan)) {
+  ErrorHandling({ defaultError: "Enter a valid PAN (format ABCDE1234F)" });
+  return false;
+}
     // Branch validations
     if (!formData.branch_name.trim()) {
-      toast.error("Branch name is required");
+      ErrorHandling({ defaultError: "Branch name is required" });
       return false;
     }
     if (!formData.branch_address.trim()) {
-      toast.error("Branch address is required");
+      ErrorHandling({ defaultError: "Branch address is required" });
       return false;
     }
     if (!editBranch && !formData.agreement_pdf) {
-      toast.error("Agreement PDF is required");
+      ErrorHandling({ defaultError: "Agreement PDF is required" });
       return false;
     }
 
     // Manager validations
     if (!formData.manager_name.trim()) {
-      toast.error("Manager name is required");
+      ErrorHandling({ defaultError: "Manager name is required" });
       return false;
     }
     if (!formData.manager_email.trim() || !isValidEmail(formData.manager_email)) {
-      toast.error("Enter a valid manager email");
+      ErrorHandling({ defaultError: "Enter a valid manager email" });
       return false;
     }
     if (!isValidPhone10(formData.manager_phone)) {
-      toast.error("Manager phone must be 10 digits");
+            ErrorHandling({ defaultError: "Manager phone must be 10 digits" });
       return false;
     }
     // Password rules: required on create; optional on edit but must pass if present
     if (!editBranch && !MGR_PASSWORD_REGEX.test(formData.manager_password || "")) {
-      toast.error("Password must be ≥6 chars, include a number & special char");
+      ErrorHandling({ defaultError: "Password must be ≥6 chars, include a number & special char" });
       return false;
     }
     if (editBranch && formData.manager_password && !MGR_PASSWORD_REGEX.test(formData.manager_password)) {
-      toast.error("Password must be ≥6 chars, include a number & special char");
+      ErrorHandling({ defaultError: "Password must be ≥6 chars, include a number & special char" });
       return false;
     }
     if (!isValidMaskedAadhaar(formData.manager_aadhaar)) {
-      toast.error("Manager Aadhaar must be 12 digits or masked like XXXXXXXX1234");
-      return false;
-    }
-    if (!formData.manager_pan.trim()) {
-      toast.error("Manager PAN is required");
+      ErrorHandling({ defaultError: "Manager Aadhaar must be 12 digits or masked like XXXXXXXX1234" });
       return false;
     }
     if (!formData.manager_father_name.trim()) {
-      toast.error("Father's name is required");
+      ErrorHandling({ defaultError: "Father's name is required" })
       return false;
     }
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formData.manager_dob || "")) {
-      toast.error("DOB must be in DD/MM/YYYY format");
+      ErrorHandling({ defaultError: "DOB must be in DD/MM/YYYY format" })
       return false;
     }
     if (!formData.manager_city.trim()) {
-      toast.error("City is required");
+      ErrorHandling({ defaultError: "City is required" })
       return false;
     }
     if (!formData.manager_state.trim()) {
-      toast.error("State is required");
+      ErrorHandling({ defaultError: "State is required" })
       return false;
     }
     if (!isValidPincode(formData.manager_pincode)) {
-      toast.error("Pincode must be 6 digits");
+      ErrorHandling({ defaultError: "Pincode must be 6 digits" })
       return false;
     }
     if (!isPositiveNumber(formData.manager_experience)) {
-      toast.error("Experience must be a valid number");
+      ErrorHandling({ defaultError: "Experience must be a valid number" })
       return false;
     }
     if (!formData.manager_address.trim()) {
-      toast.error("Manager address is required");
+      ErrorHandling({ defaultError: "Manager address is required" })
       return false;
     }
     return true;
@@ -321,21 +336,14 @@ const BranchesPage = () => {
       }
       setIsOpen(false);
       fetchBranches();
-    } catch (error) {
-      console.log("error : ", error)
-
-      const detail = error?.response?.data?.detail;
-      const msg =
-        Array.isArray(detail?.errors)
-          ? detail.errors.join(", ")
-          : detail?.errors || detail?.message || detail || "Error saving branch";
-      toast.error(String(msg));
+    } catch (error) {      
+      ErrorHandling({ error: error, defaultError: "Error saving branch" })
     }
   };
 
   const handleVerifyManagerPan = async () => {
     const pan = (formData.manager_pan || "").toUpperCase().trim();
-    if (!pan) return toast.error("Enter Manager PAN first");
+    if (!pan) return ErrorHandling({ defaultError: "Enter Manager PAN first" })
 
     setLoadingManagerPan(true);
     const tId = toast.loading("Verifying PAN...");
@@ -364,11 +372,11 @@ const BranchesPage = () => {
         setIsManagerPanVerified(true);
         toast.success("Manager PAN verified!");
       } else {
-        toast.error("PAN verification failed");
+        ErrorHandling({ defaultError: "PAN verification failed" })
       }
-    } catch {
+    } catch(error) {
       toast.dismiss(tId);
-      toast.error("Error verifying PAN");
+      ErrorHandling({ error: error, defaultError: "Error verifying pan" })
     } finally {
       setLoadingManagerPan(false);
     }
@@ -606,59 +614,68 @@ const BranchesPage = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager PAN *</label>
-                          <div className="flex gap-2 items-center">
-                            <input
-                              name="manager_pan"
-                              value={(formData.manager_pan || "").toUpperCase()}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  manager_pan: e.target.value.toUpperCase(),
-                                }))
-                              }
-                              placeholder="ABCDE1234F"
-                              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                              required
-                              disabled={loadingManagerPan || isManagerPanVerified}
-                            />
+  <label className="block text-sm font-medium text-gray-700 mb-2">Manager PAN *</label>
+  <div className="flex gap-2 items-center">
+    <input
+      name="manager_pan"
+      value={toPanInput(formData.manager_pan)}
+      onChange={(e) =>
+        setFormData((prev) => ({
+          ...prev,
+          manager_pan: toPanInput(e.target.value),
+        }))
+      }
+      placeholder="ABCDE1234F"
+      maxLength={10} // ← ensures user can't type more than 10
+      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+      required
+      disabled={loadingManagerPan || isManagerPanVerified}
+      aria-invalid={!!formData.manager_pan && !isValidPAN(formData.manager_pan)}
+    />
 
-                            {isManagerPanVerified ? (
-                              <>
-                                <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-600">
-                                  <Check className="w-5 h-5 text-white" />
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setIsManagerPanVerified(false)}
-                                  className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-700"
-                                  title="Edit PAN"
-                                >
-                                  <Edit className="w-5 h-5" />
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={handleVerifyManagerPan}
-                                disabled={loadingManagerPan}
-                                className="px-4 py-2 rounded-lg flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                              >
-                                {loadingManagerPan ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Verifying...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check className="w-4 h-4" />
-                                    Verify
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
-                        </div>
+    {isManagerPanVerified ? (
+      <>
+        <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-600">
+          <Check className="w-5 h-5 text-white" />
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsManagerPanVerified(false)}
+          className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-700"
+          title="Edit PAN"
+        >
+          <Edit className="w-5 h-5" />
+        </button>
+      </>
+    ) : (
+      <button
+        type="button"
+        onClick={handleVerifyManagerPan}
+        disabled={loadingManagerPan || !isValidPAN(formData.manager_pan)} // ← block verify until valid
+        className="px-4 py-2 rounded-lg flex items-center gap-2 bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 text-white"
+      >
+        {loadingManagerPan ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Verifying...
+          </>
+        ) : (
+          <>
+            <Check className="w-4 h-4" />
+            Verify
+          </>
+        )}
+      </button>
+    )}
+  </div>
+
+  {/* tiny hint below input */}
+  {formData.manager_pan && !isValidPAN(formData.manager_pan) && (
+    <p className="mt-1 text-xs text-red-600">
+      Enter a valid PAN (format: ABCDE1234F, 10 characters).
+    </p>
+  )}
+</div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
                           <input
@@ -1059,7 +1076,7 @@ const BranchesPage = () => {
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap">
                                       <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                        {user.role}
+                                        {user.role_name}
                                       </span>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap">

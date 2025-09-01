@@ -49,7 +49,8 @@ export default function RecordingsModal({ open, onClose, leadId }) {
         // treat as empty; no toast spam
         setList([]);
       } else {
-        toast.error(err?.response?.data?.detail || "Failed to load recordings");
+        const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Failed to load recordings"
+        toast.error(msg);
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -93,7 +94,8 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       e.target.value = "";
       await fetchRecordings();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Upload failed");
+      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Upload failed"
+      toast.error(msg);
     } finally {
       setUploading(false);
     }
@@ -108,7 +110,8 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       toast.success("Recording deleted");
       setList((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Delete failed");
+      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Delete failed"
+      toast.error(msg);
     } finally {
       setDeletingId(null);
     }

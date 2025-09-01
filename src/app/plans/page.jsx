@@ -134,7 +134,7 @@ export default function ServicesPage() {
       resetForm();
       fetchServices();
     } catch (err) {
-      const message = err?.response?.data?.detail;
+      const message = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
       if (err?.response?.status === 409 && message === "Service already exists") {
         toast.error("This service already exists!");
       } else {

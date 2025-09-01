@@ -15,7 +15,7 @@ export default function LeadForm() {
     alternate_mobile: '',
     aadhaar: '',
     pan: '',
-    pan_type: '',           // used only for PAN verification (NOT sent in payload)
+    pan_type: 'Person',           // used only for PAN verification (NOT sent in payload)
     gstin: '',
     state: '',
     city: '',
@@ -167,7 +167,7 @@ export default function LeadForm() {
       city: '',
       state: '',
       district: '',
-      pan_type: '',
+      pan_type: 'Person',
     }));
   };
 
@@ -240,7 +240,7 @@ const handleSubmit = async (e) => {
       alternate_mobile: '',
       aadhaar: '',
       pan: '',
-      pan_type: '',
+      pan_type: 'Person',
       gstin: '',
       state: '',
       city: '',
@@ -265,7 +265,8 @@ const handleSubmit = async (e) => {
     setPanVerified(false);
   } catch (err) {
     console.error(err);
-    toast.error(err?.response?.data?.detail || 'Error creating lead or uploading documents');
+    const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || 'Error creating lead or uploading documents'
+    toast.error(msg);
   } finally {
     setSubmitting(false);
   }

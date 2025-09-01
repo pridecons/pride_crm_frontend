@@ -34,7 +34,8 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
       onSuccess?.(data);
       onClose();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Failed to share lead");
+      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Failed to share lead"
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

@@ -163,7 +163,8 @@ export const ViewAndEditLead = ({
           }
         } catch (err) {
           setPanError(err.toString());
-          toast.error(err.toString());
+          const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
+          toast.error(msg);
         } finally {
           setPanLoading(false);
         }

@@ -407,9 +407,9 @@ export default function PaymentHistoryPage() {
       setPayments(data.payments || []);
       setTotal(data.total || 0);
     } catch (err) {
-      setError(
-        err?.response?.data?.detail || err?.message || "Failed to fetch payment history."
-      );
+      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Failed to fetch payment history."
+
+      setError(msg);
     } finally {
       setLoading(false);
     }

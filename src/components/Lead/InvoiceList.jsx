@@ -13,7 +13,7 @@ import toast from "react-hot-toast";
  *   onClose (fn) - close modal callback
  *   leadId (number|string) - Lead ID
  */
-const InvoiceModal = ({ isOpen, onClose, leadId }) => {
+const InvoiceModal = ({ isOpen, onClose, leadId, onViewPdf, canDownload = false }) => {
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState(null);
@@ -119,20 +119,24 @@ const InvoiceModal = ({ isOpen, onClose, leadId }) => {
                                         </td>
                                         <td className="py-2 px-3">{formatDate(inv.created_at)}</td>
                                         <td className="py-2 px-3">
-                                            {inv.invoice_path && inv.invoice_path !== "false" ? (
-                                                <a
-                                                    href={getInvoiceUrl(inv.invoice_path)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:underline"
-                                                    download
-                                                >
-                                                    PDF
-                                                </a>
-                                            ) : (
-                                                <span className="text-gray-400">N/A</span>
-                                            )}
-                                        </td>
+   {inv.invoice_path && inv.invoice_path !== "false" ? (
+     <button
+       type="button"
+       onClick={() =>
+         onViewPdf &&
+         onViewPdf(
+           getInvoiceUrl(inv.invoice_path),
+           `Invoice #${inv.invoice_no ?? inv.id}`
+         )
+       }
+       className="text-blue-600 hover:underline"
+     >
+       View
+     </button>
+   ) : (
+     <span className="text-gray-400">N/A</span>
+   )}
+ </td>
                                         <td className="py-2 px-3">
                                             {inv.invoice_path && inv.invoice_path !== "false" ? (
                                                 <button

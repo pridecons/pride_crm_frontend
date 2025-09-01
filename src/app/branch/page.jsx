@@ -6,8 +6,8 @@ import { Dialog, Transition } from "@headlessui/react";
 import LoadingState from "@/components/LoadingState";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
-import { Loader2, Check, Edit } from "lucide-react";
-import { ErrorHandling } from "@/helper/ErrorHandling";
+import { Loader2, Check, Edit, Eye, EyeOff } from "lucide-react";
+import DocumentViewer from "@/components/DocumentViewer";
 
 // ---- helpers ---------------------------------------------------------------
 const emptyManager = {
@@ -95,21 +95,33 @@ const BranchesPage = () => {
   const [branchDetails, setBranchDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  // Agreement viewer
-  const [showAgreement, setShowAgreement] = useState(false);
-  const [agreementUrl, setAgreementUrl] = useState("");
+  // Common document viewer
+  const [docOpen, setDocOpen] = useState(false);
+  const [docUrl, setDocUrl] = useState("");
+  const [docTitle, setDocTitle] = useState("Agreement Document");
 
   // Manager PAN verification
   const [loadingManagerPan, setLoadingManagerPan] = useState(false);
   const [isManagerPanVerified, setIsManagerPanVerified] = useState(false);
 
+  const [showMgrPwd, setShowMgrPwd] = useState(false);
+
+  // password policy: ≥6 chars, at least one number & one special char
+  const MGR_PASSWORD_REGEX =
+    /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
+
+  const mgrPasswordError =
+    (formData.manager_password?.length ?? 0) > 0 &&
+      !MGR_PASSWORD_REGEX.test(formData.manager_password)
+      ? "Password must be ≥6 chars with a number & special char"
+      : "";
+
   const fileInputRef = useRef(null);
 
   const openAgreementModal = (url) => {
-    let absoluteUrl = url;
-    if (url && url.startsWith("/")) absoluteUrl = BASE_URL + url;
-    setAgreementUrl(absoluteUrl);
-    setShowAgreement(true);
+    setDocUrl(url || "");
+    setDocTitle("Agreement Document");
+    setDocOpen(true);
   };
 
   useEffect(() => {
@@ -124,7 +136,7 @@ const BranchesPage = () => {
       );
       setBranches(data);
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to fetch branches" });
+      toast.error("Failed to fetch branches");
     }
     setLoading(false);
   };
@@ -227,8 +239,13 @@ const BranchesPage = () => {
       toast.error("Manager phone must be 10 digits");
       return false;
     }
-    if (!formData.manager_password || formData.manager_password.length < 6) {
-      toast.error("Manager password must be at least 6 characters");
+    // Password rules: required on create; optional on edit but must pass if present
+    if (!editBranch && !MGR_PASSWORD_REGEX.test(formData.manager_password || "")) {
+      toast.error("Password must be ≥6 chars, include a number & special char");
+      return false;
+    }
+    if (editBranch && formData.manager_password && !MGR_PASSWORD_REGEX.test(formData.manager_password)) {
+      toast.error("Password must be ≥6 chars, include a number & special char");
       return false;
     }
     if (!isValidMaskedAadhaar(formData.manager_aadhaar)) {
@@ -271,50 +288,50 @@ const BranchesPage = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!validateBeforeSubmit()) return;
+    if (!validateBeforeSubmit()) return;
 
-  const dobISO = normalizeDob(formData.manager_dob);
-  const data = new FormData();
+    const dobISO = normalizeDob(formData.manager_dob);
+    const data = new FormData();
 
-  // ✅ Map manager details to top-level branch fields
-  data.append("authorized_person", formData.manager_name);
-  data.append("branch_pan", formData.manager_pan);
-  data.append("branch_aadhaar", formData.manager_aadhaar);
+    // ✅ Map manager details to top-level branch fields
+    data.append("authorized_person", formData.manager_name);
+    data.append("branch_pan", formData.manager_pan);
+    data.append("branch_aadhaar", formData.manager_aadhaar);
 
-  // append all other fields
-  Object.entries(formData).forEach(([key, value]) => {
-    if (value !== null && value !== "") {
-      data.append(key, key === "manager_dob" ? dobISO : value);
+    // append all other fields
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value !== null && value !== "") {
+        data.append(key, key === "manager_dob" ? dobISO : value);
+      }
+    });
+
+    try {
+      if (editBranch) {
+        await axiosInstance.put(`/branches/${editBranch.id}`, data, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        toast.success("Branch updated successfully");
+      } else {
+        await axiosInstance.post(`/branches/create-with-manager`, data, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        toast.success("Branch created successfully");
+      }
+      setIsOpen(false);
+      fetchBranches();
+    } catch (error) {
+      console.log("error : ", error)
+
+      const detail = error?.response?.data?.detail;
+      const msg =
+        Array.isArray(detail?.errors)
+          ? detail.errors.join(", ")
+          : detail?.errors || detail?.message || detail || "Error saving branch";
+      toast.error(String(msg));
     }
-  });
-
-  try {
-    if (editBranch) {
-      await axiosInstance.put(`/branches/${editBranch.id}`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Branch updated successfully");
-    } else {
-      await axiosInstance.post(`/branches/create-with-manager`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Branch created successfully");
-    }
-    setIsOpen(false);
-    fetchBranches();
-  } catch (error) {
-    console.log("error : ",error)
-
-    const detail = error?.response?.data?.detail;
-    const msg =
-      Array.isArray(detail?.errors)
-        ? detail.errors.join(", ")
-        : detail?.errors || detail?.message || detail || "Error saving branch";
-    toast.error(String(msg));
-  }
-};
+  };
 
   const handleVerifyManagerPan = async () => {
     const pan = (formData.manager_pan || "").toUpperCase().trim();
@@ -681,16 +698,46 @@ const BranchesPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager Password *</label>
-                          <input
-                            name="manager_password"
-                            value={formData.manager_password}
-                            onChange={handleChange}
-                            placeholder="Enter manager password"
-                            type="password"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
+                          <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {editBranch ? "Manager Password (optional)" : "Manager Password *"}
+                            </label>
+                            {editBranch && (
+                              <span className="text-xs text-gray-500 mb-2">
+                                Leave blank to keep existing password.
+                              </span>
+                            )}
+                          </div>
+
+                          {mgrPasswordError && (
+                            <div className="mb-1 text-xs text-red-600 font-medium">{mgrPasswordError}</div>
+                          )}
+
+                          <div className="relative">
+                            <input
+                              name="manager_password"
+                              value={formData.manager_password}
+                              onChange={handleChange}
+                              placeholder={editBranch ? "Enter new password (optional)" : "Create a password"}
+                              type={showMgrPwd ? "text" : "password"}
+                              autoComplete="new-password"
+                              aria-invalid={!!mgrPasswordError}
+                              className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                              required={!editBranch}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowMgrPwd((v) => !v)}
+                              className="absolute inset-y-0 right-3 flex items-center"
+                              aria-label={showMgrPwd ? "Hide password" : "Show password"}
+                            >
+                              {showMgrPwd ? (
+                                <EyeOff className="w-5 h-5 text-gray-500" />
+                              ) : (
+                                <Eye className="w-5 h-5 text-gray-500" />
+                              )}
+                            </button>
+                          </div>
                         </div>
 
                         <div>
@@ -1077,75 +1124,16 @@ const BranchesPage = () => {
         </Dialog>
       </Transition>
 
-      {/* Agreement Viewer */}
-      <Transition appear show={showAgreement} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setShowAgreement(false)}>
-          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-            <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" />
-          </Transition.Child>
+      <DocumentViewer
+        open={docOpen}
+        onClose={() => setDocOpen(false)}
+        url={docUrl}
+        title={docTitle}
+        // Only allow download if you want (e.g., based on permission)
+        canDownload={true}
+        baseUrl={BASE_URL}
+      />
 
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-              <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-8 py-6">
-                  <Dialog.Title className="text-2xl font-bold text-white flex items-center justify-between">
-                    <div className="flex items-center">
-                      <svg className="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Agreement Document
-                    </div>
-                    <button
-                      onClick={() => setShowAgreement(false)}
-                      className="text-white hover:text-gray-200 transition-colors duration-200"
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </Dialog.Title>
-                  <p className="text-orange-100 mt-2">View and review the branch agreement document</p>
-                </div>
-
-                <div className="p-6">
-                  <div className="bg-gray-50 rounded-xl p-4 min-h-[70vh]">
-                    {agreementUrl ? (
-                      agreementUrl.toLowerCase().endsWith(".pdf") ? (
-                        <iframe
-                          src={agreementUrl}
-                          title="Agreement PDF"
-                          className="w-full h-[70vh] rounded-lg border border-gray-200 shadow-inner"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-[70vh]">
-                          <img
-                            src={agreementUrl}
-                            alt="Agreement"
-                            className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                          />
-                        </div>
-                      )
-                    ) : (
-                      <div className="flex items-center justify-center h-[70vh]">
-                        <div className="text-center">
-                          <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
-                            <svg className="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.482 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                          </div>
-                          <h3 className="text-xl font-semibold text-gray-900 mb-2">Document Not Found</h3>
-                          <p className="text-gray-500">No agreement document is available for viewing</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
-        </Dialog>
-      </Transition>
     </div>
   );
 };

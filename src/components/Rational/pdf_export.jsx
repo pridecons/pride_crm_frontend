@@ -1,13 +1,27 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { ArrowDownToLine } from "lucide-react";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
+import { axiosInstance } from "@/api/Axios";
 
-
-const  ExportPdfModal = ({ open, onClose }) => {
+const ExportPdfModal = ({ open, onClose }) => {
   const { hasPermission } = usePermissions();
+
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const [researchers, setResearchers] = useState([]);
+  const [recTypes, setRecTypes] = useState([]);
+  const [statuses, setStatuses] = useState([
+    // fallback list, replaced if API returns dynamic statuses
+    "OPEN",
+    "TARGET1_HIT",
+    "TARGET2_HIT",
+    "TARGET3_HIT",
+    "STOP_LOSS_HIT",
+    "CLOSED",
+  ]);
 
   const [filters, setFilters] = useState({
     user_id: "",
@@ -15,109 +29,134 @@ const  ExportPdfModal = ({ open, onClose }) => {
     status: "",
     recommendation_type: "",
     date_from: "",
-    date_to: ""
+    date_to: "",
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Fix: Update internal state when external prop changes
+  // keep internal state in sync with parent
   useEffect(() => {
     setIsOpen(open);
   }, [open]);
 
+  // load researchers when modal opens
   useEffect(() => {
-    console.log("Dropdown is now:", isOpen ? "open" : "closed");
-  }, [isOpen]);
+    if (!isOpen) return;
 
-  // 🔽 Fetch researcher list when modal opens
-  useEffect(() => {
-    const fetchResearchers = async () => {
+    let alive = true;
+
+    const loadResearchers = async () => {
       try {
-        const res = await fetch(
-          "https://crm.24x7techelp.com/api/v1/users/?skip=0&limit=100&active_only=false&role=RESEARCHER",
+        const res = await axiosInstance.get(
+          "/users/",
           {
-            headers: {
-              accept: "application/json",
+            params: {
+              skip: 0,
+              limit: 100,
+              active_only: false,
+              role: "RESEARCHER",
             },
           }
         );
-        const data = await res.json();
-
-        if (Array.isArray(data.data)) {
-          setResearchers(data.data);
-        } else {
-          setResearchers([]);
-          console.warn("Unexpected researcher response shape:", data);
-        }
-      } catch (error) {
-        console.error("Failed to load researchers:", error);
-        setResearchers([]);
+        const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+        if (alive) setResearchers(data);
+      } catch (err) {
+        console.error("Failed to load researchers:", err);
+        if (alive) setResearchers([]);
       }
     };
 
-    if (isOpen) {
-      fetchResearchers();
-    }
+    const loadRecTypes = async () => {
+      try {
+        const res = await axiosInstance.get(
+          "/profile-role/recommendation-type"
+        );
+        const items = Array.isArray(res?.data) ? res.data : [];
+        if (alive) setRecTypes(items);
+      } catch (err) {
+        console.error("Failed to load recommendation types:", err);
+        if (alive) setRecTypes([]);
+      }
+    };
+
+    // const loadStatuses = async () => {
+    //   try {
+    //     // If you have a proper API for statuses, keep this.
+    //     // If not, it will just keep the fallback list above.
+    //     const res = await axiosInstance.get("/recommendations/statuses");
+    //     const items = Array.isArray(res?.data) ? res.data : [];
+    //     if (items.length && alive) setStatuses(items);
+    //   } catch {
+    //     /* noop: fallback stays */
+    //   }
+    // };
+
+    loadResearchers();
+    loadRecTypes();
+    // loadStatuses();
+
+    return () => {
+      alive = false;
+    };
   }, [isOpen]);
 
   const handleExport = async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
-    });
 
     try {
-      const res = await fetch(
-        `https://crm.24x7techelp.com/api/v1/recommendations/pdfs/export?${params}`,
+      const res = await axiosInstance.get(
+        "/recommendations/pdfs/export",
         {
-          method: "GET",
-          headers: {
-            Accept: "*/*"
-          }
+          params: Object.fromEntries(
+            Object.entries(filters).filter(([, v]) => v !== "" && v != null)
+          ),
+          responseType: "blob",
         }
       );
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
+      // determine filename from Content-Disposition, else default
+      const cd = res.headers?.["content-disposition"] || "";
+      const match = cd.match(/filename\*?=(?:UTF-8'')?("?)([^";]+)\1/i);
+      const filename = match ? decodeURIComponent(match[2]) : "recommendations.zip";
+
+      const url = window.URL.createObjectURL(res.data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "recommendations.zip";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Export failed:", error);
     } finally {
       setLoading(false);
       setIsOpen(false);
-      if (onClose) onClose(); // Call parent's onClose
+      onClose?.();
     }
   };
 
   const handleClose = () => {
     setIsOpen(false);
-    if (onClose) onClose(); // Call parent's onClose
+    onClose?.();
   };
 
   return (
     <>
-      {hasPermission("rational_export_pdf") && <button
-        onClick={() => setIsOpen(true)}
-        className="px-2 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
-      >
-        <div className="flex items-center gap-1">
-          <ArrowDownToLine className="h-4" />
-          <span>PDF</span>
-        </div>
-      </button>}
+      {hasPermission("rational_export_pdf") && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="px-2 py-2 bg-blue-600 text-white rounded-md w-auto whitespace-nowrap"
+        >
+          <div className="flex items-center gap-1">
+            <ArrowDownToLine className="h-4" />
+            <span>PDF</span>
+          </div>
+        </button>
+      )}
 
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
@@ -129,10 +168,12 @@ const  ExportPdfModal = ({ open, onClose }) => {
               &times;
             </button>
 
-            <h2 className="text-lg font-semibold mb-4">Export Recommendations PDF</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              Export Recommendations PDF
+            </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {/* 🔽 Researcher Dropdown */}
+              {/* Researchers */}
               <select
                 name="user_id"
                 value={filters.user_id}
@@ -147,6 +188,7 @@ const  ExportPdfModal = ({ open, onClose }) => {
                 ))}
               </select>
 
+              {/* Stock Name */}
               <input
                 type="text"
                 name="stock_name"
@@ -156,21 +198,22 @@ const  ExportPdfModal = ({ open, onClose }) => {
                 className="border rounded px-3 py-2 text-sm"
               />
 
+              {/* Status (dynamic if API available) */}
               <select
                 name="status"
                 value={filters.status}
                 onChange={handleChange}
                 className="border rounded px-3 py-2 text-sm"
               >
-                <option value="">All Statuses</option>
-                <option value="OPEN">OPEN</option>
-                <option value="TARGET1_HIT">TARGET1_HIT</option>
-                <option value="TARGET2_HIT">TARGET2_HIT</option>
-                <option value="TARGET3_HIT">TARGET3_HIT</option>
-                <option value="STOP_LOSS_HIT">STOP_LOSS_HIT</option>
-                <option value="CLOSED">CLOSED</option>
+                <option value="">All Status</option>
+                {statuses.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
               </select>
 
+              {/* Recommendation Types (dynamic) */}
               <select
                 name="recommendation_type"
                 value={filters.recommendation_type}
@@ -178,15 +221,14 @@ const  ExportPdfModal = ({ open, onClose }) => {
                 className="border rounded px-3 py-2 text-sm"
               >
                 <option value="">All Types</option>
-                <option value="Equity Cash">Equity Cash</option>
-                <option value="Stock Future">Stock Future</option>
-                <option value="Index Future">Index Future</option>
-                <option value="Stock Option">Stock Option</option>
-                <option value="MCX Bullion">MCX Bullion</option>
-                <option value="MCX Base Metal">MCX Base Metal</option>
-                <option value="MCX Energy">MCX Energy</option>
+                {recTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
               </select>
 
+              {/* Dates */}
               <input
                 type="date"
                 name="date_from"
@@ -224,7 +266,6 @@ const  ExportPdfModal = ({ open, onClose }) => {
       )}
     </>
   );
-}
-
+};
 
 export default ExportPdfModal;

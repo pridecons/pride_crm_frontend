@@ -206,8 +206,8 @@ export default function AttendancePage() {
               >
                 <option value="">All Roles</option>
                 {roles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
+                  <option key={role?.id} value={role?.id}>
+                    {role?.name}
                   </option>
                 ))}
               </select>

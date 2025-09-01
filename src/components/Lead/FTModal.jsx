@@ -6,8 +6,7 @@ import { axiosInstance } from "@/api/Axios";
 function toInputYMD(d) {
   if (!d) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // already input format
-  // assume DD-MM-YYYY
-  const [dd, mm, yyyy] = d.split("-");
+  const [dd, mm, yyyy] = d.split("-"); // assume DD-MM-YYYY
   if (dd && mm && yyyy) return `${yyyy}-${mm}-${dd}`;
   return "";
 }
@@ -19,49 +18,28 @@ function toDMY(d) {
   return d;
 }
 
-// Map UI label -> API segment value
-function mapLabelToApiSegment(label) {
-  if (!label) return "";
-  const key = label.trim().toLowerCase();
-  const explicit = {
-    "equity cash": "cash",
-    "stock future": "future",
-    "index future": "index_future",
-    "index option": "index_option",
-    "stock option": "stock_option",
-    "mcx bullion": "mcx_bullion",
-    "mcx base metal": "mcx_base_metal",
-    "mcx energy": "mcx_energy",
-  };
-  if (explicit[key]) return explicit[key];
-  // fallback slug
-  return key.replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-}
-
 export default function FTModal({
   open,
   onClose,
-  onSave,                 // (payload) => void
-  fromDate,               // can be "YYYY-MM-DD" or "DD-MM-YYYY" (optional)
-  toDate,                 // same as above (optional)
-  setFromDate,            // optional (if you want to control from parent)
-  setToDate,              // optional
-  // If you prefer controlling these from parent, you can pass serviceType/setServiceType
-  serviceType,            // optional controlled value (string, display value e.g. "Call")
-  setServiceType,         // optional controlled setter
+  onSave,                 
+  fromDate,               
+  toDate,                 
+  setFromDate,            
+  setToDate,              
+  serviceType,            
+  setServiceType,         
   serviceTypeOptions = ["Call", "SMS"],
   defaultServiceType = "call",
   loading = false,
 }) {
   if (!open) return null;
 
-  // Internal state if not controlled by parent
   const [localFrom, setLocalFrom] = useState("");
   const [localTo, setLocalTo] = useState("");
-  const [segmentLabels, setSegmentLabels] = useState([]); // fetched list of labels
+  const [segmentLabels, setSegmentLabels] = useState([]); 
   const [segmentsLoading, setSegmentsLoading] = useState(false);
   const [segmentsError, setSegmentsError] = useState("");
-  const [selectedSegmentLabel, setSelectedSegmentLabel] = useState(""); // UI value
+  const [selectedSegmentLabel, setSelectedSegmentLabel] = useState(""); 
   const [localServiceType, setLocalServiceType] = useState(defaultServiceType);
 
   // Prefill dates
@@ -88,7 +66,6 @@ export default function FTModal({
         if (!cancelled) {
           const labels = Array.isArray(data) ? data : [];
           setSegmentLabels(labels);
-          // default select first if none selected yet
           if (!selectedSegmentLabel && labels.length) {
             setSelectedSegmentLabel(labels[0]);
           }
@@ -106,7 +83,7 @@ export default function FTModal({
     return () => { cancelled = true; };
   }, [open]);
 
-  // Prefill service type if provided by parent
+  // Prefill service type if parent controls it
   useEffect(() => {
     if (serviceType) setLocalServiceType(serviceType);
   }, [serviceType]);
@@ -127,14 +104,12 @@ export default function FTModal({
     const svcVal = (serviceType ?? localServiceType)?.trim();
 
     const payload = {
-      // parent should add lead_response_id
-      ft_from_date: toDMY(fromVal),           // "DD-MM-YYYY"
-      ft_to_date: toDMY(toVal),               // "DD-MM-YYYY"
-      segment: mapLabelToApiSegment(selectedSegmentLabel), // API-friendly
-      ft_service_type: (svcVal || "").toLowerCase(),       // e.g., "call"
+      ft_from_date: toDMY(fromVal),           
+      ft_to_date: toDMY(toVal),               
+      segment: selectedSegmentLabel,          // ✅ send label as-is from API
+      ft_service_type: (svcVal || "").toLowerCase(),
     };
 
-    // Keep parent in sync if they want
     setFromDate?.(fromVal);
     setToDate?.(toVal);
     setServiceType?.(svcVal);
@@ -148,7 +123,7 @@ export default function FTModal({
         <h2 className="text-lg font-semibold mb-4">Set FT Details</h2>
 
         <div className="space-y-4">
-          {/* Segment (from API) */}
+          {/* Segment */}
           <div>
             <label className="block text-sm font-medium mb-1">Segment</label>
             {segmentsLoading ? (
@@ -167,12 +142,9 @@ export default function FTModal({
                 ))}
               </select>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Sent to API as: <code>{mapLabelToApiSegment(selectedSegmentLabel) || "—"}</code>
-            </p>
           </div>
 
-          {/* FT Service Type */}
+          {/* Service Type */}
           <div>
             <label className="block text-sm font-medium mb-1">FT Service Type</label>
             <select
@@ -187,9 +159,6 @@ export default function FTModal({
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
-             Will send <code>{((serviceType ?? localServiceType) || "").toLowerCase()}</code>
-            </p>
           </div>
 
           {/* From Date */}
@@ -235,7 +204,6 @@ export default function FTModal({
             onClick={handleSave}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             disabled={loading || !canSave}
-            title={!canSave ? "Please fill service type, both dates, and segment" : ""}
           >
             {loading ? "Saving..." : "Save"}
           </button>

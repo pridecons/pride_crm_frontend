@@ -281,8 +281,8 @@ const FetchLimitModel = ({ open, setOpen }) => {
                     >
                       <option value="">Select role</option>
                       {roles.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
+                        <option key={r?.id} value={r?.id}>
+                          {r?.name}
                         </option>
                       ))}
                     </select>

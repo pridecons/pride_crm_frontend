@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { usePermissions } from '@/context/PermissionsContext';  
 import { axiosInstance } from '@/api/Axios';

@@ -7,7 +7,7 @@ import LoadingState from "@/components/LoadingState";
 import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import InvoiceList from "@/components/Lead/InvoiceList";
-import { Pencil, FileText, BookOpenText, MessageCircle } from "lucide-react";
+import { Eye , FileText, BookOpenText, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/context/PermissionsContext";
 
@@ -48,7 +48,7 @@ const parseServices = (client) => {
   // 1) Prefer latest_payment.plan[0].service_type array
   const svcFromPlan =
     Array.isArray(client?.latest_payment?.plan) &&
-    Array.isArray(client.latest_payment.plan[0]?.service_type)
+      Array.isArray(client.latest_payment.plan[0]?.service_type)
       ? client.latest_payment.plan[0].service_type
       : null;
 
@@ -186,9 +186,8 @@ export default function ClientsPage() {
           <div className="flex">
             <span className="text-gray-500 w-24">KYC:</span>
             <span
-              className={`text-sm font-medium ${
-                client.kyc_status ? "text-green-600" : "text-red-600"
-              }`}
+              className={`text-sm font-medium ${client.kyc_status ? "text-green-600" : "text-red-600"
+                }`}
             >
               {client.kyc_status ? "DONE" : "PENDING"}
             </span>
@@ -212,6 +211,15 @@ export default function ClientsPage() {
             )}
           </div>
           <div className="pt-3 flex gap-2 justify-end">
+            <button
+              onClick={() =>
+                router.push(`/lead/${client.lead_id}`)
+              }
+              className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
+              title="Edit Lead"
+            >
+              <Eye  size={18} />
+            </button>
             <button
               onClick={() => {
                 setSelectedLead(client);
@@ -264,11 +272,10 @@ export default function ClientsPage() {
                       setBranchId(null);
                       fetchClients(null);
                     }}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${
-                      !branchId
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${!branchId
                         ? "bg-blue-600 text-white border-blue-600 shadow-md"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                    }`}
+                      }`}
                   >
                     All Branches
                   </button>
@@ -281,11 +288,10 @@ export default function ClientsPage() {
                           setBranchId(branch.id);
                           fetchClients(branch.id);
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${
-                          isActive
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${isActive
                             ? "bg-blue-600 text-white border-blue-600 shadow-md"
                             : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                        }`}
+                          }`}
                       >
                         {branch.name}
                       </button>
@@ -298,22 +304,20 @@ export default function ClientsPage() {
             <div className="inline-flex rounded-md shadow-sm" role="group">
               <button
                 type="button"
-                className={`px-4 py-3 text-sm font-medium border ${
-                  view === "card"
+                className={`px-4 py-3 text-sm font-medium border ${view === "card"
                     ? "bg-blue-600 text-white border-blue-600 shadow-md"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                } border-gray-300 rounded-l-lg`}
+                  } border-gray-300 rounded-l-lg`}
                 onClick={() => setView("card")}
               >
                 Card View
               </button>
               <button
                 type="button"
-                className={`px-4 py-3 text-sm font-medium border ${
-                  view === "table"
+                className={`px-4 py-3 text-sm font-medium border ${view === "table"
                     ? "bg-blue-600 text-white border-blue-600 shadow-md"
                     : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                } border-gray-300 rounded-r-lg`}
+                  } border-gray-300 rounded-r-lg`}
                 onClick={() => setView("table")}
               >
                 Table View
@@ -373,11 +377,10 @@ export default function ClientsPage() {
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm">
                         <span
-                          className={`${
-                            client.kyc_status
+                          className={`${client.kyc_status
                               ? "text-green-600 font-semibold"
                               : "text-red-600"
-                          }`}
+                            }`}
                         >
                           {client.kyc_status ? "DONE" : "PENDING"}
                         </span>
@@ -387,6 +390,15 @@ export default function ClientsPage() {
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                         <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() =>
+                              router.push(`/lead/${client.lead_id}`)
+                            }
+                            className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
+                            title="Edit Lead"
+                          >
+                            <Eye size={18} />
+                          </button>
                           {hasPermission("client_invoice") && (
                             <button
                               onClick={() => {
@@ -502,8 +514,8 @@ export default function ClientsPage() {
                           {typeof client.investment === "number"
                             ? `₹${client.investment}`
                             : typeof client.total_amount_paid === "number"
-                            ? `₹${client.total_amount_paid}`
-                            : "—"}
+                              ? `₹${client.total_amount_paid}`
+                              : "—"}
                         </td>
 
                         {/* SERVICES */}
@@ -531,10 +543,10 @@ export default function ClientsPage() {
                         <td className="px-4 py-3 text-sm text-gray-700">
                           {lastPaidAt
                             ? new Date(lastPaidAt).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
                             : "—"}
                         </td>
 
@@ -548,7 +560,7 @@ export default function ClientsPage() {
                               className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
                               title="Edit Lead"
                             >
-                              <Pencil size={14} />
+                              <Eye size={18} />
                             </button>
 
                             <button
@@ -598,7 +610,7 @@ export default function ClientsPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 4 0z"
+                // d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 4 0z"
                 />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">
@@ -613,6 +625,7 @@ export default function ClientsPage() {
           )}
 
         {/* Modals (lead_id FIXED) */}
+
         {isCommentModalOpen && (
           <CommentModal
             isOpen={isCommentModalOpen}

@@ -39,6 +39,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
+import DocumentViewer from "@/components/DocumentViewer";
 
 // ---- role helpers -----------------------------------------------------------
 const ROLE_ID_TO_KEY = {
@@ -170,6 +171,17 @@ const Lead = () => {
   const [callBackDate, setCallBackDate] = useState("");
   const [pendingPrevResponseId, setPendingPrevResponseId] = useState(null);
 
+  const [docOpen, setDocOpen] = useState(false);
+  const [docUrl, setDocUrl] = useState("");
+  const [docTitle, setDocTitle] = useState("");
+
+  const openDocViewer = (url, title = "Invoice") => {
+    if (!url) return toast.error("Document URL not available");
+    setDocUrl(url);
+    setDocTitle(title);
+    setDocOpen(true);
+  };
+
   // fetch guard (StrictMode)
   const didInit = useRef(false);
 
@@ -218,7 +230,7 @@ const Lead = () => {
     } catch (err) {
       toast.error(
         "Failed to initiate KYC: " +
-          (err.response?.data?.detail || err.message)
+        (err.response?.data?.detail || err.message)
       );
     } finally {
       setKycLoading(false);
@@ -290,8 +302,8 @@ const Lead = () => {
       const usersArr = Array.isArray(usersRes?.data)
         ? usersRes.data
         : Array.isArray(usersRes)
-        ? usersRes
-        : [];
+          ? usersRes
+          : [];
       const uMap = {};
       usersArr.forEach((u) => {
         if (u?.employee_code)
@@ -303,12 +315,12 @@ const Lead = () => {
       const rawBranches = Array.isArray(branchesRes?.data)
         ? branchesRes.data
         : Array.isArray(branchesRes?.items)
-        ? branchesRes.items
-        : Array.isArray(branchesRes?.branches)
-        ? branchesRes.branches
-        : Array.isArray(branchesRes)
-        ? branchesRes
-        : [];
+          ? branchesRes.items
+          : Array.isArray(branchesRes?.branches)
+            ? branchesRes.branches
+            : Array.isArray(branchesRes)
+              ? branchesRes
+              : [];
       const bMap = {};
       rawBranches.forEach((b) => {
         if (b?.id != null)
@@ -428,7 +440,7 @@ const Lead = () => {
   const getResponseNameById = (rid) => {
     const match = leadResponses.find((r) => r.value === rid || r.id === rid);
     return match?.label?.toLowerCase?.() ?? match?.name?.toLowerCase?.() ?? "";
-    };
+  };
 
   const dmyToYmd = (dmy) => {
     if (!dmy) return "";
@@ -442,16 +454,6 @@ const Lead = () => {
     return `${dd}-${mm}-${yyyy}`;
   };
 
-  const isoToDatetimeLocal = (iso) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mmn = String(d.getMinutes()).padStart(2, "0");
-    return `${y}-${m}-${day}T${hh}:${mmn}`;
-  };
 
   // ---- Inline Edit buttons mimic NewLeadsTable ----
   const handleEditFTInline = () => {
@@ -704,16 +706,14 @@ const Lead = () => {
               onClick={() => (isEditMode ? handleCancelEdit() : setIsEditMode(true))}
               disabled={!currentLead}
               aria-pressed={isEditMode}
-              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${
-                isEditMode
+              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${isEditMode
                   ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
                   : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${
-                  isEditMode ? "bg-red-500" : "bg-indigo-500"
-                }`}
+                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"
+                  }`}
                 aria-hidden="true"
               />
               {isEditMode ? "Back" : "Edit"}
@@ -819,8 +819,18 @@ const Lead = () => {
             isOpen
             onClose={() => setIsInvoiceModalOpen(false)}
             leadId={currentLead?.id}
+            onViewPdf={(url, name) => openDocViewer(url, name || "Invoice")}
+            canDownload={isSuperAdmin}
           />
         )}
+
+        <DocumentViewer
+          open={docOpen}
+          onClose={() => setDocOpen(false)}
+          url={docUrl}
+          title={docTitle}
+          canDownload={isSuperAdmin}
+        />
 
         {isRecordingsModalOpen && (
           <RecordingsModal

@@ -39,6 +39,7 @@ export function PermissionsProvider({ children }) {
   //   return !!permissions?.[key];
   // };
 
+
     const hasPermission = (key) => {
     return true
   };

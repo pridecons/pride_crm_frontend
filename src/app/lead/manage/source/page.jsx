@@ -165,7 +165,18 @@ export default function LeadSourcesPage() {
         await axiosInstance.put(`/lead-config/sources/${editingId}`, payload);
         toast.success("Source updated successfully!");
       } else {
-        await axiosInstance.post(`/lead-config/sources/`, payload);
+        // Create via the EXACT endpoint you provided (absolute URL)
+        const payload = {
+          name: form.name,
+          description: form.description,
+          branch_id: Number(form.branch_id),
+        };
+
+        await axiosInstance.post(
+          "/lead-config/sources/",
+          payload
+        );
+
         toast.success("Source created successfully!");
       }
       resetForm();

@@ -7,6 +7,7 @@ import LoadingState from "@/components/LoadingState";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { Loader2, Check, Edit } from "lucide-react";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // ---- helpers ---------------------------------------------------------------
 const emptyManager = {
@@ -123,7 +124,7 @@ const BranchesPage = () => {
       );
       setBranches(data);
     } catch (error) {
-      toast.error("Failed to fetch branches");
+      ErrorHandling({ error: error, defaultError: "Failed to fetch branches" });
     }
     setLoading(false);
   };

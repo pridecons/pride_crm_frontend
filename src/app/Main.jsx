@@ -39,7 +39,7 @@ export default function Main({ children }) {
         <div className="fixed inset-0 z-50 flex lg:hidden">
           {/* Overlay */}
           <div
-            className="fixed inset-0 bg-black bg-opacity-50"
+            className="fixed inset-0 bg-gray-200 opacity-60"
             onClick={() => setSidebarOpen(false)}
           ></div>
 

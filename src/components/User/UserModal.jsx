@@ -415,23 +415,24 @@ export default function UserModal({
     e.preventDefault();
 
     // Flow validations
-    if (!selectedBranchId) return toast.error("Please select a Branch first");
+    if (!selectedBranchId) return ErrorHandling({ defaultError: "Please select a Branch first"});
     if (!selectedDepartmentId)
-      return toast.error("Please select a Department");
-    if (!selectedProfileId) return toast.error("Please select a Profile");
+      return ErrorHandling({ defaultError: "Please select a Department"});
+    if (!selectedProfileId) return ErrorHandling({defaultError: "Please select a Profile"});
 
     // Basic required fields
-    if (!formData.name.trim()) return toast.error("Full Name is required");
-    if (!formData.email.trim()) return toast.error("Email is required");
+    if (!formData.name.trim()) return ErrorHandling({defaultError: "Full Name is required"});
+    if (!formData.email.trim()) return ErrorHandling({defaultError: "Email is required"});
     if (!formData.phone_number.trim())
-      return toast.error("Phone number is required");
+      return ErrorHandling({defaultError: "Phone number is required"});
 
     // PAN checks
-    if (!formData.pan.trim()) return toast.error("PAN is required");
+    if (!formData.pan.trim()) return ErrorHandling({ defaultError: "PAN is required"});
     if (formData.pan.trim().length !== 10)
-      return toast.error("PAN must be 10 characters");
+    ErrorHandling({ defaultError: "PAN must be 10 characters"});
     if (!PAN_REGEX.test(formData.pan.trim()))
-      return toast.error("Enter a valid PAN (e.g., ABCDE1234F)");
+      return
+    ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)"});
 
     // Aadhaar validation
     if (formData.aadhaar && aadhaarError) return toast.error(aadhaarError);

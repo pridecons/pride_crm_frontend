@@ -34,7 +34,7 @@ export default function LeadResponsesPage() {
       setResponses(data);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load responses");
+      ErrorHandling({ error: err, defaultError: "Failed to load responsess"});
     }
   };
 
@@ -77,7 +77,8 @@ export default function LeadResponsesPage() {
       await fetchResponses();
     } catch (err) {
       console.error(err);
-      toast.error("Save failed!");
+      ErrorHandling({ error: err, defaultError: "Save failed!"});
+
     } finally {
       setIsSubmitting(false);
     }
@@ -91,7 +92,7 @@ export default function LeadResponsesPage() {
       await fetchResponses();
     } catch (err) {
       console.error(err);
-      toast.error("Delete failed!");
+      ErrorHandling({ error: err, defaultError: "Delete failed!"});
     }
   };
 

@@ -19,7 +19,6 @@ export function PermissionsProvider({ children }) {
     }
   });
 
-  console.log("permissions : ",permissions)
 
   useEffect(() => {
     const interval = setInterval(() => {

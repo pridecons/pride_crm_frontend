@@ -32,7 +32,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
     // Prepare audio element
     const el = new Audio(audioUrl);
     el.preload = "auto";
-    el.volume = 1.0; // adjust if you want a softer sound (0.0 - 1.0)
+    el.volume = 1.0;
     audioRef.current = el;
 
     // Mark that user has interacted after first click/keypress—helps bypass autoplay blocks
@@ -66,26 +66,26 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
   }, [soundEnabled]);
 
   // Play sound helper
+  // REPLACE your current playSound with this:
   const playSound = () => {
     if (!soundEnabled) return;
-    if (!audioRef.current) return;
+    const el = audioRef.current;
+    if (!el) return;
     try {
-      // Clone approach avoids overlap cut-off; alternatively, use single element if you prefer.
-      const a = new Audio(audioUrl);
-      a.volume = audioRef.current.volume;
-      const p = a.play();
+      // Ensure it always plays, even if a previous play is mid-way
+      el.pause();
+      el.currentTime = 0;
+      const p = el.play();
       if (p && typeof p.then === "function") {
         p.catch(() => {
-          // Likely blocked until first interaction
-          if (!userInteractedRef.current) {
-            // no-op; will work after user clicks somewhere
-          }
+          // Likely blocked until first interaction; your markInteraction handler fixes this
         });
       }
     } catch (err) {
       console.error("Failed to play notification sound:", err);
     }
   };
+
 
   useEffect(() => {
     if (!employee_code) return;

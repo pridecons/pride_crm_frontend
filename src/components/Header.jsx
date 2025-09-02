@@ -398,7 +398,7 @@ export default function Header({ onMenuClick, onSearch }) {
     : "sm:max-w-md";
 
   return (
-    <header className="bg-white border-b border-gray-100 px-4 py-2 lg:px-4 relative">
+    <header className="bg-gradient-to-br from-sky-300 via-gray-300 to-sky-200 px-4 py-2 lg:px-4 relative">
       <div className="absolute inset-0 pointer-events-none" />
       <div className="flex items-center justify-between relative z-10">
         {/* Logo + Menu */}
@@ -410,7 +410,7 @@ export default function Header({ onMenuClick, onSearch }) {
             <Menu size={20} />
           </button>
           <div className="relative">
-            <img src="/pride.png" alt="Logo" width={130} height={55} className="transition-transform duration-200 hover:scale-105" />
+            <img src="/pride_logo_nobg.png" alt="Logo" width={130} height={55} className="transition-transform duration-200 hover:scale-105" />
             <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
           </div>
         </div>

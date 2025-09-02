@@ -20,8 +20,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
 
   const handleShare = async () => {
     if (!cleanedCode) {
-      toast.error("Please enter target employee code (e.g. EMP012)");
-      
+      ErrorHandling({ defaultError: "Please enter target employee code (e.g. EMP012)" });
       return;
     }
     try {

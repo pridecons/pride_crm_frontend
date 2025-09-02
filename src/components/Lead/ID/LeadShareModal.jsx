@@ -4,6 +4,7 @@ import { Modal } from "@/components/Lead/ID/Modal";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { UserPlus, ShieldCheck, Info, Send } from "lucide-react";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
   const [targetUserId, setTargetUserId] = useState("");
@@ -35,8 +36,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
       onSuccess?.(data);
       onClose();
     } catch (err) {
-      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Failed to share lead"
-      toast.error(msg);
+       ErrorHandling({ error: err, defaultError: "Failed to share lead"});
     } finally {
       setLoading(false);
     }

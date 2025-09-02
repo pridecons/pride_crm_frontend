@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { Loader2, Mail, List } from "lucide-react";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const extractPlaceholders = (body = "") => {
   const regex = /{{(.*?)}}/g;

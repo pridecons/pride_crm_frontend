@@ -2,6 +2,7 @@ import React from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const getFileUrl = (path) => {
   if (!path) return null;
@@ -41,7 +42,7 @@ export default function DocumentsModal({
           key="upload"
           onClick={async () => {
             if (!aadharFront && !aadharBack && !panPic) {
-              toast.error("Please select at least one file to upload.");
+               ErrorHandling({defaultError: "Please select at least one file to upload."});
               return;
             }
             try {
@@ -60,7 +61,7 @@ export default function DocumentsModal({
               setAadharFront(null); setAadharBack(null); setPanPic(null);
               setAadharFrontPreview(null); setAadharBackPreview(null); setPanPicPreview(null);
             } catch (err) {
-              toast.error("Error uploading documents");
+               ErrorHandling({ error: err, defaultError: "Error uploading documents"});
             }
           }}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"

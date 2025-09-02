@@ -12,6 +12,7 @@ import UserDetailsModal from "./UserDetailsModal";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import UserModal from "./UserModal";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // Canonical role map by ID
 const ROLE_MAP = {

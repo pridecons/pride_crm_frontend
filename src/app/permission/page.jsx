@@ -30,6 +30,7 @@ import {
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import LoadingState from "@/components/LoadingState"; // Adjust the import path if needed
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // ---------- SearchFilter (from first page) ----------
 function SearchFilter({ allItems, onFilter }) {
@@ -181,7 +182,7 @@ export default function PermissionsPage() {
       setUsersTotal(usersRes?.data?.pagination?.total ?? usersArray.length);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load users/permissions");
+       ErrorHandling({ error: err, defaultError: "Failed to load users/permissions"});
     } finally {
       setLoading(false);
     }
@@ -199,7 +200,7 @@ export default function PermissionsPage() {
       setSelectedUserPermissions(res.data);
     } catch (err) {
       console.error(err);
-      toast.error(`Could not load user permissions for ${userId}`);
+       ErrorHandling({ error: err, defaultError: `Could not load user permissions for ${userId}`});
     } finally {
       setLoading(false);
     }
@@ -212,7 +213,7 @@ export default function PermissionsPage() {
       loadUserPermissions(selectedUser);
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to toggle ${perm}`);
+       ErrorHandling({ error: err, defaultError: `Failed to toggle ${perm}`});
     }
   };
 
@@ -223,7 +224,7 @@ export default function PermissionsPage() {
       loadUserPermissions(selectedUser);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to reset permissions");
+      ErrorHandling({ error: err, defaultError: "Failed to reset permissions"});
     }
   };
 
@@ -236,7 +237,7 @@ export default function PermissionsPage() {
       clearSelection();
     } catch (err) {
       console.error(err);
-      toast.error("Update failed");
+       ErrorHandling({ error: err, defaultError: "Update failed"});
     } finally {
       setSaving(false);
     }

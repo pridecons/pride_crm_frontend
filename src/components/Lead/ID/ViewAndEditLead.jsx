@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { MiniLoader } from "@/components/LoadingState";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // Single-flight + cache for recommendation types
 let _recTypeCache = null;
@@ -163,8 +164,9 @@ export const ViewAndEditLead = ({
           }
         } catch (err) {
           setPanError(err.toString());
-          const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
-          toast.error(msg);
+          // const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
+          // toast.error(msg);
+           ErrorHandling({ error: err});
         } finally {
           setPanLoading(false);
         }

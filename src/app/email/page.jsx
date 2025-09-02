@@ -7,6 +7,7 @@ import { axiosInstance } from "@/api/Axios";
 import { toast } from "react-hot-toast";
 import { Plus, Pencil, Trash, Eye, X, ChevronDown } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const JoditEditor = dynamic(() => import("jodit-react"), { ssr: false });
 

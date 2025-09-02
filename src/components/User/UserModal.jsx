@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Cookies from "js-cookie";
 import dynamic from "next/dynamic";
 import { X, Loader2, Check, Edit, Eye, EyeOff } from "lucide-react";
@@ -82,6 +82,8 @@ export default function UserModal({
   const [isPanVerified, setIsPanVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+
+  const prefilling = useRef(false);
 
   const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
@@ -186,6 +188,7 @@ export default function UserModal({
             (p) => String(p.id) === String(user.role_id)
           );
           if (foundProfile) {
+            prefilling.current = true;
             setSelectedDepartmentId(String(foundProfile.department_id));
             setSelectedProfileId(String(foundProfile.id));
             setSelectedPermissions(
@@ -193,6 +196,8 @@ export default function UserModal({
                 ? user.permissions
                 : foundProfile.default_permissions || []
             );
+             // release the guard on the next tick (after dependent effects run)
+           setTimeout(() => { prefilling.current = false; }, 0);
           }
         }
       } catch(err) {
@@ -208,18 +213,20 @@ export default function UserModal({
   }, [selectedBranchId]);
 
   // Reset profile and permissions when department changes
-  useEffect(() => {
+ useEffect(() => {
     if (!selectedDepartmentId) {
       setSelectedProfileId("");
       setSelectedPermissions([]);
       return;
     }
+    if (prefilling.current) return; // skip clearing during edit prefill
     setSelectedProfileId("");
     setSelectedPermissions([]);
   }, [selectedDepartmentId]);
 
   // When profile changes, preselect its default permissions
-  useEffect(() => {
+useEffect(() => {
+    if (prefilling.current) return; // keep server/user-set permissions
     if (!selectedProfile) {
       setSelectedPermissions([]);
       return;
@@ -427,12 +434,9 @@ export default function UserModal({
       return ErrorHandling({defaultError: "Phone number is required"});
 
     // PAN checks
-    if (!formData.pan.trim()) return ErrorHandling({ defaultError: "PAN is required"});
-    if (formData.pan.trim().length !== 10)
-    ErrorHandling({ defaultError: "PAN must be 10 characters"});
-    if (!PAN_REGEX.test(formData.pan.trim()))
-      return
-    ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)"});
+    if (!formData.pan.trim()) return ErrorHandling({ defaultError: "PAN is required" });
+    if (formData.pan.trim().length !== 10) return ErrorHandling({ defaultError: "PAN must be 10 characters" });
+    if (!PAN_REGEX.test(formData.pan.trim())) return ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)" });
 
     // Aadhaar validation
     if (formData.aadhaar && aadhaarError) return toast.error(aadhaarError);

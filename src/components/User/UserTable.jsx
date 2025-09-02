@@ -104,6 +104,17 @@ export default function UserTable({
     }
   };
 
+  // NEW: derive senior label from possible fields
+const getSeniorLabel = (u) => {
+  return (
+    u?.senior_profile?.name ||
+    u?.reporting_profile?.name ||
+    u?.senior_profile_name ||
+    u?.reporting_profile_name ||
+    (u?.senior_profile_id != null ? String(u.senior_profile_id) : "—")
+  );
+};
+
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-200">
       <div className="overflow-x-auto">
@@ -113,6 +124,7 @@ export default function UserTable({
               <th className="w-12 px-5 py-4 text-left font-semibold">#</th>
               <th className="w-56 px-5 py-4 text-left font-semibold">Name</th>
               <th className="w-40 px-5 py-4 text-left font-semibold">Role</th>
+              <th className="w-48 px-5 py-4 text-left font-semibold">Reporting</th>
               <th className="w-40 px-5 py-4 text-left font-semibold">Branch</th>
               <th className="w-44 px-5 py-4 text-left font-semibold">Phone</th>
               <th className="w-64 px-5 py-4 text-left font-semibold">Email</th>
@@ -149,6 +161,8 @@ export default function UserTable({
                         {roleName}
                       </span>
                     </td>
+
+                    <td className="px-5 py-4 truncate">{getSeniorLabel(u)}</td>
 
                     <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
 
@@ -214,7 +228,7 @@ export default function UserTable({
               })
             ) : (
               <tr>
-                <td colSpan="8" className="px-5 py-8 text-center text-gray-500">
+                <td colSpan="9" className="px-5 py-8 text-center text-gray-500">
                   No users found.
                 </td>
               </tr>

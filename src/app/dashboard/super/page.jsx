@@ -36,6 +36,13 @@ export default function SuperDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
+  // helpers
+const isManager = role === 'SUPERADMIN' || role === 'BRANCH_MANAGER';
+const isNonManager = !isManager;
+
+// non-managers can switch "self" / "other"
+const [myView, setMyView] = useState('self');
+
   const router = useRouter()
 
   const getBranchNameById = (id) => {
@@ -84,34 +91,36 @@ export default function SuperDashboard() {
   }, [data?.top_performers, role, branchId, branches])
 
   // Bootstrap: read token, set role_name and branch, fetch branches (for SUPERADMIN)
-  useEffect(() => {
-    const token = Cookies.get('access_token')
-    if (!token) {
-      router.push('/login')
-      return
-    }
+useEffect(() => {
+  const token = Cookies.get('access_token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
 
-    const decoded = jwtDecode(token)
-    // IMPORTANT: use role_name from JWT
-    const userRoleName = decoded?.role_name || decoded?.role || ''
-    setRole(userRoleName)
+  const decoded = jwtDecode(token);
+  const userRoleName = decoded?.role_name || decoded?.role || '';
+  setRole(userRoleName);
 
-    // Branch for branch-scoped roles
-    const initialBranchId = decoded?.branch_id ?? null
-    if (userRoleName === 'BRANCH_MANAGER') {
-      setBranchId(initialBranchId)
-    }
+  // default view by role
+  setMyView(userRoleName === 'SUPERADMIN' || userRoleName === 'BRANCH_MANAGER' ? 'all' : 'self');
 
-    // Fetch branches for SUPERADMIN to enable switching
-    if (userRoleName === 'SUPERADMIN') {
-      axiosInstance
-        .get('/branches/', { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => setBranches(Array.isArray(res.data) ? res.data : []))
-        .catch((err) => {
-          console.error('Error fetching branches', err)
-        })
-    }
-  }, [router])
+  // branch scoping
+  const initialBranchId = decoded?.branch_id ?? null;
+  if (userRoleName === 'BRANCH_MANAGER') {
+    setBranchId(initialBranchId);       // lock manager to own branch
+  } else if (userRoleName !== 'SUPERADMIN') {
+    setBranchId(null);                  // non-managers must not set branch
+  }
+
+  // SUPERADMIN can fetch branch list to switch
+  if (userRoleName === 'SUPERADMIN') {
+    axiosInstance
+      .get('/branches/', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => setBranches(Array.isArray(res.data) ? res.data : []))
+      .catch((err) => console.error('Error fetching branches', err));
+  }
+}, [router]);
 
   // Load dashboard data
   useEffect(() => {
@@ -123,11 +132,22 @@ export default function SuperDashboard() {
         const token = Cookies.get('access_token')
         let url = '/analytics/leads/admin/dashboard?days=30'
 
-        // SUPERADMIN can optionally pass branch_id; BRANCH_MANAGER will pass its own branch_id
-        if ((role === 'BRANCH_MANAGER' || role === 'SUPERADMIN') && branchId) {
-          url += `&branch_id=${branchId}`
-        }
+        // SUPERADMIN: all or by chosen branch
+if (role === 'SUPERADMIN') {
+  url += '&view=all';
+  if (branchId) url += `&branch_id=${branchId}`;
+}
 
+// BRANCH_MANAGER: always own branch, all
+else if (role === 'BRANCH_MANAGER') {
+  url += '&view=all';
+  if (branchId) url += `&branch_id=${branchId}`;
+}
+
+// Other roles: only self/other, no branch filter
+else {
+  url += `&view=${myView}`;
+}
         const res = await axiosInstance.get(url, {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -141,7 +161,7 @@ export default function SuperDashboard() {
     }
 
     if (role) fetchData()
-  }, [role, branchId])
+  }, [role, branchId, myView])
 
   if (loading) {
     return <LoadingState />
@@ -207,6 +227,25 @@ export default function SuperDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
               <p className="text-gray-600 mt-1">Monitor your business performance and insights</p>
             </div>
+            {/* Non-managers: scope toggle */}
+{isNonManager && (
+  <div className="flex gap-2">
+    {['self', 'other'].map((v, i) => (
+      <button
+        key={v}
+        type="button"
+        onClick={() => setMyView(v)}
+        className={`px-4 py-2 text-sm font-medium border
+          ${myView === v
+            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+            : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'}
+          ${i === 0 ? 'rounded-l-lg' : 'rounded-r-lg'}`}
+      >
+        {v === 'self' ? 'My Data' : 'Other (Team)'}
+      </button>
+    ))}
+  </div>
+)}
 
             {role === 'SUPERADMIN' && (
               <div className="flex flex-col space-y-2 w-full md:w-auto">

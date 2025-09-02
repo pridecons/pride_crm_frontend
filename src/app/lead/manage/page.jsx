@@ -125,60 +125,74 @@ const LeadManage = () => {
   }, []);
 
   /* ---------- load dropdown lists ---------- */
-  useEffect(() => {
-    if (!ready) return;
+useEffect(() => {
+  if (!ready) return;
 
-    const loadFilterLists = async () => {
-      try {
-        const [bRes, uRes, sRes, rRes] = await Promise.all([
-          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
-          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
-          axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
-          axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
-        ]);
+  const loadFilterLists = async () => {
+    try {
+      const [bRes, uRes, sRes, rRes] = await Promise.all([
+        axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+        axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+        axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
+        axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
+      ]);
 
-        const allBranches = bRes.data || [];
-        const allEmployees = uRes?.data?.data || [];
+      const allBranches = bRes.data || [];
+      const allEmployees = uRes?.data?.data || [];
 
-        if (isSuperAdmin) {
-          setBranches(allBranches);
-          setEmployees(allEmployees);
-        } else {
-          const safeBranchId = String(branchId || "");
-          setBranches(allBranches.filter((b) => String(b.id) === safeBranchId));
-          setEmployees(allEmployees.filter((e) => String(e.branch_id) === safeBranchId));
-        }
-
-        setSourcesList(sRes.data || []);
-        setResponsesList(rRes.data || []);
-      } catch (err) {
-        console.error("Failed to load filters", err);
+      if (isSuperAdmin) {
+        // SUPERADMIN: branches = all; employees scoped to selected branch (if any)
+        setBranches(allBranches);
+        const scopedEmployees =
+          branchFilter !== "All"
+            ? allEmployees.filter(e => String(e.branch_id) === String(branchFilter))
+            : allEmployees;
+        setEmployees(scopedEmployees);
+      } else {
+        // Non-superadmin: lock to own branch
+        const safeBranchId = String(branchId || "");
+        setBranches(allBranches.filter(b => String(b.id) === safeBranchId));
+        setEmployees(allEmployees.filter(e => String(e.branch_id) === safeBranchId));
       }
-    };
 
-    loadFilterLists();
-  }, [ready, isSuperAdmin, branchId]);
+      setSourcesList(sRes.data || []);
+      setResponsesList(rRes.data || []);
+    } catch (err) {
+      console.error("Failed to load filters", err);
+    }
+  };
+
+  loadFilterLists();
+}, [ready, isSuperAdmin, branchId, branchFilter]);
 
   /* ---------- load leads ---------- */
-  useEffect(() => {
-    if (!ready) return;
+useEffect(() => {
+  if (!ready) return;
 
-    const fetchLeadData = async () => {
-      try {
-        setLoading(true);
-        const base = "/leads/?skip=0&limit=100&kyc_only=false";
-        const url = isSuperAdmin || !branchId ? base : `${base}&branch_id=${branchId}`;
-        const { data } = await axiosInstance.get(url);
-        setLeadData(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Lead fetch failed:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchLeadData = async () => {
+    try {
+      setLoading(true);
+      const base = "/leads/?skip=0&limit=100&kyc_only=false";
 
-    fetchLeadData();
-  }, [ready, isSuperAdmin, branchId]);
+      // Decide which branch to query on the server
+      const selectedBranchId = isSuperAdmin
+        ? (branchFilter !== "All" ? branchFilter : null)
+        : branchId;
+
+      const url = selectedBranchId ? `${base}&branch_id=${selectedBranchId}` : base;
+
+      const { data } = await axiosInstance.get(url);
+      setLeadData(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Lead fetch failed:", error);
+      setLeadData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchLeadData();
+}, [ready, isSuperAdmin, branchId, branchFilter]);
 
   /* ---------- quick cards (admins only) ---------- */
   useEffect(() => {

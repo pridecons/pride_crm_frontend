@@ -170,10 +170,11 @@ const menu = [
     title: 'Payment',
     items: [
       {
-        href:
-          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH_MANAGER')
-            ? '/admin-payment'
-            : '/payment',
+        // href:
+        //   user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH_MANAGER')
+        //     ? '/admin-payment'
+        //     : '/payment',
+        href: '/admin-payment',
         icon: CreditCard,
         label: 'Payment',
         access:"payment_page"

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Users, CheckCircle, XCircle, Clock, DivideCircle, Calendar, Search, Filter } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const API_URL = "/attendance/";
 
@@ -34,7 +35,7 @@ export default function AttendancePage() {
       setFilteredEmployees(res.data || []);
     } catch (err) {
       console.error("Error fetching employees:", err);
-      toast.error("Failed to load employees");
+       ErrorHandling({ error: err, defaultError: "Failed to load employees"});
     }
   };
 
@@ -69,13 +70,13 @@ export default function AttendancePage() {
 
   const handleSubmit = async () => {
     if (!selectedDate) {
-      toast.error("Please select a date");
+      ErrorHandling({defaultError: "Please select a date"});
       return;
     }
 
     const unmarked = filteredEmployees.filter((emp) => !attendance[emp.employee_code]);
     if (unmarked.length > 0) {
-      toast.error(`Mark attendance for all employees (${unmarked.length} left)`);
+       ErrorHandling({defaultError: `Mark attendance for all employees (${unmarked.length} left)`});
       return;
     }
 
@@ -94,7 +95,7 @@ export default function AttendancePage() {
       toast.success("Attendance saved successfully!");
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save attendance");
+       ErrorHandling({ error: error, defaultError: "Failed to save attendance"});
     } finally {
       setLoading(false);
     }

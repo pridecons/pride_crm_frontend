@@ -19,6 +19,8 @@ export function PermissionsProvider({ children }) {
     }
   });
 
+  console.log("permissions : ",permissions)
+
   useEffect(() => {
     const interval = setInterval(() => {
       try {
@@ -35,14 +37,14 @@ export function PermissionsProvider({ children }) {
     return () => clearInterval(interval);
   }, []);
 
-  // const hasPermission = (key) => {
-  //   return !!permissions?.[key];
-  // };
-
-
-    const hasPermission = (key) => {
-    return true
+  const hasPermission = (key) => {
+    return Array.isArray(permissions) && permissions.includes(key);
   };
+
+
+  //   const hasPermission = (key) => {
+  //   return true
+  // };
 
   const value = useMemo(
     () => ({

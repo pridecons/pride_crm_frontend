@@ -95,7 +95,7 @@ export default function LeadSourcesPage() {
       );
     } catch (err) {
       console.error("Failed to load branches:", err);
-      toast.error("Failed to load branches");
+      ErrorHandling({ error: err, defaultError: "Failed to load branches"});
     }
   };
 
@@ -108,7 +108,7 @@ export default function LeadSourcesPage() {
       setSources(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to load sources");
+      ErrorHandling({ error: err, defaultError: "Failed to load sources"});
     }
   };
 
@@ -144,11 +144,11 @@ export default function LeadSourcesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSuperAdmin && !form.branch_id) {
-      toast.error("Please select a branch");
+       ErrorHandling({defaultError: "Please select a branch"});
       return;
     }
     if (!isSuperAdmin && !form.branch_id) {
-      toast.error("No branch assigned to your account");
+      ErrorHandling({defaultError: "No branch assigned to your account"});
       return;
     }
 
@@ -214,7 +214,7 @@ export default function LeadSourcesPage() {
       await fetchSources();
     } catch (err) {
       console.error(err);
-      toast.error("Delete failed! Please try again.");
+      ErrorHandling({ error: err, defaultError: "Delete failed! Please try again."});
     }
   };
 

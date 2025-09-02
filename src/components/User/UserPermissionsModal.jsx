@@ -95,7 +95,7 @@ export default function UserPermissionsModal({ isOpen, onClose, user }) {
       const res = await axiosInstance.get(`/permissions/user/${user.employee_code}`);
       setPermissions(res.data || {});
     } catch (err) {
-      toast.error("Failed to load permissions");
+      ErrorHandling({ error: err, defaultError: "Failed to load permissions"});
     } finally {
       setLoading(false);
     }
@@ -120,8 +120,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user }) {
       await axiosInstance.put(`/permissions/user/${user.employee_code}`, booleanPayload);
       toast.success("Permissions updated successfully!");
       onClose?.();
-    } catch {
-      toast.error("Failed to update permissions");
+    } catch(err) {
+       ErrorHandling({ error: err, defaultError: "Failed to updated permissions"});
     } finally {
       setSaving(false);
     }
@@ -133,8 +133,8 @@ export default function UserPermissionsModal({ isOpen, onClose, user }) {
       await axiosInstance.post(`/permissions/user/${user.employee_code}/reset-defaults`);
       toast.success("Permissions reset to default!");
       fetchPermissions();
-    } catch {
-      toast.error("Failed to reset permissions");
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Failed to reset permissions"});
     }
   };
 

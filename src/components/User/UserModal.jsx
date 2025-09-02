@@ -194,8 +194,8 @@ export default function UserModal({
             );
           }
         }
-      } catch {
-        toast.error("Failed to load branches/departments/roles");
+      } catch(err) {
+        ErrorHandling({ error: err, defaultError: "Failed to load branches/departments/roles" });
       }
     })();
   }, [isOpen, isEdit, user, currentRoleKey, currentUser]);
@@ -347,9 +347,9 @@ export default function UserModal({
 
   // -------- PAN verification ----------
   const handleVerifyPan = async () => {
-    if (!formData.pan) return toast.error("Enter a PAN first");
+    if (!formData.pan) return ErrorHandling({ defaultError: "Enter a PAN first" });
     if (formData.pan.trim().length !== 10 || !PAN_REGEX.test(formData.pan))
-      return toast.error("Enter a valid PAN (e.g., ABCDE1234F)");
+      return ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)"});
 
     setLoadingPan(true);
     toast.loading("Verifying PAN...");
@@ -376,11 +376,11 @@ export default function UserModal({
         setIsPanVerified(true);
         toast.success("PAN verified!");
       } else {
-        toast.error("PAN verification failed");
+        ErrorHandling({ defaultError: "PAN verification failed"});
       }
-    } catch {
+    } catch(err) {
       toast.dismiss();
-      toast.error("Error verifying PAN");
+       ErrorHandling({error: err, defaultError: "Error verifying PAN"});
     } finally {
       setLoadingPan(false);
     }
@@ -437,18 +437,14 @@ export default function UserModal({
 
     // Phone validation
     if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number))
-      return toast.error("Phone must be 10 digits");
+    return  ErrorHandling({defaultError: "Phone must be 10 digits"});
 
     // Password validation
     if (!isEdit && !passwordRegex.test(formData.password)) {
-      return toast.error(
-        "Password must be ≥6 chars, include a number & special char"
-      );
+      return  ErrorHandling({defaultError: "Password must be ≥6 chars, include a number & special char"});
     }
     if (isEdit && formData.password && !passwordRegex.test(formData.password)) {
-      return toast.error(
-        "Password must be ≥6 chars, include a number & special char"
-      );
+      return  ErrorHandling({defaultError: "Password must be ≥6 chars, include a number & special char"});
     }
 
     // Build payload
@@ -508,12 +504,13 @@ export default function UserModal({
       onSuccess?.(res.data);
       onClose?.();
     } catch (error) {
-      toast.dismiss();
-      const detail = error?.response?.data?.detail;
-      const msg = Array.isArray(detail?.errors)
-        ? detail.errors.join(", ")
-        : detail?.errors || detail?.message || detail || "Request failed";
-      toast.error(msg);
+      // toast.dismiss();
+      // const detail = error?.response?.data?.detail;
+      // const msg = Array.isArray(detail?.errors)
+      //   ? detail.errors.join(", ")
+      //   : detail?.errors || detail?.message || detail || "Request failed";
+      // toast.error(msg);
+      ErrorHandling({error: error, defaultError: "Array.isArray(detail?.errors)"});
     } finally {
       setIsSubmitting(false);
     }

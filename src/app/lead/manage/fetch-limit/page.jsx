@@ -147,8 +147,8 @@ export default function FetchLimitConfigPage() {
       }
       await fetchConfigs();
       resetForm();
-    } catch {
-      toast.error("Save failed! Please try again.");
+    } catch(error) {
+      ErrorHandling({error: error, defaultError: "Save failed! Please try again."});
     } finally {
       setIsSubmitting(false);
     }
@@ -160,8 +160,8 @@ export default function FetchLimitConfigPage() {
       await axiosInstance.delete(`/lead-fetch-config/${id}`);
       toast.success("Deleted");
       await fetchConfigs();
-    } catch {
-      toast.error("Delete failed!");
+    } catch (error) {
+       ErrorHandling({error: error, defaultError: "Delete failed!"});
     }
   };
 

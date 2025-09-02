@@ -91,7 +91,7 @@ export default function UsersListPage() {
         setRoles(rolesRes.data || []);
       } catch (err) {
         console.error("Failed initial load:", err);
-        toast.error("Failed to load users or metadata.");
+         ErrorHandling({ error: err, defaultError: "Failed to load users or metadata."});
       }
     };
 
@@ -105,7 +105,7 @@ export default function UsersListPage() {
       setUsers(normalizeUsers(list));
     } catch (err) {
       console.error("Failed to fetch users:", err);
-      toast.error("Failed to refresh users.");
+      ErrorHandling({ error: err, defaultError: "Failed to refresh users."});
     }
   };
 
@@ -117,7 +117,7 @@ export default function UsersListPage() {
       fetchUsers();
     } catch (err) {
       console.error(err);
-      toast.error("Failed to delete user.");
+      ErrorHandling({ error: err, defaultError: "Failed to delete user."});
     }
   };
 

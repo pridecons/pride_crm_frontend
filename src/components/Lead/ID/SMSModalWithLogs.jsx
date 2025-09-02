@@ -4,6 +4,7 @@ import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { Modal } from "@/components/Lead/ID/Modal";
 import { Send, RefreshCcw, Search, ListFilter, MessageSquare } from "lucide-react";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /** helpers */
 const fmtDateTime = (v) => (v ? new Date(v).toLocaleString() : "-");
@@ -57,7 +58,7 @@ export default function SMSModalWithLogs({
 
   const handleSend = async () => {
     if (!canSend) {
-      toast.error("Template & phone are required");
+       ErrorHandling({defaultError: "Template & phone are required"});
       return;
     }
     try {
@@ -76,12 +77,7 @@ export default function SMSModalWithLogs({
       setFilters((prev) => ({ ...prev, phone: payload.phone_number, offset: 0 }));
       await fetchLogs({ ...filters, phone: payload.phone_number, offset: 0 });
     } catch (err) {
-      const msg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to send SMS";
-      toast.error(msg);
+       ErrorHandling({ error: err, defaultError: "Failed to send SMS"});
     } finally {
       setSending(false);
     }
@@ -110,8 +106,7 @@ export default function SMSModalWithLogs({
       setLogs(data.logs || []);
       setTotal(data.total || 0);
     } catch (err) {
-      const msg = err?.response?.data?.detail || err?.message || "Failed to load SMS logs";
-      toast.error(msg);
+       ErrorHandling({ error: err, defaultError: "Failed to load SMS logs"});
     } finally {
       setLoadingLogs(false);
     }
@@ -148,7 +143,7 @@ export default function SMSModalWithLogs({
       toast.success("Re-sent");
       fetchLogs();
     } catch (err) {
-      toast.error("Failed to resend");
+      ErrorHandling({ error: err, defaultError: "Failed to resend"});
     }
   };
 

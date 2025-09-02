@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePermissions } from '@/context/PermissionsContext';
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export default function FetchLimitConfigPage() {
   const { hasPermission } = usePermissions();

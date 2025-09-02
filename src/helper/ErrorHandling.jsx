@@ -1,4 +1,5 @@
 import toast from "react-hot-toast";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export const ErrorHandling = ({ error, defaultError = "Something went wrong" }) => {
   console.error("error : ",error)

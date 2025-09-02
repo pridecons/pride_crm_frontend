@@ -8,6 +8,7 @@ import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const canon = (s) => String(s || "").toUpperCase().trim();
 
@@ -98,7 +99,8 @@ export default function UserTable({
       refreshUsers?.();
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || "Failed to deactivate user");
+      // toast.error(error.response?.data?.message || "Failed to deactivate user");
+       ErrorHandling({ error: error, defaultError: "Failed to deactivate user"});
     }
   };
 

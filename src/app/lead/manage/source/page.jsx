@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 // ---- helpers ---------------------------------------------------------------
 const getUserMeta = () => {

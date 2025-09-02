@@ -7,6 +7,7 @@ import { X, Loader2, Check, Edit, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { usePermissions } from "@/context/PermissionsContext";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
 

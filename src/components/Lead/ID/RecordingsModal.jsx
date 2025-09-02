@@ -5,6 +5,7 @@ import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { AudioLines, RefreshCcw, Trash2, Upload, ExternalLink } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const toAbsoluteUrl = (path) => {
   if (!path) return "";
@@ -49,8 +50,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
         // treat as empty; no toast spam
         setList([]);
       } else {
-        const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Failed to load recordings"
-        toast.error(msg);
+         ErrorHandling({defaultError: "Failed to load recordings" });
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -77,7 +77,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 3 * 1024 * 1024) {
-      toast.error("File must be under 3MB");
+       ErrorHandling({defaultError: "File must be under 3MB"});
       e.target.value = "";
       return;
     }
@@ -94,8 +94,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       e.target.value = "";
       await fetchRecordings();
     } catch (err) {
-      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Upload failed"
-      toast.error(msg);
+       ErrorHandling({ error: err, defaultError: "Upload failed"});
     } finally {
       setUploading(false);
     }
@@ -110,8 +109,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       toast.success("Recording deleted");
       setList((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
-      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Delete failed"
-      toast.error(msg);
+       ErrorHandling({ error: err, defaultError: "Delete failed"});
     } finally {
       setDeletingId(null);
     }

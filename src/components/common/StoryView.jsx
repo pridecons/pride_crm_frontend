@@ -16,7 +16,7 @@ export default function StoryModal({ leadId }) {
       const response = await axiosInstance.get(`/leads/${leadId}/stories`)
       setStories(response.data || [])
     } catch (err) {
-      toast.error("Failed to fetch stories")
+      ErrorHandling({ error: err, defaultError: "Failed to fetch stories" });
       console.error(err)
     } finally {
       setLoading(false)

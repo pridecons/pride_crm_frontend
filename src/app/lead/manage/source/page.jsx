@@ -182,12 +182,7 @@ export default function LeadSourcesPage() {
       resetForm();
       await fetchSources();
     } catch (err) {
-      console.error(err);
-      const msg =
-        err?.response?.data?.detail?.message ||
-        err?.response?.data?.detail ||
-        "Save failed! Please try again.";
-      toast.error(typeof msg === "string" ? msg : "Save failed! Please try again.");
+      ErrorHandling({error: err, defaultError: "Save failed! Please try again."});
     } finally {
       setIsSubmitting(false);
     }

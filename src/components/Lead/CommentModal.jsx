@@ -17,7 +17,7 @@ const CommentModal = ({ isOpen, onClose, leadId }) => {
       const { data } = await axiosInstance.get(`/leads/${leadId}/comments`);
       setComments(Array.isArray(data) ? data : []);
     } catch (err) {
-      toast.error("Failed to load comments");
+      ErrorHandling({ error: err, defaultError: "Failed to load comments" });
     } finally {
       setLoading(false);
     }
@@ -26,7 +26,7 @@ const CommentModal = ({ isOpen, onClose, leadId }) => {
   const handleAddComment = async () => {
     const value = newComment.trim();
     if (!value) {
-      toast.error("Comment cannot be empty");
+      ErrorHandling({ defaultError: "Comment cannot be empty" });
       return;
     }
     try {
@@ -37,8 +37,8 @@ const CommentModal = ({ isOpen, onClose, leadId }) => {
       setNewComment("");
       toast.success("Comment added");
       fetchComments();
-    } catch {
-      toast.error("Failed to add comment");
+    } catch(error) {
+      ErrorHandling({ error: error, defaultError: "Failed to add comment" });
     } finally {
       setAdding(false);
     }

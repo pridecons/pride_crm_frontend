@@ -2,6 +2,7 @@
 import { useRef, useState, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export function useFTAndCallbackPatch({ responses, onPatched }) {
   // Modals + state
@@ -41,7 +42,7 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
   // ---- Save handlers (patch + close) ----
   const saveFT = async () => {
     if (!ftFromDate || !ftToDate) {
-      toast.error("Both dates required");
+      ErrorHandling({ defaultError: "Both dates required" });
       return;
     }
     try {
@@ -53,8 +54,8 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
       });
       toast.success("FT response and dates saved!");
       onPatched?.();
-    } catch {
-      toast.error("Failed to save FT response");
+    } catch (error) {
+      ErrorHandling({ error: error, defaultError: "Failed to save FT response" });
     } finally {
       setShowFTModal(false);
       prevResponseRef.current = null;
@@ -63,7 +64,7 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
 
   const saveCallBack = async () => {
     if (!callBackDate) {
-      toast.error("Call back date is required");
+      ErrorHandling({ defaultError: "Call back date is required" });
       return;
     }
     const cbId = findIdByName("call back") ?? findIdByName("callback");
@@ -74,8 +75,8 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
       });
       toast.success("Call Back response and date saved!");
       onPatched?.();
-    } catch {
-      toast.error("Failed to save Call Back response");
+    } catch (error) {
+      ErrorHandling({ error: error, defaultError: "Failed to save Call Back response" });
     } finally {
       setShowCallBackModal(false);
       prevResponseRef.current = null;
@@ -96,20 +97,22 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
   };
 
   // Central handler: open modal for FT/Callback, else patch immediately
-  const handleResponseChange = (lead, newResponseId) => {
+  const handleResponseChange = async (lead, newResponseId) => {
     const selected = responses.find((r) => r.id == newResponseId);
-    const name = selected?.name?.toLowerCase();
+    const name = selected?.name?.toLowerCase()?.trim();
 
     if (name === "ft") return openFTModal(lead);
     if (name === "call back" || name === "callback") return openCallBackModal(lead);
 
-    axiosInstance
-      .patch(`/leads/${lead.id}/response`, { lead_response_id: parseInt(newResponseId) })
-      .then(() => {
-        toast.success("Response updated!");
-        onPatched?.();
-      })
-      .catch(() => toast.error("Failed to update response!"));
+    try {
+      await axiosInstance.patch(`/leads/${lead.id}/response`, {
+        lead_response_id: Number(newResponseId),
+      });
+      toast.success("Response updated!");
+      onPatched?.();
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Failed to update response" });
+    }
   };
 
   return {

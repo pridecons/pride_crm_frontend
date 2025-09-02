@@ -4,6 +4,7 @@ import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { Modal } from "./ID/Modal";
 import { BookOpenText, Clock } from "lucide-react";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const StoryModal = ({ isOpen, onClose, leadId }) => {
   const [stories, setStories] = useState([]);
@@ -14,8 +15,8 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
       setLoading(true);
       const { data } = await axiosInstance.get(`/leads/${leadId}/stories`);
       setStories(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error("Failed to fetch stories");
+    } catch(error) {
+      ErrorHandling({ error: error, defaultError: "Failed to fetch stories" });
       setStories([]);
     } finally {
       setLoading(false);

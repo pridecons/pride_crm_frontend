@@ -15,8 +15,7 @@ export default function FetchLeadsButton({ onSuccess }) {
       toast.success(`Fetched ${response.data.fetched_count} leads`);
       if (onSuccess) onSuccess(response.data);
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to fetch leads');
+      ErrorHandling({ error: err, defaultError: "Failed to fetch leads" });
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { Modal } from "@/components/Lead/ID/Modal";
 import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { Loader2, Mail, List } from "lucide-react";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const extractPlaceholders = (body = "") => {
   const regex = /{{(.*?)}}/g;
@@ -31,29 +32,47 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
 
   // Load templates
   useEffect(() => {
-    if (open && tab === "send") {
-      setTemplates([]);
-      setSelectedTemplateId("");
-      setContextFields([]);
-      setEmailContext({});
-      axiosInstance
-        .get("/email/templates/")
-        .then((res) => setTemplates(Array.isArray(res.data) ? res.data : []))
-        .catch(() => toast.error("Failed to load email templates"));
-    }
+    if (!(open && tab === "send")) return;
+
+    let isActive = true;
+    (async () => {
+      try {
+        setTemplates([]);
+        setSelectedTemplateId("");
+        setContextFields([]);
+        setEmailContext({});
+
+        const res = await axiosInstance.get("/email/templates/");
+        if (!isActive) return;
+        setTemplates(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        ErrorHandling({ error: err, defaultError: "Failed to load email templates" });
+      }
+    })();
+
+    return () => { isActive = false; };
   }, [open, tab]);
 
   // Load logs
   useEffect(() => {
-    if (open && tab === "logs" && leadEmail) {
+    if (!(open && tab === "logs" && leadEmail)) return;
+
+    let isActive = true;
+    (async () => {
       setLogs([]);
       setLogsLoading(true);
-      axiosInstance
-        .get("/email/logs/", { params: { recipient_email: leadEmail } })
-        .then((res) => setLogs(Array.isArray(res.data) ? res.data : []))
-        .catch(() => toast.error("Failed to load email logs"))
-        .finally(() => setLogsLoading(false));
-    }
+      try {
+        const res = await axiosInstance.get("/email/logs/", { params: { recipient_email: leadEmail } });
+        if (!isActive) return;
+        setLogs(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        ErrorHandling({ error: err, defaultError: "Failed to load email logs" });
+      } finally {
+        if (isActive) setLogsLoading(false);
+      }
+    })();
+
+    return () => { isActive = false; };
   }, [open, tab, leadEmail]);
 
   // On template change, compute placeholders
@@ -71,9 +90,9 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
   }, [selectedTemplateId, templates]);
 
   const handleSendEmail = async () => {
-    if (!selectedTemplateId) return toast.error("Select a template");
+    if (!selectedTemplateId) return ErrorHandling({ defaultError: "Select a template" });
     if (contextFields.some((f) => !emailContext[f])) {
-      toast.error("Fill all required fields");
+      ErrorHandling({ defaultError: "Fill all required fields" });
       return;
     }
     setSending(true);
@@ -84,17 +103,24 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
         context: emailContext,
       });
       toast.success("Email sent!");
+
+      // refresh logs after send
       setTab("logs");
       setSelectedTemplateId("");
       setContextFields([]);
       setEmailContext({});
+
       setLogsLoading(true);
-      axiosInstance
-        .get("/email/logs/", { params: { recipient_email: leadEmail } })
-        .then((res) => setLogs(Array.isArray(res.data) ? res.data : []))
-        .finally(() => setLogsLoading(false));
+      try {
+        const res = await axiosInstance.get("/email/logs/", { params: { recipient_email: leadEmail } });
+        setLogs(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        ErrorHandling({ error: err, defaultError: "Failed to refresh logs" });
+      } finally {
+        setLogsLoading(false);
+      }
     } catch (err) {
-      toast.error("Failed to send email");
+      ErrorHandling({ error: err, defaultError: "Failed to send email" });
     } finally {
       setSending(false);
     }
@@ -115,22 +141,20 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
   const TitleTabs = (
     <div className="flex items-center gap-2">
       <button
-        className={`px-3 py-1 rounded-full text-sm border ${
-          tab === "send"
+        className={`px-3 py-1 rounded-full text-sm border ${tab === "send"
             ? "bg-white text-blue-700 border-white"
             : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
-        }`}
+          }`}
         onClick={() => setTab("send")}
         type="button"
       >
         Send
       </button>
       <button
-        className={`px-3 py-1 rounded-full text-sm border ${
-          tab === "logs"
+        className={`px-3 py-1 rounded-full text-sm border ${tab === "logs"
             ? "bg-white text-blue-700 border-white"
             : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
-        }`}
+          }`}
         onClick={() => setTab("logs")}
         type="button"
       >
@@ -259,8 +283,8 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
                             </div>,
                             { duration: 8000 }
                           );
-                        } catch {
-                          toast.error("Failed to load log details");
+                        } catch (err) {
+                          ErrorHandling({ error: err, defaultError: "Failed to load log details" });
                         }
                       }}
                     >

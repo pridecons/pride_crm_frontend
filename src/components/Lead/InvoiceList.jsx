@@ -43,7 +43,7 @@ const InvoiceModal = ({ isOpen, onClose, leadId, onViewPdf, canDownload = false 
             link.click();
             window.URL.revokeObjectURL(link.href);
         } catch (err) {
-            toast.error("Failed to download invoice");
+            ErrorHandling({ error: err, defaultError: "Failed to download invoice" });
         }
     };
 

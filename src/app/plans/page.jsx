@@ -6,6 +6,7 @@ import LoadingState from '@/components/LoadingState'
 import toast from 'react-hot-toast'
 import { usePermissions } from '@/context/PermissionsContext'
 import { PhoneCall, BadgePercent, Pencil, Trash2, Tag } from "lucide-react";
+import { ErrorHandling } from '@/helper/ErrorHandling'
 
 export default function ServicesPage() {
   const { hasPermission } = usePermissions();
@@ -74,8 +75,8 @@ export default function ServicesPage() {
     try {
       const res = await axiosInstance.get('/profile-role/recommendation-type');
       setServiceTypeOptions(res.data || []);
-    } catch {
-      toast.error('Failed to fetch service types');
+    } catch (error) {
+      ErrorHandling({ error: error, defaultError: "Failed to fetch service types" });
     }
   };
 
@@ -85,7 +86,7 @@ export default function ServicesPage() {
       setServices(res.data || []);
     } catch (err) {
       console.error(err);
-      toast.error('Failed to fetch services');
+      ErrorHandling({ error: err, defaultError: "Failed to fetch services" });
     }
   };
 
@@ -113,11 +114,11 @@ export default function ServicesPage() {
     const { name, description, price, billing_cycle, discount_percent } = formData;
 
     if (!name || !description || !price || !billing_cycle) {
-      toast.error('Please fill all required fields');
+      ErrorHandling({ defaultError: "Please fill all required fields" });
       return;
     }
     if (discount_percent > 100) {
-      toast.error('Discount cannot be more than 100%');
+      ErrorHandling({ defaultError: "Discount cannot be more than 100%" });
       return;
     }
 
@@ -134,11 +135,13 @@ export default function ServicesPage() {
       resetForm();
       fetchServices();
     } catch (err) {
-      const message = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
-      if (err?.response?.status === 409 && message === "Service already exists") {
-        toast.error("This service already exists!");
+      const status = err?.response?.status;
+
+      if (status === 409) {
+        // Let the helper extract the backend message if any, but show a friendly default
+        ErrorHandling({ error: err, defaultError: "This service already exists" });
       } else {
-        toast.error(message || "Failed to save service");
+        ErrorHandling({ error: err, defaultError: "Failed to save service" });
       }
     } finally {
       setLoading(false);
@@ -183,7 +186,7 @@ export default function ServicesPage() {
       fetchServices();
     } catch (err) {
       console.error(err);
-      toast.error('Failed to delete service');
+      ErrorHandling({ error: err, defaultError: "Failed to delete service" });
     }
   };
 
@@ -205,11 +208,11 @@ export default function ServicesPage() {
           </div>
 
           {hasPermission("plans_create") && <button
-              onClick={() => { resetForm(); setIsModalOpen(true); }}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
-            >
-              + Create Plan
-            </button>}
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
+          >
+            + Create Plan
+          </button>}
 
         </div>
 
@@ -269,29 +272,29 @@ export default function ServicesPage() {
 
                     {/* Body */}
                     <div className="p-4 relative">
-                      
-                        <div className="absolute right-2 top-2 flex items-center gap-2">
-                          
-                          {hasPermission("edit_plan")&& <button
-                              onClick={() => handleEdit(srv)}
-                              className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
-                              aria-label="Edit"
-                              title="Edit"
-                            >
-                              <Pencil size={18} />
-                            </button>}
-                          
-                           {hasPermission("delete_plan")&& <button
-                              onClick={() => handleDelete(srv.id)}
-                              className="p-2 rounded-full hover:bg-rose-50 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
-                              aria-label="Delete"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </button>}
-                          
-                        </div>
-                      
+
+                      <div className="absolute right-2 top-2 flex items-center gap-2">
+
+                        {hasPermission("edit_plan") && <button
+                          onClick={() => handleEdit(srv)}
+                          className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                          aria-label="Edit"
+                          title="Edit"
+                        >
+                          <Pencil size={18} />
+                        </button>}
+
+                        {hasPermission("delete_plan") && <button
+                          onClick={() => handleDelete(srv.id)}
+                          className="p-2 rounded-full hover:bg-rose-50 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
+                          aria-label="Delete"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>}
+
+                      </div>
+
 
                       {/* Description */}
                       <p className="text-sm text-gray-600 mb-4 pr-12 line-clamp-3">
@@ -413,7 +416,7 @@ export default function ServicesPage() {
                       value="CALL"
                       onChange={handleChange}
                       className="p-4 border rounded-xl w-full bg-gray-100 appearance-none"
-                      // disabled
+                    // disabled
                     >
                       {billingCycles.map((bc) => (
                         <option key={bc} value={bc}>{bc}</option>

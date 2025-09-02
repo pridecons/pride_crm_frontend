@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, X, BellOff } from "lucide-react";
 import toast from "react-hot-toast";
+import { WS_BASE_URL_full } from "@/api/Axios";
 
 const TOAST_MIN_GAP_MS = 2000; // minimum time between toasts
 const MAX_ACTIVE_TOASTS = 3;   // max toasts visible at once
@@ -91,7 +92,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
 
     const connect = () => {
       const socket = new WebSocket(
-        `wss://crm.24x7techelp.com/api/v1/ws/notification/${employee_code}`
+        `${WS_BASE_URL_full}/ws/notification/${employee_code}`
       );
       socketRef.current = socket;
 
@@ -172,7 +173,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
           ),
           {
             position: "bottom-right",
-            duration: 4000,
+            duration: 1000,
           }
         );
 

@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
 import { Bell, X, Menu, Search, User, Clock, ChevronDown } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
-import { axiosInstance } from '@/api/Axios';
+import { axiosInstance, BASE_URL_full } from '@/api/Axios';
 import toast from 'react-hot-toast';
 import { createPortal } from "react-dom";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -290,15 +290,11 @@ export default function Header({ onMenuClick, onSearch }) {
 
     setLoading(true);
     try {
-      const { data } = await axiosInstance.get(
-        `/leads/search/`,
-        {
-          params: { q: term, search_type: "all" },
-          signal: ac.signal,
-          // keep if you really need to override:
-          baseURL: 'https://crm.24x7techelp.com/api/v1',
-        }
-      );
+      const url = `/leads/search/?q=${encodeURIComponent(term)}&search_type=all`;
+      const { data } = await axiosInstance.get(url, {
+        signal: ac.signal,
+        baseURL: BASE_URL_full,
+      });
 
       const raw = Array.isArray(data) ? data : (data?.items || data?.results || data?.leads || []);
       // Normalize to a consistent shape to avoid undefined fields killing the UI

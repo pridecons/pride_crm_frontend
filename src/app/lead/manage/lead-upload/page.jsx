@@ -162,8 +162,8 @@ useEffect(() => {
               </h2>
               <input
                 type="file"
-                name="csv_file"
-                accept=".csv"
+                name="upload_file"
+                accept=".csv,.xlsx"
                 required
                 className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition cursor-pointer"
               />

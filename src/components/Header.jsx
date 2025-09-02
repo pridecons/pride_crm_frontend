@@ -202,20 +202,24 @@ export default function Header({ onMenuClick, onSearch }) {
 
   useEffect(() => { if (open) loadLookupsIfNeeded(); }, [open, loadLookupsIfNeeded]);
 
-  const buildResponseMatches = (q) => {
-    if (!q || q.trim().length < 2) return [];
-    const term = q.trim().toLowerCase();
-    const aliasMap = {
-      'npc': ['not picked', 'not picked call', 'no pickup'],
-      'cb': ['call back', 'callback'],
-      'int': ['interested'],
-      'ni': ['not interested'],
-    };
-    return respOptions
+  // Put near other helpers (top of file)
+  const RESPONSE_ALIASES = {
+    "call back": ["cb", "callback", "call back"],
+    "not picked": ["npc", "no pickup", "not picked", "not picked call"],
+    "interested": ["int", "interested"],
+    "not interested": ["ni", "not interested"],
+  };
+
+  const norm = (s) => String(s || "").trim().toLowerCase();
+
+  const buildResponseMatches = (q, options) => {
+    const term = norm(q);
+    if (term.length < 2) return [];
+    return (options || [])
       .filter(r => {
-        const name = (r.name || '').toLowerCase();
-        const aliases = aliasMap[name] || [];
-        return name.startsWith(term) || name.includes(term) || aliases.some(a => a.startsWith(term));
+        const name = norm(r?.name);
+        const aliases = RESPONSE_ALIASES[name] || [];
+        return name.includes(term) || aliases.some(a => term.startsWith(a) || a.startsWith(term));
       })
       .slice(0, 5)
       .map(r => ({ id: r.id, name: r.name }));
@@ -226,7 +230,7 @@ export default function Header({ onMenuClick, onSearch }) {
     const handleClickOutside = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfileMenu(false);
       if (searchWrapRef.current && !searchWrapRef.current.contains(e.target) &&
-          (!overlayRef.current || !overlayRef.current.contains(e.target))) {
+        (!overlayRef.current || !overlayRef.current.contains(e.target))) {
         setOpen(false);
         setExpanded(false);
         setHighlight(-1);
@@ -272,53 +276,72 @@ export default function Header({ onMenuClick, onSearch }) {
 
   const fetchSuggestions = useCallback(async (q) => {
     const term = (q || "").trim();
+    // clear on short term
     if (term.length < 2) {
-      try { abortRef.current?.abort(); } catch {}
+      try { abortRef.current?.abort(); } catch { }
       setSuggestions([]); setRespCounts({}); setRespMatches([]); setResponseCounts({}); setLoading(false);
       return;
     }
-    try { abortRef.current?.abort(); } catch {}
+
+    // cancel previous
+    try { abortRef.current?.abort(); } catch { }
     const ac = new AbortController();
     abortRef.current = ac;
 
     setLoading(true);
     try {
-      const url = `/leads/search/?q=${encodeURIComponent(term)}&search_type=all`;
-      const { data } = await axiosInstance.get(url, {
-        signal: ac.signal,
-        baseURL: 'https://crm.24x7techelp.com/api/v1',
-      });
+      const { data } = await axiosInstance.get(
+        `/leads/search/`,
+        {
+          params: { q: term, search_type: "all" },
+          signal: ac.signal,
+          // keep if you really need to override:
+          baseURL: 'https://crm.24x7techelp.com/api/v1',
+        }
+      );
 
       const raw = Array.isArray(data) ? data : (data?.items || data?.results || data?.leads || []);
-      const list = Array.isArray(raw) ? raw : [];
+      // Normalize to a consistent shape to avoid undefined fields killing the UI
+      const normalize = (l) => ({
+        id: l?.id ?? l?.lead_id ?? l?._id,
+        full_name: l?.full_name ?? l?.name ?? [l?.first_name, l?.last_name].filter(Boolean).join(" "),
+        mobile: l?.mobile ?? l?.phone ?? l?.contact_no ?? "",
+        email: l?.email ?? l?.mail ?? "",
+        lead_response_id: l?.lead_response_id ?? l?.response_id ?? null,
+        lead_response_name: l?.lead_response_name ?? l?.response_name ?? l?.response ?? "",
+        source_id: l?.source_id ?? l?.lead_source_id ?? null,
+        source_name: l?.source_name ?? "",
+        branch_id: l?.branch_id ?? null,
+      });
 
+      const list = (Array.isArray(raw) ? raw : []).map(normalize).filter(x => x?.id != null);
+
+      // Build counts
       const countsById = {};
       const countsByName = {};
       for (const l of list) {
-        let rid = l?.lead_response_id ?? null;
-        if (rid == null && l?.lead_response_name) {
-          const match = (respOptions || []).find(
-            r => (r.name || '').toLowerCase() === String(l.lead_response_name || '').toLowerCase()
-          );
-          if (match) rid = match.id;
+        // prefer id; fallback by name if needed
+        if (l.lead_response_id != null) {
+          countsById[l.lead_response_id] = (countsById[l.lead_response_id] || 0) + 1;
         }
-        if (rid != null) countsById[rid] = (countsById[rid] || 0) + 1;
-        const rname = getResponseName(l);
+        const rname = l.lead_response_name || (respMap?.[l.lead_response_id] ?? "No Response");
         countsByName[rname] = (countsByName[rname] || 0) + 1;
       }
 
       setRespCounts(countsById);
       setResponseCounts(countsByName);
       setSuggestions(list.slice(0, 50));
-      setRespMatches(buildResponseMatches(term));
+      setRespMatches(buildResponseMatches(term, respOptions));
     } catch (err) {
-      if (err.name !== 'CanceledError' && err.name !== 'AbortError') console.error(err);
+      // Swallow cancels; only log real errors
+      const canceled = err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError';
+      if (!canceled) console.error("search error", err);
       setSuggestions([]); setRespCounts({}); setResponseCounts({});
-      setRespMatches(buildResponseMatches(term));
+      setRespMatches(buildResponseMatches(term, respOptions));
     } finally {
       setLoading(false);
     }
-  }, [respOptions]);
+  }, [respOptions, respMap]);
 
   useEffect(() => {
     if (!open) return;
@@ -411,7 +434,7 @@ export default function Header({ onMenuClick, onSearch }) {
                 className={`w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl transition bg-gray-50
  outline-none ring-0 focus:outline-none focus:ring-0 focus:shadow-none
  hover:shadow-md ${open ? 'invisible pointer-events-none' :
-                  'focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white'}`}
+                    'focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white'}`}
                 value={query}
                 onChange={(e) => { setQuery(e.target.value) }}
                 onKeyDown={onKeyDown}
@@ -744,8 +767,114 @@ function SearchOverlay({
           </div>
         </div>
 
-        {/* Body (unchanged) */}
-        {/* ... (your existing grouped results rendering) ... */}
+        {/* Body */}
+        <div className="max-h-[65vh] overflow-y-auto">
+          {/* Loading */}
+          {loading && (
+            <div className="p-6 text-sm text-gray-500">Searching…</div>
+          )}
+
+          {/* Empty state */}
+          {!loading && visibleLeads.length === 0 && (
+            <div className="p-8 text-center text-sm text-gray-500">
+              No matching leads. Press <span className="font-semibold">Enter</span> to run a full search.
+            </div>
+          )}
+
+          {/* Grouped by Response */}
+          {!loading && groupedByResponse.map(([groupName, items]) => {
+            const open = !!openGroups[groupName];
+            return (
+              <div key={`grp-${groupName}`} className="border-b border-gray-100">
+                {/* Group header */}
+                <button
+                  type="button"
+                  onClick={() => setOpenGroups(prev => ({ ...prev, [groupName]: !open }))}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100"
+                  title={`Toggle ${groupName}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md border border-gray-300">
+                      {open ? '−' : '+'}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-800">{groupName}</span>
+                  </div>
+                  <span className="text-[11px] text-gray-500">{items.length}</span>
+                </button>
+
+                {/* Group items */}
+                {open && (
+                  <ul className="divide-y divide-gray-100">
+                    {items.map((lead) => {
+                      const active = visibleLeads[highlight]?.id === lead.id;
+                      const rName = lead.lead_response_name || respMap[lead.lead_response_id] || 'No Response';
+                      const bName = branchMap[lead.branch_id] || lead.branch_name || '—';
+                      const sName =
+                        sourceMap[lead.source_id ?? lead.lead_source_id] ||
+                        lead.source_name ||
+                        lead.lead_source_name ||
+                        '—';
+                      const title = lead.full_name || lead.name || lead.client_name || 'Unnamed';
+                      const phone = lead.phone || lead.mobile || lead.mobile_no || lead.contact_no || '';
+                      const email = lead.email || lead.email_id || '';
+
+                      return (
+                        <li
+                          key={lead.id}
+                          onMouseEnter={() => {
+                            const idx = visibleLeads.findIndex(v => v.id === lead.id);
+                            if (idx >= 0) setHighlight(idx);
+                          }}
+                          onClick={() => handleSelect(lead)}
+                          className={[
+                            "px-3 py-2 cursor-pointer transition",
+                            active ? "bg-blue-50" : "hover:bg-gray-50"
+                          ].join(' ')}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            {/* Left: title + contact */}
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {title}
+                                {phone ? <span className="ml-2 text-gray-500 font-normal">• {phone}</span> : null}
+                                {email ? <span className="ml-2 text-gray-400 font-normal truncate">• {email}</span> : null}
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+                                <span className="px-1.5 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                                  {rName}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                  Branch: {bName}
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                  Source: {sName}
+                                </span>
+                                {lead.created_at && (
+                                  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                    {new Date(lead.created_at).toLocaleDateString('en-IN', {
+                                      month: 'short', day: 'numeric'
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right: “Enter” hint on active row */}
+                            {active && (
+                              <span className="text-[10px] text-gray-500 shrink-0">
+                                Press <span className="font-semibold">Enter</span>
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

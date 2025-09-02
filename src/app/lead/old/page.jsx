@@ -84,8 +84,7 @@ export default function OldLeadsTable() {
       setLeads(data.assigned_old_leads || []);
       setTotal(data.total ?? (data.assigned_old_leads || []).length);
     } catch (error) {
-      console.error("Error fetching leads:", error);
-      toast.error("Failed to load leads!");
+      ErrorHandling({ error: error, defaultError: "Failed to load leads" });
     } finally {
       setLoading(false);
     }
@@ -133,11 +132,11 @@ export default function OldLeadsTable() {
 
   const handleSaveComment = async (lead) => {
     if (!userId) {
-      toast.error("User not loaded!");
+      ErrorHandling({ defaultError: "User not loaded!" });
       return;
     }
     if (!lead.tempComment || !lead.tempComment.trim()) {
-      toast.error("Comment cannot be empty!");
+      ErrorHandling({ defaultError: "Comment cannot be empty!" });
       return;
     }
     try {
@@ -153,8 +152,7 @@ export default function OldLeadsTable() {
         )
       );
     } catch (error) {
-      console.error("Error saving comment:", error);
-      toast.error("Failed to save comment!");
+      ErrorHandling({ error: error, defaultError: "Failed to save comment" });
     }
   };
 
@@ -164,8 +162,7 @@ export default function OldLeadsTable() {
       toast.success("Lead updated successfully!");
       setEditId(null);
     } catch (error) {
-      console.error("Error updating lead:", error);
-      toast.error("Update failed!");
+      ErrorHandling({ error: error, defaultError: "Update failed!" });
     }
   };
 
@@ -202,8 +199,7 @@ export default function OldLeadsTable() {
       );
       toast.success("Response updated!");
     } catch (error) {
-      console.error("Error updating response:", error);
-      toast.error("Failed to update response!");
+      ErrorHandling({ error: error, defaultError: "Failed to update response!" });
     }
   };
 
@@ -467,7 +463,7 @@ export default function OldLeadsTable() {
         open={showFTModal}
         onClose={() => setShowFTModal(false)}
         onSave={async () => {
-          if (!ftFromDate || !ftToDate) return toast.error("Both dates required");
+          if (!ftFromDate || !ftToDate) return ErrorHandling({ defaultError: "Both dates required" });
           try {
             const ftId = responses.find((r) => r.name.toLowerCase() === "ft")?.id;
             await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
@@ -490,8 +486,7 @@ export default function OldLeadsTable() {
             );
             setShowFTModal(false);
           } catch (err) {
-            console.error(err);
-            toast.error("Failed to save FT response");
+            ErrorHandling({ error: err, defaultError: "Failed to save FT response" });
           }
         }}
         fromDate={ftFromDate}
@@ -505,7 +500,7 @@ export default function OldLeadsTable() {
         open={showCallBackModal}
         onClose={() => setShowCallBackModal(false)}
         onSave={async () => {
-          if (!callBackDate) return toast.error("Call back date is required");
+          if (!callBackDate) return ErrorHandling({ defaultError: "Call back date is required" });
           try {
             const cbId = responses.find(
               (r) => {
@@ -532,8 +527,7 @@ export default function OldLeadsTable() {
             );
             setShowCallBackModal(false);
           } catch (err) {
-            console.error(err);
-            toast.error("Failed to save Call Back response");
+            ErrorHandling({ error: err, defaultError: "Failed to save Call Back response" });
           }
         }}
         dateValue={callBackDate}

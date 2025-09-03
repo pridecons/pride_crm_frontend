@@ -200,11 +200,11 @@ const CreatePaymentLink = ({
     setError(null);
     setLoading(true);
 
-    if (!/^\S+@\S+\.\S+$/.test(customerEmail)) {
-      setError("Please enter a valid email address.");
-      setLoading(false);
-      return;
-    }
+    // if (!/^\S+@\S+\.\S+$/.test(customerEmail)) {
+    //   setError("Please enter a valid email address.");
+    //   setLoading(false);
+    //   return;
+    // }
     if (!/^\d{10}$/.test(customerPhone)) {
       setError("Please enter a valid 10-digit phone number.");
       setLoading(false);

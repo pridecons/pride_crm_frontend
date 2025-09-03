@@ -75,6 +75,9 @@ export default function NewLeadsTable() {
     setLoading(true);
     try {
       const { data } = await axiosInstance.post("/leads/fetch");
+      console.log("data :: ",data)
+      console.log("data.fetched_count === 0 :: ",data.fetched_count === 0)
+      console.log("data.message?.includes :: ",data.message?.includes("active assignments"))
       if (data.fetched_count === 0 && data.message?.includes("active assignments")) {
         ErrorHandling({ defaultError: "No leads available at the moment, please complete all your assigned leads before fetching new ones." });
       } else {

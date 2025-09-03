@@ -108,7 +108,72 @@ const getPermissionIcon = (perm) => {
     internal_mailing: MessageSquare,
     chatting: MessageSquare,
     targets: Target,
-    reports: BarChart3
+    reports: BarChart3,
+    
+    // ⬇️ ADD NEW MAPPINGS FOR YOUR ACTUAL API PERMISSIONS
+    lead_recording_view: Eye,
+    lead_recording_upload: Plus,
+    lead_story_view: Eye,
+    lead_transfer: RefreshCw,
+    lead_branch_view: Building,
+    create_lead: Plus,
+    create_new_lead_response: Plus,
+    edit_response: Edit,
+    delete_response: Trash2,
+    user_add_user: Plus,
+    user_all_roles: Users,
+    user_all_branches: Building,
+    user_view_user_details: Eye,
+    user_edit_user: Edit,
+    user_delete_user: Trash2,
+    fetch_limit_create_new: Plus,
+    fetch_limit_edit: Edit,
+    fetch_limit_delete: Trash2,
+    plans_create: Plus,
+    edit_plan: Edit,
+    delete_plane: Trash2,
+    client_select_branch: Building,
+    client_invoice: FileText,
+    client_story: Eye,
+    client_comments: MessageSquare,
+    lead_manage_page: Target,
+    plane_page: FileText,
+    attandance_page: CheckCircle,
+    client_page: UserCheck,
+    lead_source_page: Target,
+    lead_response_page: MessageSquare,
+    user_page: Users,
+    permission_page: Shield,
+    lead_upload_page: Plus,
+    fetch_limit_page: Settings,
+    add_lead_page: Plus,
+    payment_page: DollarSign,
+    messanger_page: MessageSquare,
+    template: FileText,
+    sms_page: MessageSquare,
+    email_page: MessageSquare,
+    branch_page: Building,
+    old_lead_page: FileText,
+    new_lead_page: FileText,
+    rational_download: Download,
+    rational_pdf_model_download: Download,
+    rational_pdf_model_view: Eye,
+    rational_graf_model_view: BarChart3,
+    rational_status: CheckCircle,
+    rational_edit: Edit,
+    rational_add_recommadation: Plus,
+    email_add_temp: Plus,
+    email_view_temp: Eye,
+    email_edit_temp: Edit,
+    email_delete_temp: Trash2,
+    sms_add: Plus,
+    sms_edit: Edit,
+    sms_delete: Trash2,
+    branch_add: Plus,
+    branch_edit: Edit,
+    branch_details: Eye,
+    branch_agreement_view: Eye,
+    header_global_search: Search,
   };
   return iconMap[perm] || Settings;
 };
@@ -120,6 +185,14 @@ const getPermissionCategory = (perm) => {
   if (perm.includes("view_")) return "View Access";
   if (perm.includes("payment") || perm.includes("invoice") || perm.includes("accounts"))
     return "Financial";
+  if (perm.includes("client")) return "Client Management";
+  if (perm.includes("branch")) return "Branch Management";
+  if (perm.includes("rational")) return "Reports & Analytics";
+  if (perm.includes("sms") || perm.includes("email") || perm.includes("messanger"))
+    return "Communication";
+  if (perm.includes("plan")) return "Plans & Services";
+  if (perm.includes("_page")) return "Page Access";
+  if (perm.includes("fetch_limit")) return "System Limits";
   return "General";
 };
 
@@ -169,13 +242,24 @@ export default function PermissionsPage() {
         axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
       ]);
 
-      const permList = Array.isArray(permRes.data) ? permRes.data : [];
+      // ⬇️ FIXED: Handle the actual API response structure
+      // The /permissions/ endpoint returns array of permission strings, not user permissions
+      // We need to get user permissions separately or use the permissions from users API
       const usersArray = Array.isArray(usersRes?.data?.data) ? usersRes.data.data : [];
 
+      // ⬇️ FIXED: Create usersByCode mapping correctly
       const map = {};
       for (const u of usersArray) {
         map[u.employee_code] = u;
       }
+
+      // ⬇️ FIXED: Since /permissions/ returns available permissions list, not user permissions
+      // We'll use the users data which should contain permissions for each user
+      const permList = usersArray.map(user => ({
+        user_id: user.employee_code,
+        user: user,
+        permissions: user.permissions || []
+      }));
 
       setPermissions(permList);
       setUsersByCode(map);
@@ -192,25 +276,50 @@ export default function PermissionsPage() {
     await fetchAllData();
   };
 
-  const loadUserPermissions = async (userId) => {
-    try {
-      setSelectedUser(userId);
-      setLoading(true);
-      const res = await axiosInstance.get(`/permissions/user/${userId}`);
-      setSelectedUserPermissions(res.data);
-    } catch (err) {
-      console.error(err);
-       ErrorHandling({ error: err, defaultError: `Could not load user permissions for ${userId}`});
-    } finally {
-      setLoading(false);
-    }
-  };
+ const loadUserPermissions = async (userId, permissions = []) => {
+  try {
+    setSelectedUser(userId);
+    setLoading(true);
+
+    const userData = usersByCode[userId];
+    if (!userData) throw new Error("User data not found");
+
+    // ✅ Get department ID from user
+    const deptId = userData.department_id;
+    if (!deptId) throw new Error("User does not have a department");
+
+    // ✅ Fetch department details
+    const deptRes = await axiosInstance.get(`/departments/${deptId}`);
+    const availablePermissions = deptRes?.data?.available_permissions || [];
+
+    // ✅ Build permissions object based on department permissions
+    const permissionsObj = {};
+    availablePermissions.forEach((perm) => {
+      permissionsObj[perm] = permissions.includes(perm); // enabled if in user's permissions
+    });
+
+    // Add meta
+    permissionsObj.user_id = userId;
+    permissionsObj.user = userData;
+
+    setSelectedUserPermissions(permissionsObj);
+  } catch (err) {
+    console.error(err);
+    ErrorHandling({ error: err, defaultError: `Could not load user permissions for ${userId}` });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const togglePermission = async (perm) => {
     try {
       const res = await axiosInstance.patch(`/permissions/user/${selectedUser}/toggle/${perm}`);
       toast.success(res.data?.message || `Toggled ${perm}`);
-      loadUserPermissions(selectedUser);
+      // ⬇️ FIXED: Get user data and reload permissions
+      const userData = usersByCode[selectedUser];
+      if (userData) {
+        loadUserPermissions(selectedUser, userData.permissions);
+      }
     } catch (err) {
       console.error(err);
        ErrorHandling({ error: err, defaultError: `Failed to toggle ${perm}`});
@@ -221,7 +330,11 @@ export default function PermissionsPage() {
     try {
       const res = await axiosInstance.post(`/permissions/user/${selectedUser}/reset-defaults`);
       toast.success(res.data?.message || "Reset to default");
-      loadUserPermissions(selectedUser);
+      // ⬇️ FIXED: Get user data and reload permissions
+      const userData = usersByCode[selectedUser];
+      if (userData) {
+        loadUserPermissions(selectedUser, userData.permissions);
+      }
     } catch (err) {
       console.error(err);
       ErrorHandling({ error: err, defaultError: "Failed to reset permissions"});
@@ -269,12 +382,12 @@ export default function PermissionsPage() {
     ? getPermissionKeys(selectedUserPermissions).length
     : 0;
 
-  // Derived “display list” of users with merged user info from usersByCode
+  // ⬇️ FIXED: Derived "display list" of users with merged user info from usersByCode
   const mergedPermissionUsers = useMemo(() => {
     const list = permissions.map((row) => {
       const fromUsers = usersByCode[row.user_id];
       const name = fromUsers?.name ?? row.user?.name ?? row.user_id ?? "Unknown";
-      const role = fromUsers?.role ?? row.user?.role ?? "Role not assigned";
+      const role = fromUsers?.profile_role?.name ?? row.user?.role ?? "Role not assigned";
       const email = fromUsers?.email ?? row.user?.email ?? "Email not available";
       return {
         ...row,
@@ -425,14 +538,14 @@ export default function PermissionsPage() {
               ) : (
                 <div className="max-h-[500px] overflow-auto">
                   <div className="space-y-2">
-                    {mergedPermissionUsers.map((row) => {
+                    {mergedPermissionUsers?.map((row) => {
                       const isSelected = selectedUser === row.user_id;
-                      const { name, role, email } = row._display;
+                      const { name, email, role } = row._display;
 
                       return (
                         <div
                           key={row.user_id}
-                          onClick={() => loadUserPermissions(row.user_id)}
+                          onClick={() => loadUserPermissions(row.user_id, row.permissions)}
                           className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
                             isSelected
                               ? "bg-blue-50 border-blue-200 text-blue-700"
@@ -503,7 +616,7 @@ export default function PermissionsPage() {
                             selectedUserPermissions?.user?.name ||
                             selectedUser}
                           {" ("}
-                          {usersByCode[selectedUser]?.role ||
+                          {usersByCode[selectedUser]?.profile_role?.name ||
                             selectedUserPermissions?.user?.role ||
                             "Role N/A"}
                           {")"}

@@ -4,7 +4,29 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
-import { ArrowDownToLine, Database } from "lucide-react";
+
+// lucide icons
+import {
+  ArrowDownToLine,
+  Database,
+  FolderOpen,
+  Link as LinkIcon,
+  Settings2,
+  Building2,
+  Tag,
+  BarChart3,
+  AlertTriangle,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Building,
+  Target,
+  Briefcase,
+  IndianRupee,
+  CheckCircle2,
+  CircleX,
+} from "lucide-react";
 
 export default function BulkUploadPage() {
   const router = useRouter();
@@ -15,73 +37,72 @@ export default function BulkUploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
 
+  // file state
+  const [selectedFile, setSelectedFile] = useState(null);
+
   // auth-derived
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
 
   const isSuperAdmin = role === "SUPERADMIN";
 
-  // derive my branch object for non-superadmins
   const myBranch = useMemo(
     () => branches.find((b) => String(b.id) === String(branchId)),
     [branches, branchId]
   );
 
-// read user_info + fetch branches & lead sources
-useEffect(() => {
-  try {
-    const raw = Cookies.get("user_info");
-    if (raw) {
-      const u = JSON.parse(raw);
-
-      // Normalize role (prefer role_name if available)
-      const r =
-        u?.role_name ||
-        u?.role ||
-        u?.user?.role_name ||
-        u?.user?.role ||
-        u?.user_info?.role_name ||
-        u?.user_info?.role ||
-        null;
-
-      // Normalize branch id (handle nested branch object too)
-      const b =
-        u?.branch_id ||
-        u?.branch?.id ||
-        u?.user?.branch_id ||
-        u?.user?.branch?.id ||
-        u?.user_info?.branch_id ||
-        u?.user_info?.branch?.id ||
-        null;
-
-      setRole(String(r).toUpperCase());
-      setBranchId(b ? String(b) : null);
-    }
-  } catch (e) {
-    console.warn("Failed to parse user_info cookie:", e);
-  }
-
-  // load branches + lead sources
-  (async () => {
+  // read user_info + fetch branches & lead sources
+  useEffect(() => {
     try {
-      const { data } = await axiosInstance.get(
-        "/branches/?skip=0&limit=100&active_only=false"
-      );
-      setBranches(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load branches:", err);
+      const raw = Cookies.get("user_info");
+      if (raw) {
+        const u = JSON.parse(raw);
+
+        const r =
+          u?.role_name ||
+          u?.role ||
+          u?.user?.role_name ||
+          u?.user?.role ||
+          u?.user_info?.role_name ||
+          u?.user_info?.role ||
+          null;
+
+        const b =
+          u?.branch_id ||
+          u?.branch?.id ||
+          u?.user?.branch_id ||
+          u?.user?.branch?.id ||
+          u?.user_info?.branch_id ||
+          u?.user_info?.branch?.id ||
+          null;
+
+        setRole(String(r).toUpperCase());
+        setBranchId(b ? String(b) : null);
+      }
+    } catch (e) {
+      console.warn("Failed to parse user_info cookie:", e);
     }
 
-    try {
-      const { data } = await axiosInstance.get(
-        "/lead-config/sources/?skip=0&limit=100"
-      );
-      setLeadSources(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load lead sources:", err);
-    }
-  })();
-}, []);
+    (async () => {
+      try {
+        const { data } = await axiosInstance.get(
+          "/branches/?skip=0&limit=100&active_only=false"
+        );
+        setBranches(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load branches:", err);
+      }
+
+      try {
+        const { data } = await axiosInstance.get(
+          "/lead-config/sources/?skip=0&limit=100"
+        );
+        setLeadSources(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load lead sources:", err);
+      }
+    })();
+  }, []);
 
   // submit CSV
   const handleSubmit = async (e) => {
@@ -89,11 +110,9 @@ useEffect(() => {
     const formData = new FormData(e.target);
     try {
       setUploading(true);
-      const { data } = await axiosInstance.post(
-        "/bulk-leads/upload",
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+      const { data } = await axiosInstance.post("/bulk-leads/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setUploadResult(data);
     } catch (error) {
       console.error("Upload failed", error);
@@ -148,50 +167,74 @@ useEffect(() => {
     document.body.removeChild(link);
   };
 
+  // column mapping meta (icons instead of emojis)
+  const columnFields = [
+    { name: "name_column", label: "Name Column", Icon: User },
+    { name: "mobile_column", label: "Mobile Column", Icon: Phone },
+    { name: "email_column", label: "Email Column", Icon: Mail },
+    { name: "address_column", label: "Address Column", Icon: MapPin },
+    { name: "city_column", label: "City Column", Icon: Building },
+    { name: "segment_column", label: "Segment Column", Icon: Target },
+    { name: "occupation_column", label: "Occupation Column", Icon: Briefcase },
+    { name: "investment_column", label: "Investment Column", Icon: IndianRupee },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Upload Form */}
         <div className="flex-1 bg-white rounded-2xl shadow p-6 overflow-y-auto">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* CSV File */}
+            {/* File */}
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <span className="text-blue-600">📁</span>
+                <FolderOpen className="text-blue-600 w-5 h-5" />
                 Select File
               </h2>
-              <input
-                type="file"
-                name="upload_file"
-                accept=".csv,.xlsx"
-                required
-                className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition cursor-pointer"
-              />
+
+              <label
+                className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition
+      ${selectedFile ? "border-green-400 bg-green-50 text-green-700" : "border-red-400 bg-red-50 text-red-600"}`}
+              >
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  {selectedFile ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      {selectedFile.name}
+                    </>
+                  ) : (
+                    <>
+                      <CircleX className="w-4 h-4" />
+                      No file chosen
+                    </>
+                  )}
+                </span>
+                <input
+                  type="file"
+                  name="upload_file"
+                  accept=".csv,.xlsx"
+                  required
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
             </section>
+
 
             {/* Column Mapping */}
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <span className="text-blue-600">🔗</span>
+                <LinkIcon className="text-blue-600 w-5 h-5" />
                 Column Mapping
               </h2>
               <p className="text-sm text-gray-600">
                 Enter column numbers for each field
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { name: "name_column", label: "Name Column", icon: "👤" },
-                  { name: "mobile_column", label: "Mobile Column", icon: "📱" },
-                  { name: "email_column", label: "Email Column", icon: "✉️" },
-                  { name: "address_column", label: "Address Column", icon: "📍" },
-                  { name: "city_column", label: "City Column", icon: "🏙️" },
-                  { name: "segment_column", label: "Segment Column", icon: "🎯" },
-                  { name: "occupation_column", label: "Occupation Column", icon: "💼" },
-                  { name: "investment_column", label: "Investment Column", icon: "💰" },
-                ].map(({ name, label, icon }) => (
+                {columnFields.map(({ name, label, Icon }) => (
                   <div key={name} className="space-y-1">
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <span className="text-lg">{icon}</span>
+                      <Icon className="w-4 h-4" />
                       {label}
                     </label>
                     <input
@@ -208,7 +251,7 @@ useEffect(() => {
             {/* Configuration */}
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <span className="text-blue-600">⚙️</span>
+                <Settings2 className="text-blue-600 w-5 h-5" />
                 Configuration
               </h2>
 
@@ -216,7 +259,7 @@ useEffect(() => {
                 {/* Branch (dropdown only for SUPERADMIN) */}
                 <div className="space-y-1">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <span className="text-lg">🏢</span>
+                    <Building2 className="w-4 h-4" />
                     Select Branch
                   </label>
 
@@ -238,9 +281,7 @@ useEffect(() => {
                     </select>
                   ) : (
                     <>
-                      {/* Hidden field sent to backend */}
                       <input type="hidden" name="branch_id" value={branchId ?? ""} />
-                      {/* Read-only chip */}
                       <div className="px-3 py-2 rounded-lg border bg-gray-50 text-gray-700">
                         {myBranch?.name || "Your Branch"}
                       </div>
@@ -251,7 +292,7 @@ useEffect(() => {
                 {/* Lead source dropdown */}
                 <div className="space-y-1">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <span className="text-lg">🔖</span>
+                    <Tag className="w-4 h-4" />
                     Select Lead Source
                   </label>
                   <select
@@ -316,7 +357,8 @@ useEffect(() => {
         {/* Right: Results */}
         <div className="w-full lg:w-96 bg-white rounded-2xl shadow p-6 overflow-y-auto">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <span className="text-blue-600">📊</span> Upload Summary
+            <BarChart3 className="text-blue-600 w-5 h-5" />
+            Upload Summary
           </h2>
 
           {!uploadResult ? (
@@ -334,10 +376,8 @@ useEffect(() => {
                   <span className="text-2xl font-bold text-green-600">
                     {uploadResult.total_rows
                       ? Math.round(
-                          (uploadResult.successful_uploads /
-                            uploadResult.total_rows) *
-                            100
-                        )
+                        (uploadResult.successful_uploads / uploadResult.total_rows) * 100
+                      )
                       : 0}
                     %
                   </span>
@@ -348,10 +388,7 @@ useEffect(() => {
                   ["Duplicates Skipped", uploadResult.duplicates_skipped],
                   ["Errors", uploadResult.errors?.length],
                 ].map(([label, val]) => (
-                  <div
-                    key={label}
-                    className="flex justify-between text-sm text-gray-700"
-                  >
+                  <div key={label} className="flex justify-between text-sm text-gray-700">
                     <span>{label}</span>
                     <span className="font-semibold">{val ?? 0}</span>
                   </div>
@@ -362,14 +399,13 @@ useEffect(() => {
               {uploadResult.errors?.length > 0 && (
                 <div className="bg-red-50 rounded-xl p-4 border border-red-100">
                   <h3 className="flex items-center gap-2 font-semibold text-red-800 mb-2">
-                    ⚠️ Error Details
+                    <AlertTriangle className="w-5 h-5" />
+                    Error Details
                   </h3>
                   <ul className="max-h-48 overflow-y-auto space-y-2 text-sm text-gray-700">
                     {uploadResult.errors.map((err) => (
                       <li key={err.row} className="flex gap-2">
-                        <span className="font-semibold text-red-600">
-                          Row {err.row}:
-                        </span>
+                        <span className="font-semibold text-red-600">Row {err.row}:</span>
                         <span>
                           {Array.isArray(err.errors)
                             ? err.errors.join(", ")

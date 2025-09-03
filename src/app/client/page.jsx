@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
@@ -70,7 +70,10 @@ const parseServices = (client) => {
   if (svcFromPlan && svcFromPlan.length) return svcFromPlan;
 
   // 2) Fallback: latest_payment.service (array of strings like "Equity Cash,Stock Future")
-  if (Array.isArray(client?.latest_payment?.service) && client.latest_payment.service.length > 0) {
+  if (
+    Array.isArray(client?.latest_payment?.service) &&
+    client.latest_payment.service.length > 0
+  ) {
     // Split by commas and trim
     return client.latest_payment.service
       .flatMap((s) => String(s).split(","))
@@ -83,14 +86,37 @@ const parseServices = (client) => {
     try {
       const arr = JSON.parse(client.segment);
       if (Array.isArray(arr)) return arr;
-    } catch (_) { /* ignore parse errors */ }
+    } catch (_) {
+      /* ignore parse errors */
+    }
   }
 
   return [];
 };
 
-const lastPaymentISO = (client) =>
-  client?.latest_payment?.created_at || null;
+const lastPaymentISO = (client) => client?.latest_payment?.created_at || null;
+
+// ------------- date filter helpers (client-side filtering) -------------------
+const buildRange = (from, to) => {
+  const start = from ? new Date(`${from}T00:00:00`) : null;
+  const end = to ? new Date(`${to}T23:59:59.999`) : null;
+  return { start, end };
+};
+
+/**
+ * Choose which timestamp a "date filter" should use.
+ * If you want strictly "client created date" filter, use c.created_at only.
+ * Here we default to `created_at`, and fallback to last payment if missing.
+ */
+const pickWhen = (c) => c?.created_at || c?.latest_payment?.created_at || null;
+
+const isIsoInRange = (iso, start, end) => {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (start && d < start) return false;
+  if (end && d > end) return false;
+  return true;
+};
 
 // ---------------------------------------------------------------------------
 
@@ -111,8 +137,13 @@ export default function ClientsPage() {
   const [storyLead, setStoryLead] = useState(null);
   const [myView, setMyView] = useState("self"); // for non-managers: self | other
 
+  // date filter inputs
+  const [dateFrom, setDateFrom] = useState(""); // "YYYY-MM-DD"
+  const [dateTo, setDateTo] = useState("");
+
   const router = useRouter();
 
+  // ---- single bootstrap effect (removed duplicate) -------------------------
   useEffect(() => {
     const { role: r, branch_id: b } = getUserMeta();
     setRole(r);
@@ -120,28 +151,12 @@ export default function ClientsPage() {
 
     if (r === "SUPERADMIN") {
       fetchBranches();
-      fetchClients();                 // SUPERADMIN -> view=all (optionally branch filter)
+      fetchClients(); // SUPERADMIN -> all branches (view=all)
     } else if (r === "BRANCH MANAGER") {
-      fetchClients(b);                // MANAGER -> view=all for their branch
+      fetchClients(b); // MANAGER -> own branch (view=all)
     } else {
-      fetchMyClients("self");         // Non-managers default to self
+      fetchMyClients("self"); // Non-managers default to self scope
       setMyView("self");
-    }
-  }, []);
-
-  // initialize role/branch + fetch correct client list
-  useEffect(() => {
-    const { role: r, branch_id: b } = getUserMeta();
-    setRole(r);
-    setBranchId(b);
-
-    if (r === "SUPERADMIN") {
-      fetchBranches();
-      fetchClients(); // all branches
-    } else if (r === "BRANCH MANAGER") {
-      fetchClients(b); // only this branch
-    } else {
-      fetchMyClients(); // only my clients (FIXED endpoint)
     }
   }, []);
 
@@ -156,14 +171,17 @@ export default function ClientsPage() {
     }
   };
 
+  // reuse this for Apply in any toolbar
+const applyDate = useCallback(() => {
+   if (role === "SUPERADMIN") fetchClients(branchId || null);
+   else if (role === "BRANCH MANAGER") fetchClients(branchId);
+   else fetchMyClients(myView);
+}, [role, branchId, myView]);
+
   const fetchClients = async (branch = null) => {
     try {
       setLoading(true);
-      const qs = new URLSearchParams({
-        page: "1",
-        limit: "100",
-        view: "all",                  // managers/admins see full scope
-      });
+      const qs = new URLSearchParams({ page: "1", limit: "100", view: "all" });
       if (branch) qs.append("branch_id", String(branch));
 
       const res = await axiosInstance.get(`/clients/?${qs.toString()}`);
@@ -180,8 +198,9 @@ export default function ClientsPage() {
   const fetchMyClients = async (scope = "self") => {
     try {
       setLoading(true);
-      // scope: "self" | "other"
-      const res = await axiosInstance.get(`/clients/?page=1&limit=50&view=${scope}`);
+      const res = await axiosInstance.get(
+        `/clients/?page=1&limit=50&view=${scope}`
+      );
       setMyClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
     } catch (err) {
       console.error("Error fetching clients (scope:", scope, "):", err);
@@ -191,6 +210,23 @@ export default function ClientsPage() {
     }
   };
 
+  // ---------- memoized filtered arrays (apply date range on the client) -----
+  const { start, end } = useMemo(
+    () => buildRange(dateFrom, dateTo),
+    [dateFrom, dateTo]
+  );
+
+  const filteredClients = useMemo(() => {
+    if (!dateFrom && !dateTo) return clients;
+    return clients.filter((c) => isIsoInRange(pickWhen(c), start, end));
+  }, [clients, dateFrom, dateTo, start, end]);
+
+  const filteredMyClients = useMemo(() => {
+    if (!dateFrom && !dateTo) return myClients;
+    return myClients.filter((c) => isIsoInRange(pickWhen(c), start, end));
+  }, [myClients, dateFrom, dateTo, start, end]);
+
+  // ------------------------------- UI ---------------------------------------
   const renderClientCard = (client) => (
     <div
       key={client.lead_id}
@@ -224,7 +260,9 @@ export default function ClientsPage() {
             <span className="text-gray-500 w-24">Assigned:</span>
             <span className="text-gray-700">
               {client?.assigned_employee
-                ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+                ? `${client.assigned_employee.name || "—"} (${roleFromId(
+                  client.assigned_employee.role_id
+                )})`
                 : "—"}
             </span>
           </div>
@@ -258,9 +296,7 @@ export default function ClientsPage() {
           </div>
           <div className="pt-3 flex gap-2 justify-end">
             <button
-              onClick={() =>
-                router.push(`/lead/${client.lead_id}`)
-              }
+              onClick={() => router.push(`/lead/${client.lead_id}`)}
               className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
               title="Edit Lead"
             >
@@ -319,8 +355,8 @@ export default function ClientsPage() {
                       fetchClients(null);
                     }}
                     className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${!branchId
-                      ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                       }`}
                   >
                     All Branches
@@ -335,8 +371,8 @@ export default function ClientsPage() {
                           fetchClients(branch.id);
                         }}
                         className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${isActive
-                          ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                            ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                           }`}
                       >
                         {branch.name}
@@ -347,37 +383,81 @@ export default function ClientsPage() {
               </div>
             )}
 
-            <div className="inline-flex rounded-md shadow-sm" role="group">
-              <button
-                type="button"
-                className={`px-4 py-3 text-sm font-medium border ${view === "card"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                  } border-gray-300 rounded-l-lg`}
-                onClick={() => setView("card")}
-              >
-                Card View
-              </button>
-              <button
-                type="button"
-                className={`px-4 py-3 text-sm font-medium border ${view === "table"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                  } border-gray-300 rounded-r-lg`}
-                onClick={() => setView("table")}
-              >
-                Table View
-              </button>
-            </div>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+  {/* Card/Table toggle (left) */}
+  <div className="inline-flex rounded-md shadow-sm" role="group">
+    <button
+      type="button"
+      className={`px-4 py-3 text-sm font-medium border ${
+        view === "card"
+          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+          : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+      } border-gray-300 rounded-l-lg`}
+      onClick={() => setView("card")}
+    >
+      Card View
+    </button>
+    <button
+      type="button"
+      className={`px-4 py-3 text-sm font-medium border ${
+        view === "table"
+          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+          : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+      } border-gray-300 rounded-r-lg`}
+      onClick={() => setView("table")}
+    >
+      Table View
+    </button>
+  </div>
+
+  {/* Date range + actions (right) */}
+  <div className="flex flex-wrap items-end gap-2">
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
+      <input
+        type="date"
+        value={dateFrom}
+        onChange={(e) => setDateFrom(e.target.value)}
+        className="border rounded-lg px-3 py-2 text-sm"
+      />
+    </div>
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
+      <input
+        type="date"
+        value={dateTo}
+        onChange={(e) => setDateTo(e.target.value)}
+        className="border rounded-lg px-3 py-2 text-sm"
+      />
+    </div>
+    <button
+      type="button"
+      onClick={applyDate}
+      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"
+    >
+      Apply
+    </button>
+    {(dateFrom || dateTo) && (
+      <button
+        type="button"
+        onClick={() => { setDateFrom(""); setDateTo(""); applyDate(); }}
+        className="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm border"
+      >
+        Clear
+      </button>
+    )}
+  </div>
+</div>
+
           </div>
         )}
 
         {loading ? (
           <LoadingState message="Loading Clients..." />
-        ) : (role === "SUPERADMIN" || role === "BRANCH MANAGER") ? (
+        ) : role === "SUPERADMIN" || role === "BRANCH MANAGER" ? (
           view === "card" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {clients.map((client) => renderClientCard(client))}
+              {filteredClients.map((client) => renderClientCard(client))}
             </div>
           ) : (
             <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
@@ -405,7 +485,7 @@ export default function ClientsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {clients.map((client) => (
+                  {filteredClients.map((client) => (
                     <tr key={client.lead_id}>
                       <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {client.full_name}
@@ -424,14 +504,16 @@ export default function ClientsPage() {
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                         {client?.assigned_employee
-                          ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+                          ? `${client.assigned_employee.name || "—"} (${roleFromId(
+                            client.assigned_employee.role_id
+                          )})`
                           : "—"}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm">
                         <span
                           className={`${client.kyc_status
-                            ? "text-green-600 font-semibold"
-                            : "text-red-600"
+                              ? "text-green-600 font-semibold"
+                              : "text-red-600"
                             }`}
                         >
                           {client.kyc_status ? "DONE" : "PENDING"}
@@ -443,9 +525,7 @@ export default function ClientsPage() {
                       <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() =>
-                              router.push(`/lead/${client.lead_id}`)
-                            }
+                            onClick={() => router.push(`/lead/${client.lead_id}`)}
                             className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
                             title="Edit Lead"
                           >
@@ -494,34 +574,75 @@ export default function ClientsPage() {
                 </tbody>
               </table>
             </div>
-
           )
         ) : (
           // My Clients Table for other roles
           <>
             {!(role === "SUPERADMIN" || role === "BRANCH MANAGER") && (
-              <div className="mb-4 inline-flex rounded-md shadow-sm" role="group">
-                {["self", "other"].map((v, i) => (
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                {/* Tabs */}
+                <div className="inline-flex rounded-md shadow-sm" role="group">
+                  {["self", "other"].map((v, i) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => {
+                        if (myView !== v) {
+                          setMyView(v);
+                          fetchMyClients(v);
+                        }
+                      }}
+                      className={`px-4 py-2 text-sm font-medium border
+            ${myView === v
+                          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"}
+            ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+                    >
+                      {v === "self" ? "My Clients" : "My team"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Date range + actions */}
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
                   <button
-                    key={v}
                     type="button"
-                    onClick={() => {
-                      if (myView !== v) {
-                        setMyView(v);
-                        fetchMyClients(v);
-                      }
-                    }}
-                    className={`px-4 py-2 text-sm font-medium border
-          ${myView === v
-                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"}
-          ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+                    onClick={applyDate}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"
                   >
-                    {v === "self" ? "My Clients" : "Other Clients"}
+                    Apply
                   </button>
-                ))}
+                  {(dateFrom || dateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDateFrom(""); setDateTo(""); applyDate(); }}
+                      className="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm border"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
             )}
+
 
             <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200">
@@ -560,15 +681,15 @@ export default function ClientsPage() {
                 </thead>
 
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {Array.isArray(myClients) &&
-                    myClients.map((client) => {
+                  {Array.isArray(filteredMyClients) &&
+                    filteredMyClients.map((client) => {
                       const services = parseServices(client);
                       const lastPaidAt = lastPaymentISO(client);
                       return (
                         <tr
-  key={client.lead_id}
-  className="align-top odd:bg-white even:bg-slate-50 hover:bg-blue-50/50 transition-colors"
->
+                          key={client.lead_id}
+                          className="align-top odd:bg-white even:bg-slate-50 hover:bg-blue-50/50 transition-colors"
+                        >
                           {/* NAME */}
                           <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                             <span className="line-clamp-1">{client.full_name}</span>
@@ -601,26 +722,27 @@ export default function ClientsPage() {
                           </td>
 
                           {/* SERVICES (scrollable) */}
-<td className="px-4 py-3 text-sm text-gray-700">
-  {services.length ? (
-    <div className="max-h-16 overflow-y-auto pr-1 thin-scroll">
-      <div className="flex flex-wrap gap-1">
-        {services.map((service, idx) => (
-          <span
-            key={`${client.lead_id}-${idx}`}
-            className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium
-                       bg-indigo-50 text-indigo-700 border border-indigo-200"
-            title={service}
-          >
-            <span className="max-w-[140px] truncate">{service}</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  ) : (
-    "—"
-  )}
-</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {services.length ? (
+                              <div className="max-h-16 overflow-y-auto pr-1 thin-scroll">
+                                <div className="flex flex-wrap gap-1">
+                                  {services.map((service, idx) => (
+                                    <span
+                                      key={`${client.lead_id}-${idx}`}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                      title={service}
+                                    >
+                                      <span className="max-w-[140px] truncate">
+                                        {service}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
 
                           {/* LAST PAYMENT (date) */}
                           <td className="px-4 py-3 text-sm text-gray-700">
@@ -632,9 +754,13 @@ export default function ClientsPage() {
                               })
                               : "—"}
                           </td>
+
+                          {/* ASSIGNED */}
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {client?.assigned_employee
-                              ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+                              ? `${client.assigned_employee.name || "—"} (${roleFromId(
+                                client.assigned_employee.role_id
+                              )})`
                               : "—"}
                           </td>
 
@@ -642,9 +768,7 @@ export default function ClientsPage() {
                           <td className="px-4 py-3 text-sm">
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() =>
-                                  router.push(`/lead/${client.lead_id}`)
-                                }
+                                onClick={() => router.push(`/lead/${client.lead_id}`)}
                                 className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
                                 title="Edit Lead"
                               >
@@ -686,8 +810,8 @@ export default function ClientsPage() {
         {/* Empty State */}
         {!loading &&
           ((role === "SUPERADMIN" || role === "BRANCH MANAGER")
-            ? clients.length === 0
-            : myClients.length === 0) && (
+            ? filteredClients.length === 0
+            : filteredMyClients.length === 0) && (
             <div className="text-center py-12">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400"
@@ -695,26 +819,20 @@ export default function ClientsPage() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                // d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 4 0z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">
                 No clients found
               </h3>
               <p className="mt-1 text-sm text-gray-500">
                 {branchId
-                  ? "Try selecting a different branch."
-                  : "Get started by adding your first client."}
+                  ? "Try selecting a different branch or date range."
+                  : "Try changing the date range."}
               </p>
             </div>
           )}
 
         {/* Modals (lead_id FIXED) */}
-
         {isCommentModalOpen && (
           <CommentModal
             isOpen={isCommentModalOpen}

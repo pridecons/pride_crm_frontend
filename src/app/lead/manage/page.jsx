@@ -115,8 +115,10 @@ const LeadManage = () => {
       setBranchId(bid);
 
       if (normRole !== "SUPERADMIN" && bid) {
-        setBranchFilter(bid);
-      }
+  setBranchFilter(String(bid)); // 🟢 force string
+} else {
+  setBranchFilter("All");
+}
     } catch (e) {
       console.error("Failed to read user info from cookies/JWT", e);
     } finally {
@@ -175,14 +177,18 @@ useEffect(() => {
       const base = "/leads/?skip=0&limit=100&kyc_only=false";
 
       // Decide which branch to query on the server
-      const selectedBranchId = isSuperAdmin
-        ? (branchFilter !== "All" ? branchFilter : null)
-        : branchId;
+      const selectedBranchId = !isSuperAdmin
+  ? branchId
+  : branchFilter !== "All"
+    ? branchFilter
+    : null;
 
-      const url = selectedBranchId ? `${base}&branch_id=${selectedBranchId}` : base;
+const url = selectedBranchId
+  ? `${base}&branch_id=${selectedBranchId}`
+  : base;
 
       const { data } = await axiosInstance.get(url);
-      setLeadData(Array.isArray(data) ? data : []);
+setLeadData(Array.isArray(data?.leads) ? data.leads : []);
     } catch (error) {
       console.error("Lead fetch failed:", error);
       setLeadData([]);

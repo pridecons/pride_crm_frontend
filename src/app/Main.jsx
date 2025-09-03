@@ -55,7 +55,7 @@ export default function Main({ children }) {
       <main
         className={`${
           pathname !== "/login" ? 'lg:ml-64 mt-16' : ''
-        } px-2`}
+        }`}
       >
         {children}
       </main>

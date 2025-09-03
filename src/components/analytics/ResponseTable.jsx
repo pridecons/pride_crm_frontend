@@ -38,15 +38,15 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
     }
   }, [isSuperAdmin, branchId]);
 
-  // Roles
-  const fetchRoles = async () => {
-    try {
-      const res = await axiosInstance.get("/roles");
-      setRoles(res.data?.data || res.data || []);
-    } catch (err) {
-      console.error("Failed to fetch roles:", err);
-    }
-  };
+  // // Roles
+  // const fetchRoles = async () => {
+  //   try {
+  //     const res = await axiosInstance.get("/roles");
+  //     setRoles(res.data?.data || res.data || []);
+  //   } catch (err) {
+  //     console.error("Failed to fetch roles:", err);
+  //   }
+  // };
 
   // Branches (for SuperAdmin)
   const fetchBranches = async () => {
@@ -154,11 +154,11 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
     return () => clearTimeout(timer);
   }, [employeeQuery, showEmpDrop]);
 
-  // Init
-  useEffect(() => {
-    fetchRoles();
-    fetchBranches();
-  }, []);
+  // // Init
+  // useEffect(() => {
+  //   fetchRoles();
+  //   fetchBranches();
+  // }, []);
 
   // Re-fetch on filter changes
   useEffect(() => {
@@ -170,7 +170,7 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
     { value: "", label: "All Branches" },
     ...branches.map((b) => ({
       value: String(b.id),
-      label: b.name ||` Branch ${b.id}`,
+      label: b.name || ` Branch ${b.id}`,
     })),
   ];
 
@@ -185,13 +185,12 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
           <div className="flex gap-2 overflow-x-auto pt-3">
             {branchTabs.map((opt) => (
               <button
-                key={branch-`${opt.value}`}
+                key={branch - `${opt.value}`}
                 onClick={() => setBranchFilter(opt.value)}
-                className={`px-3 py-1.5 rounded-lg border text-sm whitespace-nowrap ${
-                  branchFilter === opt.value
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                }`}
+                className={`px-3 py-1.5 rounded-lg border text-sm whitespace-nowrap ${branchFilter === opt.value
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                  }`}
                 title="Branch"
               >
                 {opt.label}
@@ -200,50 +199,101 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
           </div>
         )}
       </div>
+      <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-gray-100 flex-wrap gap-3">
+        {/* Filters Row */}
+        <div className=" bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-3">
+          {/* ✅ Controlled UsersDropdown → sets user_id (employee_code) */}
+          <UsersDropdown
+            value={selectedUserId}
+            onChange={(code) => setSelectedUserId(code || "")}
+          />
 
-      {/* Filters Row */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-3">
-    {/* ✅ Controlled UsersDropdown → sets user_id (employee_code) */}
-        <UsersDropdown
-          value={selectedUserId}
-          onChange={(code) => setSelectedUserId(code || "")}
-        />
+          {/* ✅ Controlled LeadSourceDropdown → sets source_id */}
+          <LeadSourceDropdown
+            value={selectedSourceId}
+            onChange={(id) => setSelectedSourceId(id || "")}
+          />
 
-        {/* ✅ Controlled LeadSourceDropdown → sets source_id */}
-        <LeadSourceDropdown
-          value={selectedSourceId}
-          onChange={(id) => setSelectedSourceId(id || "")}
-        />
+          {/* Employee search (kept) */}
 
-        {/* Employee search (kept) */}
-        <div className="relative w-full sm:w-64">
-          <div className="flex items-center gap-2">
+
+          {/* Dates */}
+          <div className="flex items-center gap-2 pt-5">
             <input
-              type="text"
-              placeholder="Search Employee..."
-              className="w-full px-3 py-2 border rounded bg-white"
-              value={employeeQuery}
+              type="date"
+              value={fromDate}
               onChange={(e) => {
-                setEmployeeQuery(e.target.value);
-                setShowEmpDrop(true);
-                if (!e.target.value) setSelectedUserId("");
+                setFromDate(e.target.value);
+                setApplied(false);
               }}
-              onFocus={() => setShowEmpDrop(true)}
-              onBlur={() => setTimeout(() => setShowEmpDrop(false), 150)}
-              title="Employee"
+              className="border rounded px-2 py-2 text-sm border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              title="From (YYYY-MM-DD)"
             />
-            {(selectedUserId || employeeQuery) && (
+            <span className="text-gray-400">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setApplied(false);
+              }}
+              className="border rounded px-2 py-2 text-sm  border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              title="To (YYYY-MM-DD)"
+            />
+            {applied ? (
               <button
-                className="px-2 py-1 rounded hover:bg-gray-100"
-                onClick={clearEmployee}
-                type="button"
-                title="Clear"
+                onClick={handleClearDates}
+                className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
               >
-                ✕
+                Clear
               </button>
-            )}
+            ) : fromDate || toDate ? (
+              fromDate && toDate ? (
+                <button
+                  onClick={handleApplyDates}
+                  className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  Apply
+                </button>
+              ) : (
+                <button
+                  onClick={handleClearDates}
+                  className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
+                >
+                  Clear
+                </button>
+              )
+            ) : null}
+          </div></div>
+        <div>
+          <div className="relative w-full pt-4 sm:w-64">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search Employee..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={employeeQuery}
+                onChange={(e) => {
+                  setEmployeeQuery(e.target.value);
+                  setShowEmpDrop(true);
+                  if (!e.target.value) setSelectedUserId("");
+                }}
+                onFocus={() => setShowEmpDrop(true)}
+                onBlur={() => setTimeout(() => setShowEmpDrop(false), 150)}
+                title="Employee"
+              />
+              {(selectedUserId || employeeQuery) && (
+                <button
+                  className="px-2 py-1 rounded hover:bg-gray-100"
+                  onClick={clearEmployee}
+                  type="button"
+                  title="Clear"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
-
           {showEmpDrop && empMatches.length > 0 && (
             <div
               className="absolute z-10 mt-1 w-full max-h-64 overflow-y-auto bg-white border rounded shadow"
@@ -270,10 +320,10 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
                       </span>
                     ) : null}
                   </div>
-                 <div className="text-xs text-gray-500">
-  Role ID: {emp.role_id || "N/A"}{" "}
-  {emp.branch_id ? `• Branch: ${emp.branch_id}` : ""}
-</div>
+                  <div className="text-xs text-gray-500">
+                    Role ID: {emp.role_id || "N/A"}{" "}
+                    {emp.branch_id ? `• Branch: ${emp.branch_id}` : ""}
+                  </div>
 
                 </div>
               ))}
@@ -281,54 +331,7 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
           )}
         </div>
 
-        {/* Dates */}
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
-              setApplied(false);
-            }}
-            className="border rounded px-2 py-1 text-sm"
-            title="From (YYYY-MM-DD)"
-          />
-          <span className="text-gray-400">to</span>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => {
-              setToDate(e.target.value);
-              setApplied(false);
-            }}
-            className="border rounded px-2 py-1 text-sm"
-            title="To (YYYY-MM-DD)"
-          />
-          {applied ? (
-            <button
-              onClick={handleClearDates}
-              className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
-            >
-              Clear
-            </button>
-          ) : fromDate || toDate ? (
-            fromDate && toDate ? (
-              <button
-                onClick={handleApplyDates}
-                className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
-              >
-                Apply
-              </button>
-            ) : (
-              <button
-                onClick={handleClearDates}
-                className="px-3 py-1 text-sm rounded bg-gray-200 hover:bg-gray-300"
-              >
-                Clear
-              </button>
-            )
-          ) : null}
-        </div>
+
       </div>
 
       {/* Table */}

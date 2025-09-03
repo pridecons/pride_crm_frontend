@@ -398,7 +398,7 @@ const handleCallClick = async () => {
         updateData.dob = updateData.dob && new Date(updateData.dob).toISOString().split("T")[0];
       }
       }catch{
-        updateData.dob=""
+        updateData.dob=null
       }
       if (respName === "ft") {
         if (!updateData.ft_from_date || !updateData.ft_to_date) {

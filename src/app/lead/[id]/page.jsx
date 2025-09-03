@@ -65,6 +65,32 @@ const canonRole = (s) => {
   return x;
 };
 
+// --- add near top (helpers) ---
+const normalizePhoneIN = (raw) => {
+  if (!raw) return null;
+  let s = String(raw).trim();
+
+  // keep only + and digits
+  s = s.replace(/[^\d+]/g, "");
+
+  // already E.164-ish
+  if (s.startsWith("+")) return s;
+
+  // strip leading zeros
+  s = s.replace(/^0+/, "");
+
+  // "91xxxxxxxxxx" -> "+91xxxxxxxxxx"
+  if (s.length === 12 && s.startsWith("91")) return `+${s}`;
+
+  // 10-digit local -> "+91"
+  if (s.length === 10) return `+91${s}`;
+
+  // fallback: if it doesn't start with '+', prefix +91
+  if (!s.startsWith("+")) return `+91${s}`;
+
+  return s;
+};
+
 function useIsSuperAdmin() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
@@ -185,6 +211,34 @@ const Lead = () => {
 
   // fetch guard (StrictMode)
   const didInit = useRef(false);
+
+  // --- add inside the Lead component ---
+const handleCallClick = async () => {
+  try {
+    const raw = currentLead?.mobile || currentLead?.phone || currentLead?.contact_number;
+    const toNumber = normalizePhoneIN(raw);
+
+    if (!toNumber) {
+      return ErrorHandling({ defaultError: "Mobile number not found for this lead." });
+    }
+
+    // IMPORTANT: send as form-urlencoded (backend expects Form(...))
+    await axiosInstance.post(
+  "/vbc/call",
+  { to_number: toNumber },
+  {
+    headers: { "Content-Type": "application/json", Accept: "application/json" }
+  }
+);
+
+
+    toast.success(`Calling ${toNumber}`);
+    // optional: open your confirm modal to mark called
+    setIsOpenSource(true);
+  } catch (err) {
+    ErrorHandling({ error: err, defaultError: "Failed to place call" });
+  }
+};
 
   const apiCall = async (method, endpoint, data = null) => {
     try {
@@ -665,7 +719,7 @@ const Lead = () => {
         <ActionButtons
           currentLead={currentLead}
           loading={loading}
-          onCallClick={() => setIsOpenSource(true)}
+           onCallClick={handleCallClick}  
           onKycClick={fetchKycUserDetails}
           kycLoading={kycLoading}
           onPaymentClick={() => setIsOpenPayment(true)}

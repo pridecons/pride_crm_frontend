@@ -158,7 +158,7 @@ useEffect(() => {
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <span className="text-blue-600">📁</span>
-                Select CSV File
+                Select File
               </h2>
               <input
                 type="file"

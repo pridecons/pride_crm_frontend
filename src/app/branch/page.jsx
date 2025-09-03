@@ -112,6 +112,8 @@ const BranchesPage = () => {
 
   const [showMgrPwd, setShowMgrPwd] = useState(false);
 
+  const [deletingId, setDeletingId] = useState(null);
+
   // password policy: ≥6 chars, at least one number & one special char
   const MGR_PASSWORD_REGEX =
     /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;

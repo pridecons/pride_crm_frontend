@@ -87,7 +87,7 @@ export default function UserDetailsModal({ isOpen, onClose, user, branchMap }) {
             <DetailField label="Employee Code" value={user.employee_code} />
             <DetailField label="Role" value={roleName} />
             <DetailField label="Branch" value={branchMap?.[user.branch_id] || "—"} />
-            <DetailField label="Senior (Reports To)" value={user.senior_profile_id || "—"} />
+            <DetailField label="Reporting" value={user.senior_profile_id || "—"} />
           </div>
 
           {/* Contact */}

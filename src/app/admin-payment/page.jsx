@@ -79,6 +79,10 @@ export default function PaymentHistoryPage() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
 
+  // View scope for non-managers: "self" | "other"
+  // (Admins/managers will be forced to "all")
+  const [myView, setMyView] = useState("self");
+
   // Debounce for client query
   useEffect(() => {
     const t = setTimeout(() => setDebouncedClientQuery(clientQuery), 300);
@@ -100,6 +104,12 @@ export default function PaymentHistoryPage() {
 
     if (userRole === "BRANCH_MANAGER") {
       setBranchId(decoded.branch_id?.toString() || "");
+    }
+    // default scope by role
+    if (userRole === "SUPERADMIN" || userRole === "BRANCH_MANAGER") {
+      setMyView("all");
+    } else {
+      setMyView("self");
     }
 
     axiosInstance
@@ -172,7 +182,15 @@ export default function PaymentHistoryPage() {
   }, [service]);
 
   // Employee (raised_by) suggestions
+  // Employee (raised_by) suggestions
   useEffect(() => {
+    // Non-managers cannot search employees
+    if (!canSearchEmployees) {
+      setUserSuggestions([]);
+      setShowUserDropdown(false);
+      return;
+    }
+
     const search = userSearch.trim();
     if (!search) {
       setUserSuggestions([]);
@@ -183,10 +201,19 @@ export default function PaymentHistoryPage() {
     const controller = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const res = await axiosInstance.get(
-          `/users/?search=${encodeURIComponent(search)}&limit=10`,
-          { signal: controller.signal }
-        );
+        const params = {
+          search: search,
+          limit: 10,
+          // SUPERADMIN → no branch filter
+          // BRANCH_MANAGER → lock to own branch
+          branch_id: isManagerOnly ? branchId : undefined,
+        };
+
+        const res = await axiosInstance.get(`/users/`, {
+          params,
+          signal: controller.signal,
+        });
+
         const raw = Array.isArray(res?.data?.data) ? res.data.data : [];
         const list = raw.map((u) => ({
           id: u.id ?? u.user_id ?? u.employee_code ?? u.email ?? u.phone ?? u.name,
@@ -205,13 +232,16 @@ export default function PaymentHistoryPage() {
         }
       }
     }, 200);
+
     return () => {
       clearTimeout(t);
       controller.abort();
     };
-  }, [userSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userSearch, role, branchId]);
 
   // Global Client Suggestions (name/email/phone)
+  // Global Client Suggestions (name/email/phone) with role restrictions
   useEffect(() => {
     const q = debouncedClientQuery.trim();
     if (!q) {
@@ -229,6 +259,7 @@ export default function PaymentHistoryPage() {
     const t = setTimeout(() => {
       (async () => {
         try {
+          // build params with role restrictions
           const params = {
             name: isPhoneSearch ? undefined : (base.name || undefined),
             email: base.email || undefined,
@@ -236,6 +267,9 @@ export default function PaymentHistoryPage() {
             phone_contains: shortPhone ? digits : undefined,
             limit: 20,
             offset: 0,
+            // role-based scope
+            view: isNonManager ? myView : undefined,               // non-managers -> self|other
+            branch_id: isManagerOnly ? Number(branchId) : undefined, // managers -> own branch
           };
 
           const res = await axiosInstance.get(`/payment/all/employee/history`, {
@@ -251,7 +285,7 @@ export default function PaymentHistoryPage() {
 
           if (list.length === 0 && shortPhone) {
             const res2 = await axiosInstance.get(`/payment/all/employee/history`, {
-              params: { limit: 200, offset: 0 },
+              params: { ...params, limit: 200, offset: 0 },
               signal: controller.signal,
             });
             list = Array.isArray(res2?.data?.payments)
@@ -305,7 +339,8 @@ export default function PaymentHistoryPage() {
       clearTimeout(t);
       controller.abort();
     };
-  }, [debouncedClientQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedClientQuery, role, branchId, myView]);
 
   // Handlers
   const handleUserSelect = (user) => {
@@ -372,17 +407,20 @@ export default function PaymentHistoryPage() {
     setLoading(true);
     setError("");
     try {
+      // Only SA/BM may send branch filter
       const branchParam =
-        branchId !== "" && branchId !== null && branchId !== undefined
+        canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
           ? Number(branchId)
           : undefined;
+
+      // Only SA/BM may filter by employee (raised_by/user_id)
+      const raisedByParam = canSearchEmployees ? (selectedUserId || undefined) : undefined;
 
       const parsed =
         clientFilter.name || clientFilter.email || clientFilter.phone_number
           ? clientFilter
           : parseClientQuery(clientQuery);
 
-      // Build params; if only one of applied dates is present, we already set both equal above
       const params = {
         service: service || undefined,
         plan_id: plan || undefined,
@@ -395,10 +433,11 @@ export default function PaymentHistoryPage() {
         date_to: date_to || undefined,
         limit,
         offset,
-        user_id: selectedUserId || undefined,
-        raised_by: selectedUserId || undefined,
+        user_id: raisedByParam,
+        raised_by: raisedByParam,
+        // Non-managers must pass view; SA/BM use "all"
+        view: canPickBranch ? "all" : myView,
       };
-
       Object.keys(params).forEach((k) => {
         if (params[k] === "" || params[k] === null) delete params[k];
       });
@@ -415,6 +454,12 @@ export default function PaymentHistoryPage() {
     }
   };
 
+  // helpers for permissions in filters
+  const canPickBranch = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
+  const canSearchEmployees = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
+  const isManagerOnly = role === "BRANCH_MANAGER";
+  const isNonManager = !(role === "SUPERADMIN" || role === "BRANCH_MANAGER");
+
   // Auto-fetch when filters (except draft dates) change
   useEffect(() => {
     if (role) fetchPayments();
@@ -430,6 +475,7 @@ export default function PaymentHistoryPage() {
     date_to,          // <-- applied dates only
     limit,
     offset,
+    myView,
   ]);
 
   const isBranchDropdownDisabled = role === "BRANCH MANAGER";
@@ -437,6 +483,24 @@ export default function PaymentHistoryPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h2 className="text-2xl font-bold mb-6">All Employee Payment History</h2>
+      {!(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
+        <div className="mb-4 inline-flex rounded-md shadow-sm" role="group">
+          {["self", "other"].map((v, i) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setMyView(v)}
+              className={`px-4 py-2 text-sm font-medium border
+          ${myView === v
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"}
+          ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+            >
+              {v === "self" ? "My Payments" : "Other Payments"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Branch chips */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 gap-4">
@@ -572,66 +636,53 @@ export default function PaymentHistoryPage() {
           <input
             className="input w-full"
             type="text"
-            placeholder="Search employee (raised by)..."
+            placeholder={
+              canSearchEmployees ? "Search employee (raised by)..." : "Search employee (raised by)"
+            }
             value={userSearch}
             onChange={(e) => {
+              if (!canSearchEmployees) return;
               setUserSearch(e.target.value);
               setShowUserDropdown(true);
             }}
+            disabled={!canSearchEmployees}
             onKeyDown={(e) => {
-              if (!showUserDropdown || userSuggestions.length === 0) return;
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setUserHL((i) => Math.min(i + 1, userSuggestions.length - 1));
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setUserHL((i) => Math.max(i - 1, 0));
-              } else if (e.key === "Enter") {
-                e.preventDefault();
-                const pick = userSuggestions[userHL];
-                if (pick) handleUserSelect(pick);
-              } else if (e.key === "Escape") {
-                setShowUserDropdown(false);
-              }
+              if (!canSearchEmployees || !showUserDropdown || userSuggestions.length === 0) return;
+              if (e.key === "ArrowDown") { e.preventDefault(); setUserHL((i) => Math.min(i + 1, userSuggestions.length - 1)); }
+              else if (e.key === "ArrowUp") { e.preventDefault(); setUserHL((i) => Math.max(i - 1, 0)); }
+              else if (e.key === "Enter") { e.preventDefault(); const pick = userSuggestions[userHL]; if (pick) handleUserSelect(pick); }
+              else if (e.key === "Escape") { setShowUserDropdown(false); }
             }}
-            onFocus={() => {
-              if (userSuggestions.length > 0) setShowUserDropdown(true);
-            }}
+            onFocus={() => { if (canSearchEmployees && userSuggestions.length > 0) setShowUserDropdown(true); }}
             onBlur={() => setTimeout(() => setShowUserDropdown(false), 120)}
           />
-          {selectedUserId && (
+
+          {canSearchEmployees && selectedUserId && (
             <div className="mt-1 inline-flex items-center text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
               {selectedUserName || selectedUserId}
-              <button
-                onClick={clearSelectedUser}
-                className="ml-2 text-blue-600 hover:text-blue-800"
-                title="Clear"
-              >
-                ✕
-              </button>
+              <button onClick={clearSelectedUser} className="ml-2 text-blue-600 hover:text-blue-800" title="Clear">✕</button>
             </div>
           )}
-          {showUserDropdown && userSuggestions.length > 0 && (
+
+          {canSearchEmployees && showUserDropdown && userSuggestions.length > 0 && (
             <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-48 overflow-y-auto rounded shadow">
               {userSuggestions.map((u, idx) => (
                 <li
                   key={u.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleUserSelect(u)}
-                  className={`px-3 py-2 cursor-pointer ${idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"
-                    }`}
+                  className={`px-3 py-2 cursor-pointer ${idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"}`}
                 >
                   <div className="flex justify-between">
                     <span className="font-medium">{u.name || "Unknown"}</span>
                     {u.role ? <span className="text-xs text-gray-500">{u.role}</span> : null}
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {u.email || "—"} • {u.phone || "—"}
-                  </div>
+                  <div className="text-xs text-gray-500">{u.email || "—"} • {u.phone || "—"}</div>
                 </li>
               ))}
             </ul>
           )}
+
         </div>
 
         {/* Date filter (draft inputs + action buttons in same row) */}

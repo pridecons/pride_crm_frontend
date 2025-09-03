@@ -7,7 +7,7 @@ import LoadingState from "@/components/LoadingState";
 import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import InvoiceList from "@/components/Lead/InvoiceList";
-import { Eye , FileText, BookOpenText, MessageCircle } from "lucide-react";
+import { Eye, FileText, BookOpenText, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/context/PermissionsContext";
 
@@ -18,6 +18,21 @@ const normalizeRoleKey = (r) => {
   if (key === "BRANCH_MANAGER") return "BRANCH MANAGER";
   return key;
 };
+
+// Map role_id -> readable role name (fallback to id if unknown)
+const ROLE_BY_ID = {
+  "1": "SUPERADMIN",
+  "2": "BRANCH MANAGER",
+  "3": "HR",
+  "4": "SALES MANAGER",
+  "5": "TL",
+  "6": "SBA",
+  "7": "BA",
+  "8": "BA",
+  "9": "RESEARCHER",
+  "10": "COMPLIANCE OFFICER",
+};
+const roleFromId = (id) => ROLE_BY_ID[String(id ?? "")] || String(id ?? "");
 
 const getUserMeta = () => {
   try {
@@ -94,8 +109,25 @@ export default function ClientsPage() {
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [storyLead, setStoryLead] = useState(null);
+  const [myView, setMyView] = useState("self"); // for non-managers: self | other
 
   const router = useRouter();
+
+  useEffect(() => {
+    const { role: r, branch_id: b } = getUserMeta();
+    setRole(r);
+    setBranchId(b);
+
+    if (r === "SUPERADMIN") {
+      fetchBranches();
+      fetchClients();                 // SUPERADMIN -> view=all (optionally branch filter)
+    } else if (r === "BRANCH MANAGER") {
+      fetchClients(b);                // MANAGER -> view=all for their branch
+    } else {
+      fetchMyClients("self");         // Non-managers default to self
+      setMyView("self");
+    }
+  }, []);
 
   // initialize role/branch + fetch correct client list
   useEffect(() => {
@@ -127,10 +159,14 @@ export default function ClientsPage() {
   const fetchClients = async (branch = null) => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get(
-        `/clients/?page=1&limit=100${branch ? `&branch_id=${branch}` : ""}`
-      );
-      // some backends return data directly or { clients: [...] }
+      const qs = new URLSearchParams({
+        page: "1",
+        limit: "100",
+        view: "all",                  // managers/admins see full scope
+      });
+      if (branch) qs.append("branch_id", String(branch));
+
+      const res = await axiosInstance.get(`/clients/?${qs.toString()}`);
       const list = Array.isArray(res.data) ? res.data : res.data?.clients;
       setClients(Array.isArray(list) ? list : []);
     } catch (err) {
@@ -141,14 +177,14 @@ export default function ClientsPage() {
     }
   };
 
-  const fetchMyClients = async () => {
+  const fetchMyClients = async (scope = "self") => {
     try {
       setLoading(true);
-      // ✅ FIX: correct endpoint to avoid 404 (as per your cURL)
-      const res = await axiosInstance.get("/clients/my/clients?page=1&limit=50");
+      // scope: "self" | "other"
+      const res = await axiosInstance.get(`/clients/?page=1&limit=50&view=${scope}`);
       setMyClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
     } catch (err) {
-      console.error("Error fetching my clients:", err);
+      console.error("Error fetching clients (scope:", scope, "):", err);
       setMyClients([]);
     } finally {
       setLoading(false);
@@ -183,6 +219,16 @@ export default function ClientsPage() {
             <span className="text-gray-500 w-24">Branch:</span>
             <span className="text-gray-700">{client.branch_name || "—"}</span>
           </div>
+          {/* Assigned To */}
+          <div className="flex">
+            <span className="text-gray-500 w-24">Assigned:</span>
+            <span className="text-gray-700">
+              {client?.assigned_employee
+                ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+                : "—"}
+            </span>
+          </div>
+
           <div className="flex">
             <span className="text-gray-500 w-24">KYC:</span>
             <span
@@ -218,7 +264,7 @@ export default function ClientsPage() {
               className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
               title="Edit Lead"
             >
-              <Eye  size={18} />
+              <Eye size={18} />
             </button>
             <button
               onClick={() => {
@@ -273,8 +319,8 @@ export default function ClientsPage() {
                       fetchClients(null);
                     }}
                     className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${!branchId
-                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                      ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                       }`}
                   >
                     All Branches
@@ -289,8 +335,8 @@ export default function ClientsPage() {
                           fetchClients(branch.id);
                         }}
                         className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 ${isActive
-                            ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                           }`}
                       >
                         {branch.name}
@@ -305,8 +351,8 @@ export default function ClientsPage() {
               <button
                 type="button"
                 className={`px-4 py-3 text-sm font-medium border ${view === "card"
-                    ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                   } border-gray-300 rounded-l-lg`}
                 onClick={() => setView("card")}
               >
@@ -315,8 +361,8 @@ export default function ClientsPage() {
               <button
                 type="button"
                 className={`px-4 py-3 text-sm font-medium border ${view === "table"
-                    ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                   } border-gray-300 rounded-r-lg`}
                 onClick={() => setView("table")}
               >
@@ -344,6 +390,7 @@ export default function ClientsPage() {
                       "Mobile",
                       "City",
                       "Branch",
+                      "Assigned",
                       "KYC Status",
                       "Paid",
                       "Actions",
@@ -375,11 +422,16 @@ export default function ClientsPage() {
                       <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
                         {client.branch_name || "—"}
                       </td>
+                      <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {client?.assigned_employee
+                          ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+                          : "—"}
+                      </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm">
                         <span
                           className={`${client.kyc_status
-                              ? "text-green-600 font-semibold"
-                              : "text-red-600"
+                            ? "text-green-600 font-semibold"
+                            : "text-red-600"
                             }`}
                         >
                           {client.kyc_status ? "DONE" : "PENDING"}
@@ -442,156 +494,193 @@ export default function ClientsPage() {
                 </tbody>
               </table>
             </div>
+
           )
         ) : (
           // My Clients Table for other roles
-          <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200">
-              <colgroup>
-                <col className="w-[18%]" />
-                <col className="w-[22%]" />
-                <col className="w-[12%]" />
-                <col className="w-[10%]" />
-                <col className="w-[12%]" />
-                <col className="w-[10%]" />
-                <col className="w-[10%]" />
-                <col className="w-[12%]" />
-                <col className="w-[8%]" />
-              </colgroup>
+          <>
+            {!(role === "SUPERADMIN" || role === "BRANCH MANAGER") && (
+              <div className="mb-4 inline-flex rounded-md shadow-sm" role="group">
+                {["self", "other"].map((v, i) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => {
+                      if (myView !== v) {
+                        setMyView(v);
+                        fetchMyClients(v);
+                      }
+                    }}
+                    className={`px-4 py-2 text-sm font-medium border
+          ${myView === v
+                        ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"}
+          ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+                  >
+                    {v === "self" ? "My Clients" : "Other Clients"}
+                  </button>
+                ))}
+              </div>
+            )}
 
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "Name",
-                    "Email",
-                    "Mobile",
-                    "Investment",
-                    "Services",
-                    "Last Payment",
-                    "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+            <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <colgroup>
+                  <col className="w-[18%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
 
-              <tbody className="bg-white divide-y divide-gray-200">
-                {Array.isArray(myClients) &&
-                  myClients.map((client) => {
-                    const services = parseServices(client);
-                    const lastPaidAt = lastPaymentISO(client);
-                    return (
-                      <tr key={client.lead_id} className="align-top">
-                        {/* NAME */}
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                          <span className="line-clamp-1">{client.full_name}</span>
-                        </td>
+                <thead className="bg-gray-50">
+                  <tr>
+                    {[
+                      "Name",
+                      "Email",
+                      "Mobile",
+                      "Investment",
+                      "Services",
+                      "Last Payment",
+                      "Assigned",
+                      "Actions",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
 
-                        {/* EMAIL */}
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <span
-                            className="block truncate max-w-[260px]"
-                            title={client.email || ""}
-                          >
-                            {client.email || "—"}
-                          </span>
-                        </td>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Array.isArray(myClients) &&
+                    myClients.map((client) => {
+                      const services = parseServices(client);
+                      const lastPaidAt = lastPaymentISO(client);
+                      return (
+                        <tr
+  key={client.lead_id}
+  className="align-top odd:bg-white even:bg-slate-50 hover:bg-blue-50/50 transition-colors"
+>
+                          {/* NAME */}
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                            <span className="line-clamp-1">{client.full_name}</span>
+                          </td>
 
-                        {/* MOBILE */}
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <span className="whitespace-nowrap">
-                            {client.mobile || "—"}
-                          </span>
-                        </td>
+                          {/* EMAIL */}
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <span
+                              className="block truncate max-w-[260px]"
+                              title={client.email || ""}
+                            >
+                              {client.email || "—"}
+                            </span>
+                          </td>
 
-                        {/* INVESTMENT (₹) */}
-                        <td className="px-4 py-3 text-sm font-medium text-green-600">
-                          {typeof client.investment === "number"
-                            ? `₹${client.investment}`
-                            : typeof client.total_amount_paid === "number"
-                              ? `₹${client.total_amount_paid}`
+                          {/* MOBILE */}
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            <span className="whitespace-nowrap">
+                              {client.mobile || "—"}
+                            </span>
+                          </td>
+
+                          {/* INVESTMENT (₹) */}
+                          <td className="px-4 py-3 text-sm font-medium text-green-600">
+                            {typeof client.investment === "number"
+                              ? `₹${client.investment}`
+                              : typeof client.total_amount_paid === "number"
+                                ? `₹${client.total_amount_paid}`
+                                : "—"}
+                          </td>
+
+                          {/* SERVICES (scrollable) */}
+<td className="px-4 py-3 text-sm text-gray-700">
+  {services.length ? (
+    <div className="max-h-16 overflow-y-auto pr-1 thin-scroll">
+      <div className="flex flex-wrap gap-1">
+        {services.map((service, idx) => (
+          <span
+            key={`${client.lead_id}-${idx}`}
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium
+                       bg-indigo-50 text-indigo-700 border border-indigo-200"
+            title={service}
+          >
+            <span className="max-w-[140px] truncate">{service}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  ) : (
+    "—"
+  )}
+</td>
+
+                          {/* LAST PAYMENT (date) */}
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {lastPaidAt
+                              ? new Date(lastPaidAt).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
                               : "—"}
-                        </td>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {client?.assigned_employee
+                              ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+                              : "—"}
+                          </td>
 
-                        {/* SERVICES */}
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {services.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {services.map((service, idx) => (
-                                <span
-                                  key={`${client.lead_id}-${idx}`}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
-                                  title={service}
-                                >
-                                  <span className="max-w-[120px] truncate">
-                                    {service}
-                                  </span>
-                                </span>
-                              ))}
+                          {/* ACTIONS */}
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() =>
+                                  router.push(`/lead/${client.lead_id}`)
+                                }
+                                className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
+                                title="Edit Lead"
+                              >
+                                <Eye size={18} />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setStoryLead(client);
+                                  setIsStoryModalOpen(true);
+                                }}
+                                className="inline-flex items-center justify-center w-8 h-8 bg-gray-500 text-white hover:bg-green-600 rounded-full shadow transition"
+                                title="View Story"
+                              >
+                                <BookOpenText size={18} />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedLeadId(client.lead_id);
+                                  setIsCommentModalOpen(true);
+                                }}
+                                className="inline-flex items-center justify-center w-8 h-8 bg-teal-500 text-white rounded-full hover:bg-teal-600 shadow transition"
+                                title="Comment"
+                              >
+                                <MessageCircle size={16} />
+                              </button>
                             </div>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-
-                        {/* LAST PAYMENT (date) */}
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {lastPaidAt
-                            ? new Date(lastPaidAt).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                            : "—"}
-                        </td>
-
-                        {/* ACTIONS */}
-                        <td className="px-4 py-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() =>
-                                router.push(`/lead/${client.lead_id}`)
-                              }
-                              className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow transition"
-                              title="Edit Lead"
-                            >
-                              <Eye size={18} />
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setStoryLead(client);
-                                setIsStoryModalOpen(true);
-                              }}
-                              className="inline-flex items-center justify-center w-8 h-8 bg-gray-500 text-white hover:bg-green-600 rounded-full shadow transition"
-                              title="View Story"
-                            >
-                              <BookOpenText size={18} />
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setSelectedLeadId(client.lead_id);
-                                setIsCommentModalOpen(true);
-                              }}
-                              className="inline-flex items-center justify-center w-8 h-8 bg-teal-500 text-white rounded-full hover:bg-teal-600 shadow transition"
-                              title="Comment"
-                            >
-                              <MessageCircle size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Empty State */}

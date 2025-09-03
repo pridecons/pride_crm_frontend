@@ -1,7 +1,6 @@
 import toast from "react-hot-toast";
 
-export const ErrorHandling = ({ error, defaultError = "Something went wrong" }) => {
-  console.error("error : ",error)
+export const ErrorHandling = ({ error={}, defaultError = "Something went wrong" }) => {
   let msg = defaultError;
 
   try {

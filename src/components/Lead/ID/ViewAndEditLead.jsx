@@ -127,7 +127,13 @@ export const ViewAndEditLead = ({
       const { name, value, type, checked } = e.target;
       let newVal = value;
 
-      // Auto-uppercase PAN
+      // Update form state
+      setEditFormData((p) => ({
+        ...p,
+        [name]: type === "checkbox" ? checked : newVal,
+      }));
+
+            // Auto-uppercase PAN
       if (name === "pan") newVal = value.toUpperCase();
 
       // Trigger PAN fetch on full PAN
@@ -171,12 +177,7 @@ export const ViewAndEditLead = ({
           setPanLoading(false);
         }
       }
-
-      // Update form state
-      setEditFormData((p) => ({
-        ...p,
-        [name]: type === "checkbox" ? checked : newVal,
-      }));
+      
       // Also update lead_type toggle
       if (name === "lead_type") setLeadType(newVal);
     },

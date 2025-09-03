@@ -393,8 +393,12 @@ const handleCallClick = async () => {
       const updateData = { ...editFormData };
       const respName = getResponseNameById(updateData.lead_response_id);
 
-      if (updateData.dob) {
-        updateData.dob = new Date(updateData.dob).toISOString().split("T")[0];
+      try{
+        if (updateData.dob) {
+        updateData.dob = updateData.dob && new Date(updateData.dob).toISOString().split("T")[0];
+      }
+      }catch{
+        updateData.dob=""
       }
       if (respName === "ft") {
         if (!updateData.ft_from_date || !updateData.ft_to_date) {

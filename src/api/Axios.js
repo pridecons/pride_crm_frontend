@@ -1,9 +1,9 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-export const BASE_URL = "http://127.0.0.1:8000";
-export const BASE_URL_full = "http://127.0.0.1:8000/api/v1";
-export const WS_BASE_URL_full="wss://127.0.0.1:8000/api/v1"
+export const BASE_URL = "";
+export const BASE_URL_full = "/api/v1";
+export const WS_BASE_URL_full="/api/v1"
 
 // export const BASE_URL = "http://192.168.1.7:8004";
 // export const BASE_URL_full = "http://192.168.1.7:8004/api/v1";

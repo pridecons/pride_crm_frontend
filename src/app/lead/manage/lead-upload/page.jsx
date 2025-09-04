@@ -44,6 +44,8 @@ export default function BulkUploadPage() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
 
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
+
   const isSuperAdmin = role === "SUPERADMIN";
 
   const myBranch = useMemo(
@@ -77,7 +79,9 @@ export default function BulkUploadPage() {
           null;
 
         setRole(String(r).toUpperCase());
-        setBranchId(b ? String(b) : null);
+const branchStr = b ? String(b) : null;
+setBranchId(branchStr);
+setSelectedBranchId(branchStr); // lock initial selected branch for non-superadmins
       }
     } catch (e) {
       console.warn("Failed to parse user_info cookie:", e);
@@ -92,17 +96,45 @@ export default function BulkUploadPage() {
       } catch (err) {
         console.error("Failed to load branches:", err);
       }
-
-      try {
-        const { data } = await axiosInstance.get(
-          "/lead-config/sources/?skip=0&limit=100"
-        );
-        setLeadSources(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load lead sources:", err);
-      }
     })();
   }, []);
+
+  useEffect(() => {
+  if (!selectedBranchId) return;
+
+  (async () => {
+    try {
+      // Preferred: server filters by branch (if supported by your API)
+      const { data } = await axiosInstance.get(
+        `/lead-config/sources/?skip=0&limit=100&branch_id=${selectedBranchId}`
+      );
+      setLeadSources(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Branch-filtered lead sources failed, falling back:", err);
+      // Fallback: fetch all, we’ll filter client-side (see visibleSources below)
+      try {
+        const { data } = await axiosInstance.get(`/lead-config/sources/?skip=0&limit=100`);
+        setLeadSources(Array.isArray(data) ? data : []);
+      } catch (e2) {
+        console.error("Failed to load any lead sources:", e2);
+      }
+    }
+  })();
+}, [selectedBranchId]);
+
+useEffect(() => {
+  if (!isSuperAdmin && branchId) setSelectedBranchId(branchId);
+}, [isSuperAdmin, branchId]);
+const visibleSources = useMemo(() => {
+  if (!selectedBranchId) return leadSources;
+
+  // Accept either `source.branch_id` or `source.branches: [{id}]`
+  return leadSources.filter((s) =>
+    String(s?.branch_id) === String(selectedBranchId) ||
+    (Array.isArray(s?.branches) &&
+      s.branches.some((b) => String(b?.id) === String(selectedBranchId)))
+  );
+}, [leadSources, selectedBranchId]);
 
   // submit CSV
   const handleSubmit = async (e) => {
@@ -264,29 +296,26 @@ export default function BulkUploadPage() {
                   </label>
 
                   {isSuperAdmin ? (
-                    <select
-                      name="branch_id"
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        Choose a branch…
-                      </option>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <>
-                      <input type="hidden" name="branch_id" value={branchId ?? ""} />
-                      <div className="px-3 py-2 rounded-lg border bg-gray-50 text-gray-700">
-                        {myBranch?.name || "Your Branch"}
-                      </div>
-                    </>
-                  )}
+  <select
+    name="branch_id"
+    required
+    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+    value={selectedBranchId || ""}
+    onChange={(e) => setSelectedBranchId(e.target.value)}
+  >
+    <option value="" disabled>Choose a branch…</option>
+    {branches.map((b) => (
+      <option key={b.id} value={b.id}>{b.name}</option>
+    ))}
+  </select>
+) : (
+  <>
+    <input type="hidden" name="branch_id" value={branchId ?? ""} />
+    <div className="px-3 py-2 rounded-lg border bg-gray-50 text-gray-700">
+      {myBranch?.name || "Your Branch"}
+    </div>
+  </>
+)}
                 </div>
 
                 {/* Lead source dropdown */}
@@ -296,20 +325,19 @@ export default function BulkUploadPage() {
                     Select Lead Source
                   </label>
                   <select
-                    name="lead_source_id"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Choose a source…
-                    </option>
-                    {leadSources.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+  name="lead_source_id"
+  required
+  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+  defaultValue=""
+  disabled={!selectedBranchId} // optional UX guard
+>
+  <option value="" disabled>
+    {selectedBranchId ? "Choose a source…" : "Pick a branch first…"}
+  </option>
+  {visibleSources.map((s) => (
+    <option key={s.id} value={s.id}>{s.name}</option>
+  ))}
+</select>
                 </div>
               </div>
             </section>

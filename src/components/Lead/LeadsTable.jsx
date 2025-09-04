@@ -14,7 +14,7 @@ export default function LeadsDataTable({
     activeTab,
     onTabClick,
 }) {
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.max(1, Math.ceil((total || 0) / (limit || 10)));
     const start = (page - 1) * limit + 1;
     const end = Math.min(page * limit, total);
 
@@ -87,8 +87,8 @@ export default function LeadsDataTable({
                         Page {page} of {totalPages}
                     </span>
                     <button
-                        onClick={() => onPageChange(page + 1)}
-                        disabled={page === totalPages}
+                        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+                        disabled={page >= totalPages}
                         className={`px-4 py-2 rounded-lg border transition ${page === totalPages
                             ? "border-gray-200 text-gray-400"
                             : "border-gray-300 text-gray-700 hover:bg-gray-100"

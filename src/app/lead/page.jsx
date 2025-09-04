@@ -5,12 +5,11 @@ import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
-import { Pencil, BookOpenText, MessageCircle, Download } from "lucide-react";
+import { Pencil, BookOpenText, MessageCircle, Download, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import LeadsDataTable from "@/components/Lead/LeadsTable";
-// ✨ same helpers as Lead page
 import { formatCallbackForAPI, isoToDatetimeLocal } from "@/utils/dateUtils";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
@@ -18,14 +17,19 @@ export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
   const [sources, setSources] = useState([]);
+
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
+
   const [editId, setEditId] = useState(null);
   const [userId, setUserId] = useState(null);
+
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [storyLead, setStoryLead] = useState(null);
+
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState(null);
+
   const [loading, setLoading] = useState(false);
 
   const [showFTModal, setShowFTModal] = useState(false);
@@ -37,24 +41,39 @@ export default function NewLeadsTable() {
   const [callBackLead, setCallBackLead] = useState(null);
   const [callBackDate, setCallBackDate] = useState("");
 
+  // 📌 assignment meta from /leads/assignments/my
+  const [assignmentMeta, setAssignmentMeta] = useState({
+    can_fetch_new: true,
+    last_fetch_limit: null,
+    assignment_ttl_hours: null,
+    total_count: null,
+  });
+
   const router = useRouter();
 
   useEffect(() => {
-    const userInfo = JSON.parse(localStorage.getItem("user_info")) || {};
+    const userInfo = JSON.parse(localStorage.getItem("user_info") || "{}");
     setUserId(userInfo.employee_code || "Admin001");
   }, []);
 
+  // 1) On first render: check current assignments
   useEffect(() => {
-    fetchLeads();
-    fetchResponses();
-    fetchSources();
+    initLoad();
   }, []);
 
+  const initLoad = async () => {
+    await fetchLeads();     // ← first call: /leads/assignments/my
+    fetchResponses();
+    fetchSources();
+  };
+
+  // GET /leads/assignments/my
   const fetchLeads = async () => {
     setLoading(true);
     try {
       const { data } = await axiosInstance.get("/leads/assignments/my");
-      const items = data.assignments || [];
+      const items = Array.isArray(data.assignments) ? data.assignments : [];
+
       const leadsWithIds = items.map((item) => ({
         ...item.lead,
         assignment_id: item.assignment_id,
@@ -63,30 +82,47 @@ export default function NewLeadsTable() {
         fetchedComments: false,
         allComments: [],
       }));
+
       setLeads(leadsWithIds);
+      setAssignmentMeta({
+        can_fetch_new: !!data.can_fetch_new,
+        last_fetch_limit: data.last_fetch_limit ?? null,
+        assignment_ttl_hours: data.assignment_ttl_hours ?? null,
+        total_count: data.total_count ?? null,
+      });
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to load leads!" });
+      ErrorHandling({ error, defaultError: "Failed to load leads!" });
     } finally {
       setLoading(false);
     }
   };
 
+  // 2) POST /leads/fetch (only when clicking button), then refresh assignments
   const handleFetchLeads = async () => {
+    if (!assignmentMeta.can_fetch_new) {
+      return ErrorHandling({
+        defaultError:
+          "You already have active assignments. Please complete them before fetching new leads.",
+      });
+    }
     setLoading(true);
     try {
       const { data } = await axiosInstance.post("/leads/fetch");
-      console.log("data :: ",data)
-      console.log("data.fetched_count === 0 :: ",data.fetched_count === 0)
-      console.log("data.message?.includes :: ",data.message?.includes("active assignments"))
-      if (data.fetched_count === 0 && data.message?.includes("active assignments")) {
-        ErrorHandling({ defaultError: "No leads available at the moment, please complete all your assigned leads before fetching new ones." });
+
+      // Friendly messaging
+      if (data.fetched_count === 0 && /active assignments/i.test(data?.message || "")) {
+        ErrorHandling({
+          defaultError:
+            "No leads available at the moment. Complete active assignments before fetching new ones.",
+        });
       } else {
-        toast.success(`${data.fetched_count} new leads fetched`);
+        toast.success(`${data.fetched_count ?? 0} new leads fetched`);
       }
+
+      // 3) Refresh current assignments after fetching
       await fetchLeads();
     } catch (error) {
-      console.error("Error fetching leads:", error);
-      ErrorHandling({ error: error, defaultError: "Failed to fetch new leads!" });
+      ErrorHandling({ error, defaultError: "Failed to fetch new leads!" });
     } finally {
       setLoading(false);
     }
@@ -97,7 +133,7 @@ export default function NewLeadsTable() {
       const { data } = await axiosInstance.get("/lead-config/responses/", {
         params: { skip: 0, limit: 100 },
       });
-      setResponses(data);
+      setResponses(data || []);
     } catch (error) {
       console.error("Error fetching responses:", error);
     }
@@ -108,7 +144,7 @@ export default function NewLeadsTable() {
       const { data } = await axiosInstance.get("/lead-config/sources/", {
         params: { skip: 0, limit: 100 },
       });
-      setSources(data);
+      setSources(data || []);
     } catch (error) {
       console.error("Error fetching sources:", error);
     }
@@ -118,6 +154,7 @@ export default function NewLeadsTable() {
     if (!userId) return ErrorHandling({ defaultError: "User not loaded!" });
     if (!lead.tempComment || !lead.tempComment.trim())
       return ErrorHandling({ defaultError: "Comment cannot be empty!" });
+
     try {
       const { data } = await axiosInstance.post(
         `/leads/${lead.id}/comments`,
@@ -129,7 +166,7 @@ export default function NewLeadsTable() {
         prev.map((l) => (l.id === lead.id ? { ...l, comment: data.comment, tempComment: "" } : l))
       );
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to save comment!" });
+      ErrorHandling({ error, defaultError: "Failed to save comment!" });
     }
   };
 
@@ -139,7 +176,7 @@ export default function NewLeadsTable() {
       toast.success("Lead updated successfully!");
       setEditId(null);
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Update failed!" });
+      ErrorHandling({ error, defaultError: "Update failed!" });
     }
   };
 
@@ -158,7 +195,6 @@ export default function NewLeadsTable() {
 
     if (responseName === "call back" || responseName === "callback") {
       setCallBackLead(lead);
-      // ✅ fill input using IST-safe helper
       setCallBackDate(isoToDatetimeLocal(lead.call_back_date || ""));
       setShowCallBackModal(true);
       return;
@@ -173,101 +209,135 @@ export default function NewLeadsTable() {
         prev.map((l) => (l.id === lead.id ? { ...l, lead_response_id: parseInt(newResponseId, 10) } : l))
       );
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to update response!" });
+      ErrorHandling({ error, defaultError: "Failed to update response!" });
     }
   };
 
-  const columns = [
-    {
-      header: "Client Name",
-      render: (lead) =>
-        editId === lead.id ? (
-          <input
-            type="text"
-            value={lead.full_name}
-            onChange={(e) =>
-              setLeads((prev) =>
-                prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
-              )
-            }
-            onBlur={() => handleUpdateName(lead)}
-            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
-          />
-        ) : (
-          <span>{lead.full_name}</span>
+  const columns = useMemo(
+    () => [
+      {
+        header: "Client Name",
+        render: (lead) =>
+          editId === lead.id ? (
+            <input
+              type="text"
+              value={lead.full_name}
+              onChange={(e) =>
+                setLeads((prev) =>
+                  prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
+                )
+              }
+              onBlur={() => handleUpdateName(lead)}
+              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
+            />
+          ) : (
+            <span>{lead.full_name}</span>
+          ),
+      },
+      { header: "Mobile", render: (lead) => lead.mobile },
+      {
+        header: "Response",
+        render: (lead) => (
+          <select
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+            value={lead.lead_response_id || ""}
+            onChange={(e) => handleResponseChange(lead, e.target.value)}
+          >
+            <option value="">Select Response</option>
+            {responses.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
         ),
-    },
-    { header: "Mobile", render: (lead) => lead.mobile },
-    {
-      header: "Response",
-      render: (lead) => (
-        <select
-          className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
-          value={lead.lead_response_id || ""}
-          onChange={(e) => handleResponseChange(lead, e.target.value)}
-        >
-          <option value="">Select Response</option>
-          {responses.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      ),
-    },
-    {
-      header: "Source",
-      render: (lead) => (
-        <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
-          {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
-        </span>
-      ),
-    },
-    {
-      header: "Actions",
-      render: (lead) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() => router.push(`/lead/${lead.id}`)}
-            className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"
-            title="Edit lead"
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            onClick={() => {
-              setStoryLead(lead);
-              setIsStoryModalOpen(true);
-            }}
-            className="w-8 h-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
-            title="View Story"
-          >
-            <BookOpenText size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setSelectedLeadId(lead.id);
-              setIsCommentModalOpen(true);
-            }}
-            className="w-8 h-8 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
-            title="Comments"
-          >
-            <MessageCircle size={16} />
-          </button>
-        </div>
-      ),
-    },
-  ];
+      },
+      {
+        header: "Source",
+        render: (lead) => (
+          <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
+            {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
+          </span>
+        ),
+      },
+      {
+        header: "Actions",
+        render: (lead) => (
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push(`/lead/${lead.id}`)}
+              className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"
+              title="Edit lead"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => {
+                setStoryLead(lead);
+                setIsStoryModalOpen(true);
+              }}
+              className="w-8 h-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
+              title="View Story"
+            >
+              <BookOpenText size={18} />
+            </button>
+            <button
+              onClick={() => {
+                setSelectedLeadId(lead.id);
+                setIsCommentModalOpen(true);
+              }}
+              className="w-8 h-8 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
+              title="Comments"
+            >
+              <MessageCircle size={16} />
+            </button>
+          </div>
+        ),
+      },
+    ],
+    [editId, responses, sources, router]
+  );
 
-  const filteredLeads = leads.filter((l) => !l.lead_response_id);
-  const paginatedLeads = filteredLeads.slice((page - 1) * limit, page * limit);
+  const filteredLeads = useMemo(() => leads.filter((l) => !l.lead_response_id), [leads]);
+  const paginatedLeads = useMemo(
+    () => filteredLeads.slice((page - 1) * limit, page * limit),
+    [filteredLeads, page, limit]
+  );
 
   return (
     <div className="min-h-screen p-4">
-      <div className="flex justify-end mb-4">
+      {/* Assignment status bar */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <Info size={16} />
+          <span>
+            {assignmentMeta.can_fetch_new
+              ? "You can fetch new leads."
+              : "Active leads present — complete them to fetch new leads."}
+          </span>
+          {assignmentMeta.last_fetch_limit != null && (
+            <span className="ml-2 inline-block px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">
+              Last fetch limit: {assignmentMeta.last_fetch_limit}
+            </span>
+          )}
+          {assignmentMeta.assignment_ttl_hours != null && (
+            <span className="ml-2 inline-block px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">
+              TTL: {assignmentMeta.assignment_ttl_hours}h
+            </span>
+          )}
+        </div>
+
         <button
           onClick={handleFetchLeads}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg shadow hover:bg-blue-700 transition"
+          disabled={loading || !assignmentMeta.can_fetch_new}
+          className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg shadow transition
+            ${loading || !assignmentMeta.can_fetch_new ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}
+          `}
+          title={
+            assignmentMeta.can_fetch_new
+              ? "Fetch new leads"
+              : "You have active assignments; finish them to enable fetching."
+          }
         >
           <Download size={16} /> Fetch Leads
         </button>
@@ -286,12 +356,19 @@ export default function NewLeadsTable() {
       </div>
 
       {storyLead && (
-        <StoryModal isOpen={isStoryModalOpen} onClose={() => setIsStoryModalOpen(false)} leadId={storyLead.id} />
+        <StoryModal
+          isOpen={isStoryModalOpen}
+          onClose={() => setIsStoryModalOpen(false)}
+          leadId={storyLead.id}
+        />
       )}
 
-      <CommentModal isOpen={isCommentModalOpen} onClose={() => setIsCommentModalOpen(false)} leadId={selectedLeadId} />
+      <CommentModal
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
+        leadId={selectedLeadId}
+      />
 
-      {/* FT modal unchanged */}
       <FTModal
         open={showFTModal}
         onClose={() => setShowFTModal(false)}
@@ -328,7 +405,6 @@ export default function NewLeadsTable() {
         setToDate={setFTToDate}
       />
 
-      {/* ✅ Callback modal uses the same IST conversion as Lead page */}
       <CallBackModal
         open={showCallBackModal}
         onClose={() => setShowCallBackModal(false)}
@@ -345,7 +421,6 @@ export default function NewLeadsTable() {
               call_back_date: formatCallbackForAPI(callBackDate),
             });
 
-            // store ISO so future prefill uses isoToDatetimeLocal correctly
             const savedISO = formatCallbackForAPI(callBackDate);
             setLeads((prev) =>
               prev.map((l) =>

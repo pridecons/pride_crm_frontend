@@ -82,7 +82,11 @@ export default function OldLeadsTable() {
       });
 
       setLeads(data.assigned_old_leads || []);
-      setTotal(data.total ?? (data.assigned_old_leads || []).length);
+      const serverTotal = data.count ?? data.total ?? 0;
+   setTotal(serverTotal);
+   // if current page is now out of range (after filter/date change), pull it back
+   const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
+   if (page > maxPages) setPage(maxPages);
     } catch (error) {
       ErrorHandling({ error: error, defaultError: "Failed to load leads" });
     } finally {
@@ -448,12 +452,12 @@ export default function OldLeadsTable() {
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-7xl mx-auto overflow-hidden">
         <LeadsDataTable
-          leads={filteredLeads}
+          leads={leads}
           loading={loading}
           columns={columns}
           page={page}
           limit={limit}
-          total={filteredLeads.length}
+          total={total}
           onPageChange={setPage}
         />
       </div>

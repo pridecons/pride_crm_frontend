@@ -122,8 +122,7 @@ export default function LeadForm() {
     const { name, value } = e.target;
 
     if (name === "comment") {
-      setFormData(prev => ({ ...prev, [name]: { text: value } }));
-    } else if (name === "pan") {
+      setFormData(prev => ({ ...prev, [name]: value }));
       setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
     } else if (name === "call_back_date" || name === "dob") {
       if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
@@ -158,15 +157,15 @@ export default function LeadForm() {
         }
         setFormData(prev => ({
           ...prev,
-          full_name: r.user_full_name || prev.full_name,
-          father_name: r.user_father_name || prev.father_name,
-          dob: formatDob(r.user_dob) || prev.dob,
-          aadhaar: r.masked_aadhaar || prev.aadhaar,
-          city: r.user_address?.city || prev.city,
-          state: r.user_address?.state || prev.state,
-          district: r.user_address?.district || prev.district,
-          pincode: r.user_address?.zip || prev.pincode,
-          address: r.user_address?.full || prev.address,
+          full_name: r.user_full_name ?? prev.full_name ?? '',
+          father_name: r.user_father_name ?? prev.father_name ?? '',
+          dob: formatDob(r.user_dob) ?? prev.dob ?? '',
+          aadhaar: r.masked_aadhaar ?? prev.aadhaar ?? '',
+          city: r.user_address?.city ?? prev.city ?? '',
+          state: r.user_address?.state ?? prev.state ?? '',
+          district: r.user_address?.district ?? prev.district ?? '',
+          pincode: r.user_address?.zip ?? prev.pincode ?? '',
+          address: r.user_address?.full ?? prev.address ?? '',
           pan_type: r.pan_type, // keep in form, not sent to backend
         }));
         setPanVerified(true);
@@ -233,7 +232,7 @@ export default function LeadForm() {
         experience: (formData.experience || '').trim() || null,
         lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
         lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
-        comment: typeof formData.comment === 'object' ? (formData.comment?.text || '') : (formData.comment || ''),
+        comment: (formData.comment ?? '').trim(),
         call_back_date: formatForInput(formData.call_back_date),
         // Only send branch_id if the role is not SUPERADMIN
         ...(Cookies.get('user_info') && !JSON.parse(Cookies.get('user_info'))?.role === 'SUPERADMIN' && { branch_id: branchId }),
@@ -372,7 +371,7 @@ export default function LeadForm() {
           <label className="block mb-1 font-medium">Full Name</label>
           <input
             name="full_name"
-            value={formData.full_name}
+            value={formData.full_name ?? ''}
             onChange={handleChange}
             placeholder="Full Name"
             disabled={panVerified}
@@ -417,7 +416,7 @@ export default function LeadForm() {
           <input
             name="email"
             type="email"
-            value={formData.email}
+            value={formData.email ?? ''}
             onChange={handleChange}
             placeholder="Email"
             required
@@ -686,7 +685,7 @@ export default function LeadForm() {
           <label className="block mb-1 font-medium">Lead Source</label>
           <select
             name="lead_source_id"
-            value={formData.lead_source_id}
+            value={formData.segment ?? []}
             onChange={handleChange}
             className="p-2 border rounded w-full"
           >
@@ -714,7 +713,7 @@ export default function LeadForm() {
           <label className="block mb-1 font-medium">Comment / Description</label>
           <textarea
             name="comment"
-            value={typeof formData.comment === 'object' ? (formData.comment.text || '') : (formData.comment || '')}
+            value={formData.comment ?? ''}
             onChange={handleChange}
             placeholder="Description"
             className="p-2 border rounded w-full"

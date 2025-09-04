@@ -126,7 +126,7 @@ const menu = [
     icon: Settings,
     items: [
       { href: '/branch', icon: Building2, label: 'Branch', access:"branch_page" },
-      {href: '/department', icon: Building, label: 'Department', access:""},
+      {href: '/department', icon: Building, label: 'Department', access:"department_page"},
 
       {
         title: 'Management',
@@ -152,11 +152,7 @@ const menu = [
     title: 'Payment',
     items: [
       {
-        // href:
-        //   user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH_MANAGER')
-        //     ? '/admin-payment'
-        //     : '/payment',
-        href: '/admin-payment',
+        href: '/payment',
         icon: CreditCard,
         label: 'Payment',
         access:"payment_page"

@@ -1,986 +1,912 @@
-// src/components/PaymentPage.jsx
 "use client";
-
-import React, { useState, useEffect, useRef, lazy } from "react";
+import React, { useEffect, useState } from "react";
+import { jwtDecode } from "jwt-decode";
+import Cookies from "js-cookie";
+import { FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
-import { DropdownCheckboxButton, InputField } from "@/components/common/InputField";
-import LoadingState from "@/components/LoadingState";
 
-const PAYMENT_METHODS = [
-    { code: "cc", label: "Credit Card", icon: "💳", category: "card" },
-    { code: "dc", label: "Debit Card", icon: "💳", category: "card" },
-    { code: "ccc", label: "Corporate Credit Card", icon: "🏢", category: "card" },
-    { code: "ppc", label: "Prepaid Card", icon: "💳", category: "card" },
-    { code: "nb", label: "Net Banking", icon: "🏦", category: "bank" },
-    { code: "upi", label: "UPI", icon: "📱", category: "digital" },
-    { code: "paypal", label: "PayPal", icon: "🅿", category: "digital" },
-    { code: "app", label: "App Wallet", icon: "📱", category: "digital" },
-    { code: "paylater", label: "Pay Later", icon: "💰", category: "credit" },
-    {
-        code: "cardlessemi",
-        label: "Cardless EMI",
-        icon: "💰",
-        category: "credit",
-    },
-    { code: "dcemi", label: "Debit Card EMI", icon: "💳", category: "credit" },
-    { code: "ccemi", label: "Credit Card EMI", icon: "💳", category: "credit" },
-    {
-        code: "banktransfer",
-        label: "Bank Transfer",
-        icon: "🏦",
-        category: "bank",
-    },
-];
+const DEFAULT_LIMIT = 100;
 
-const TAB_OPTIONS = [
-    { name: "Check Payment", value: "check_payment", icon: "📊" },
-    { name: "Generate Payment Link", value: "generate_link", icon: "🔗" },
-];
+const isEmail = (s = "") =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s).toLowerCase());
+const onlyDigits = (s = "") => s.replace(/[^\d]/g, "");
+const isPhoneLike = (s = "") => onlyDigits(s).length >= 1;
 
-const serviceOption = ["CASH", "OPTION PUT BUY", "OPTION CALL BUY"]; ``
-
-export default function PaymentPage({
-    name = "",
-    phone = "",
-    email = "",
-    service = "",
-}) {
-    const [selectOption, setSelectOption] = useState("check_payment");
-
-    return (
-        <div className="bg-gray-50 relative overflow-y-auto h-full max-h-[90vh]">
-            {/* Header */}
-            <nav className="flex border-b border-gray-200 bg-white sticky top-4 z-20 w-full overflow-x-hidden">
-                {TAB_OPTIONS.map((opt) => (
-                    <button
-                        key={opt.value}
-                        onClick={() => setSelectOption(opt.value)}
-                        className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${selectOption === opt.value
-                            ? "border-blue-500 text-blue-600 bg-blue-50"
-                            : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                            }`}
-                    >
-                        <span className="mr-2">{opt.icon}</span>
-                        {opt.name}
-                    </button>
-                ))}
-            </nav>
-
-            {/* Content */}
-            <div className="bg-white">
-                {selectOption === "generate_link" && (
-                    <CreatePaymentLink
-                        name={name}
-                        phone={phone}
-                        email={email}
-                        service={service}
-                    />
-                )}
-                {selectOption === "check_payment" && <CheckPayment phone={phone} />}
-            </div>
-        </div>
-    );
+function parseClientQuery(q = "") {
+  const trimmed = q.trim();
+  if (!trimmed) return { name: "", email: "", phone_number: "" };
+  if (isEmail(trimmed)) return { name: "", email: trimmed, phone_number: "" };
+  if (isPhoneLike(trimmed)) return { name: "", email: "", phone_number: onlyDigits(trimmed) };
+  return { name: trimmed, email: "", phone_number: "" };
 }
 
-const CreatePaymentLink = ({
-    name = "",
-    phone = "",
-    email = "",
-    service = ""
-}) => {
-    const [amount, setAmount] = useState(0);
-    const [customerName, setCustomerName] = useState(name);
-    const [customerEmail, setCustomerEmail] = useState(email);
-    const [customerPhone, setCustomerPhone] = useState(phone);
+export default function PaymentHistoryPage() {
+  // Role/branch state
+  const [role, setRole] = useState(null);
+  console.log("role", role);
 
-    const [allowAll, setAllowAll] = useState(true);
-    const [selectedMethods, setSelectedMethods] = useState(
-        PAYMENT_METHODS.map((m) => m.code)
-    );
+  const [branchId, setBranchId] = useState("");
+  const [branches, setBranches] = useState([]);
+  const router = useRouter();
+  const [openRowId, setOpenRowId] = useState(null);
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [response, setResponse] = useState(null);
-    const [copied, setCopied] = useState(false);
+  // Service/plan filters
+  const [services, setServices] = useState([]);
+  const [service, setService] = useState("");
+  const [plans, setPlans] = useState([]);
+  const [plan, setPlan] = useState("");
 
-    const [service_plan, setService_plan] = useState({});
-    const [selectService, setSelectService] = useState(service);
-    const [description, setDescription] = useState("");
-    const [call, setCall] = useState(2);
-    const [duration_day, setDuration_day] = useState(0);
+  const [selectedLeadId, setSelectedLeadId] = useState(null);
 
-    const toggleMethod = (code) => {
-        setSelectedMethods((prev) => {
-            const upd = prev.includes(code)
-                ? prev.filter((c) => c !== code)
-                : [...prev, code];
-            setAllowAll(upd.length === PAYMENT_METHODS.length);
-            return upd;
-        });
-    };
+  // ===== Global Client Search (name/email/phone) =====
+  const [clientQuery, setClientQuery] = useState("");
+  const [debouncedClientQuery, setDebouncedClientQuery] = useState(clientQuery);
+  const [clientSuggestions, setClientSuggestions] = useState([]);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
 
-    const handleSelectAll = () => {
-        if (allowAll) {
-            setSelectedMethods([]);
-            setAllowAll(false);
-        } else {
-            setSelectedMethods(PAYMENT_METHODS.map((m) => m.code));
-            setAllowAll(true);
-        }
-    };
+  // Locked (applied) client filter
+  const [clientFilter, setClientFilter] = useState({
+    name: "",
+    email: "",
+    phone_number: "",
+  });
 
-    const handleSubmit = async () => {
-        setError(null);
-        setLoading(true);
+  // Employee (raised_by) filter
+  const [userSearch, setUserSearch] = useState("");
+  const [userSuggestions, setUserSuggestions] = useState([]);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedUserName, setSelectedUserName] = useState("");
+  const [userHL, setUserHL] = useState(0);
 
-        // if (!/^\S+@\S+\.\S+$/.test(customerEmail)) {
-        //     setError("Please enter a valid email address.");
-        //     setLoading(false);
-        //     return;
-        // }
-        if (!/^\d{10}$/.test(customerPhone)) {
-            setError("Please enter a valid 10-digit phone number.");
-            setLoading(false);
-            return;
-        }
-        if (!(amount > 0)) {
-            setError("Amount must be greater than 0.");
-            setLoading(false);
-            return;
-        }
+  // ---- Date filter (draft vs applied) ----
+  // Draft (what user is typing/selecting)
+  const [dateFromDraft, setDateFromDraft] = useState("");
+  const [dateToDraft, setDateToDraft] = useState("");
+  // Applied (used for API)
+  const [date_from, setDateFromApplied] = useState("");
+  const [date_to, setDateToApplied] = useState("");
 
-        try {
-            const payload = {
-                name: customerName,
-                email: customerEmail,
-                phone: customerPhone,
-                service: selectService,
-                amount: amount,
-                payment_methods: allowAll ? "" : selectedMethods.join(","),
-                call: call,
-                duration_day: duration_day,
-                service_id: service_plan?.id,
-                description: description,
-            };
+  // Paging
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [offset, setOffset] = useState(0);
 
-            const { data } = await axiosInstance.post(
-                "/payment/create-order",
-                payload
-            );
-            setResponse(data);
-        } catch (err) {
-            setError(err.response?.data?.detail || err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+  // Data states
+  const [loading, setLoading] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState("");
 
-    const handleCopy = () => {
-        const link = response?.cashfreeResponse?.payment_link;
-        if (link) {
-            navigator.clipboard.writeText(link).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            });
-        }
-    };
+  // View scope for non-managers: "self" | "other"
+  // (Admins/managers will be forced to "all")
+  const [myView, setMyView] = useState("self");
 
-    const grouped = PAYMENT_METHODS.reduce((acc, m) => {
-        (acc[m.category] ??= []).push(m);
-        return acc;
-    }, {});
+  // Debounce for client query
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedClientQuery(clientQuery), 300);
+    return () => clearTimeout(t);
+  }, [clientQuery]);
 
-    const labels = {
-        card: "💳 Cards",
-        bank: "🏦 Banking",
-        digital: "📱 Digital Wallets",
-        credit: "💰 Credit & EMI",
-    };
+  // Auth + branches
+  useEffect(() => {
+    const token = Cookies.get("access_token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    const decoded = jwtDecode(token);
 
-    const handleAmount = (value) => {
-        const newAmount = parseFloat(value);
-        setAmount(newAmount);
+    // ✅ Use role_name instead of role
+    const userRole = (decoded.role_name || "").toUpperCase();
+    setRole(userRole);
 
-        if (service_plan?.billing_cycle === "CALL") {
-            const perCall = service_plan?.discounted_price / service_plan?.CALL;
-            const totalCall = Math.round(newAmount / perCall);
-            setCall(totalCall);
-            setDuration_day(0);
-        } else {
-            setCall(0);
-            const daysCount = service_plan?.billing_cycle === "MONTHLY" ? 30 : 365;
-            const perDayPrice = service_plan?.discounted_price / daysCount;
-            const totalDays = Math.round(newAmount / perDayPrice);
-            setDuration_day(totalDays);
-        }
-    };
+    if (userRole === "BRANCH_MANAGER") {
+      setBranchId(decoded.branch_id?.toString() || "");
+    }
+    // default scope by role
+    if (userRole === "SUPERADMIN" || userRole === "BRANCH_MANAGER") {
+      setMyView("all");
+    } else {
+      setMyView("self");
+    }
 
-    console.log("service_plan : ", service_plan);
+    axiosInstance
+      .get("/branches/")
+      .then((res) => setBranches(res.data.branches || res.data || []))
+      .catch(() => setBranches([]));
+  }, [router]);
 
-    return (
-        <div className="p-6 space-y-6">
-            {/* If No Payment Link */}
-            {!response?.cashfreeResponse?.payment_link && (
-                <>
-                    {/* Customer Info */}
-                    <div className="bg-gray-50 rounded-xl p-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                            👤 Customer Information
-                        </h3>
-                        <ServiceCard
-                            selectService={service_plan}
-                            setSelectService={(val) => {
-                                setService_plan(val);
-                                setCall(val?.CALL);
-                                setAmount(val?.discounted_price);
-                                setDuration_day(
-                                    val?.billing_cycle === "MONTHLY"
-                                        ? 30
-                                        : val?.billing_cycle === "YEARLY"
-                                            ? 365
-                                            : 0
-                                );
-                            }}
-                        />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                            <InputField
-                                label="Full Name"
-                                value={customerName}
-                                setValue={setCustomerName}
-                            />
-                            <InputField
-                                label="Email Address"
-                                value={customerEmail}
-                                setValue={setCustomerEmail}
-                                placeholder="customer@example.com"
-                            />
-                            <InputField
-                                label="Phone Number"
-                                value={customerPhone}
-                                setValue={(val) => {
-                                    // Allow only digits
-                                    const digitsOnly = val.replace(/\D/g, "");
-                                    setCustomerPhone(digitsOnly);
-                                }}
-                                placeholder="10-digit number"
-                            />
+  // ...
 
-                            <div>
-                                <label
-                                    htmlFor="service-select"
-                                    className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-                                >
-                                    Select Service
-                                </label>
-                                <select
-                                    id="service-select"
-                                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                                    value={selectService}
-                                    onChange={(e) => setSelectService(e.target.value)}
-                                >
-                                    <option value="" disabled>
-                                        Choose a Service
-                                    </option>
-                                    {serviceOption.map((val) => (
-                                        <option key={val} value={val}>
-                                            {val}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <InputField
-                                label="Description"
-                                value={description}
-                                setValue={setDescription}
-                                placeholder="Product or service details"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Amount */}
-                    <div className="grid grid-cols-12 gap-4">
-                        {/* Payment Amount - Takes 8 columns (larger width) */}
-                        <div className="col-span-8">
-                            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-3 shadow-sm border border-green-200">
-                                <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                                    <span className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
-                                        ₹
-                                    </span>
-                                    Payment Amount
-                                </h3>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600 text-xl font-semibold">
-                                        ₹
-                                    </span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={amount}
-                                        onChange={(e) => {
-                                            handleAmount(e.target.value);
-                                        }}
-                                        className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium transition-all duration-200 bg-white shadow-sm hover:shadow-md"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Duration/Call Field - Takes 4 columns (smaller width) */}
-                        <div className="col-span-4">
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 shadow-sm border border-blue-200 h-full">
-                                {service_plan?.billing_cycle === "CALL" ? (
-                                    <div>
-                                        <label className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                                            <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
-                                                📞
-                                            </span>
-                                            Call
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={call}
-                                            onChange={(e) => setCall(e.target.value)}
-                                            placeholder=""
-                                            disabled={true}
-                                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-gray-100 text-lg font-medium text-gray-600 cursor-not-allowed"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <label className="text-lg font-semibold text-gray-800 mb-2 flex items-center">
-                                            <span className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">
-                                                📅
-                                            </span>
-                                            Duration (Days)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={duration_day}
-                                            onChange={(e) => setDuration_day(e.target.value)}
-                                            placeholder=""
-                                            disabled={true}
-                                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg bg-gray-100 text-lg font-medium text-gray-600 cursor-not-allowed"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Payment Methods */}
-                    <div className="bg-blue-50 rounded-xl p-4 space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
-                            💳 Payment Methods
-                        </h3>
-                        <label className="inline-flex items-center mb-4 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                                checked={allowAll}
-                                onChange={handleSelectAll}
-                            />
-                            <span className="ml-3 text-gray-700 font-medium">
-                                Enable All Payment Methods
-                            </span>
-                        </label>
-                        {Object.entries(grouped).map(([cat, methods]) => (
-                            <div key={cat} className="bg-white rounded-lg p-3">
-                                <h4 className="text-sm font-semibold text-gray-600 mb-3">
-                                    {labels[cat]}
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {methods.map((m) => (
-                                        <label
-                                            key={m.code}
-                                            className="inline-flex items-center p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                                checked={selectedMethods.includes(m.code)}
-                                                onChange={() => toggleMethod(m.code)}
-                                            />
-                                            <span className="ml-3 flex items-center">
-                                                <span className="mr-2">{m.icon}</span>
-                                                {m.label}
-                                            </span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Error */}
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-                            <span className="text-red-500 text-xl mr-3">⚠</span>
-                            <div>
-                                <h4 className="text-red-800 font-medium">Error</h4>
-                                <p className="text-red-700 text-sm mt-1">{error}</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-4 border-t">
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={loading}
-                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                        >
-                            {loading ? "⏳ Creating..." : "💰 Generate Payment Link"}
-                        </button>
-                    </div>
-                </>
-            )}
-
-            {/* If Payment Link Generated */}
-            {response?.cashfreeResponse?.payment_link && (
-                <div className="space-y-6">
-                    {/* Payment Link */}
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <h4 className="text-green-800 font-medium mb-3">
-                            ✅ Payment Link Generated
-                        </h4>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                readOnly
-                                value={response.cashfreeResponse.payment_link}
-                                className="flex-1 border border-green-300 rounded-lg px-3 py-2 text-sm"
-                            />
-                            <button
-                                onClick={handleCopy}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium ${copied
-                                    ? "bg-gray-200"
-                                    : "bg-green-600 text-white hover:bg-green-700"
-                                    }`}
-                            >
-                                {copied ? "✅ Copied" : "📋 Copy"}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* QR Code */}
-                    <QRCodeSection orderId={response.cashfreeResponse.order_id} />
-
-                    {/* UPI Section */}
-                    <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
-                </div>
-            )}
-        </div>
-    );
-};
-
-const ServiceCard = ({ selectService = {}, setSelectService = () => { } }) => {
-    const [service_plan, setService_plan] = useState([]);
-
-    useEffect(() => {
-        const fetchServices = async () => {
-            try {
-                const { data } = await axiosInstance.get("/services/");
-                setService_plan(data);
-            } catch (err) {
-                console.error("Failed to load services:", err);
-            }
-        };
-        fetchServices();
-    }, []);
-
-    const handleSelect = (service) => {
-        console.log("service : ", service);
-        setSelectService(service);
-    };
-
-    return (
-        <div
-            className="w-full flex flex-row gap-6 mt-8 overflow-x-auto pb-2 z-10"
-            style={{
-                msOverflowStyle: "none",
-                scrollbarWidth: "none",
-                WebkitScrollbar: { display: "none" },
+  // Branch chips
+  <div className="bg-white p-4 rounded-lg shadow mb-6 gap-4">
+    {(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
+      <div className="flex space-x-2 overflow-x-auto">
+        {role === "SUPERADMIN" && (
+          <button
+            onClick={() => {
+              setBranchId("");
+              setOffset(0);
             }}
-        >
-            {service_plan.map((service) => (
-                <div
-                    key={service.id}
-                    onClick={() => handleSelect(service)}
-                    className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${selectService?.id === service.id
-                        ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
-                        : "border-gray-200 hover:border-gray-300"
-                        }`}
-                >
-                    {/* Selected Badge */}
-                    {selectService?.id === service.id && (
-                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-md">
-                            Selected
-                        </div>
-                    )}
+            className={`px-4 py-2 rounded ${branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+              }`}
+          >
+            All Branches
+          </button>
+        )}
+        {(role === "SUPERADMIN"
+          ? branches
+          : branches.filter((b) => String((b.id ?? b.branch_id)) === String(branchId))
+        ).map((b) => {
+          const bid = b.id ?? b.branch_id;
+          const isActive = String(branchId) === String(bid);
+          return (
+            <button
+              key={bid}
+              onClick={() => {
+                setBranchId(String(bid));
+                setOffset(0);
+              }}
+              disabled={role === "BRANCH_MANAGER"} // ✅ only superadmin can switch
+              className={`px-4 py-2 rounded ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              {b.name || b.branch_name || `Branch ${bid}`}
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
 
-                    <div className="mt-1">
-                        {/* Service Name */}
-                        <div className="flex justify-between">
-                            <h3 className="text-lg font-bold text-gray-800 mb-2 leading-tight">
-                                {service.name}
-                            </h3>
 
-                            {/* Discount Badge */}
-                            {service.discount_percent > 0 && (
-                                <div className="bg-red-500 text-white text-xs px-2 py-1 rounded-md font-bold">
-                                    {service.discount_percent}% OFF
-                                </div>
-                            )}
-                        </div>
+  // Services list
+  useEffect(() => {
+    axiosInstance
+      .get("/profile-role/recommendation-type/")
+      .then((res) => setServices(res.data))
+      .catch(() => { });
+  }, []);
 
-                        {/* Description */}
-                        <p className="text-sm text-gray-600 mb-3 leading-relaxed line-clamp-2">
-                            {service.description}
-                        </p>
+  // Plans (by service)
+  useEffect(() => {
+    const url = !service ? "/services/" : `/services/?service=${encodeURIComponent(service)}`;
+    axiosInstance
+      .get(url)
+      .then((res) => setPlans(res.data || []))
+      .catch(() => setPlans([]));
+    setPlan("");
+    setOffset(0);
+  }, [service]);
 
-                        {/* Price Section */}
-                        <div className="mb-2 p-2 bg-gray-50 rounded-lg">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-xl font-bold text-gray-800">
-                                    ₹{service.discounted_price}
-                                </span>
-                                {service.discount_percent > 0 && (
-                                    <span className="text-sm line-through text-gray-400">
-                                        ₹{service.price}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
+  // Employee (raised_by) suggestions
+  // Employee (raised_by) suggestions
+  useEffect(() => {
+    // Non-managers cannot search employees
+    if (!canSearchEmployees) {
+      setUserSuggestions([]);
+      setShowUserDropdown(false);
+      return;
+    }
 
-                        {/* Billing Info */}
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Billing:</span>
-                            <span className="text-gray-800 font-semibold">
-                                {service.billing_cycle}
-                                {service.billing_cycle === "CALL" && service.CALL && (
-                                    <span className="text-gray-500 ml-1">({service.CALL})</span>
-                                )}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
+    const search = userSearch.trim();
+    if (!search) {
+      setUserSuggestions([]);
+      setShowUserDropdown(false);
+      return;
+    }
 
-const QRCodeSection = ({ orderId }) => {
-    const [qrData, setQrData] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const params = {
+          search: search,
+          limit: 10,
+          // SUPERADMIN → no branch filter
+          // BRANCH_MANAGER → lock to own branch
+          branch_id: isManagerOnly ? branchId : undefined,
+        };
 
-    const fetchQR = async () => {
-        try {
-            setLoading(true);
-            const { data } = await axiosInstance.post(
-                `/payment/generate-qr-code/${orderId}`,
-                {} // Optional: Include payload or leave empty if not needed
-            );
+        const res = await axiosInstance.get(`/users/`, {
+          params,
+          signal: controller.signal,
+        });
 
-            setQrData(data);
-        } catch (err) {
-            console.error("QR Error:", err);
-        } finally {
-            setLoading(false);
+        const raw = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const list = raw.map((u) => ({
+          id: u.id ?? u.user_id ?? u.employee_code ?? u.email ?? u.phone ?? u.name,
+          name: u.name ?? "",
+          role: u.role ?? "",
+          email: u.email ?? u.official_email ?? "",
+          phone: u.phone ?? u.phone_number ?? u.mobile ?? "",
+        }));
+        setUserSuggestions(list);
+        setUserHL(0);
+        setShowUserDropdown(list.length > 0);
+      } catch (err) {
+        if (err.name !== "CanceledError" && err.name !== "AbortError") {
+          setUserSuggestions([]);
+          setShowUserDropdown(false);
         }
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(t);
+      controller.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userSearch, role, branchId]);
 
-    return (
-        <div className="bg-blue-50 rounded-lg p-4">
-            <h4 className="text-blue-800 font-medium mb-3">📷 QR Code Payment</h4>
-            {!qrData ? (
-                loading ? (
-                    <LoadingState message="Generating QR code..." />
-                ) : (
-                    <button
-                        type="button"
-                        onClick={fetchQR}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        Generate QR Code
-                    </button>
-                )
-            ) : (
-                <div className="flex flex-col items-center space-y-2">
-                    <img
-                        src={qrData.qrcode}
-                        alt="Payment QR Code"
-                        className="w-48 h-48 border rounded-lg"
-                    />
-                    <p className="text-gray-600 text-sm">
-                        Scan to Pay ₹{qrData.payment_amount}
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-};
+  // Global Client Suggestions (name/email/phone)
+  // Global Client Suggestions (name/email/phone) with role restrictions
+  useEffect(() => {
+    const q = debouncedClientQuery.trim();
+    if (!q) {
+      setClientSuggestions([]);
+      setShowClientDropdown(false);
+      return;
+    }
 
-const UPIRequestSection = ({ orderId }) => {
-    const [upiId, setUpiId] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [upiLink, setUpiLink] = useState(null);
+    const base = parseClientQuery(q);
+    const digits = onlyDigits(q);
+    const isPhoneSearch = !!digits;
+    const shortPhone = isPhoneSearch && digits.length < 10;
 
-    const handleGenerateUPI = async () => {
-        if (!upiId.trim()) {
-            alert("Enter a valid UPI ID");
-            return;
-        }
-        setLoading(true);
+    const controller = new AbortController();
+    const t = setTimeout(() => {
+      (async () => {
         try {
-            const { data: upiData } = await axiosInstance.post(
-                `/payment/generate-upi-request/${orderId}?upi_id=${encodeURIComponent(
-                    upiId
-                )}`
+          // build params with role restrictions
+          const params = {
+            name: isPhoneSearch ? undefined : (base.name || undefined),
+            email: base.email || undefined,
+            phone_number: (!shortPhone && isPhoneSearch) ? digits : undefined,
+            phone_contains: shortPhone ? digits : undefined,
+            limit: 20,
+            offset: 0,
+            // role-based scope
+            view: isNonManager ? myView : undefined,               // non-managers -> self|other
+            branch_id: isManagerOnly ? Number(branchId) : undefined, // managers -> own branch
+          };
+
+          const res = await axiosInstance.get(`/payment/all/employee/history`, {
+            params,
+            signal: controller.signal,
+          });
+
+          let list = Array.isArray(res?.data?.payments)
+            ? res.data.payments
+            : Array.isArray(res?.data?.data)
+              ? res.data.data
+              : [];
+
+          if (list.length === 0 && shortPhone) {
+            const res2 = await axiosInstance.get(`/payment/all/employee/history`, {
+              params: { ...params, limit: 200, offset: 0 },
+              signal: controller.signal,
+            });
+            list = Array.isArray(res2?.data?.payments)
+              ? res2.data.payments
+              : Array.isArray(res2?.data?.data)
+                ? res2.data.data
+                : [];
+          }
+
+          const seen = new Set();
+          const uniq = [];
+          for (const p of list) {
+            const key =
+              (p.email && `e:${p.email}`) ||
+              (p.phone_number && `m:${p.phone_number}`) ||
+              (p.name && `n:${p.name}`) ||
+              `id:${p.id}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              uniq.push({
+                id: p.lead_id || p.id,
+                name: p.name || "",
+                email: p.email || "",
+                phone_number: p.phone_number || "",
+              });
+            }
+          }
+
+          const qLower = q.toLowerCase();
+          const filtered = uniq.filter((c) => {
+            const phoneDigits = onlyDigits(c.phone_number || "");
+            return (
+              (c.name || "").toLowerCase().includes(qLower) ||
+              (c.email || "").toLowerCase().includes(qLower) ||
+              (digits ? phoneDigits.includes(digits) : false)
             );
-            setUpiLink(upiData);
+          });
+
+          setClientSuggestions(filtered.slice(0, 10));
+          setShowClientDropdown(filtered.length > 0);
         } catch (err) {
-            console.error("UPI Error:", err);
-            alert("Failed to send UPI request.");
-        } finally {
-            setLoading(false);
+          if (err.name !== "CanceledError" && err.name !== "AbortError") {
+            setClientSuggestions([]);
+            setShowClientDropdown(false);
+          }
         }
+      })();
+    }, 150);
+
+    return () => {
+      clearTimeout(t);
+      controller.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedClientQuery, role, branchId, myView]);
 
-    return (
-        <div className="bg-purple-50 rounded-lg p-4">
-            <h4 className="text-purple-800 font-medium mb-3">
-                📱 UPI Payment Request
-            </h4>
-            {!upiLink ? (
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        placeholder="Enter UPI ID (e.g. 98765@ybl)"
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
-                    />
-                    {loading ? (
-                        <LoadingState message="Sending UPI request..." />
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={handleGenerateUPI}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                        >
-                            Send Request
-                        </button>
-                    )}
-                </div>
-            ) : (
-                <div className="text-green-700 font-semibold mt-2">
-                    ✅ UPI Request Sent Successfully!
-                </div>
-            )}
-        </div>
-    );
-};
+  // Handlers
+  const handleUserSelect = (user) => {
+    setSelectedUserId(user.id || user.employee_code || user.user_id || "");
+    setSelectedUserName(user.name || "");
+    setUserSearch(user.name || "");
+    setShowUserDropdown(false);
+    setOffset(0);
+  };
 
-// ⬇️ Replace ONLY the existing CheckPayment component with this
+  const clearSelectedUser = () => {
+    setSelectedUserId("");
+    setSelectedUserName("");
+    setUserSearch("");
+    setOffset(0);
+  };
 
-// ⬇️ Replace ONLY the existing CheckPayment component with this
+  const handleClientSelect = (c) => {
+    setClientFilter({
+      name: c.name || "",
+      email: c.email || "",
+      phone_number: c.phone_number || "",
+    });
+    const pretty = [c.name, c.email, c.phone_number].filter(Boolean).join(" — ");
+    setClientQuery(pretty);
+    setShowClientDropdown(false);
+    setOffset(0);
+  };
 
-const CheckPayment = () => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const clearClientFilter = () => {
+    setClientFilter({ name: "", email: "", phone_number: "" });
+    setClientQuery("");
+    setClientSuggestions([]);
+    setShowClientDropdown(false);
+    setOffset(0);
+  };
 
-  // Date inputs (what user is typing)
-  const [dateFromInput, setDateFromInput] = useState("");
-  const [dateToInput, setDateToInput] = useState("");
+  // Apply/Clear for dates
+  const applyDateFilter = () => {
+    // If only one date is provided, treat as a single-day filter
+    if (dateFromDraft && !dateToDraft) {
+      setDateFromApplied(dateFromDraft);
+      setDateToApplied(dateFromDraft);
+    } else if (!dateFromDraft && dateToDraft) {
+      setDateFromApplied(dateToDraft);
+      setDateToApplied(dateToDraft);
+    } else {
+      setDateFromApplied(dateFromDraft || "");
+      setDateToApplied(dateToDraft || "");
+    }
+    setOffset(0);
+  };
 
-  // Applied dates (used for fetching/filtering after clicking Apply)
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const clearDateFilter = () => {
+    setDateFromDraft("");
+    setDateToDraft("");
+    setDateFromApplied("");
+    setDateToApplied("");
+    setOffset(0);
+  };
 
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Fetch history; if a single date is provided, backend filters that day.
-  const fetchHistory = async (singleDate = "") => {
+  // Fetch payments with ALL filters
+  const fetchPayments = async () => {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
-      let url = "/payment/employee/history";
-      if (singleDate) url += `?date=${singleDate}`;
-      const { data } = await axiosInstance.get(url);
-      setHistory(Array.isArray(data) ? data : []);
-      setError(null);
+      // Only SA/BM may send branch filter
+      const branchParam =
+        canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
+          ? Number(branchId)
+          : undefined;
+
+      // Only SA/BM may filter by employee (raised_by/user_id)
+      const raisedByParam = canSearchEmployees ? (selectedUserId || undefined) : undefined;
+
+      const parsed =
+        clientFilter.name || clientFilter.email || clientFilter.phone_number
+          ? clientFilter
+          : parseClientQuery(clientQuery);
+
+      const params = {
+        service: service || undefined,
+        plan_id: plan || undefined,
+        name: parsed.name || undefined,
+        email: parsed.email || undefined,
+        phone_number: parsed.phone_number || undefined,
+        branch_id: branchParam,
+        branch: branchParam,
+        date_from: date_from || undefined,
+        date_to: date_to || undefined,
+        limit,
+        offset,
+        user_id: raisedByParam,
+        raised_by: raisedByParam,
+        // Non-managers must pass view; SA/BM use "all"
+        view: canPickBranch ? "all" : myView,
+      };
+      Object.keys(params).forEach((k) => {
+        if (params[k] === "" || params[k] === null) delete params[k];
+      });
+
+      const { data } = await axiosInstance.get("/payment/all/employee/history", { params });
+      setPayments(data.payments || []);
+      setTotal(data.total || 0);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to fetch payment history.");
+      const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message || "Failed to fetch payment history."
+
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial load (all)
+  // helpers for permissions in filters
+  const canPickBranch = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
+  const canSearchEmployees = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
+  const isManagerOnly = role === "BRANCH_MANAGER";
+  const isNonManager = !(role === "SUPERADMIN" || role === "BRANCH_MANAGER");
+
+  // Auto-fetch when filters (except draft dates) change
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    if (role) fetchPayments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    role,
+    branchId,
+    service,
+    plan,
+    clientFilter,
+    selectedUserId,
+    date_from,        // <-- applied dates only
+    date_to,          // <-- applied dates only
+    limit,
+    offset,
+    myView,
+  ]);
 
-  // Click handler for Apply (Search)
-  const handleApplyDates = () => {
-    // Normalize if from > to → lock to = from
-    let from = dateFromInput;
-    let to = dateToInput;
-    if (from && to && new Date(from) > new Date(to)) {
-      to = from;
-      setDateToInput(to);
-    }
-
-    // Save applied range
-    setDateFrom(from);
-    setDateTo(to);
-
-    // Decide how to fetch
-    if (!from && !to) {
-      fetchHistory(); // all
-    } else if (from && !to) {
-      fetchHistory(from); // single day
-    } else if (!from && to) {
-      fetchHistory(to); // single day
-    } else {
-      // both → fetch all, range-filter locally
-      fetchHistory();
-    }
-  };
-
-  const handleClearDates = () => {
-    setDateFromInput("");
-    setDateToInput("");
-    setDateFrom("");
-    setDateTo("");
-    fetchHistory(); // back to all
-  };
-
-  // Map status to badge classes
-  const getStatusColor = (status) => {
-    const s = (status || "").toUpperCase();
-    switch (s) {
-      case "PAID": return "bg-green-100 text-green-800 border-green-200";
-      case "ACTIVE": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "PENDING": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "EXPIRED": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "FAILED":
-      case "CANCELLED": return "bg-red-100 text-red-800 border-red-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  // Helper: local date (YYYY-MM-DD) from ISO
-  const toLocalDateOnly = (iso) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  // Apply filters (status + search + applied dates)
-  const filtered = React.useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-
-    return history.filter((item) => {
-      const itemStatus = (item?.status || "").toUpperCase();
-      const statusMatch = statusFilter === "ALL" || itemStatus === statusFilter.toUpperCase();
-
-      // Date filter uses APPLIED dates only
-      const itemDay = toLocalDateOnly(item?.created_at);
-      const dateMatch = (() => {
-        if (!dateFrom && !dateTo) return true;
-        if (dateFrom && !dateTo) return itemDay === dateFrom;
-        if (!dateFrom && dateTo) return itemDay === dateTo;
-        return itemDay >= dateFrom && itemDay <= dateTo; // inclusive range
-      })();
-
-      const haystack = [
-        item?.name,
-        item?.email,
-        item?.order_id,
-        item?.phone_number,
-        item?.invoice_no,
-        Array.isArray(item?.Service) ? item.Service.join(", ") : item?.Service,
-      ]
-        .filter(Boolean)
-        .map((v) => String(v).toLowerCase());
-
-      const searchMatch = !q || haystack.some((v) => v.includes(q));
-
-      return statusMatch && dateMatch && searchMatch;
-    });
-  }, [history, statusFilter, dateFrom, dateTo, searchTerm]);
-
-  // Build dynamic status options from the fetched data
-  const statusOptions = React.useMemo(() => {
-    const uniq = Array.from(
-      new Set(history.map((x) => (x?.status || "").toUpperCase()).filter(Boolean))
-    ).sort();
-    return ["ALL", ...uniq];
-  }, [history]);
+  const isBranchDropdownDisabled = role === "BRANCH MANAGER";
 
   return (
-    <div className="p-6">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          📊 All Payment History
-        </h3>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold mb-6">All Employee Payment History</h2>
+      {!(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
+        <div className="mb-4 inline-flex rounded-md shadow-sm" role="group">
+          {["self", "other"].map((v, i) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setMyView(v)}
+              className={`px-4 py-2 text-sm font-medium border
+          ${myView === v
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"}
+          ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+            >
+              {v === "self" ? "My Payments" : "Team Payments"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Branch chips */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6 gap-4">
+        {(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
+          <div className="flex space-x-2 overflow-x-auto">
+            {role === "SUPERADMIN" && (
+              <button
+                onClick={() => {
+                  setBranchId("");
+                  setOffset(0);
+                }}
+                className={`px-4 py-2 rounded ${branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                  }`}
+              >
+                All Branches
+              </button>
+            )}
+            {(role === "SUPERADMIN"
+              ? branches
+              : branches.filter((b) => String((b.id ?? b.branch_id)) === String(branchId))
+            ).map((b) => {
+              const bid = b.id ?? b.branch_id;
+              const isActive = String(branchId) === String(bid);
+              return (
+                <button
+                  key={bid}
+                  onClick={() => {
+                    setBranchId(String(bid));
+                    setOffset(0);
+                  }}
+                  disabled={role === "BRANCH_MANAGER"} // ✅ only superadmin can switch
+                  className={`px-4 py-2 rounded ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                    } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  {b.name || b.branch_name || `Branch ${bid}`}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 flex-wrap">
-        {/* Status Dropdown (dynamic) */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="status" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-            Filter by Status:
-          </label>
-          <select
-            id="status"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {statusOptions.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <select
+          className="input"
+          value={service}
+          onChange={(e) => {
+            setService(e.target.value);
+            setOffset(0);
+          }}
+        >
+          <option value="">All Service</option>
+          {services.map((s, idx) => (
+            <option key={idx} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
 
-        {/* Date Range with Apply/Clear */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
-            Filter by Date:
-          </label>
+        <select
+          className="input"
+          value={plan}
+          onChange={(e) => {
+            setPlan(e.target.value);
+            setOffset(0);
+          }}
+        >
+          <option value="">All Plan</option>
+          {plans.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} — ₹{p.discounted_price}
+            </option>
+          ))}
+        </select>
+
+        {/* Global Client Search (name/email/phone) */}
+        <div className="relative">
           <input
-            type="date"
-            value={dateFromInput}
-            onChange={(e) => setDateFromInput(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="From"
+            className="input w-full"
+            type="text"
+            placeholder="Search client by name, email, or mobile"
+            value={clientQuery}
+            onChange={(e) => {
+              setClientQuery(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const parsed = parseClientQuery(clientQuery);
+                setClientFilter(parsed);
+                setOffset(0);
+                setShowClientDropdown(false);
+              }
+            }}
+            onFocus={() => {
+              if (clientSuggestions.length > 0) setShowClientDropdown(true);
+            }}
           />
-          <span className="text-gray-400">to</span>
-          <input
-            type="date"
-            value={dateToInput}
-            onChange={(e) => setDateToInput(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="To"
-          />
-
-          <button
-            type="button"
-            onClick={handleApplyDates}
-            disabled={loading}
-            className="ml-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            title="Apply date filter"
-          >
-            Apply
-          </button>
-
-          {(dateFromInput || dateToInput || dateFrom || dateTo) && (
-            <button
-              type="button"
-              onClick={handleClearDates}
-              className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50"
-              title="Clear dates"
-            >
-              Clear
-            </button>
+          {(clientFilter.name || clientFilter.email || clientFilter.phone_number) && (
+            <div className="mt-1 inline-flex items-center text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded">
+              {[clientFilter.name, clientFilter.email, clientFilter.phone_number]
+                .filter(Boolean)
+                .join(" • ")}
+              <button
+                onClick={clearClientFilter}
+                className="ml-2 text-indigo-600 hover:text-indigo-800"
+                title="Clear"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {showClientDropdown && clientSuggestions.length > 0 && (
+            <ul className="absolute z-20 bg-white border border-gray-200 w-full max-h-56 overflow-y-auto rounded shadow">
+              {clientSuggestions.map((c, idx) => (
+                <li
+                  key={`${c.id}-${idx}`}
+                  onClick={() => handleClientSelect(c)}
+                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                >
+                  <div className="font-medium">{c.name || "(No name)"}</div>
+                  <div className="text-xs text-gray-500">
+                    {c.email || "—"} • {c.phone_number || "—"}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
-          <label htmlFor="search" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-            Search:
-          </label>
+        {/* Employee (raised_by) */}
+        <div className="relative">
           <input
+            className="input w-full"
             type="text"
-            id="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Name, Email, Order ID, Phone, Invoice"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={
+              canSearchEmployees ? "Search employee (raised by)..." : "Search employee (raised by)"
+            }
+            value={userSearch}
+            onChange={(e) => {
+              if (!canSearchEmployees) return;
+              setUserSearch(e.target.value);
+              setShowUserDropdown(true);
+            }}
+            disabled={!canSearchEmployees}
+            onKeyDown={(e) => {
+              if (!canSearchEmployees || !showUserDropdown || userSuggestions.length === 0) return;
+              if (e.key === "ArrowDown") { e.preventDefault(); setUserHL((i) => Math.min(i + 1, userSuggestions.length - 1)); }
+              else if (e.key === "ArrowUp") { e.preventDefault(); setUserHL((i) => Math.max(i - 1, 0)); }
+              else if (e.key === "Enter") { e.preventDefault(); const pick = userSuggestions[userHL]; if (pick) handleUserSelect(pick); }
+              else if (e.key === "Escape") { setShowUserDropdown(false); }
+            }}
+            onFocus={() => { if (canSearchEmployees && userSuggestions.length > 0) setShowUserDropdown(true); }}
+            onBlur={() => setTimeout(() => setShowUserDropdown(false), 120)}
           />
+
+          {canSearchEmployees && selectedUserId && (
+            <div className="mt-1 inline-flex items-center text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+              {selectedUserName || selectedUserId}
+              <button onClick={clearSelectedUser} className="ml-2 text-blue-600 hover:text-blue-800" title="Clear">✕</button>
+            </div>
+          )}
+
+          {canSearchEmployees && showUserDropdown && userSuggestions.length > 0 && (
+            <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-48 overflow-y-auto rounded shadow">
+              {userSuggestions.map((u, idx) => (
+                <li
+                  key={u.id}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleUserSelect(u)}
+                  className={`px-3 py-2 cursor-pointer ${idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"}`}
+                >
+                  <div className="flex justify-between">
+                    <span className="font-medium">{u.name || "Unknown"}</span>
+                    {u.role ? <span className="text-xs text-gray-500">{u.role}</span> : null}
+                  </div>
+                  <div className="text-xs text-gray-500">{u.email || "—"} • {u.phone || "—"}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+
         </div>
+
+        {/* Date filter (draft inputs + action buttons in same row) */}
+        <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+          <input
+            className="input"
+            type="date"
+            value={dateFromDraft}
+            onChange={(e) => setDateFromDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyDateFilter()}
+            placeholder="From"
+          />
+          <input
+            className="input"
+            type="date"
+            value={dateToDraft}
+            onChange={(e) => setDateToDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyDateFilter()}
+            placeholder="To"
+          />
+          <button
+            type="button"
+            onClick={applyDateFilter}
+            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={clearDateFilter}
+            className="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 transition"
+          >
+            Clear
+          </button>
+          {(date_from || date_to) && (
+            <span className="text-xs text-gray-600">
+              Applied: {date_from}{date_to && date_to !== date_from ? ` → ${date_to}` : ""}
+            </span>
+          )}
+        </div>
+        <p className="md:col-span-2 text-xs text-gray-500 mt-1">
+          Tip: Leave one side empty for a single-day filter — we’ll apply that same date as both
+          <code className="px-1">from</code> and <code className="px-1">to</code>.
+        </p>
+
       </div>
 
-      {loading && <LoadingState message="Loading payment history..." />}
-
+      {/* Results */}
+      {loading && <div>Loading...</div>}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-          <span className="text-red-500 text-xl mr-3">⚠</span>
-          <div>
-            <h4 className="text-red-800 font-medium">Error</h4>
-            <p className="text-red-700 text-sm mt-1">{error}</p>
+        <div className="bg-red-100 border border-red-300 text-red-700 rounded px-4 py-2 mb-4">
+          {error}
+        </div>
+      )}
+      {!loading && !error && payments.length === 0 && (
+        <div className="text-gray-500 text-center py-10">No records found.</div>
+      )}
+
+      {!loading && !error && payments.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white rounded-lg shadow text-sm">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="py-2 px-3 border-b font-semibold">Name</th>
+                <th className="py-2 px-3 border-b font-semibold">Email</th>
+                <th className="py-2 px-3 border-b font-semibold">Phone</th>
+                <th className="py-2 px-3 border-b font-semibold">Amount</th>
+                <th className="py-2 px-3 border-b font-semibold">Status</th>
+                <th className="py-2 px-3 border-b font-semibold">Date</th>
+                <th className="py-2 px-3 border-b font-semibold">Send Invoice</th>
+                <th className="py-2 px-3 border-b font-semibold">Invoice</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p) => (
+                <React.Fragment key={p.id}>
+                  {/* Main Row */}
+                  <tr
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => setOpenRowId(openRowId === p.id ? null : p.id)}
+                  >
+                    <td className="py-2 px-3">{p.name}</td>
+                    <td className="py-2 px-3">{p.email}</td>
+                    <td className="py-2 px-3">{p.phone_number}</td>
+                    <td className="py-2 px-3 font-semibold">₹{p.paid_amount}</td>
+                    <td className="py-2 px-3">
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-semibold ${p.status === "PAID"
+                          ? "bg-green-100 text-green-700"
+                          : p.status === "ACTIVE" || p.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-gray-100 text-gray-600"
+                          }`}
+                      >
+                        {p.status === "ACTIVE" ? "PENDING" : p.status}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3">
+                      {p.created_at ? new Date(p.created_at).toLocaleString() : "-"}
+                    </td>
+                    <td className="px-6 py-4">
+                      {p.is_send_invoice ? (
+                        <span className="text-green-600 font-semibold">Done</span>
+                      ) : (
+                        <span className="text-red-600 font-semibold">Pending</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3">
+                      <div className="flex items-center gap-2">
+                        {p.is_send_invoice ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLeadId(p.lead_id);
+                            }}
+                            className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Invoice</span>
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-sm font-medium">N/A</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Accordion Row */}
+                  {openRowId === p.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan="8" className="py-2 px-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-500">Raised By</p>
+                            <p>
+                              {p.raised_by} ({p.raised_by_role})
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Payment Mode</p>
+                            <p>{p.mode || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Service</p>
+                            <p>
+                              {Array.isArray(p.Service)
+                                ? p.Service.map((s, i) => (
+                                  <span key={i} className="block">
+                                    {s}
+                                  </span>
+                                ))
+                                : p.Service || "-"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Plan(s)</p>
+                            <div>
+                              {Array.isArray(p.plan)
+                                ? p.plan.map((pl) => (
+                                  <div key={pl.id} className="mb-1">
+                                    <span className="font-semibold">{pl.name}</span>
+                                    <span className="ml-2 text-xs text-gray-500">
+                                      {pl.description}
+                                    </span>
+                                  </div>
+                                ))
+                                : "-"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Single modal instance outside the table */}
+          <InvoiceModal
+            isOpen={!!selectedLeadId}
+            onClose={() => setSelectedLeadId(null)}
+            leadId={selectedLeadId}
+          />
+
+          <div className="flex justify-between items-center py-4">
+            <span className="text-gray-600">
+              Showing {total === 0 ? 0 : offset + 1}-{offset + payments.length} of {total}
+            </span>
+            <div>
+              <button
+                onClick={() => setOffset(Math.max(0, offset - limit))}
+                disabled={offset === 0}
+                className="mr-2 px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setOffset(offset + limit)}
+                disabled={offset + limit >= total}
+                className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {!loading && !error && filtered.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-gray-400 text-6xl mb-4">📭</div>
-          <h4 className="text-gray-600 font-medium mb-2">No Records Found</h4>
-          <p className="text-gray-500 text-sm">No payment transactions match your filters.</p>
-        </div>
-      )}
-
-      {!loading && !error && filtered.length > 0 && (
-        <div className="space-y-4">
-          {filtered.map((item) => (
-            <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h4 className="font-semibold text-gray-800">
-                    {item?.name}{" "}
-                    {Array.isArray(item?.Service) && (
-                      <span className="text-gray-500 text-sm">({item.Service.join(", ")})</span>
-                    )}
-                  </h4>
-                  <p className="text-sm text-gray-500">Order ID: {item?.order_id || "-"}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(item?.status)}`}>
-                  {item?.status || "UNKNOWN"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500 block">Amount</span>
-                  <span className="font-semibold text-lg">₹{item?.paid_amount ?? 0}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Email</span>
-                  <span className="text-gray-800">{item?.email || "-"}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Date</span>
-                  <span className="text-gray-800">
-                    {new Date(item?.created_at).toLocaleDateString("en-IN")}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Time</span>
-                  <span className="text-gray-800">
-                    {new Date(item?.created_at).toLocaleTimeString("en-IN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <style jsx>{`
+        .input {
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          background: #f9fafb;
+          color: #222;
+          outline: none;
+          transition: border 0.2s;
+        }
+        .input:focus {
+          border-color: #2563eb;
+          background: #fff;
+        }
+      `}</style>
     </div>
   );
-};
-
-
+}

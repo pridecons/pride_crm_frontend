@@ -172,7 +172,7 @@ export default function Dashboard() {
 
   // Force employees not to use 'all'
   useEffect(() => {
-    if (isEmployee && view === 'all') setView('team');
+    if (isEmployee && view === 'all') setView('self');
   }, [isEmployee, view]);
 
   // Effective branch for queries:
@@ -298,15 +298,15 @@ export default function Dashboard() {
   ----------------------------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
 
         {/* Greeting header (only for Branch Manager & Employees) */}
         {!isSuperAdmin && (
           <div className="w-fit">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl font-semibold text-gray-900">
               {getGreeting()}, {displayName}!
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 mt-0.5 text-sm">
               Here's your performance overview for the last {days} days
             </p>
           </div>
@@ -314,15 +314,15 @@ export default function Dashboard() {
 
         {/* Branch Tabs (SA only) */}
         {isSuperAdmin && (
-          <div className="bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <div className="bg-white/70 backdrop-blur-sm border border-white/50 rounded-xl p-3 shadow-md">
+            <div className="flex items-center gap-2 overflow-x-auto">
               <Tab
                 active={branchTabId === ''}
                 onClick={() => setBranchTabId('')}
               >
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  <span>All Branches</span>
+                  <span className="text-sm">All Branches</span>
                 </div>
               </Tab>
 
@@ -334,7 +334,7 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center gap-2">
                     <Store className="h-4 w-4" />
-                    <span>{b.name}</span>
+                    <span className="text-sm">{b.name}</span>
                   </div>
                 </Tab>
               ))}
@@ -343,27 +343,27 @@ export default function Dashboard() {
         )}
 
         {/* Filters */}
-        <div className="bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-            <h3 className="text-lg font-semibold text-gray-800">Filter Options</h3>
+        <div className="bg-white/70 backdrop-blur-sm border border-white/50 rounded-xl p-4 shadow-md">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+            <h3 className="text-base font-semibold text-gray-800">Filter Options</h3>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-6 gap-3">
             <Field label={<LabelWithIcon icon={<CalendarDays className="h-4 w-4" />} text="Time Period" />}>
-              <select className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+              <select className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500"
                 value={days} onChange={(e) => setDays(Number(e.target.value))}>
                 {[7, 15, 30, 60, 90, 180, 365].map(d => <option key={d} value={d}>Last {d} days</option>)}
               </select>
             </Field>
 
             <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="From Date" />}>
-              <input type="date" className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+              <input type="date" className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500"
                 value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
             </Field>
 
             <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="To Date" />}>
-              <input type="date" className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+              <input type="date" className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500"
                 value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </Field>
 
@@ -371,7 +371,7 @@ export default function Dashboard() {
             {!isSuperAdmin && (
               <Field label={<LabelWithIcon icon={<Eye className="h-4 w-4" />} text="View Type" />}>
                 <select
-                  className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+                  className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500"
                   value={view}
                   onChange={(e) => setView(e.target.value)}
                 >
@@ -382,30 +382,10 @@ export default function Dashboard() {
               </Field>
             )}
 
-
-
-            {/* Source */}
-            {/* <Field label={<LabelWithIcon icon={<BarChart3 className="h-4 w-4" />} text="Lead Source" />}>
-              <select className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
-                value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-                <option value="">All Sources</option>
-                {(sources || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </Field> */}
-
-            {/* Response */}
-            {/* <Field label={<LabelWithIcon icon={<MessageSquare className="h-4 w-4" />} text="Lead Response" />}>
-              <select className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
-                value={responseId} onChange={(e) => setResponseId(e.target.value)}>
-                <option value="">All Responses</option>
-                {(responses || []).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-            </Field> */}
-
             {/* Profile (Role) – admin/BM only */}
             {(isSuperAdmin || isBranchManager) && (
               <Field label={<LabelWithIcon icon={<Briefcase className="h-4 w-4" />} text="Role (Profile)" />}>
-                <select className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+                <select className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500"
                   value={profileId} onChange={(e) => setProfileId(e.target.value)}>
                   <option value="">All Roles</option>
                   {(profiles || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -416,35 +396,36 @@ export default function Dashboard() {
             {/* Department – admin/BM only */}
             {(isSuperAdmin || isBranchManager) && (
               <Field label={<LabelWithIcon icon={<Building2 className="h-4 w-4" />} text="Department" />}>
-                <select className="border-0 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+                <select className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500"
                   value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
                   <option value="">All Departments</option>
                   {(departments || []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </Field>
             )}
+
             {/* Users Autocomplete (scoped) */}
             <div className="lg:col-span-2">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
                 <LabelWithIcon icon={<User className="h-4 w-4" />} text="User (Employee)" />
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 <input
-                  className="border-0 bg-white/80 backdrop-blur-sm rounded-xl pl-9 pr-4 py-3 w-full shadow-sm focus:ring-2 focus:ring-blue-500 transition-all"
+                  className="border border-gray-200 bg-white rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 focus:ring-blue-500"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   placeholder="Search by name / code / email / phone"
                 />
                 {userSearch && (
-                  <div className="absolute z-30 bg-white/95 backdrop-blur-sm border border-white/50 rounded-xl mt-2 w-full max-h-64 overflow-auto shadow-xl">
+                  <div className="absolute z-30 bg-white border border-gray-200 rounded-lg mt-2 w-full max-h-64 overflow-auto shadow-md">
                     {filteredUsers.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-gray-500">No users found</div>
+                      <div className="px-3 py-2.5 text-sm text-gray-500">No users found</div>
                     ) : filteredUsers.map(u => (
                       <button
                         key={u.employee_code}
                         type="button"
-                        className="w-full text-left px-4 py-3 hover:bg-blue-50/80 text-sm transition-colors border-b border-gray-100/50 last:border-b-0"
+                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-sm transition-colors border-b border-gray-100 last:border-b-0"
                         onClick={() => {
                           setEmployeeCode(u.employee_code);
                           setUserSearch(`${u.name} (${u.employee_code})`);
@@ -474,20 +455,19 @@ export default function Dashboard() {
           </div>
 
           {optLoading && (
-            <div className="flex items-center gap-2 text-sm text-blue-600 mt-3">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex items-center gap-2 text-xs text-blue-600 mt-2">
+              <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               Loading filter options…
             </div>
           )}
-          {optError && <div className="text-sm text-red-600 mt-3 bg-red-50 px-3 py-2 rounded-lg">{optError}</div>}
+          {optError && <div className="text-sm text-red-600 mt-2 bg-red-50 px-3 py-2 rounded-lg">{optError}</div>}
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={fetchDashboard}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
+              className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium shadow hover:shadow-md"
             >
-              <SlidersHorizontal className="h-4 w-4" />
-              <span>Apply Filters</span>
+              <span className="inline-flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" />Apply</span>
             </button>
             <button
               onClick={() => {
@@ -503,29 +483,28 @@ export default function Dashboard() {
                 setView(isEmployee ? 'team' : 'all');
                 if (isSuperAdmin) setBranchTabId('');
               }}
-              className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
+              className="px-4 py-2.5 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300"
             >
-              <RotateCcw className="h-4 w-4" />
-              <span>Reset</span>
+              <span className="inline-flex items-center gap-2"><RotateCcw className="h-4 w-4" />Reset</span>
             </button>
           </div>
         </div>
 
         {/* Errors */}
         {errMsg ? (
-          <div className="bg-gradient-to-r from-red-50 to-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-xl shadow-lg">
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded-lg shadow-sm">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
-              <span className="font-medium">{errMsg}</span>
+              <span className="font-medium text-sm">{errMsg}</span>
             </div>
           </div>
         ) : null}
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-32 bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse shadow-lg" />
+              <div key={i} className="h-28 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl animate-pulse shadow" />
             ))}
           </div>
         )}
@@ -534,7 +513,7 @@ export default function Dashboard() {
         {!!data && (
           <>
             <SectionHeader title="Payments Overview" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 ">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card title="Total Paid" value={inr(data?.cards?.payments?.total_paid)} sub="PAID in window" icon={<IndianRupee className="h-5 w-5" />} color="green" />
               <Card title="Total Raised" value={inr(data?.cards?.payments?.total_raised)} sub="All rows" icon={<ArrowUpRight className="h-5 w-5" />} color="blue" />
               <Card title="Weekly Paid" value={inr(data?.cards?.payments?.weekly_paid)} icon={<CalendarCheck className="h-5 w-5" />} color="purple" />
@@ -554,7 +533,7 @@ export default function Dashboard() {
             </div>
 
             <SectionHeader title="Leads Analytics" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card title="Total Leads" value={num(data?.cards?.leads?.total_uploaded)} icon={<BarChart3 className="h-5 w-5" />} color="blue" />
               <Card title="This Week" value={num(data?.cards?.leads?.this_week)} icon={<Zap className="h-5 w-5" />} color="green" />
               <Card title="This Month" value={num(data?.cards?.leads?.this_month)} icon={<Flame className="h-5 w-5" />} color="orange" />
@@ -567,10 +546,12 @@ export default function Dashboard() {
 
         {/* Top performers */}
         {!!data && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {isSuperAdmin ? (
+          <div
+            className={`grid grid-cols-1 ${isSuperAdmin ? 'lg:grid-cols-2' : ''} gap-4`}
+          >
+            {isSuperAdmin && (
               <TableWrap title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5" />}>
-                <div className="h-72 overflow-y-auto pr-1">
+                <div className="max-h-72 overflow-y-auto pr-1">
                   <SimpleTable
                     cols={['Branch', 'Revenue', 'Paid Count', 'Conversion %']}
                     rows={(data?.top?.branches || []).map((b) => [
@@ -582,43 +563,52 @@ export default function Dashboard() {
                   />
                 </div>
               </TableWrap>
-            ) : <div className="hidden lg:block" />}
+            )}
 
-            <TableWrap title={`Top Employees (${isEmployee ? 'Team (Top 5)' : 'Top 10'})`} icon={<Users className="h-5 w-5" />}>
-              <div className="h-72 overflow-y-auto pr-1">
-                <SimpleTable
-                  cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue', 'Target', 'Achieved', 'Conv %']}
-                  rows={(data?.top?.employees || []).map((e) => [
-                    `${e.employee_name} (${e.employee_code})`,
-                    e.role_name || e.role_id,
-                    num(e.total_leads),
-                    num(e.converted_leads),
-                    inr(e.total_revenue),
-                    inr(e.target),                      // ✨ target from API
-                    inr(e.achieved_target ?? e.total_revenue), // ✨ achieved (fallback to revenue if needed)
-                    `${e.conversion_rate}%`,
-                  ])}
-                />
-              </div>
-            </TableWrap>
+            {/* If not SA, span full width */}
+            <div className={!isSuperAdmin ? 'lg:col-span-2' : ''}>
+              <TableWrap
+                title={`Top Employees (${isEmployee ? 'Team (Top 5)' : 'Top 10'})`}
+                icon={<Users className="h-5 w-5" />}
+              >
+                <div className="max-h-72 overflow-y-auto pr-1">
+                  <SimpleTable
+                    cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue', 'Target', 'Achieved', 'Conv %']}
+                    rows={(data?.top?.employees || []).map((e) => [
+                      `${e.employee_name} (${e.employee_code})`,
+                      e.role_name || e.role_id,
+                      num(e.total_leads),
+                      num(e.converted_leads),
+                      inr(e.total_revenue),
+                      inr(e.target),
+                      inr(e.achieved_target ?? e.total_revenue),
+                      `${e.conversion_rate}%`,
+                    ])}
+                  />
+                </div>
+              </TableWrap>
+            </div>
           </div>
         )}
 
+
         {/* Profiles (admin & BM only) */}
         {!!data && (isSuperAdmin || isBranchManager) && (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-4">
             <TableWrap title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" />}>
-              <SimpleTable
-                cols={['Profile', 'Leads', 'Paid Revenue']}
-                rows={(data?.breakdowns?.profile_wise || []).map((p) => {
-                  const prof = profiles.find(x => x.id === p.profile_id);
-                  return [
-                    prof?.name || (p.profile_id ?? '—'),
-                    num(p.total_leads),
-                    inr(p.paid_revenue),
-                  ];
-                })}
-              />
+              <div className="max-h-72 overflow-y-auto pr-1">
+                <SimpleTable
+                  cols={['Profile', 'Leads', 'Paid Revenue']}
+                  rows={(data?.breakdowns?.profile_wise || []).map((p) => {
+                    const prof = profiles.find(x => x.id === p.profile_id);
+                    return [
+                      prof?.name || (p.profile_id ?? '—'),
+                      num(p.total_leads),
+                      inr(p.paid_revenue),
+                    ];
+                  })}
+                />
+              </div>
             </TableWrap>
           </div>
         )}
@@ -630,15 +620,14 @@ export default function Dashboard() {
             icon={<LineChart className="h-5 w-5" />}
           >
             {/* Inline filters for Users Performance */}
-            <div className="mb-4 space-y-3">
-              {/* 2) Inline row: From / To / Days + Apply / Clear */}
-              <div className="grid grid-cols-1 md:grid-cols-8 gap-4 items-end">
+            <div className="mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
                 {/* From Date */}
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
                   <input
                     type="date"
-                    className="h-10 w-full border border-gray-200 bg-white rounded-lg px-3 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                    className="h-9 w-full border border-gray-200 bg-white rounded-md px-2.5 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                   />
@@ -649,7 +638,7 @@ export default function Dashboard() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
                   <input
                     type="date"
-                    className="h-10 w-full border border-gray-200 bg-white rounded-lg px-3 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                    className="h-9 w-full border border-gray-200 bg-white rounded-md px-2.5 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                   />
@@ -659,7 +648,7 @@ export default function Dashboard() {
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Days</label>
                   <select
-                    className="h-10 w-full border border-gray-200 bg-white rounded-lg px-3 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                    className="h-9 w-full border border-gray-200 bg-white rounded-md px-2.5 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
                     value={days}
                     onChange={(e) => setDays(Number(e.target.value))}
                   >
@@ -673,7 +662,7 @@ export default function Dashboard() {
                 <div className="md:col-span-2 flex md:justify-end gap-2">
                   <button
                     onClick={fetchUserTable}
-                    className="h-10 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium shadow hover:shadow-md"
+                    className="h-9 px-3 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium shadow hover:shadow-md"
                   >
                     Apply
                   </button>
@@ -682,9 +671,9 @@ export default function Dashboard() {
                       setFromDate('');
                       setToDate('');
                       setDays(30);
-                      fetchUserTable(); // <-- re-fetch with cleared dates
+                      fetchUserTable();
                     }}
-                    className="h-10 px-4 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300"
+                    className="h-9 px-3 rounded-md bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300"
                   >
                     Clear
                   </button>
@@ -692,18 +681,19 @@ export default function Dashboard() {
               </div>
             </div>
 
-
             {/* Table */}
-            <SimpleTable
-              cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue']}
-              rows={(employeesTable || []).map((u) => [
-                `${u.employee_name} (${u.employee_code})`,
-                u.role_name || u.role_id,
-                num(u.total_leads),
-                num(u.converted_leads),
-                inr(u.total_revenue),
-              ])}
-            />
+            <div className="max-h-[480px] overflow-y-auto pr-1">
+              <SimpleTable
+                cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue']}
+                rows={(employeesTable || []).map((u) => [
+                  `${u.employee_name} (${u.employee_code})`,
+                  u.role_name || u.role_id,
+                  num(u.total_leads),
+                  num(u.converted_leads),
+                  inr(u.total_revenue),
+                ])}
+              />
+            </div>
           </TableWrap>
         )}
 
@@ -717,9 +707,9 @@ export default function Dashboard() {
 ----------------------------- */
 function LabelWithIcon({ icon, text }) {
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-center gap-1.5">
       {icon}
-      <span>{text}</span>
+      <span className="text-sm">{text}</span>
     </span>
   );
 }
@@ -727,7 +717,7 @@ function LabelWithIcon({ icon, text }) {
 function Field({ label, children }) {
   return (
     <div className="flex flex-col">
-      <label className="text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <label className="text-xs font-medium text-gray-700 mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -735,9 +725,9 @@ function Field({ label, children }) {
 
 function SectionHeader({ title }) {
   return (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
-      <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+    <div className="flex items-center gap-2.5 mb-3">
+      <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
+      <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
     </div>
   );
 }
@@ -756,25 +746,27 @@ function Card({ title, value, sub, icon, color = 'blue' }) {
   const gradientClass = colorVariants[color] || colorVariants.blue;
 
   return (
-    <div className="bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl p-2 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 group">
+    <div className="bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl p-3 shadow hover:shadow-md transition-all">
       <div className="flex items-start justify-between mb-1">
-        <div className="text-sm font-medium text-gray-600">{title}</div>
-        <div className={`w-7 h-7 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center text-white group-hover:scale-110 transition-transform`}>
+        <div className="text-xs font-medium text-gray-600">{title}</div>
+        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${gradientClass} flex items-center justify-center text-white`}>
           {icon}
         </div>
       </div>
-      <div className="text-3xl font-bold text-gray-800 mb-1">{value ?? '—'}</div>
-      {sub ? <div className="text-xs text-gray-500 font-medium">{sub}</div> : null}
+      <div className="text-2xl font-bold text-gray-800 leading-tight">{value ?? '—'}</div>
+      {sub ? <div className="text-[11px] text-gray-500 font-medium mt-0.5">{sub}</div> : null}
     </div>
   );
 }
 
 function TableWrap({ title, children, icon }) {
   return (
-    <div className="bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-auto">
-      <div className="flex items-center gap-3 mb-6">
-        {icon && <span className="text-xl">{icon}</span>}
-        <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+    <div className="bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl p-4 shadow-md overflow-hidden">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {icon && <span className="text-base">{icon}</span>}
+          <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+        </div>
       </div>
       {children}
     </div>
@@ -785,10 +777,10 @@ function SimpleTable({ cols = [], rows = [] }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
-        <thead>
-          <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-white/90 backdrop-blur border-b border-gray-200">
             {cols.map((c) => (
-              <th key={c} className="px-4 py-3 font-semibold text-gray-700 text-left border-b-2 border-gray-200 first:rounded-tl-xl last:rounded-tr-xl">
+              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left">
                 {c}
               </th>
             ))}
@@ -797,7 +789,7 @@ function SimpleTable({ cols = [], rows = [] }) {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td className="px-4 py-8 text-gray-400 text-center" colSpan={cols.length}>
+              <td className="px-3 py-8 text-gray-400 text-center" colSpan={cols.length}>
                 <div className="flex flex-col items-center gap-2">
                   <BarChart3 className="h-6 w-6" />
                   <span>No data available</span>
@@ -806,9 +798,9 @@ function SimpleTable({ cols = [], rows = [] }) {
             </tr>
           ) : (
             rows.map((r, i) => (
-              <tr key={i} className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors">
+              <tr key={i} className="border-b border-gray-100 hover:bg-blue-50/50">
                 {r.map((cell, j) => (
-                  <td key={j} className="px-4 py-3 text-gray-700">{cell}</td>
+                  <td key={j} className="px-3 py-2.5 text-gray-700 align-top">{cell}</td>
                 ))}
               </tr>
             ))
@@ -825,17 +817,13 @@ function Tab({ active, onClick, children }) {
       type="button"
       onClick={onClick}
       className={[
-        'px-6 py-3 rounded-xl font-medium transition-all duration-200 transform hover:scale-105',
+        'px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
         active
-          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg border border-blue-600'
-          : 'bg-white/80 text-gray-700 border border-white/50 hover:bg-white shadow-md hover:shadow-lg'
+          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-600 shadow'
+          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
       ].join(' ')}
     >
       {children}
     </button>
   );
 }
-
-
-
-

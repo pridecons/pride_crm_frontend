@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { jwtDecode } from 'jwt-decode'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, User, Lock, Shield } from 'lucide-react'
+import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import { axiosInstance } from '@/api/Axios'  // Import axiosInstance
 
 // Map numeric role_id → canonical key
@@ -161,15 +161,9 @@ export default function LoginPage() {
       if (refresh_token) Cookies.set('refresh_token', refresh_token, { expires: 7 })
       if (user_info) Cookies.set('user_info', JSON.stringify(user_info), { expires: 7 })
 
-      const effRole = getEffectiveRole({ accessToken: access_token, userInfo: user_info })
-
+      const effRole = getEffectiveRole({ accessToken: access_token, userInfo: user_info }) // keep if you use it elsewhere
       toast.success('Login successful')
-
-      if (effRole === 'SUPERADMIN' || effRole === 'BRANCH_MANAGER') {
-        router.push('/dashboard/super')
-      } else {
-        router.push('/dashboard')
-      }
+      router.push('/dashboard')
     } catch (err) {
       const msg = 'Network error. Please check your connection.'
       setError(msg); toast.error(msg)

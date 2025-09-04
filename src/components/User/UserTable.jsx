@@ -12,6 +12,16 @@ import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const canon = (s) => String(s || "").toUpperCase().trim();
 
+// ✨ add this helper near the top
+const inr = (n) =>
+  n == null || n === ""
+    ? "—"
+    : new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+      }).format(Number(n || 0));
+
 function useRoleBranch() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
@@ -100,20 +110,20 @@ export default function UserTable({
     } catch (error) {
       console.error(error);
       // toast.error(error.response?.data?.message || "Failed to deactivate user");
-       ErrorHandling({ error: error, defaultError: "Failed to deactivate user"});
+      ErrorHandling({ error: error, defaultError: "Failed to deactivate user" });
     }
   };
 
   // NEW: derive senior label from possible fields
-const getSeniorLabel = (u) => {
-  return (
-    u?.senior_profile?.name ||
-    u?.reporting_profile?.name ||
-    u?.senior_profile_name ||
-    u?.reporting_profile_name ||
-    (u?.senior_profile_id != null ? String(u.senior_profile_id) : "—")
-  );
-};
+  const getSeniorLabel = (u) => {
+    return (
+      u?.senior_profile?.name ||
+      u?.reporting_profile?.name ||
+      u?.senior_profile_name ||
+      u?.reporting_profile_name ||
+      (u?.senior_profile_id != null ? String(u.senior_profile_id) : "—")
+    );
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-200">
@@ -125,6 +135,7 @@ const getSeniorLabel = (u) => {
               <th className="w-56 px-5 py-4 text-left font-semibold">Name</th>
               <th className="w-40 px-5 py-4 text-left font-semibold">Role</th>
               <th className="w-48 px-5 py-4 text-left font-semibold">Reporting</th>
+              <th className="w-48 px-5 py-4 text-left font-semibold">Target</th>
               <th className="w-40 px-5 py-4 text-left font-semibold">Branch</th>
               <th className="w-44 px-5 py-4 text-left font-semibold">Phone</th>
               <th className="w-64 px-5 py-4 text-left font-semibold">Email</th>
@@ -163,6 +174,7 @@ const getSeniorLabel = (u) => {
                     </td>
 
                     <td className="px-5 py-4 truncate">{getSeniorLabel(u)}</td>
+                    <td className="px-5 py-4 truncate">{inr(u.target)}</td>
 
                     <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
 
@@ -182,11 +194,10 @@ const getSeniorLabel = (u) => {
 
                     <td className="px-5 py-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          u.is_active
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${u.is_active
                             ? "bg-green-100 text-green-700 border border-green-200"
                             : "bg-red-100 text-red-700 border border-red-200"
-                        }`}
+                          }`}
                       >
                         {u.is_active ? "Active" : "Inactive"}
                       </span>

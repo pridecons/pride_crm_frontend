@@ -97,8 +97,7 @@ function RationalModal({
       ?.replace("{stop_loss}", formData.stop_loss ?? "")
       ?.replace(
         "{targets}",
-        `${formData.targets ?? ""}${
-          formData.targets2 ? `-${formData.targets2}` : ""
+        `${formData.targets ?? ""}${formData.targets2 ? `-${formData.targets2}` : ""
         }${formData.targets3 ? `-${formData.targets3}` : ""}`
       );
 
@@ -184,7 +183,7 @@ function RationalModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-3xl mx-auto relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 w-full max-w-3xl mx-auto relative max-h-[90vh] overflow-y-auto rational-modal">
         <button
           className="absolute top-2 right-3 text-gray-500 text-2xl"
           onClick={() => setIsModalOpen(false)}
@@ -496,6 +495,19 @@ function RationalModal({
             </button>
           </div>
         </form>
+        <style jsx>{`
+  /* Hide arrows in WebKit browsers (Chrome, Edge, Safari, Opera) */
+  .rational-modal input[type="number"]::-webkit-outer-spin-button,
+  .rational-modal input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  /* Hide arrows in Firefox (and modern browsers) */
+  .rational-modal input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+`}</style>
       </div>
     </div>
   );

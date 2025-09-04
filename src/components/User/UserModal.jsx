@@ -110,6 +110,7 @@ export default function UserModal({
     date_of_birth: "",
     // org
     branch_id: "",
+    target: "",
     // optional supervisor/telephony
     senior_profile_id: "",
     vbc_extension_id: "",
@@ -276,10 +277,43 @@ export default function UserModal({
     setSelectedPermissions(selectedProfile.default_permissions || []);
   }, [selectedProfile]);
 
-  // 🔁 Clear selected senior whenever branch changes (to avoid cross-branch senior)
+  // ✅ Ensure department/profile auto-select once profiles are loaded
   useEffect(() => {
+    if (!isOpen || !isEdit || !user?.role_id || profiles.length === 0) return;
+
+    // If already selected (e.g., user changed it manually), do nothing
+    if (selectedDepartmentId && selectedProfileId) return;
+
+    const found = profiles.find((p) => String(p.id) === String(user.role_id));
+    if (!found) return;
+
+    prefilling.current = true;
+    setSelectedDepartmentId(String(found.department_id));
+    setSelectedProfileId(String(found.id));
+    setSelectedPermissions(
+      (Array.isArray(user?.permissions) && user.permissions.length > 0)
+        ? user.permissions
+        : (found.default_permissions || [])
+    );
+
+    const t = setTimeout(() => { prefilling.current = false; }, 0);
+    return () => clearTimeout(t);
+  }, [isOpen, isEdit, user?.role_id, profiles, selectedDepartmentId, selectedProfileId]);
+
+  // 🔁 Clear selected senior when branch CHANGES (but keep it on initial edit load)
+  useEffect(() => {
+    if (!selectedBranchId) return;
+
+    // If editing and the branch equals the user's original branch, don't clear
+    const originalBranch = String(user?.branch_id ?? "");
+    if (isEdit && originalBranch && String(selectedBranchId) === originalBranch) {
+      return;
+    }
+
+    // For new users OR when branch changes away from original -> clear senior
     setFormData((p) => ({ ...p, senior_profile_id: "" }));
-  }, [selectedBranchId]);
+  }, [selectedBranchId, isEdit, user?.branch_id]);
+
 
   // 🔎 Load senior options (users) — re-fetch when branch changes
   useEffect(() => {
@@ -346,6 +380,7 @@ export default function UserModal({
           ? dateToDMY(new Date(user.date_of_birth))
           : "",
         branch_id: user.branch_id?.toString() || "",
+        target: user.target != null ? String(user.target) : "",
         senior_profile_id: user.senior_profile_id || "",
         vbc_extension_id: user.vbc_extension_id || "",
         vbc_user_username: user.vbc_user_username || "",
@@ -370,6 +405,7 @@ export default function UserModal({
         date_of_joining: "",
         date_of_birth: "",
         branch_id: "",
+        target: "",
         senior_profile_id: "",
         vbc_extension_id: "",
         vbc_user_username: "",
@@ -518,6 +554,11 @@ export default function UserModal({
 
       // IMPORTANT: role_id not role name
       role_id: String(selectedProfileId),
+
+      target:
+        formData.target === "" || formData.target == null
+          ? undefined
+          : Number(formData.target),
 
       // Permissions
       permissions: selectedPermissions || [],
@@ -1118,6 +1159,24 @@ export default function UserModal({
                   onChange={(e) =>
                     setFormData({ ...formData, experience: e.target.value })
                   }
+                />
+              </div>
+              {/* ✨ Target (INR) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Monthly Target (₹)
+                </label>
+                <input
+                  className={INPUT_CLS}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  value={formData.target}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d]/g, "");
+                    setFormData({ ...formData, target: v });
+                  }}
+                  placeholder="e.g., 25000"
                 />
               </div>
 

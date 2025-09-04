@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
-import { LogOut, User } from 'lucide-react'
+import { Building2, LogOut, User } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
 import {
   Users,
@@ -58,18 +58,6 @@ export default function Sidebar({ branchId, onClose }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (!user) return;
-    if (pathname === '/dashboard') {
-      if (
-        user.role === 'SUPERADMIN' ||
-        user.role === 'BRANCH MANAGER'
-      ) {
-        router.replace('/dashboard/super');
-      }
-    }
-  }, [user, pathname, router])
-
 
   const toggleProfileMenu = () => setShowProfileMenu((prev) => !prev)
 
@@ -88,10 +76,6 @@ export default function Sidebar({ branchId, onClose }) {
   }
 
   const isActive = (path) => {
-    // Home: highlight for either /dashboard or /dashboard/super
-    if (path === '/dashboard' || path === '/dashboard/super') {
-      return pathname === '/dashboard' || pathname === '/dashboard/super'
-    }
     return pathname === path
   }
 
@@ -118,10 +102,7 @@ const menu = [
     title: 'Main',
     items: [
       {
-        href:
-          user && (user.role === 'SUPERADMIN' || user.role === 'BRANCH_MANAGER')
-            ? '/dashboard/super'
-            : '/dashboard',
+        href: '/dashboard',
         icon: Home,
         label: 'Home',
         access:""
@@ -144,7 +125,8 @@ const menu = [
     section: 'configuration',
     icon: Settings,
     items: [
-      { href: '/branch', icon: Building, label: 'Branch', access:"branch_page" },
+      { href: '/branch', icon: Building2, label: 'Branch', access:"branch_page" },
+      {href: '/department', icon: Building, label: 'Department', access:""},
 
       {
         title: 'Management',

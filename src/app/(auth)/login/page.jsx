@@ -6,6 +6,7 @@ import { jwtDecode } from 'jwt-decode'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import { axiosInstance } from '@/api/Axios'  // Import axiosInstance
+import { ErrorHandling } from '@/helper/ErrorHandling'
 
 // Map numeric role_id → canonical key
 const ROLE_ID_TO_KEY = {
@@ -165,8 +166,7 @@ export default function LoginPage() {
       toast.success('Login successful')
       router.push('/dashboard')
     } catch (err) {
-      const msg = 'Network error. Please check your connection.'
-      setError(msg); toast.error(msg)
+      ErrorHandling({ error: err, defaultError: "Network error. Please check your connection." });
     } finally {
       setSubmitting(false)
     }

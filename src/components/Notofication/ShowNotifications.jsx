@@ -6,9 +6,9 @@ import toast from "react-hot-toast";
 import { WS_BASE_URL_full } from "@/api/Axios";
 import { useRouter } from "next/navigation";
 
-const TOAST_MIN_GAP_MS = 2000;        // minimum time between toasts
-const MAX_ACTIVE_TOASTS = 3;          // max toasts visible at once
-const MAX_MESSAGES_BUFFER = 200;      // cap stored notifications
+const TOAST_MIN_GAP_MS = 2000; // minimum time between toasts
+const MAX_ACTIVE_TOASTS = 3; // max toasts visible at once
+const MAX_MESSAGES_BUFFER = 200; // cap stored notifications
 const SOUND_PREF_KEY = "notifications_sound_enabled";
 
 export default function ShowNotifications({ setIsConnect, employee_code }) {
@@ -188,7 +188,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                     {(() => {
                       const date = new Date(messageWithTime.received_at);
                       let hours = date.getHours();
-                      const minutes = String(date.getMinutes()).padStart(2, "0");
+                      const minutes = String(date.getMinutes()).padStart(
+                        2,
+                        "0"
+                      );
                       const ampm = hours >= 12 ? "PM" : "AM";
                       hours = hours % 12 || 12;
                       return `${hours}:${minutes} ${ampm}`;
@@ -296,7 +299,9 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                       ? "bg-green-50 text-green-700 border-green-200"
                       : "bg-gray-50 text-gray-600 border-gray-200"
                   }`}
-                  title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
+                  title={
+                    soundEnabled ? "Mute notifications" : "Unmute notifications"
+                  }
                 >
                   {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
                   {soundEnabled ? "Sound On" : "Sound Off"}
@@ -323,38 +328,63 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
               messages?.map((val, index) => (
                 <div
                   key={`${val?.received_at?.toString?.() || "msg"}-${index}`}
-                  className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 max-w-full"
+                  className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
                 >
-                  <div className="bg-blue-100 rounded-full p-2">
-                    <Bell size={16} className="text-blue-600" />
+                  {/* Top row: bell + title + actions */}
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 rounded-full bg-blue-50 p-2">
+                      <Bell size={16} className="text-blue-600" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {val?.title || "Notification"}
+                        </p>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {val?.lead_id && (
+                            <button
+                              onClick={() =>
+                                router.push(`/lead/${val.lead_id}`)
+                              }
+                              className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
+                              title="Open lead"
+                            >
+                              View
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() =>
+                              setMessages((prev) => {
+                                const next = [...prev];
+                                next.splice(index, 1);
+                                return next;
+                              })
+                            }
+                            className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50 transition"
+                            title="Dismiss"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Message body */}
+                      <p
+                        className="mt-1 text-xs text-gray-600 break-words"
+                        dangerouslySetInnerHTML={{ __html: val?.message || "" }}
+                      />
+
+                      {/* Time */}
+                      {val?.received_at && (
+                        <p className="mt-1 text-[10px] text-gray-400 text-right">
+                          {new Date(val.received_at).toLocaleTimeString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="text-sm font-medium text-gray-900">
-                      {val?.title}
-                    </p>
-                    <p
-                      className="text-xs text-gray-500 break-words whitespace-normal w-full overflow-hidden"
-                      dangerouslySetInnerHTML={{ __html: val?.message || "" }}
-                    />
-                    {val?.received_at && (
-                      <p className="text-[10px] text-right text-gray-400 mt-1">
-                        {new Date(val.received_at).toLocaleTimeString()}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setMessages((prev) => {
-                        const next = [...prev];
-                        next.splice(index, 1);
-                        return next;
-                      });
-                    }}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
-                    title="Delete"
-                  >
-                    <X size={14} />
-                  </button>
                 </div>
               ))
             ) : (

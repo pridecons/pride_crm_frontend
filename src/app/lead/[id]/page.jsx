@@ -247,9 +247,7 @@ const handleCallClick = async () => {
       const response = await axiosInstance(config);
       return response.data;
     } catch (err) {
-      throw new Error(
-        err.response?.data?.detail || `Failed to ${method} ${endpoint}`
-      );
+      throw err
     }
   };
 
@@ -454,6 +452,7 @@ const handleCallClick = async () => {
       toast.success("Lead updated successfully!");
       setError(null);
     } catch (err) {
+      console.error("err : ",err)
       setError(err);
       ErrorHandling({ error: err, defaultError: "Error updating lead" });
     } finally {

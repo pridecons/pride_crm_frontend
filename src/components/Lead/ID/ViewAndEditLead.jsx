@@ -208,9 +208,13 @@ export const ViewAndEditLead = ({
   // Fields config
   const personalIndividual = [
     { name: "pan", label: "PAN Number", icon: CreditCard, placeholder: "Enter PAN" },
-    { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar" },
+    { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile" },
     { name: "full_name", label: "Full Name", icon: User, placeholder: "Enter full name" },
     { name: "father_name", label: "Father Name", icon: User, placeholder: "Enter father name" },
+    { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar" },
+    { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email" },
+        { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
+    { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
     {
       name: "gender",
       label: "Gender",
@@ -234,11 +238,7 @@ export const ViewAndEditLead = ({
         { value: "Widowed", label: "Widowed" },
       ],
     },
-    { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
-    { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
-    { name: "mobile", label: "Mobile", icon: Phone, type: "tel", placeholder: "Enter mobile" },
     { name: "alternate_mobile", label: "Alternate Mobile", icon: Phone, type: "tel" },
-    { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email" },
     { name: "gstin", label: "GSTIN", icon: Building, placeholder: "Enter GSTIN" },
   ];
 

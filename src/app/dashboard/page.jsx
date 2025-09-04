@@ -34,6 +34,18 @@ import {
 /* -----------------------------
    Helpers
 ----------------------------- */
+// Extract a first-name from name/username safely
+function getFirstName(nameLike, usernameLike) {
+  const name = (nameLike || '').trim();
+  if (name) return name.split(/\s+/)[0];               // first word of full name
+
+  const uname = (usernameLike || '').trim();
+  if (!uname) return 'User';
+  // if username is an email, take before '@', then split on separators
+  const base = uname.includes('@') ? uname.split('@')[0] : uname;
+  return (base.split(/[._-]/)[0] || 'User');            // e.g. "amit.kumar" -> "amit"
+}
+
 function safeJSON(str) { try { return JSON.parse(str); } catch { return null; } }
 const inr = (n) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
@@ -80,12 +92,11 @@ export default function Dashboard() {
   const myCode =
     user?.sub || user?.employee_code || user?.user?.employee_code || '';
 
-  const displayName =
-    user?.name ||
-    user?.user?.name ||
-    user?.username ||
-    user?.user?.username ||
-    'User';
+  const firstName = useMemo(() => {
+    const nm = user?.name ?? user?.user?.name ?? '';
+    const un = user?.username ?? user?.user?.username ?? '';
+    return getFirstName(nm, un);
+  }, [user]);
 
   /* -----------------------------
      Filters
@@ -304,7 +315,7 @@ export default function Dashboard() {
         {!isSuperAdmin && (
           <div className="w-fit">
             <h1 className="text-2xl font-semibold text-gray-900">
-              {getGreeting()}, {displayName}!
+              {getGreeting()}, {firstName}!
             </h1>
             <p className="text-gray-600 mt-0.5 text-sm">
               Here's your performance overview for the last {days} days
@@ -514,8 +525,8 @@ export default function Dashboard() {
           <>
             <SectionHeader title="Payments Overview" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card title="Total Paid" value={inr(data?.cards?.payments?.total_paid)} sub="PAID in window" icon={<IndianRupee className="h-5 w-5" />} color="green" />
-              <Card title="Total Raised" value={inr(data?.cards?.payments?.total_raised)} sub="All rows" icon={<ArrowUpRight className="h-5 w-5" />} color="blue" />
+              <Card title="Total Paid" value={inr(data?.cards?.payments?.total_paid)} icon={<IndianRupee className="h-5 w-5" />} color="green" />
+              {/* <Card title="Total Raised" value={inr(data?.cards?.payments?.total_raised)} icon={<ArrowUpRight className="h-5 w-5" />} color="blue" /> */}
               <Card title="Weekly Paid" value={inr(data?.cards?.payments?.weekly_paid)} icon={<CalendarCheck className="h-5 w-5" />} color="purple" />
               <Card title="Monthly Paid" value={inr(data?.cards?.payments?.monthly_paid)} icon={<CalendarDays className="h-5 w-5" />} color="indigo" />
               <Card
@@ -525,7 +536,7 @@ export default function Dashboard() {
                 color="orange"
               />
               <Card
-                title="Achievement %"
+                title="Achievement"
                 value={inr(data?.cards?.payments?.achieved_target)}
                 icon={<Target className="h-5 w-5" />}
                 color="emerald"

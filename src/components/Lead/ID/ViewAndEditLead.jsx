@@ -127,13 +127,16 @@ export const ViewAndEditLead = ({
       const { name, value, type, checked } = e.target;
       let newVal = value;
 
+      // Mobile is read-only: ignore any attempts to change
+      if (name === "mobile") return;
+
       // Update form state
       setEditFormData((p) => ({
         ...p,
         [name]: type === "checkbox" ? checked : newVal,
       }));
 
-            // Auto-uppercase PAN
+      // Auto-uppercase PAN
       if (name === "pan") newVal = value.toUpperCase();
 
       // Trigger PAN fetch on full PAN
@@ -172,12 +175,12 @@ export const ViewAndEditLead = ({
           setPanError(err.toString());
           // const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
           // toast.error(msg);
-           ErrorHandling({ error: err});
+          ErrorHandling({ error: err });
         } finally {
           setPanLoading(false);
         }
       }
-      
+
       // Also update lead_type toggle
       if (name === "lead_type") setLeadType(newVal);
     },
@@ -291,12 +294,11 @@ export const ViewAndEditLead = ({
     "gender",
     "mobile",
   ];
-  const isLocked = (name) => {
-    // always allow editing PAN
-    if (name === "pan") {
-      return !isEditMode; // lock PAN if not in edit mode
-    }
-
+const isLocked = (name) => {
+    // mobile must never be editable
+    if (name === "mobile") return true;
+    // allow PAN only in edit mode
+    if (name === "pan") return !isEditMode;
     return (
       !isEditMode ||
       (currentLead.pan && lockedFields.includes(name)) ||
@@ -346,48 +348,48 @@ export const ViewAndEditLead = ({
             />
           </div>
 
-{/* Lead Response */}
-<div>
-  <label
-    htmlFor="lead_response_id"
-    className="block text-sm font-medium text-gray-600 mb-1"
-  >
-    Lead Response
-  </label>
+          {/* Lead Response */}
+          <div>
+            <label
+              htmlFor="lead_response_id"
+              className="block text-sm font-medium text-gray-600 mb-1"
+            >
+              Lead Response
+            </label>
 
-  {isEditMode ? (
-    // EDIT MODE: show a real select so user can change response
-    <select
-      id="lead_response_id"
-      name="lead_response_id"
-      value={String(editFormData.lead_response_id ?? "")}
-      onChange={(e) => handleResponseSelect(e.target.value)}
-      className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-    >
-      <option value="">Select Response</option>
-      {leadResponses.map((resp) => (
-        <option key={resp.value} value={resp.value}>
-          {resp.label}
-        </option>
-      ))}
-    </select>
-  ) : (
-   <select
-      id="lead_response_id"
-      name="lead_response_id"
-      value={String(editFormData.lead_response_id ?? "")}
-      onChange={(e) => handleResponseSelect(e.target.value)}
-      className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-    >
-      <option value="">Select Response</option>
-      {leadResponses.map((resp) => (
-        <option key={resp.value} value={resp.value}>
-          {resp.label}
-        </option>
-      ))}
-    </select>
-  )}
-</div>
+            {isEditMode ? (
+              // EDIT MODE: show a real select so user can change response
+              <select
+                id="lead_response_id"
+                name="lead_response_id"
+                value={String(editFormData.lead_response_id ?? "")}
+                onChange={(e) => handleResponseSelect(e.target.value)}
+                className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">Select Response</option>
+                {leadResponses.map((resp) => (
+                  <option key={resp.value} value={resp.value}>
+                    {resp.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                id="lead_response_id"
+                name="lead_response_id"
+                value={String(editFormData.lead_response_id ?? "")}
+                onChange={(e) => handleResponseSelect(e.target.value)}
+                className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">Select Response</option>
+                {leadResponses.map((resp) => (
+                  <option key={resp.value} value={resp.value}>
+                    {resp.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
         </div>
       </div>

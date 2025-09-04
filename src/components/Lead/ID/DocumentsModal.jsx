@@ -1,14 +1,13 @@
 import React from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
-import { axiosInstance } from "@/api/Axios";
+import { axiosInstance, BASE_URL } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const getFileUrl = (path) => {
   if (!path) return null;
   const clean = path.startsWith("/") ? path : `/static/lead_documents/${path}`;
-  const base = axiosInstance.defaults.baseURL.replace("/api/v1", "");
-  return `${base}${clean}`;
+  return `${BASE_URL}${clean}`;
 };
 
 export default function DocumentsModal({

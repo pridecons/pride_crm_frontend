@@ -1,9 +1,10 @@
 // components/Lead/InvoiceModal.jsx
 import React, { useEffect, useState } from "react";
 import { CreditCard, FileText, Loader2 } from "lucide-react";
-import { axiosInstance } from "@/api/Axios";
+import { axiosInstance, BASE_URL } from "@/api/Axios";
 import { Modal } from "./ID/Modal";
 import toast from "react-hot-toast";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /**
  * InvoiceModal - Show all invoices for a lead in a modal
@@ -178,11 +179,6 @@ function getInvoiceUrl(path) {
     if (!path || path === "false") return null;
     if (path.startsWith("http")) return path;
 
-    // Get only the root domain (no /api/v1, no /static, nothing extra)
-    let base = axiosInstance.defaults.baseURL;
-    if (base.endsWith("/api/v1")) base = base.slice(0, -7);
-    if (base.endsWith("/api")) base = base.slice(0, -4);
-    if (base.endsWith("/")) base = base.slice(0, -1);
 
     // Always remove any leading slash from path for joining
     let filename = path.replace(/^\/+/, "");
@@ -193,7 +189,7 @@ function getInvoiceUrl(path) {
     }
 
     // Final absolute url
-    return `${base}/static/invoices/${filename}`;
+    return `${BASE_URL}/static/invoices/${filename}`;
 }
 
 export default InvoiceModal;

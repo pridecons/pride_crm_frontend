@@ -50,6 +50,26 @@ export default function LeadForm() {
 
   const [segmentsList, setSegmentsList] = useState([]);
 
+  // NEW: states for autocomplete
+  const [states, setStates] = useState([]); // [{ state_name, code }]
+
+  // Autocomplete state for "State"
+  const [stateQuery, setStateQuery] = useState('');
+  const [showStateList, setShowStateList] = useState(false);
+  const [stateIndex, setStateIndex] = useState(0);
+
+  const filteredStates = useMemo(() => {
+    const q = (stateQuery || '').toUpperCase().trim();
+    if (!q) return states;
+    return states.filter(s => s.state_name.includes(q));
+  }, [stateQuery, states]);
+
+  const selectState = (name) => {
+    setFormData(prev => ({ ...prev, state: name }));
+    setStateQuery(name);
+    setShowStateList(false);
+  };
+
   const segmentOptions = useMemo(
     () => (segmentsList || []).map((s) => ({ label: s, value: s })),
     [segmentsList]
@@ -91,6 +111,11 @@ export default function LeadForm() {
     axiosInstance.get('/profile-role/recommendation-type')
       .then(res => setSegmentsList(res.data || []))
       .catch(() => setSegmentsList([]));
+
+    // NEW: fetch Indian states (name + code)
+    axiosInstance.get('/state/')
+      .then(res => setStates(res?.data?.states || []))
+      .catch(() => setStates([]));
   }, [])
 
   const handleChange = (e) => {
@@ -111,11 +136,11 @@ export default function LeadForm() {
 
   const handleVerifyPan = async () => {
     if (!formData.pan) {
-       ErrorHandling({defaultError:"Please enter a PAN number first"});
+      ErrorHandling({ defaultError: "Please enter a PAN number first" });
       return;
     }
     if (!formData.pan_type) {
-      ErrorHandling({defaultError:"Please select PAN type before verifying"});
+      ErrorHandling({ defaultError: "Please select PAN type before verifying" });
       return;
     }
     setLoadingPan(true);
@@ -147,11 +172,11 @@ export default function LeadForm() {
         setPanVerified(true);
         toast.success('PAN verified and details autofilled!');
       } else {
-         ErrorHandling({defaultError:"PAN verification failed"});
+        ErrorHandling({ defaultError: "PAN verification failed" });
       }
     } catch (err) {
       console.error(err);
-      ErrorHandling({ error: err, defaultError: "Error verifying PAN"});
+      ErrorHandling({ error: err, defaultError: "Error verifying PAN" });
     } finally {
       setLoadingPan(false);
     }
@@ -172,104 +197,104 @@ export default function LeadForm() {
     }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!formData.lead_response_id) {
-     ErrorHandling({defaultError:"Please select a Lead Response."});
-    return;
-  }
-
-  if (!formData.lead_source_id) {
-    ErrorHandling({defaultError:"Please select a Lead Source."});
-    return;
-  }
-
-  setSubmitting(true);
-  try {
-    // Build payload explicitly to avoid sending unsupported fields (like pan_type)
-    const payload = {
-      full_name: (formData.full_name || '').trim(),
-      father_name: (formData.father_name || '').trim(),
-      email: (formData.email || '').trim(),
-      mobile: (formData.mobile || '').trim(),
-      alternate_mobile: (formData.alternate_mobile || '').trim() || null,
-      aadhaar: (formData.aadhaar || '').trim() || null,
-      pan: (formData.pan || '').trim() || null,
-      gstin: (formData.gstin || '').trim() || null,
-      state: (formData.state || '').trim(),
-      city: (formData.city || '').trim(),
-      district: (formData.district || '').trim() || null,
-      address: (formData.address || '').trim() || null,
-      pincode: (formData.pincode || '').trim() || null,
-      dob: formatForInput(formData.dob),
-      occupation: (formData.occupation || '').trim() || null,
-      segment: Array.isArray(formData.segment) ? formData.segment : [],
-      experience: (formData.experience || '').trim() || null,
-      lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
-      lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
-      comment: typeof formData.comment === 'object' ? (formData.comment?.text || '') : (formData.comment || ''),
-      call_back_date: formatForInput(formData.call_back_date),
-      // Only send branch_id if the role is not SUPERADMIN
-      ...(Cookies.get('user_info') && !JSON.parse(Cookies.get('user_info'))?.role === 'SUPERADMIN' && { branch_id: branchId }),
-      // profile: formData.profile || '', // include only if your backend expects it
-    };
-
-    const { data } = await axiosInstance.post('/leads/', payload);
-    const leadId = data.id;
-
-    if (aadharFront || aadharBack || panPic) {
-      const uploadData = new FormData();
-      if (aadharFront) uploadData.append('aadhar_front', aadharFront);
-      if (aadharBack) uploadData.append('aadhar_back', aadharBack);
-      if (panPic) uploadData.append('pan_pic', panPic);
-
-      await axiosInstance.post(
-        `/leads/${leadId}/upload-documents`,
-        uploadData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+    if (!formData.lead_response_id) {
+      ErrorHandling({ defaultError: "Please select a Lead Response." });
+      return;
     }
 
-    toast.success('Lead and documents uploaded successfully');
-    // reset all
-    setFormData({
-      full_name: '',
-      father_name: '',
-      email: '',
-      mobile: '',
-      alternate_mobile: '',
-      aadhaar: '',
-      pan: '',
-      pan_type: 'Person',
-      gstin: '',
-      state: '',
-      city: '',
-      district: '',
-      address: '',
-      dob: '',
-      occupation: '',
-      segment: [],
-      experience: '',
-      lead_response_id: '',
-      lead_source_id: '',
-      comment: '',
-      call_back_date: '',
-      profile: '',
-    });
-    setAadharFront(null);
-    setAadharBack(null);
-    setPanPic(null);
-    setAadharFrontPreview(null);
-    setAadharBackPreview(null);
-    setPanPicPreview(null);
-    setPanVerified(false);
-  } catch (err) {
-     ErrorHandling({ error: err, defaultError:"Error creating lead or uploading documents"});
-  } finally {
-    setSubmitting(false);
-  }
-};
+    if (!formData.lead_source_id) {
+      ErrorHandling({ defaultError: "Please select a Lead Source." });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Build payload explicitly to avoid sending unsupported fields (like pan_type)
+      const payload = {
+        full_name: (formData.full_name || '').trim(),
+        father_name: (formData.father_name || '').trim(),
+        email: (formData.email || '').trim(),
+        mobile: (formData.mobile || '').trim(),
+        alternate_mobile: (formData.alternate_mobile || '').trim() || null,
+        aadhaar: (formData.aadhaar || '').trim() || null,
+        pan: (formData.pan || '').trim() || null,
+        gstin: (formData.gstin || '').trim() || null,
+        state: (formData.state || '').trim(),
+        city: (formData.city || '').trim(),
+        district: (formData.district || '').trim() || null,
+        address: (formData.address || '').trim() || null,
+        pincode: (formData.pincode || '').trim() || null,
+        dob: formatForInput(formData.dob),
+        occupation: (formData.occupation || '').trim() || null,
+        segment: Array.isArray(formData.segment) ? formData.segment : [],
+        experience: (formData.experience || '').trim() || null,
+        lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
+        lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
+        comment: typeof formData.comment === 'object' ? (formData.comment?.text || '') : (formData.comment || ''),
+        call_back_date: formatForInput(formData.call_back_date),
+        // Only send branch_id if the role is not SUPERADMIN
+        ...(Cookies.get('user_info') && !JSON.parse(Cookies.get('user_info'))?.role === 'SUPERADMIN' && { branch_id: branchId }),
+        // profile: formData.profile || '', // include only if your backend expects it
+      };
+
+      const { data } = await axiosInstance.post('/leads/', payload);
+      const leadId = data.id;
+
+      if (aadharFront || aadharBack || panPic) {
+        const uploadData = new FormData();
+        if (aadharFront) uploadData.append('aadhar_front', aadharFront);
+        if (aadharBack) uploadData.append('aadhar_back', aadharBack);
+        if (panPic) uploadData.append('pan_pic', panPic);
+
+        await axiosInstance.post(
+          `/leads/${leadId}/upload-documents`,
+          uploadData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+      }
+
+      toast.success('Lead and documents uploaded successfully');
+      // reset all
+      setFormData({
+        full_name: '',
+        father_name: '',
+        email: '',
+        mobile: '',
+        alternate_mobile: '',
+        aadhaar: '',
+        pan: '',
+        pan_type: 'Person',
+        gstin: '',
+        state: '',
+        city: '',
+        district: '',
+        address: '',
+        dob: '',
+        occupation: '',
+        segment: [],
+        experience: '',
+        lead_response_id: '',
+        lead_source_id: '',
+        comment: '',
+        call_back_date: '',
+        profile: '',
+      });
+      setAadharFront(null);
+      setAadharBack(null);
+      setPanPic(null);
+      setAadharFrontPreview(null);
+      setAadharBackPreview(null);
+      setPanPicPreview(null);
+      setPanVerified(false);
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Error creating lead or uploading documents" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const formatDob = dobString => dobString || '';
   const formatForInput = (ddmmyyyy = '') => {
@@ -472,17 +497,53 @@ const handleSubmit = async (e) => {
           />
         </div>
 
-        {/* State */}
-        <div>
+        <div className="relative">
           <label className="block mb-1 font-medium">State</label>
           <input
             name="state"
             value={formData.state}
-            onChange={handleChange}
-            placeholder="State"
+            onChange={(e) => {
+              setStateQuery(e.target.value);
+              setFormData(prev => ({ ...prev, state: e.target.value }));
+              setShowStateList(true);
+              setStateIndex(0);
+            }}
+            onFocus={() => setShowStateList(true)}
+            onBlur={() => setTimeout(() => setShowStateList(false), 120)}
+            onKeyDown={(e) => {
+              if (!showStateList || filteredStates.length === 0) return;
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setStateIndex(i => Math.min(i + 1, filteredStates.length - 1));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setStateIndex(i => Math.max(i - 1, 0));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const pick = filteredStates[stateIndex];
+                if (pick) selectState(pick.state_name);
+              }
+            }}
+            placeholder="Start typing… e.g. MADHYA PRADESH"
             required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
+            autoComplete="off"
           />
+          {showStateList && filteredStates.length > 0 && (
+            <div className="absolute left-0 right-0 mt-1 z-50 bg-white border rounded-md shadow max-h-60 overflow-auto">
+              {filteredStates.map((s, idx) => (
+                <button
+                  type="button"
+                  key={s.code}
+                  onMouseDown={(e) => { e.preventDefault(); selectState(s.state_name); }}
+                  className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === stateIndex ? 'bg-gray-100' : ''
+                    }`}
+                >
+                  {s.state_name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* District */}

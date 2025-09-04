@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import { createPortal } from "react-dom";
 
 const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
 
@@ -44,7 +45,7 @@ const getRoleKeySafe = (currentUser) => {
         const p = JSON.parse(raw);
         role = p?.role ?? p?.user?.role ?? p?.user_info?.role;
       }
-    } catch {}
+    } catch { }
   }
   return roleKey(role);
 };
@@ -116,6 +117,35 @@ export default function UserModal({
     vbc_user_password: "",
   });
 
+  // States API + autocomplete
+  const [states, setStates] = useState([]);                 // [{state_name, code}]
+  const [stateQuery, setStateQuery] = useState("");
+  const [showStateList, setShowStateList] = useState(false);
+  const [stateIndex, setStateIndex] = useState(0);
+  const stateInputRef = useRef(null);
+  const [statePopup, setStatePopup] = useState({ top: 0, left: 0, width: 0 });
+
+  const filteredStates = useMemo(() => {
+    const q = (stateQuery || "").toUpperCase().trim();
+    if (!q) return states;
+    return states.filter((s) => s.state_name.includes(q));
+  }, [stateQuery, states]);
+
+  const selectState = (name) => {
+    setFormData((p) => ({ ...p, state: name }));
+    setStateQuery(name);
+    setShowStateList(false);
+  };
+
+  const updateStatePopupPos = () => {
+    const el = stateInputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setStatePopup({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
+  };
+
+
+
   // ---- Derived ----
   const selectedDepartment = useMemo(
     () =>
@@ -150,16 +180,16 @@ export default function UserModal({
     if (!isOpen) return;
     (async () => {
       try {
-        const [branchRes, depRes, profRes] = await Promise.all([
+        const [branchRes, depRes, profRes, statesRes] = await Promise.all([
           axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
           axiosInstance.get("/departments/?skip=0&limit=50&order_by=name"),
-          axiosInstance.get(
-            "/profile-role/?skip=0&limit=50&order_by=hierarchy_level"
-          ),
+          axiosInstance.get("/profile-role/?skip=0&limit=50&order_by=hierarchy_level"),
+          axiosInstance.get("/state/"),
         ]);
         setBranches(branchRes.data || []);
         setDepartments(depRes.data || []);
         setProfiles(profRes.data || []);
+        setStates(statesRes?.data?.states || []);
 
         // branch preselect rules
         if (isEdit && user?.branch_id) {
@@ -196,15 +226,27 @@ export default function UserModal({
                 ? user.permissions
                 : foundProfile.default_permissions || []
             );
-             // release the guard on the next tick (after dependent effects run)
-           setTimeout(() => { prefilling.current = false; }, 0);
+            // release the guard on the next tick (after dependent effects run)
+            setTimeout(() => { prefilling.current = false; }, 0);
           }
         }
-      } catch(err) {
-        ErrorHandling({ error: err, defaultError: "Failed to load branches/departments/roles" });
+      } catch (err) {
+        ErrorHandling({ error: err, defaultError: "Failed to load branches/departments/roles" });
       }
     })();
   }, [isOpen, isEdit, user, currentRoleKey, currentUser]);
+
+  useEffect(() => {
+    if (!showStateList) return;
+    updateStatePopupPos();
+    const onScrollOrResize = () => updateStatePopupPos();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [showStateList]);
 
   // Keep formData.branch_id in sync with selectedBranchId
   useEffect(() => {
@@ -213,7 +255,7 @@ export default function UserModal({
   }, [selectedBranchId]);
 
   // Reset profile and permissions when department changes
- useEffect(() => {
+  useEffect(() => {
     if (!selectedDepartmentId) {
       setSelectedProfileId("");
       setSelectedPermissions([]);
@@ -225,7 +267,7 @@ export default function UserModal({
   }, [selectedDepartmentId]);
 
   // When profile changes, preselect its default permissions
-useEffect(() => {
+  useEffect(() => {
     if (prefilling.current) return; // keep server/user-set permissions
     if (!selectedProfile) {
       setSelectedPermissions([]);
@@ -355,9 +397,9 @@ useEffect(() => {
 
   // -------- PAN verification ----------
   const handleVerifyPan = async () => {
-    if (!formData.pan) return ErrorHandling({ defaultError: "Enter a PAN first" });
+    if (!formData.pan) return ErrorHandling({ defaultError: "Enter a PAN first" });
     if (formData.pan.trim().length !== 10 || !PAN_REGEX.test(formData.pan))
-      return ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)"});
+      return ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)" });
 
     setLoadingPan(true);
     toast.loading("Verifying PAN...");
@@ -384,11 +426,11 @@ useEffect(() => {
         setIsPanVerified(true);
         toast.success("PAN verified!");
       } else {
-        ErrorHandling({ defaultError: "PAN verification failed"});
+        ErrorHandling({ defaultError: "PAN verification failed" });
       }
-    } catch(err) {
+    } catch (err) {
       toast.dismiss();
-       ErrorHandling({error: err, defaultError: "Error verifying PAN"});
+      ErrorHandling({ error: err, defaultError: "Error verifying PAN" });
     } finally {
       setLoadingPan(false);
     }
@@ -405,7 +447,7 @@ useEffect(() => {
 
   const aadhaarError =
     formData.aadhaar.length > 0 &&
-    !(/^\d{12}$/.test(formData.aadhaar) || /^[Xx]{8}\d{4}$/.test(formData.aadhaar))
+      !(/^\d{12}$/.test(formData.aadhaar) || /^[Xx]{8}\d{4}$/.test(formData.aadhaar))
       ? "Enter 12 digits or masked like XXXXXXXX1234"
       : "";
   const phoneError =
@@ -422,16 +464,16 @@ useEffect(() => {
     e.preventDefault();
 
     // Flow validations
-    if (!selectedBranchId) return ErrorHandling({ defaultError: "Please select a Branch first"});
+    if (!selectedBranchId) return ErrorHandling({ defaultError: "Please select a Branch first" });
     if (!selectedDepartmentId)
-      return ErrorHandling({ defaultError: "Please select a Department"});
-    if (!selectedProfileId) return ErrorHandling({defaultError: "Please select a Profile"});
+      return ErrorHandling({ defaultError: "Please select a Department" });
+    if (!selectedProfileId) return ErrorHandling({ defaultError: "Please select a Profile" });
 
     // Basic required fields
-    if (!formData.name.trim()) return ErrorHandling({defaultError: "Full Name is required"});
-    if (!formData.email.trim()) return ErrorHandling({defaultError: "Email is required"});
+    if (!formData.name.trim()) return ErrorHandling({ defaultError: "Full Name is required" });
+    if (!formData.email.trim()) return ErrorHandling({ defaultError: "Email is required" });
     if (!formData.phone_number.trim())
-      return ErrorHandling({defaultError: "Phone number is required"});
+      return ErrorHandling({ defaultError: "Phone number is required" });
 
     // PAN checks
     if (!formData.pan.trim()) return ErrorHandling({ defaultError: "PAN is required" });
@@ -443,14 +485,14 @@ useEffect(() => {
 
     // Phone validation
     if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number))
-    return  ErrorHandling({defaultError: "Phone must be 10 digits"});
+      return ErrorHandling({ defaultError: "Phone must be 10 digits" });
 
     // Password validation
     if (!isEdit && !passwordRegex.test(formData.password)) {
-      return  ErrorHandling({defaultError: "Password must be ≥6 chars, include a number & special char"});
+      return ErrorHandling({ defaultError: "Password must be ≥6 chars, include a number & special char" });
     }
     if (isEdit && formData.password && !passwordRegex.test(formData.password)) {
-      return  ErrorHandling({defaultError: "Password must be ≥6 chars, include a number & special char"});
+      return ErrorHandling({ defaultError: "Password must be ≥6 chars, include a number & special char" });
     }
 
     // Build payload
@@ -516,7 +558,7 @@ useEffect(() => {
       //   ? detail.errors.join(", ")
       //   : detail?.errors || detail?.message || detail || "Request failed";
       // toast.error(msg);
-      ErrorHandling({error: error, defaultError: "Array.isArray(detail?.errors)"});
+      ErrorHandling({ error: error, defaultError: "Array.isArray(detail?.errors)" });
     } finally {
       setIsSubmitting(false);
     }
@@ -936,25 +978,56 @@ useEffect(() => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     City
                   </label>
-                    <input
-                      className="p-3 border rounded-xl w-full"
-                      value={formData.city}
-                      onChange={(e) =>
-                        setFormData({ ...formData, city: e.target.value })
-                      }
-                    />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State
-                  </label>
                   <input
                     className="p-3 border rounded-xl w-full"
-                    value={formData.state}
+                    value={formData.city}
                     onChange={(e) =>
-                      setFormData({ ...formData, state: e.target.value })
+                      setFormData({ ...formData, city: e.target.value })
                     }
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                  <input
+                    ref={stateInputRef}
+                    className="p-3 border rounded-xl w-full bg-white"
+                    value={formData.state}
+                    onChange={(e) => {
+                      setFormData({ ...formData, state: e.target.value });
+                      setStateQuery(e.target.value);
+                      setShowStateList(true);
+                      setStateIndex(0);
+                      updateStatePopupPos();
+                    }}
+                    onFocus={() => { setShowStateList(true); updateStatePopupPos(); }}
+                    onBlur={() => setTimeout(() => setShowStateList(false), 120)}
+                    onKeyDown={(e) => {
+                      if (!showStateList || filteredStates.length === 0) return;
+                      if (e.key === "ArrowDown") { e.preventDefault(); setStateIndex(i => Math.min(i + 1, filteredStates.length - 1)); }
+                      else if (e.key === "ArrowUp") { e.preventDefault(); setStateIndex(i => Math.max(i - 1, 0)); }
+                      else if (e.key === "Enter") { e.preventDefault(); const pick = filteredStates[stateIndex]; if (pick) selectState(pick.state_name); }
+                    }}
+                    placeholder="Start typing… e.g. MADHYA PRADESH"
+                    autoComplete="off"
+                  />
+                  {showStateList && filteredStates.length > 0 && createPortal(
+                    <div
+                      className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
+                      style={{ top: statePopup.top, left: statePopup.left, width: statePopup.width }}
+                    >
+                      {filteredStates.map((s, idx) => (
+                        <button
+                          type="button"
+                          key={s.code}
+                          onMouseDown={(e) => { e.preventDefault(); selectState(s.state_name); }}
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === stateIndex ? "bg-gray-100" : ""}`}
+                        >
+                          {s.state_name}
+                        </button>
+                      ))}
+                    </div>,
+                    document.body
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1022,9 +1095,8 @@ useEffect(() => {
                     }
                     dateFormat="dd-MM-yyyy"
                     placeholderText="DD-MM-YYYY"
-                    className={`${INPUT_CLS} ${
-                      isPanVerified ? "opacity-80 pointer-events-none bg-gray-50" : ""
-                    }`}
+                    className={`${INPUT_CLS} ${isPanVerified ? "opacity-80 pointer-events-none bg-gray-50" : ""
+                      }`}
                     isClearable
                     showPopperArrow={false}
                     disabled={isPanVerified}

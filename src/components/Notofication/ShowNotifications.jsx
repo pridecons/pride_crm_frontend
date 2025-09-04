@@ -1,19 +1,26 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { Bell, X, BellOff } from "lucide-react";
 import toast from "react-hot-toast";
 import { WS_BASE_URL_full } from "@/api/Axios";
+import { useRouter } from "next/navigation";
 
-const TOAST_MIN_GAP_MS = 2000; // minimum time between toasts
-const MAX_ACTIVE_TOASTS = 3;   // max toasts visible at once
-const MAX_MESSAGES_BUFFER = 200; // cap stored notifications
+const TOAST_MIN_GAP_MS = 2000;        // minimum time between toasts
+const MAX_ACTIVE_TOASTS = 3;          // max toasts visible at once
+const MAX_MESSAGES_BUFFER = 200;      // cap stored notifications
 const SOUND_PREF_KEY = "notifications_sound_enabled";
 
 export default function ShowNotifications({ setIsConnect, employee_code }) {
+  const router = useRouter();
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [messages, setMessages] = useState([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const retryCountRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
+  const allowReconnectRef = useRef(true); // block reconnects during intentional teardown
   const socketRef = useRef(null);
   const wrapperRef = useRef(null);
 
@@ -21,29 +28,37 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
   const audioRef = useRef(null);
   const userInteractedRef = useRef(false);
 
-  // For throttling & limiting visible toasts
   const lastToastAtRef = useRef(0);
   const activeToastIdsRef = useRef([]);
 
+  // keep a ref in sync so we can read the latest value inside WS handlers
+  const showNotificationsRef = useRef(false);
+  useEffect(() => {
+    showNotificationsRef.current = showNotifications;
+  }, [showNotifications]);
+
   // Initialize sound preference & audio element
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const stored = localStorage.getItem(SOUND_PREF_KEY);
     if (stored === "0") setSoundEnabled(false);
-    // Prepare audio element
+
     const el = new Audio(audioUrl);
     el.preload = "auto";
     el.volume = 1.0;
     audioRef.current = el;
 
-    // Mark that user has interacted after first click/keypress—helps bypass autoplay blocks
     const markInteraction = () => {
       userInteractedRef.current = true;
-      // Try a silent play-then-pause to "warm up" permissions
       if (audioRef.current) {
-        audioRef.current.play().then(() => {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        }).catch(() => {});
+        audioRef.current
+          .play()
+          .then(() => {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          })
+          .catch(() => {});
       }
       window.removeEventListener("click", markInteraction);
       window.removeEventListener("keydown", markInteraction);
@@ -62,23 +77,22 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
 
   // Persist sound preference
   useEffect(() => {
+    if (typeof window === "undefined") return;
     localStorage.setItem(SOUND_PREF_KEY, soundEnabled ? "1" : "0");
   }, [soundEnabled]);
 
-  // Play sound helper
-  // REPLACE your current playSound with this:
+  // Sound helper
   const playSound = () => {
     if (!soundEnabled) return;
     const el = audioRef.current;
     if (!el) return;
     try {
-      // Ensure it always plays, even if a previous play is mid-way
       el.pause();
       el.currentTime = 0;
       const p = el.play();
       if (p && typeof p.then === "function") {
         p.catch(() => {
-          // Likely blocked until first interaction; your markInteraction handler fixes this
+          // likely blocked until first interaction; the markInteraction handler warms it up
         });
       }
     } catch (err) {
@@ -86,11 +100,19 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
     }
   };
 
-
+  // WebSocket connect: only when employee_code changes or on first mount
   useEffect(() => {
     if (!employee_code) return;
 
+    const isSocketAlive = (ws) =>
+      ws &&
+      (ws.readyState === WebSocket.OPEN ||
+        ws.readyState === WebSocket.CONNECTING);
+
     const connect = () => {
+      // Guard: if socket is already open or connecting, do not create a new one
+      if (isSocketAlive(socketRef.current)) return;
+
       const socket = new WebSocket(
         `${WS_BASE_URL_full}/ws/notification/${employee_code}`
       );
@@ -99,6 +121,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       socket.onopen = () => {
         setIsConnect?.(true);
         retryCountRef.current = 0;
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
+        }
       };
 
       socket.onmessage = (event) => {
@@ -109,7 +135,8 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
           return; // ignore malformed payloads
         }
 
-        if (["connection_confirmed", "ping", "pong"].includes(data?.type)) return;
+        if (["connection_confirmed", "ping", "pong"].includes(data?.type))
+          return;
 
         const messageWithTime = { ...data, received_at: new Date() };
 
@@ -121,18 +148,18 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
           return next;
         });
 
-        // If the panel is open, don't spam toasts (still add to list above)
-        if (showNotifications) return;
+        // If panel is open, don't spam toasts
+        if (showNotificationsRef.current) return;
 
         // Throttle toasts
         const now = Date.now();
         if (now - lastToastAtRef.current < TOAST_MIN_GAP_MS) return;
         lastToastAtRef.current = now;
 
-        // 🔔 Play sound (only when toast is going to show)
+        // Sound only when toast will show
         playSound();
 
-        // Limit visible toasts: dismiss oldest if exceeding MAX_ACTIVE_TOASTS
+        // Limit visible toasts
         if (activeToastIdsRef.current.length >= MAX_ACTIVE_TOASTS) {
           const oldId = activeToastIdsRef.current.shift();
           toast.dismiss(oldId);
@@ -168,6 +195,14 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                     })()}
                   </p>
                 </div>
+                {data?.lead_id && (
+                  <button
+                    onClick={() => router.push(`/lead/${data?.lead_id}`)}
+                    className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    View
+                  </button>
+                )}
               </div>
             </div>
           ),
@@ -181,31 +216,47 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       };
 
       socket.onerror = () => {
-        // prevent tight loops on certain failures
-        socket.close();
+        // let onclose decide reconnect so throttling works properly
+        try {
+          socket.close();
+        } catch {}
       };
 
       socket.onclose = () => {
         setIsConnect?.(false);
-        if (retryCountRef.current < 10) {
-          retryCountRef.current += 1;
-          // Exponential backoff with jitter
-          const base = Math.min(30000, 1000 * 2 ** retryCountRef.current);
-          const jitter = Math.floor(Math.random() * 500);
-          setTimeout(connect, base + jitter);
-        }
+        if (!allowReconnectRef.current) return; // intentional teardown
+        if (retryCountRef.current >= 10) return;
+        retryCountRef.current += 1;
+        const base = Math.min(30000, 1000 * 2 ** retryCountRef.current);
+        const jitter = Math.floor(Math.random() * 500);
+        reconnectTimerRef.current = setTimeout(connect, base + jitter);
       };
     };
 
     connect();
+
     return () => {
-      // Clean up: close socket & remove any remaining toasts
-      socketRef.current?.close();
+      // Intentional teardown: block auto-reconnect and close socket
+      allowReconnectRef.current = false;
+      try {
+        socketRef.current?.close();
+      } catch {}
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      // Dismiss any remaining toasts
       activeToastIdsRef.current.forEach((id) => toast.dismiss(id));
       activeToastIdsRef.current = [];
+      // Re-enable reconnect for the next mount/employee change
+      setTimeout(() => {
+        allowReconnectRef.current = true;
+      }, 0);
     };
-  }, [setIsConnect, employee_code, showNotifications]);
+    // 🔑 only depend on employee_code so it won't reconnect on UI toggles
+  }, [employee_code, setIsConnect]);
 
+  // Click-outside to close the panel
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {

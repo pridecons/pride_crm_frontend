@@ -5,7 +5,7 @@ import Cookies from "js-cookie";
 // export const BASE_URL_full = "https://crm.24x7techelp.com/api/v1";
 // export const WS_BASE_URL_full="wss://crm.24x7techelp.com/api/v1"
 
-export const BASE_URL = "";
+export const BASE_URL = "/api/v1";
 export const BASE_URL_full = "/api/v1";
 export const WS_BASE_URL_full="/api/v1"
 

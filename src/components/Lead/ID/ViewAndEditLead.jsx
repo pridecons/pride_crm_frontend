@@ -42,12 +42,55 @@ async function loadRecommendationTypes(axiosInstance) {
   return _recTypePromise;
 }
 
-// Utility: calculate age from YYYY-MM-DD
-function calculateAge(dob) {
-  if (!dob) return "";
-  const birth = new Date(dob);
-  const diff = Date.now() - birth.getTime();
-  return Math.floor(diff / (365 * 24 * 60 * 60 * 1000));
+// ---- DOB helpers (supports DD-MM-YYYY, YYYY-MM-DD, ISO, slashes) ----
+function toYMD(input) {
+  if (!input) return "";
+  if (input instanceof Date && !isNaN(input)) {
+    const y = input.getFullYear();
+    const m = String(input.getMonth() + 1).padStart(2, "0");
+    const d = String(input.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  let s = String(input).trim();
+
+  // Strip time if ISO
+  if (s.includes("T")) s = s.split("T")[0];
+
+  // Already Y-M-D
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // D-M-Y with dashes
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
+    const [dd, mm, yyyy] = s.split("-");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // D/M/Y or Y/M/D
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    const [dd, mm, yyyy] = s.split("/");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(s)) {
+    return s.replace(/\//g, "-");
+  }
+
+  // Fallback: let Date try, but convert back to Y-M-D
+  const d = new Date(s);
+  if (!isNaN(d)) return toYMD(d);
+  return "";
+}
+
+// REPLACE your existing calculateAge with this:
+function calculateAge(dobLike) {
+  const ymd = toYMD(dobLike);
+  if (!ymd) return "";
+  const [y, m, d] = ymd.split("-").map(Number);
+  const today = new Date();
+  let age = today.getFullYear() - y;
+  const thisMonth = today.getMonth() + 1;
+  const thisDay = today.getDate();
+  if (thisMonth < m || (thisMonth === m && thisDay < d)) age--;
+  return String(age);
 }
 
 // Utility: format ISO datetime to DD-MM-YYYY
@@ -129,6 +172,12 @@ export const ViewAndEditLead = ({
 
       // Mobile is read-only: ignore any attempts to change
       if (name === "mobile") return;
+      // NEW: normalize DOB to YYYY-MM-DD so both manual DD-MM-YYYY and picker work
+    if (name === "dob") {
+      const ymd = toYMD(newVal);
+      setEditFormData((p) => ({ ...p, dob: ymd }));
+      return; // no further processing needed
+    }
 
       // Update form state
       setEditFormData((p) => ({
@@ -153,7 +202,7 @@ export const ViewAndEditLead = ({
               ...p,
               full_name: r.user_full_name || p.full_name,
               father_name: r.user_father_name || p.father_name,
-              dob: r.user_dob ? r.user_dob.split("T")[0] : p.dob,
+              dob: r.user_dob ? toYMD(r.user_dob) : p.dob,
               address: r.user_address?.full || p.address,
               city: r.user_address?.city || p.city,
               state: r.user_address?.state || p.state,

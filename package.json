@@ -9,14 +9,8 @@
     "lint": "next lint"
   },
   "browserslist": {
-    "production": [
-      "defaults",
-      "chrome >= 49",
-      "not dead"
-    ],
-    "development": [
-      "last 1 chrome version"
-    ]
+    "production": ["defaults", "chrome >= 49", "not dead"],
+    "development": ["last 1 chrome version"]
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

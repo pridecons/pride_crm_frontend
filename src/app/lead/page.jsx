@@ -12,6 +12,7 @@ import { toast } from "react-hot-toast";
 import LeadsDataTable from "@/components/Lead/LeadsTable";
 import { formatCallbackForAPI, isoToDatetimeLocal } from "@/utils/dateUtils";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import CallButton from "@/components/Lead/CallButton";
 
 export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
@@ -264,6 +265,7 @@ export default function NewLeadsTable() {
         header: "Actions",
         render: (lead) => (
           <div className="flex gap-2">
+            <CallButton lead={lead} onRefresh={fetchLeads} />
             <button
               onClick={() => router.push(`/lead/${lead.id}`)}
               className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"

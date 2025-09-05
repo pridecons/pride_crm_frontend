@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 // ✨ IST-safe helpers — same ones used on the Lead page
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
+import CallButton from "@/components/Lead/CallButton";
 
 export default function OldLeadsTable() {
   const [leads, setLeads] = useState([]);
@@ -348,6 +349,7 @@ export default function OldLeadsTable() {
       header: "Actions",
       render: (lead) => (
         <div className="flex gap-2">
+          <CallButton lead={lead} onRefresh={fetchLeads} />
           <button
             onClick={() => router.push(`/lead/${lead.id}`)}
             className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"

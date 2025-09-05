@@ -12,6 +12,7 @@ import {
   Share2,
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
+import CallButton from "../CallButton";
 
 const btnBase =
   "flex items-center px-4 py-2 rounded-lg border font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed";
@@ -19,7 +20,7 @@ const btnBase =
 export function ActionButtons({
   currentLead,
   loading,
-  onCallClick,
+  onRefresh,
   onKycClick,
   kycLoading = false,
   onPaymentClick,
@@ -36,14 +37,14 @@ export function ActionButtons({
   return (
     <div className="flex flex-wrap gap-3 mb-5 justify-center">
       {/* Call */}
-      <button
-        onClick={onCallClick}
-        disabled={!currentLead || currentLead.is_call}
-        className={`${btnBase} border-green-500 text-green-600 hover:bg-green-100`}
+      <CallButton
+        lead={currentLead}
+        size="md"
+        onRefresh={onRefresh}
+        title={currentLead?.is_call ? "Called" : "Call"}
       >
-        <PhoneCall size={16} className="mr-2" />
         {currentLead?.is_call ? "Called" : "Call"}
-      </button>
+      </CallButton>
 
       {/* Agreement / KYC */}
       {currentLead?.kyc ? (
@@ -92,7 +93,7 @@ export function ActionButtons({
       </button>
 
       {/* Recordings */}
-     {hasPermission("lead_recording_view")&& <button
+      {hasPermission("lead_recording_view") && <button
         onClick={onRecordingsClick}
         className={`${btnBase} border-pink-500 text-pink-600 hover:bg-pink-100`}
       >
@@ -101,7 +102,7 @@ export function ActionButtons({
       </button>}
 
       {/* Documents */}
-    <button
+      <button
         onClick={onDocumentsClick}
         className={`${btnBase} border-yellow-500 text-yellow-600 hover:bg-yellow-100`}
       >
@@ -110,7 +111,7 @@ export function ActionButtons({
       </button>
 
       {/* Invoices */}
-   <button
+      <button
         onClick={onInvoiceClick}
         className={`${btnBase} border-indigo-500 text-indigo-600 hover:bg-indigo-100`}
       >
@@ -119,7 +120,7 @@ export function ActionButtons({
       </button>
 
       {/* Transfer */}
-   {hasPermission("lead_transfer") && <button
+      {hasPermission("lead_transfer") && <button
         onClick={onShareClick}
         className={`${btnBase} border-purple-600 text-purple-700 hover:bg-purple-100`}
       >

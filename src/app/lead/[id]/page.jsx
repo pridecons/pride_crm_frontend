@@ -213,32 +213,32 @@ const Lead = () => {
   const didInit = useRef(false);
 
   // --- add inside the Lead component ---
-const handleCallClick = async () => {
-  try {
-    const raw = currentLead?.mobile || currentLead?.phone || currentLead?.contact_number;
-    const toNumber = normalizePhoneIN(raw);
+  const handleCallClick = async () => {
+    try {
+      const raw = currentLead?.mobile || currentLead?.phone || currentLead?.contact_number;
+      const toNumber = normalizePhoneIN(raw);
 
-    if (!toNumber) {
-      return ErrorHandling({ defaultError: "Mobile number not found for this lead." });
+      if (!toNumber) {
+        return ErrorHandling({ defaultError: "Mobile number not found for this lead." });
+      }
+
+      // IMPORTANT: send as form-urlencoded (backend expects Form(...))
+      await axiosInstance.post(
+        "/vbc/call",
+        { to_number: toNumber },
+        {
+          headers: { "Content-Type": "application/json", Accept: "application/json" }
+        }
+      );
+
+
+      toast.success(`Calling ${toNumber}`);
+      // optional: open your confirm modal to mark called
+      setIsOpenSource(true);
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Failed to place call" });
     }
-
-    // IMPORTANT: send as form-urlencoded (backend expects Form(...))
-    await axiosInstance.post(
-  "/vbc/call",
-  { to_number: toNumber },
-  {
-    headers: { "Content-Type": "application/json", Accept: "application/json" }
-  }
-);
-
-
-    toast.success(`Calling ${toNumber}`);
-    // optional: open your confirm modal to mark called
-    setIsOpenSource(true);
-  } catch (err) {
-    ErrorHandling({ error: err, defaultError: "Failed to place call" });
-  }
-};
+  };
 
   const apiCall = async (method, endpoint, data = null) => {
     try {
@@ -286,7 +286,7 @@ const handleCallClick = async () => {
       // toast.error(
       //   "Failed to initiate KYC: " +
       //   (err.response?.data?.detail || err.message)
-        ErrorHandling({ error: err, defaultError: "Failed to initiate KYC:" });
+      ErrorHandling({ error: err, defaultError: "Failed to initiate KYC:" });
     } finally {
       setKycLoading(false);
     }
@@ -393,12 +393,12 @@ const handleCallClick = async () => {
       const updateData = { ...editFormData };
       const respName = getResponseNameById(updateData.lead_response_id);
 
-      try{
+      try {
         if (updateData.dob) {
-        updateData.dob = updateData.dob && new Date(updateData.dob).toISOString().split("T")[0];
-      }
-      }catch{
-        updateData.dob=null
+          updateData.dob = updateData.dob && new Date(updateData.dob).toISOString().split("T")[0];
+        }
+      } catch {
+        updateData.dob = null
       }
       if (respName === "ft") {
         if (!updateData.ft_from_date || !updateData.ft_to_date) {
@@ -723,7 +723,7 @@ const handleCallClick = async () => {
         <ActionButtons
           currentLead={currentLead}
           loading={loading}
-           onCallClick={handleCallClick}  
+          onRefresh={fetchCurrentLead}
           onKycClick={fetchKycUserDetails}
           kycLoading={kycLoading}
           onPaymentClick={() => setIsOpenPayment(true)}
@@ -765,8 +765,8 @@ const handleCallClick = async () => {
               disabled={!currentLead}
               aria-pressed={isEditMode}
               className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${isEditMode
-                  ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
-                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
+                : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <span

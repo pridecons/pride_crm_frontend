@@ -8,6 +8,16 @@
     "start": "next start",
     "lint": "next lint"
   },
+  "browserslist": {
+    "production": [
+      "defaults",
+      "chrome >= 49",
+      "not dead"
+    ],
+    "development": [
+      "last 1 chrome version"
+    ]
+  },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
     "@react-pdf-viewer/core": "^3.12.0",
@@ -18,6 +28,7 @@
     "@tiptap/starter-kit": "^3.0.7",
     "axios": "^1.10.0",
     "chart.js": "^4.5.0",
+    "core-js": "^3.45.1",
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "jodit-react": "^5.2.19",
@@ -32,6 +43,7 @@
     "react-datepicker": "^8.7.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
+    "whatwg-fetch": "^3.6.20",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

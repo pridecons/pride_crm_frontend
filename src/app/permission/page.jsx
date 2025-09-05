@@ -341,10 +341,19 @@ export default function PermissionsPage() {
     }
   };
 
-  const handleUpdate = async () => {
+ const handleUpdate = async () => {
     try {
       setSaving(true);
-      await axiosInstance.put(`/permissions/user/${selectedUser}`, selectedUserPermissions);
+      
+      // Convert permissions object to array of enabled permission names
+      const enabledPermissions = getPermissionKeys(selectedUserPermissions)
+        .filter(perm => selectedUserPermissions[perm]);
+      
+      const requestBody = {
+        permissions: enabledPermissions
+      };
+      
+      await axiosInstance.put(`/permissions/user/${selectedUser}`, requestBody);
       toast.success("Permissions updated successfully");
       await fetchAllPermissions();
       clearSelection();

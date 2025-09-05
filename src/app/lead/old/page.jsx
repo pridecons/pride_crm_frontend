@@ -68,19 +68,29 @@ export default function OldLeadsTable() {
     fetchSources();
   }, []);
 
-  const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
+ const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
     setLoading(true);
     try {
-      const { data } = await axiosInstance.get("/old-leads/my-assigned", {
-        params: {
-          skip: (page - 1) * limit,
-          limit,
-          fromdate: customFrom || undefined,
-          todate: customTo || undefined,
-          search: searchQuery || undefined,
-          response_id: responseFilterId ?? undefined,
-        },
-      });
+      const params = {
+        skip: (page - 1) * limit,
+        limit,
+      };
+
+      // Only add date params if they exist - let backend handle single dates
+      if (customFrom && customFrom.trim() !== "") {
+        params.fromdate = customFrom;
+      }
+      if (customTo && customTo.trim() !== "") {
+        params.todate = customTo;
+      }
+      if (searchQuery && searchQuery.trim() !== "") {
+        params.search = searchQuery;
+      }
+      if (responseFilterId !== null && responseFilterId !== undefined) {
+        params.response_id = responseFilterId;
+      }
+
+      const { data } = await axiosInstance.get("/old-leads/my-assigned", { params });
 
       setLeads(data.assigned_old_leads || []);
       const serverTotal = data.count ?? data.total ?? 0;
@@ -382,17 +392,19 @@ export default function OldLeadsTable() {
     },
   ];
 
-  const filteredLeads = leads.filter((lead) => {
-    if (responseFilterId && lead.lead_response_id !== responseFilterId) return false;
-    const created = new Date(lead.created_at);
-    if (fromDate && created < new Date(fromDate)) return false;
-    if (toDate && created > new Date(toDate)) return false;
-    if (searchQuery) {
-      const hay = `${lead.full_name} ${lead.mobile}`.toLowerCase();
-      if (!hay.includes(searchQuery.toLowerCase())) return false;
-    }
-    return true;
-  });
+// const filteredLeads = leads.filter((lead) => {
+//   if (responseFilterId && lead.lead_response_id !== responseFilterId) return false;
+//   const created = new Date(lead.created_at);
+//   if (fromDate && created < new Date(fromDate)) return false;
+//   if (toDate && created > new Date(toDate)) return false;
+//   if (searchQuery) {
+//     const hay = `${lead.full_name} ${lead.mobile}`.toLowerCase();
+//     if (!hay.includes(searchQuery.toLowerCase())) return false;
+//   }
+//   return true;
+// });
+
+const filteredLeads = leads; // backend already applied filters
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 ">
@@ -434,21 +446,22 @@ export default function OldLeadsTable() {
             }}
             className="px-3 py-2 border rounded text-sm"
           />
-          {applied ? (
-            <button onClick={handleClear} className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm">
-              Clear
-            </button>
-          ) : fromDate || toDate ? (
-            fromDate && toDate ? (
-              <button onClick={handleApply} className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
-                Apply
-              </button>
-            ) : (
-              <button onClick={handleClear} className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm">
-                Clear
-              </button>
-            )
-          ) : null}
+  {applied ? (
+  <button
+    onClick={handleClear}
+    className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+  >
+    Clear
+  </button>
+) : fromDate || toDate ? (
+  <button
+    onClick={handleApply}
+    className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+  >
+    Apply
+  </button>
+) : null}
+
         </div>
       </div>
 

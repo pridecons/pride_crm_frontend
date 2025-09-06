@@ -100,12 +100,6 @@ export default function NewLeadsTable() {
 
   // 2) POST /leads/fetch (only when clicking button), then refresh assignments
   const handleFetchLeads = async () => {
-    if (!assignmentMeta.can_fetch_new) {
-      return ErrorHandling({
-        defaultError:
-          "You already have active assignments. Please complete them before fetching new leads.",
-      });
-    }
     setLoading(true);
     try {
       const { data } = await axiosInstance.post("/leads/fetch");
@@ -331,10 +325,10 @@ export default function NewLeadsTable() {
 
         <button
           onClick={handleFetchLeads}
-          disabled={loading || !assignmentMeta.can_fetch_new}
+          disabled={loading}
           className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg shadow transition
-            ${loading || !assignmentMeta.can_fetch_new ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}
-          `}
+     ${loading ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}
+   `}
           title={
             assignmentMeta.can_fetch_new
               ? "Fetch new leads"
@@ -388,11 +382,11 @@ export default function NewLeadsTable() {
               prev.map((l) =>
                 l.id === ftLead.id
                   ? {
-                      ...l,
-                      lead_response_id: ftId,
-                      ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                      ft_to_date: ftToDate.split("-").reverse().join("-"),
-                    }
+                    ...l,
+                    lead_response_id: ftId,
+                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                    ft_to_date: ftToDate.split("-").reverse().join("-"),
+                  }
                   : l
               )
             );

@@ -240,7 +240,7 @@ export default function LoginPage() {
                   ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Your password"
-                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 backdrop-blur-sm transition-all duration-200"
+                  className="compat-input w-full pl-10 pr-4 py-3"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"

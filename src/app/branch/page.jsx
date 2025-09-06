@@ -114,6 +114,10 @@ const BranchesPage = () => {
 
   const [deletingId, setDeletingId] = useState(null);
 
+  // Add these states near other useState declarations
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const [existingAgreementUrl, setExistingAgreementUrl] = useState("");
+
   // password policy: ≥6 chars, at least one number & one special char
   const MGR_PASSWORD_REGEX =
     /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
@@ -157,19 +161,64 @@ const BranchesPage = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const openEditModal = (branch) => {
+  const openEditModal = async (branch) => {
     setEditBranch(branch);
+    setIsOpen(true);
+    setIsManagerPanVerified(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    // Start with what we already have from the table row
     setFormData({
       ...emptyBranch,
       branch_name: branch.name || "",
       branch_address: branch.address || "",
-      agreement_pdf: null, // optional on edit unless you want to force re-upload
-      branch_active: branch.active,
-      // NOTE: Prefill manager fields here if API returns them in details endpoint
+      agreement_pdf: null,          // optional on edit
+      branch_active: !!branch.active,
     });
-    setIsManagerPanVerified(false);
-    setIsOpen(true);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setPrefillLoading(true);
+    setExistingAgreementUrl(branch.agreement_url || "");
+
+    try {
+      // Pull full details (manager + branch)
+      const { data } = await axiosInstance.get(`/branches/${branch.id}/details`);
+      const br = data?.branch || {};
+      const mgr = data?.manager || {};
+
+      // If API returns these on branch level, prefer them, else fallback to manager-level
+      const prefilled = {
+        branch_name: br.name ?? branch.name ?? "",
+        branch_address: br.address ?? branch.address ?? "",
+        branch_active: typeof br.active === "boolean" ? br.active : !!branch.active,
+
+        // Manager fields – safely map if present
+        manager_name: mgr.name || "",
+        manager_email: mgr.email || "",
+        manager_phone: (mgr.phone_number || "").replace(/\D/g, "").slice(0, 10),
+
+        // Aadhaar/PAN may arrive on branch or manager; keep whatever exists
+        manager_aadhaar: br.branch_aadhaar || mgr.masked_aadhaar || "",
+        manager_pan: (br.branch_pan || mgr.pan || "").toString().toUpperCase(),
+
+        manager_father_name: mgr.father_name || "",
+        manager_city: mgr.city || "",
+        manager_state: mgr.state || "",
+        manager_address: mgr.address || "",
+
+        manager_pincode: (mgr.pincode || "").toString().replace(/\D/g, "").slice(0, 6),
+        manager_experience: (mgr.experience_years ?? "").toString(),
+        manager_comment: mgr.comment || "",
+        manager_dob: isoToDDMMYYYY(normalizeDob(mgr.dob)) || "",
+      };
+
+      setFormData((prev) => ({ ...prev, ...prefilled }));
+      setExistingAgreementUrl(br.agreement_url || branch.agreement_url || "");
+    } catch (e) {
+      // Non-blocking: keep minimal prefill from row if details fail
+      console.error("Failed to prefill edit modal:", e);
+    } finally {
+      setPrefillLoading(false);
+    }
   };
 
   const openDetails = async (branchId) => {
@@ -221,18 +270,18 @@ const BranchesPage = () => {
 
   const validateBeforeSubmit = () => {
     // PAN: must be 10 chars & valid format
-if (!formData.manager_pan.trim()) {
-  ErrorHandling({ defaultError: "Manager PAN is required" });
-  return false;
-}
-if (toPanInput(formData.manager_pan).length < 10) {
-  ErrorHandling({ defaultError: "Manager PAN must be 10 characters" });
-  return false;
-}
-if (!isValidPAN(formData.manager_pan)) {
-  ErrorHandling({ defaultError: "Enter a valid PAN (format ABCDE1234F)" });
-  return false;
-}
+    if (!formData.manager_pan.trim()) {
+      ErrorHandling({ defaultError: "Manager PAN is required" });
+      return false;
+    }
+    if (toPanInput(formData.manager_pan).length < 10) {
+      ErrorHandling({ defaultError: "Manager PAN must be 10 characters" });
+      return false;
+    }
+    if (!isValidPAN(formData.manager_pan)) {
+      ErrorHandling({ defaultError: "Enter a valid PAN (format ABCDE1234F)" });
+      return false;
+    }
     // Branch validations
     if (!formData.branch_name.trim()) {
       ErrorHandling({ defaultError: "Branch name is required" });
@@ -257,7 +306,7 @@ if (!isValidPAN(formData.manager_pan)) {
       return false;
     }
     if (!isValidPhone10(formData.manager_phone)) {
-            ErrorHandling({ defaultError: "Manager phone must be 10 digits" });
+      ErrorHandling({ defaultError: "Manager phone must be 10 digits" });
       return false;
     }
     // Password rules: required on create; optional on edit but must pass if present
@@ -338,7 +387,7 @@ if (!isValidPAN(formData.manager_pan)) {
       }
       setIsOpen(false);
       fetchBranches();
-    } catch (error) {      
+    } catch (error) {
       ErrorHandling({ error: error, defaultError: "Error saving branch" })
     }
   };
@@ -376,7 +425,7 @@ if (!isValidPAN(formData.manager_pan)) {
       } else {
         ErrorHandling({ defaultError: "PAN verification failed" })
       }
-    } catch(error) {
+    } catch (error) {
       toast.dismiss(tId);
       ErrorHandling({ error: error, defaultError: "Error verifying pan" })
     } finally {
@@ -543,6 +592,13 @@ if (!isValidPAN(formData.manager_pan)) {
                 </div>
 
                 <div className="p-8 overflow-y-auto max-h-[calc(90vh-140px)]">
+                  {/* Add this just inside the modal content, before the <form> */}
+                  {prefillLoading && (
+                    <div className="mb-4 text-sm text-gray-600 flex items-center">
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading existing details…
+                    </div>
+                  )}
                   <form onSubmit={handleSubmit} className="space-y-8">
                     {/* Branch Information */}
                     <div className="bg-gray-50 rounded-xl p-6">
@@ -591,6 +647,19 @@ if (!isValidPAN(formData.manager_pan)) {
                             Upload a valid PDF file (max 10MB). Required when creating a branch.
                           </p>
                         </div>
+                        {/* Inside the Branch Information section, below the Agreement PDF input */}
+                        {editBranch && existingAgreementUrl && (
+                          <div className="mt-2 text-sm">
+                            <button
+                              type="button"
+                              onClick={() => openAgreementModal(existingAgreementUrl)}
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View current agreement
+                            </button>
+                            <span className="text-gray-500 ml-2">(upload a new PDF to replace)</span>
+                          </div>
+                        )}
 
                         <div className="flex items-center">
                           <input
@@ -616,68 +685,68 @@ if (!isValidPAN(formData.manager_pan)) {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                         <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">Manager PAN *</label>
-  <div className="flex gap-2 items-center">
-    <input
-      name="manager_pan"
-      value={toPanInput(formData.manager_pan)}
-      onChange={(e) =>
-        setFormData((prev) => ({
-          ...prev,
-          manager_pan: toPanInput(e.target.value),
-        }))
-      }
-      placeholder="ABCDE1234F"
-      maxLength={10} // ← ensures user can't type more than 10
-      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-      required
-      disabled={loadingManagerPan || isManagerPanVerified}
-      aria-invalid={!!formData.manager_pan && !isValidPAN(formData.manager_pan)}
-    />
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Manager PAN *</label>
+                          <div className="flex gap-2 items-center">
+                            <input
+                              name="manager_pan"
+                              value={toPanInput(formData.manager_pan)}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  manager_pan: toPanInput(e.target.value),
+                                }))
+                              }
+                              placeholder="ABCDE1234F"
+                              maxLength={10} // ← ensures user can't type more than 10
+                              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                              required
+                              disabled={loadingManagerPan || isManagerPanVerified}
+                              aria-invalid={!!formData.manager_pan && !isValidPAN(formData.manager_pan)}
+                            />
 
-    {isManagerPanVerified ? (
-      <>
-        <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-600">
-          <Check className="w-5 h-5 text-white" />
-        </span>
-        <button
-          type="button"
-          onClick={() => setIsManagerPanVerified(false)}
-          className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-700"
-          title="Edit PAN"
-        >
-          <Edit className="w-5 h-5" />
-        </button>
-      </>
-    ) : (
-      <button
-        type="button"
-        onClick={handleVerifyManagerPan}
-        disabled={loadingManagerPan || !isValidPAN(formData.manager_pan)} // ← block verify until valid
-        className="px-4 py-2 rounded-lg flex items-center gap-2 bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 text-white"
-      >
-        {loadingManagerPan ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Verifying...
-          </>
-        ) : (
-          <>
-            <Check className="w-4 h-4" />
-            Verify
-          </>
-        )}
-      </button>
-    )}
-  </div>
+                            {isManagerPanVerified ? (
+                              <>
+                                <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-600">
+                                  <Check className="w-5 h-5 text-white" />
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsManagerPanVerified(false)}
+                                  className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-700"
+                                  title="Edit PAN"
+                                >
+                                  <Edit className="w-5 h-5" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleVerifyManagerPan}
+                                disabled={loadingManagerPan || !isValidPAN(formData.manager_pan)} // ← block verify until valid
+                                className="px-4 py-2 rounded-lg flex items-center gap-2 bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 text-white"
+                              >
+                                {loadingManagerPan ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Verifying...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4" />
+                                    Verify
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
 
-  {/* tiny hint below input */}
-  {formData.manager_pan && !isValidPAN(formData.manager_pan) && (
-    <p className="mt-1 text-xs text-red-600">
-      Enter a valid PAN (format: ABCDE1234F, 10 characters).
-    </p>
-  )}
-</div>
+                          {/* tiny hint below input */}
+                          {formData.manager_pan && !isValidPAN(formData.manager_pan) && (
+                            <p className="mt-1 text-xs text-red-600">
+                              Enter a valid PAN (format: ABCDE1234F, 10 characters).
+                            </p>
+                          )}
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Manager Name *</label>
                           <input

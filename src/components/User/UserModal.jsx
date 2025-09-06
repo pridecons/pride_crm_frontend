@@ -10,6 +10,13 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import { createPortal } from "react-dom";
 
+const SELECT_NO_CARET_STYLE = {
+  appearance: "none",
+  WebkitAppearance: "none",
+  MozAppearance: "none",
+  backgroundImage: "none",
+};
+
 const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
 
 const INPUT_CLS =
@@ -125,6 +132,27 @@ export default function UserModal({
   const [stateIndex, setStateIndex] = useState(0);
   const stateInputRef = useRef(null);
   const [statePopup, setStatePopup] = useState({ top: 0, left: 0, width: 0 });
+  // Autocomplete (Reporting Profile)
+  const [seniorQuery, setSeniorQuery] = useState("");
+  const [showSeniorList, setShowSeniorList] = useState(false);
+  const [seniorIndex, setSeniorIndex] = useState(0);
+  const seniorInputRef = useRef(null);
+  const [seniorPopup, setSeniorPopup] = useState({ top: 0, left: 0, width: 0 });
+
+  const updateSeniorPopupPos = () => {
+    const el = seniorInputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setSeniorPopup({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
+  };
+
+
+  const selectSenior = (u) => {
+    setFormData((p) => ({ ...p, senior_profile_id: u.employee_code }));
+    setSeniorQuery(`${u.name} (${u.employee_code}) — ${u.roleLabel}`);
+    setShowSeniorList(false);
+  };
+
 
   const filteredStates = useMemo(() => {
     const q = (stateQuery || "").toUpperCase().trim();
@@ -153,6 +181,18 @@ export default function UserModal({
       departments.find((d) => String(d.id) === String(selectedDepartmentId)),
     [departments, selectedDepartmentId]
   );
+
+  // ⬇️ Add this block
+  const BRANCH_FREE_DEPTS = new Set(["COMPLIANCE_TEAM", "RESEARCH_TEAM", "ACCOUNTING"]);
+  const deptKeySafe = (selectedDepartment?.name || "")
+    .toString()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+
+  // If a department is selected, branch is required unless it's one of the branch-free departments.
+  // If no department is selected yet, keep branch required by default (UI below will still allow picking department first).
+  const isBranchRequired = selectedDepartment ? !BRANCH_FREE_DEPTS.has(deptKeySafe) : true;
+
   const departmentPermissions = selectedDepartment?.available_permissions || [];
 
   const filteredProfilesForDepartment = useMemo(() => {
@@ -175,6 +215,46 @@ export default function UserModal({
     for (const p of profiles) map[String(p.id)] = p;
     return map;
   }, [profiles]);
+
+  const labeledSeniors = useMemo(() => {
+    return seniorOptions.map((u) => ({
+      ...u,
+      roleLabel: profileById[String(u.role_id)]?.name || `Role ${u.role_id}`,
+    }));
+  }, [seniorOptions, profileById]);
+
+  const filteredSeniors = useMemo(() => {
+    const q = seniorQuery.trim().toLowerCase();
+    if (!q) return labeledSeniors;
+    return labeledSeniors.filter((u) =>
+      String(u.employee_code).toLowerCase().includes(q) ||
+      (u.name || "").toLowerCase().includes(q) ||
+      (u.roleLabel || "").toLowerCase().includes(q)
+    );
+  }, [labeledSeniors, seniorQuery]);
+
+  useEffect(() => {
+    if (!formData.senior_profile_id) {
+      setSeniorQuery("");
+      return;
+    }
+    const u = labeledSeniors.find(
+      (x) => String(x.employee_code) === String(formData.senior_profile_id)
+    );
+    if (u) setSeniorQuery(`${u.name} (${u.employee_code}) — ${u.roleLabel}`);
+  }, [formData.senior_profile_id, labeledSeniors]);
+  useEffect(() => {
+    if (!showSeniorList) return;
+    updateSeniorPopupPos();
+    const onScrollOrResize = () => updateSeniorPopupPos();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [showSeniorList]);
+
 
   // ---- Fetch branches / deps / profiles on open ----
   useEffect(() => {
@@ -314,36 +394,37 @@ export default function UserModal({
     setFormData((p) => ({ ...p, senior_profile_id: "" }));
   }, [selectedBranchId, isEdit, user?.branch_id]);
 
-
-  // 🔎 Load senior options (users) — re-fetch when branch changes
+  // 🔎 Load senior options (users) — show only SuperAdmin if no branch selected
   useEffect(() => {
     if (!isOpen) return;
 
     const fetchSeniors = async () => {
       try {
-        if (!selectedBranchId) {
-          setSeniorOptions([]);
-          return;
-        }
-        const q =
-          `/users/?skip=0&limit=500&active_only=true&branch_id=${encodeURIComponent(
-            selectedBranchId
-          )}`;
+        // Build query: if a branch is chosen, restrict by it; else fetch across all
+        const q = selectedBranchId
+          ? `/users/?skip=0&limit=500&active_only=true&branch_id=${encodeURIComponent(selectedBranchId)}`
+          : `/users/?skip=0&limit=500&active_only=true`;
 
         const res = await axiosInstance.get(q);
         const raw = res?.data?.data || [];
 
         // Exclude self when editing; sort by role_id then by name
-        const cleaned = raw
-          .filter(
-            (u) => !isEdit || u.employee_code !== user?.employee_code
-          )
+        let cleaned = raw
+          .filter((u) => !isEdit || u.employee_code !== user?.employee_code)
           .sort((a, b) => {
             const ra = String(a.role_id || "");
             const rb = String(b.role_id || "");
             if (ra !== rb) return ra.localeCompare(rb);
             return String(a.name || "").localeCompare(String(b.name || ""));
           });
+
+        // If no branch selected → show only SuperAdmin users
+        if (!selectedBranchId) {
+          cleaned = cleaned.filter((u) => {
+            const roleName = profileById[String(u.role_id)]?.name || "";
+            return roleName.toString().toUpperCase().replace(/\s+/g, "_") === "SUPERADMIN";
+          });
+        }
 
         setSeniorOptions(cleaned);
       } catch {
@@ -352,7 +433,7 @@ export default function UserModal({
     };
 
     fetchSeniors();
-  }, [isOpen, selectedBranchId, isEdit, user?.employee_code]);
+  }, [isOpen, selectedBranchId, isEdit, user?.employee_code, profileById]);
 
   // Initialize / reset form values on open or edit
   useEffect(() => {
@@ -500,7 +581,8 @@ export default function UserModal({
     e.preventDefault();
 
     // Flow validations
-    if (!selectedBranchId) return ErrorHandling({ defaultError: "Please select a Branch first" });
+    if (isBranchRequired && !selectedBranchId)
+      return ErrorHandling({ defaultError: "Please select a Branch first" });
     if (!selectedDepartmentId)
       return ErrorHandling({ defaultError: "Please select a Department" });
     if (!selectedProfileId) return ErrorHandling({ defaultError: "Please select a Profile" });
@@ -510,12 +592,17 @@ export default function UserModal({
     if (!formData.email.trim()) return ErrorHandling({ defaultError: "Email is required" });
     if (!formData.phone_number.trim())
       return ErrorHandling({ defaultError: "Phone number is required" });
+    // DOJ required
+    if (!formData.date_of_joining?.trim())
+      return ErrorHandling({ defaultError: "Date of Joining is required" });
 
-    // PAN checks
-    if (!formData.pan.trim()) return ErrorHandling({ defaultError: "PAN is required" });
-    if (formData.pan.trim().length !== 10) return ErrorHandling({ defaultError: "PAN must be 10 characters" });
-    if (!PAN_REGEX.test(formData.pan.trim())) return ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)" });
-
+    // PAN is optional; if provided, enforce format
+    if (formData.pan && formData.pan.trim()) {
+      const _p = formData.pan.trim();
+      if (_p.length !== 10 || !PAN_REGEX.test(_p)) {
+        return ErrorHandling({ defaultError: "Enter a valid PAN (e.g., ABCDE1234F)" });
+      }
+    }
     // Aadhaar validation
     if (formData.aadhaar && aadhaarError) return toast.error(aadhaarError);
 
@@ -541,7 +628,7 @@ export default function UserModal({
       experience: Number(formData.experience) || 0,
       date_of_joining: toISOorUndefined(formData.date_of_joining),
       date_of_birth: toISOorUndefined(formData.date_of_birth),
-      pan: formData.pan,
+      pan: formData.pan?.trim() ? formData.pan.trim() : undefined,
       aadhaar: formData.aadhaar || undefined,
       address: formData.address || undefined,
       city: formData.city || undefined,
@@ -635,13 +722,14 @@ export default function UserModal({
               {/* Branch */}
               <div className="md:col-span-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Branch *
+                  Branch {isBranchRequired ? "*" : "(optional)"}
                 </label>
                 <select
-                  className="w-full p-3 border rounded-xl bg-white"
+                  className="w-full p-3 border rounded-xl bg-white appearance-none"
+                  style={SELECT_NO_CARET_STYLE}
                   value={selectedBranchId}
                   onChange={(e) => setSelectedBranchId(e.target.value)}
-                  required
+                  required={isBranchRequired}
                   disabled={currentRoleKey !== "SUPERADMIN" && !!selectedBranchId}
                   title={
                     currentRoleKey !== "SUPERADMIN"
@@ -664,12 +752,11 @@ export default function UserModal({
                   Department *
                 </label>
                 <select
-                  className="w-full p-3 border rounded-xl bg-white"
+                  className="w-full p-3 border rounded-xl bg-white appearance-none"
+                  style={SELECT_NO_CARET_STYLE}
                   value={selectedDepartmentId}
                   onChange={(e) => setSelectedDepartmentId(e.target.value)}
                   required
-                  disabled={!selectedBranchId}
-                  title={!selectedBranchId ? "Select Branch first" : undefined}
                 >
                   <option value="">
                     {selectedBranchId ? "Select Department" : "Select Branch first"}
@@ -688,7 +775,8 @@ export default function UserModal({
                   Profile (Role) *
                 </label>
                 <select
-                  className="w-full p-3 border rounded-xl bg-white"
+                  className="w-full p-3 border rounded-xl bg-white appearance-none"
+                  style={SELECT_NO_CARET_STYLE}
                   value={selectedProfileId}
                   onChange={(e) => setSelectedProfileId(e.target.value)}
                   required
@@ -722,7 +810,7 @@ export default function UserModal({
                 {/* PAN (with slot-based input enforcement) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    PAN Number *
+                    PAN Number (optional)
                   </label>
                   <div className="flex gap-2 items-center">
                     <input
@@ -926,35 +1014,69 @@ export default function UserModal({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Reporting Profile
                   </label>
-                  <select
-                    className="w-full p-3 border rounded-xl bg-white"
-                    value={formData.senior_profile_id}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        senior_profile_id: e.target.value,
-                      })
-                    }
-                    disabled={!selectedBranchId}
-                    title={!selectedBranchId ? "Select Branch first" : undefined}
-                  >
-                    <option value="">
-                      {selectedBranchId ? "Select Reporting Profile" : "Select Branch first"}
-                    </option>
-                    {seniorOptions.map((u) => {
-                      const roleLabel =
-                        profileById[String(u.role_id)]?.name ||
-                        `Role ${u.role_id}`;
-                      return (
-                        <option key={u.employee_code} value={u.employee_code}>
-                          {roleLabel} → {u.name} ({u.employee_code})
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <div className="relative">
+                    <input
+                      ref={seniorInputRef}
+                      className="w-full p-3 border rounded-xl bg-white"
+                      value={seniorQuery}
+                      onChange={(e) => {
+                        setSeniorQuery(e.target.value);
+                        setShowSeniorList(true);
+                        setSeniorIndex(0);
+                        updateSeniorPopupPos();
+                      }}
+                      onFocus={() => { setShowSeniorList(true); updateSeniorPopupPos(); }}
+                      onBlur={() => setTimeout(() => setShowSeniorList(false), 120)}
+                      onKeyDown={(e) => {
+                        const has = Array.isArray(filteredSeniors) && filteredSeniors.length > 0;
+                        if (!showSeniorList || !has) return;
+                        if (e.key === "ArrowDown") { e.preventDefault(); setSeniorIndex(i => Math.min(i + 1, filteredSeniors.length - 1)); }
+                        else if (e.key === "ArrowUp") { e.preventDefault(); setSeniorIndex(i => Math.max(i - 1, 0)); }
+                        else if (e.key === "Enter") { e.preventDefault(); const u = filteredSeniors[seniorIndex]; if (u) selectSenior(u); }
+                        else if (e.key === "Escape") { setShowSeniorList(false); }
+                      }}
+                      placeholder={selectedBranchId ? "Type name / code / role…" : "SuperAdmin only (no branch selected)"}
+                      autoComplete="off"
+                    />
+                    {formData.senior_profile_id && (
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-3 text-sm text-gray-500"
+                        onMouseDown={(e) => { e.preventDefault(); }}
+                        onClick={() => { setFormData((p) => ({ ...p, senior_profile_id: "" })); setSeniorQuery(""); }}
+                        title="Clear"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {showSeniorList && filteredSeniors.length > 0 && createPortal(
+                    <div
+                      className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
+                      style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
+                    >
+                      {filteredSeniors.map((u, idx) => (
+                        <button
+                          type="button"
+                          key={u.employee_code}
+                          onMouseDown={(e) => { e.preventDefault(); selectSenior(u); }}
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === seniorIndex ? "bg-gray-100" : ""}`}
+                        >
+                          <div className="font-medium">{u.name} ({u.employee_code})</div>
+                          <div className="text-xs text-gray-500">{u.roleLabel}</div>
+                        </button>
+                      ))}
+                    </div>,
+                    document.body
+                  )}
+
                   <p className="mt-1 text-xs text-gray-500">
-                    List shows all active users from the selected branch.
+                    {selectedBranchId
+                      ? "Start typing to search users in this branch."
+                      : "No branch selected: searching within SuperAdmin users."}
                   </p>
+
                 </div>
 
                 {/* VBC fields */}
@@ -1118,7 +1240,7 @@ export default function UserModal({
                     dateFormat="dd-MM-yyyy"
                     placeholderText="DD-MM-YYYY"
                     className={INPUT_CLS}
-                    isClearable
+                    required
                     showPopperArrow={false}
                   />
                 </div>

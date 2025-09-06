@@ -198,50 +198,88 @@ export default function LeadForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+const { name, value } = e.target;
 
-    if (!formData.lead_response_id) {
-      ErrorHandling({ defaultError: "Please select a Lead Response." });
-      return;
+  // keep id fields as strings in state
+  if (name === 'lead_source_id' || name === 'lead_response_id') {
+    setFormData(prev => ({ ...prev, [name]: value })); // value is already a string
+    return;
+  }
+
+  if (name === 'comment') {
+    setFormData(prev => ({ ...prev, [name]: value.toUpperCase() }));
+  } else if (name === 'call_back_date' || name === 'dob') {
+    if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
-
-    if (!formData.lead_source_id) {
-      ErrorHandling({ defaultError: "Please select a Lead Source." });
+  } else {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+    // Only mobile is required
+    const mobile = (formData.mobile || '').trim();
+    if (!/^\d{10}$/.test(mobile)) {
+      ErrorHandling({ defaultError: "Please enter a valid 10-digit Mobile number." });
       return;
     }
 
     setSubmitting(true);
     try {
-      // Build payload explicitly to avoid sending unsupported fields (like pan_type)
-      const payload = {
-        full_name: (formData.full_name || '').trim(),
-        father_name: (formData.father_name || '').trim(),
-        email: (formData.email || '').trim(),
-        mobile: (formData.mobile || '').trim(),
-        alternate_mobile: (formData.alternate_mobile || '').trim() || null,
-        aadhaar: (formData.aadhaar || '').trim() || null,
-        pan: (formData.pan || '').trim() || null,
-        gstin: (formData.gstin || '').trim() || null,
-        state: (formData.state || '').trim(),
-        city: (formData.city || '').trim(),
-        district: (formData.district || '').trim() || null,
-        address: (formData.address || '').trim() || null,
-        pincode: (formData.pincode || '').trim() || null,
-        dob: formatForInput(formData.dob),
-        occupation: (formData.occupation || '').trim() || null,
-        segment: Array.isArray(formData.segment) ? formData.segment : [],
-        experience: (formData.experience || '').trim() || null,
-        lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : null,
-        lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : null,
-        comment: (formData.comment ?? '').trim(),
-        call_back_date: formatForInput(formData.call_back_date),
-        // Only send branch_id if the role is not SUPERADMIN
-        ...(Cookies.get('user_info') && !JSON.parse(Cookies.get('user_info'))?.role === 'SUPERADMIN' && { branch_id: branchId }),
-        // profile: formData.profile || '', // include only if your backend expects it
+      // Helper: convert DD-MM-YYYY -> YYYY-MM-DD (if present)
+      const normalizeDate = (ddmmyyyy) => {
+        if (!ddmmyyyy) return undefined;
+        const parts = ddmmyyyy.split('-');
+        if (parts.length !== 3) return undefined;
+        const [dd, mm, yyyy] = parts;
+        if (!dd || !mm || !yyyy) return undefined;
+        return `${yyyy}-${mm}-${dd}`;
       };
+
+      // Build a payload with only non-empty values
+      const raw = Cookies.get('user_info');
+      const user = raw ? JSON.parse(raw) : null;
+      const role = user?.role || user?.user?.role || user?.role_name;
+
+      const basePayload = {
+        // required
+        mobile,
+
+        // optional (add only if user filled them)
+        full_name: (formData.full_name || '').trim() || undefined,
+        father_name: (formData.father_name || '').trim() || undefined,
+        email: (formData.email || '').trim() || undefined,
+        alternate_mobile: (formData.alternate_mobile || '').trim() || undefined,
+        aadhaar: (formData.aadhaar || '').trim() || undefined,
+        pan: (formData.pan || '').trim() || undefined,
+        gstin: (formData.gstin || '').trim() || undefined,
+
+        state: (formData.state || '').trim() || undefined,
+        city: (formData.city || '').trim() || undefined,
+        district: (formData.district || '').trim() || undefined,
+        address: (formData.address || '').trim() || undefined,
+        pincode: (formData.pincode || '').trim() || undefined,
+
+        dob: normalizeDate(formData.dob),
+        occupation: (formData.occupation || '').trim() || undefined,
+        segment: Array.isArray(formData.segment) && formData.segment.length ? formData.segment : undefined,
+        experience: (formData.experience || '').trim() || undefined,
+        lead_response_id: formData.lead_response_id ? Number(formData.lead_response_id) : undefined,
+        lead_source_id: formData.lead_source_id ? Number(formData.lead_source_id) : undefined,
+        comment: (formData.comment || '').trim() || undefined,
+        call_back_date: normalizeDate(formData.call_back_date) || undefined,
+        profile: (formData.profile || '').trim() || undefined,
+        // include branch_id only if NOT SUPERADMIN and we actually have it
+        ...(role && role !== 'SUPERADMIN' && branchId ? { branch_id: branchId } : {}),
+      };
+
+      // Remove undefined keys
+      const payload = Object.fromEntries(
+        Object.entries(basePayload).filter(([_, v]) => v !== undefined)
+      );
 
       const { data } = await axiosInstance.post('/leads/', payload);
       const leadId = data.id;
 
+      // Optional document uploads
       if (aadharFront || aadharBack || panPic) {
         const uploadData = new FormData();
         if (aadharFront) uploadData.append('aadhar_front', aadharFront);
@@ -255,8 +293,8 @@ export default function LeadForm() {
         );
       }
 
-      toast.success('Lead and documents uploaded successfully');
-      // reset all
+      toast.success('Lead saved successfully');
+      // reset
       setFormData({
         full_name: '',
         father_name: '',
@@ -281,12 +319,8 @@ export default function LeadForm() {
         call_back_date: '',
         profile: '',
       });
-      setAadharFront(null);
-      setAadharBack(null);
-      setPanPic(null);
-      setAadharFrontPreview(null);
-      setAadharBackPreview(null);
-      setPanPicPreview(null);
+      setAadharFront(null); setAadharBack(null); setPanPic(null);
+      setAadharFrontPreview(null); setAadharBackPreview(null); setPanPicPreview(null);
       setPanVerified(false);
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Error creating lead or uploading documents" });
@@ -320,7 +354,6 @@ export default function LeadForm() {
             value={formData.pan_type}
             onChange={handleChange}
             disabled={panVerified}
-            required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           >
             <option value="">Select PAN Type</option>
@@ -339,7 +372,6 @@ export default function LeadForm() {
               onChange={handleChange}
               placeholder="PAN Number"
               disabled={panVerified}
-              required
               maxLength={10}
               minLength={10}
               pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
@@ -375,7 +407,6 @@ export default function LeadForm() {
             onChange={handleChange}
             placeholder="Full Name"
             disabled={panVerified}
-            required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           />
         </div>
@@ -389,7 +420,6 @@ export default function LeadForm() {
             onChange={handleChange}
             placeholder="Father Name"
             disabled={panVerified}
-            required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           />
         </div>
@@ -419,7 +449,6 @@ export default function LeadForm() {
             value={formData.email ?? ''}
             onChange={handleChange}
             placeholder="Email"
-            required
             className="p-2 border rounded w-full"
           />
         </div>
@@ -450,7 +479,6 @@ export default function LeadForm() {
             onChange={handleChange}
             pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
             disabled={panVerified}
-            required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           />
         </div>
@@ -464,7 +492,6 @@ export default function LeadForm() {
             onChange={handleChange}
             placeholder="Aadhaar Number"
             disabled={panVerified}
-            required
             maxLength={12}
             minLength={12}
             pattern="^[0-9]{12}$"
@@ -524,7 +551,6 @@ export default function LeadForm() {
               }
             }}
             placeholder="Start typing… e.g. MADHYA PRADESH"
-            required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
             autoComplete="off"
           />
@@ -565,7 +591,6 @@ export default function LeadForm() {
             value={formData.city}
             onChange={handleChange}
             placeholder="City"
-            required
             className="p-2 border rounded w-full bg-gray-50 disabled:bg-gray-100"
           />
         </div>
@@ -680,19 +705,23 @@ export default function LeadForm() {
           </select>
         </div>
 
-        {/* Lead Source */}
-        <div>
-          <label className="block mb-1 font-medium">Lead Source</label>
-          <select
-            name="lead_source_id"
-            value={formData.segment ?? []}
-            onChange={handleChange}
-            className="p-2 border rounded w-full"
-          >
-            <option value="">Select Source</option>
-            {leadSources.map(src => <option key={src.id} value={src.id}>{src.name}</option>)}
-          </select>
-        </div>
+{/* Lead Source */}
+<div>
+  <label className="block mb-1 font-medium">Lead Source</label>
+  <select
+    name="lead_source_id"
+    value={String(formData.lead_source_id ?? '')}
+    onChange={handleChange}
+    className="p-2 border rounded w-full"
+  >
+    <option value="">Select Source</option>
+    {leadSources.map((src) => (
+      <option key={src.id} value={String(src.id)}>
+        {src.name}
+      </option>
+    ))}
+  </select>
+</div>
 
         {/* Call Back Date */}
         <div>

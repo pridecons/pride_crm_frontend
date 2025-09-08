@@ -783,7 +783,7 @@ function Card({ title, value, sub, icon, color = 'blue' }) {
           {icon}
         </div>
       </div>
-      <div className="text-2xl font-bold text-gray-800 leading-tight">{value ?? '—'}</div>
+      <div className="text-2xl font-bold text-gray-800 leading-tight rupee">{value ?? '—'}</div>
       {sub ? <div className="text-[11px] text-gray-500 font-medium mt-0.5">{sub}</div> : null}
     </div>
   );

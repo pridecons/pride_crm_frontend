@@ -1,15 +1,80 @@
 @import "tailwindcss";
 
+/* Chrome 109 Compatible CSS - globals.css */
+
+/* Remove @theme inline and use standard CSS */
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  
+  /* Define all colors explicitly for Chrome 109 */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+  --color-blue-900: #1e3a8a;
+  
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
+  --color-green-400: #4ade80;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+  --color-green-900: #14532d;
+  
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  
+  --color-yellow-50: #fefce8;
+  --color-yellow-100: #fef3c7;
+  --color-yellow-200: #fde68a;
+  --color-yellow-300: #fcd34d;
+  --color-yellow-400: #fbbf24;
+  --color-yellow-500: #f59e0b;
+  --color-yellow-600: #d97706;
+  --color-yellow-700: #b45309;
+  --color-yellow-800: #92400e;
+  --color-yellow-900: #78350f;
+  
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+  --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412;
+  --color-orange-900: #7c2d12;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,40 +85,120 @@
 }
 
 body {
-  background: white;
-  color: black;
+  background: var(--color-white);
+  color: var(--color-black);
   min-width: 100%;
   min-height: 100vh;
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Chrome 109 compatible utility classes */
+.bg-white { background-color: var(--color-white) !important; }
+.bg-black { background-color: var(--color-black) !important; }
+
+.bg-gray-50 { background-color: var(--color-gray-50) !important; }
+.bg-gray-100 { background-color: var(--color-gray-100) !important; }
+.bg-gray-200 { background-color: var(--color-gray-200) !important; }
+.bg-gray-300 { background-color: var(--color-gray-300) !important; }
+
+.bg-blue-50 { background-color: var(--color-blue-50) !important; }
+.bg-blue-100 { background-color: var(--color-blue-100) !important; }
+.bg-blue-500 { background-color: var(--color-blue-500) !important; }
+.bg-blue-600 { background-color: var(--color-blue-600) !important; }
+.bg-blue-700 { background-color: var(--color-blue-700) !important; }
+
+.bg-green-50 { background-color: var(--color-green-50) !important; }
+.bg-green-100 { background-color: var(--color-green-100) !important; }
+.bg-green-500 { background-color: var(--color-green-500) !important; }
+.bg-green-600 { background-color: var(--color-green-600) !important; }
+.bg-green-700 { background-color: var(--color-green-700) !important; }
+
+.bg-red-50 { background-color: var(--color-red-50) !important; }
+.bg-red-100 { background-color: var(--color-red-100) !important; }
+.bg-red-500 { background-color: var(--color-red-500) !important; }
+.bg-red-600 { background-color: var(--color-red-600) !important; }
+
+.bg-yellow-100 { background-color: var(--color-yellow-100) !important; }
+.bg-yellow-600 { background-color: var(--color-yellow-600) !important; }
+
+.bg-orange-100 { background-color: var(--color-orange-100) !important; }
+.bg-orange-600 { background-color: var(--color-orange-600) !important; }
+
+/* Text colors */
+.text-white { color: var(--color-white) !important; }
+.text-black { color: var(--color-black) !important; }
+
+.text-gray-500 { color: var(--color-gray-500) !important; }
+.text-gray-600 { color: var(--color-gray-600) !important; }
+.text-gray-700 { color: var(--color-gray-700) !important; }
+.text-gray-800 { color: var(--color-gray-800) !important; }
+.text-gray-900 { color: var(--color-gray-900) !important; }
+
+.text-blue-600 { color: var(--color-blue-600) !important; }
+.text-blue-800 { color: var(--color-blue-800) !important; }
+
+.text-green-600 { color: var(--color-green-600) !important; }
+.text-green-700 { color: var(--color-green-700) !important; }
+.text-green-800 { color: var(--color-green-800) !important; }
+
+.text-red-600 { color: var(--color-red-600) !important; }
+.text-red-700 { color: var(--color-red-700) !important; }
+.text-red-800 { color: var(--color-red-800) !important; }
+
+.text-yellow-600 { color: var(--color-yellow-600) !important; }
+.text-yellow-800 { color: var(--color-yellow-800) !important; }
+
+.text-orange-600 { color: var(--color-orange-600) !important; }
+.text-orange-800 { color: var(--color-orange-800) !important; }
+
+/* Border colors */
+.border-gray-100 { border-color: var(--color-gray-100) !important; }
+.border-gray-200 { border-color: var(--color-gray-200) !important; }
+.border-gray-300 { border-color: var(--color-gray-300) !important; }
+
+.border-blue-200 { border-color: var(--color-blue-200) !important; }
+.border-blue-600 { border-color: var(--color-blue-600) !important; }
+
+.border-green-200 { border-color: var(--color-green-200) !important; }
+.border-red-200 { border-color: var(--color-red-200) !important; }
+.border-yellow-200 { border-color: var(--color-yellow-200) !important; }
+.border-orange-200 { border-color: var(--color-orange-200) !important; }
+
+.border-white { border-color: var(--color-white) !important; }
+
+/* Remove modern CSS features for Chrome 109 compatibility */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for Firefox */
 .scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 button {
   cursor: pointer;
 }
-/* ---- slim scrollbar used in Services cell ---- */
+
 .thin-scroll {
-  scrollbar-width: thin;          /* Firefox */
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
 }
+
 .thin-scroll::-webkit-scrollbar {
-  width: 6px; height: 6px;
+  width: 6px; 
+  height: 6px;
 }
+
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1; border-radius: 9999px;
+  background: var(--color-gray-300); 
+  border-radius: 9999px;
 }
+
 .thin-scroll:hover::-webkit-scrollbar-thumb {
-  background: #94a3b8;
+  background: var(--color-gray-400);
 }
+
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }

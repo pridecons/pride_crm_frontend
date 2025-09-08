@@ -47,9 +47,20 @@ function getFirstName(nameLike, usernameLike) {
 }
 
 function safeJSON(str) { try { return JSON.parse(str); } catch { return null; } }
-const inr = (n) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
-    .format(Number(n || 0));
+const inr = (n) => {
+  const num = Number(n || 0);
+  try {
+    return new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
+      currency: 'INR', 
+      maximumFractionDigits: 0 
+    }).format(num);
+  } catch (e) {
+    // पुराने browser fallback
+    return `₹${num.toLocaleString('en-IN')}`;
+  }
+};
+
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
 
 function useDebouncedValue(value, delay = 250) {

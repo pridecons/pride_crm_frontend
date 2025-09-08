@@ -1,6 +1,10 @@
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import './polyfills'
+import './bg_colors_rgba.css'
+import './bg_opacity_colors_rgba.css'
+import './gradient_colors_rgba.css'
+import './text_colors_rgba.css'
+import './text_opacity_colors_rgba.css'
 import 'react-datepicker/dist/react-datepicker.css';
 import Main from './Main'
 

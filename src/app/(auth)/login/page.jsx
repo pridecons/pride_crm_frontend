@@ -7,7 +7,6 @@ import toast from 'react-hot-toast'
 import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import { axiosInstance } from '@/api/Axios'  // Import axiosInstance
 import { ErrorHandling } from '@/helper/ErrorHandling'
-import "./login.css"
 
 // Map numeric role_id → canonical key
 const ROLE_ID_TO_KEY = {
@@ -174,7 +173,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 px-0 gradient-page-bg w-full">
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2  px-0 bg-gradient-to-br from-sky-500 via-gray-200 to-sky-600 w-full">
       
       {/* Left image side */}
       <div className="hidden md:flex items-center justify-center">
@@ -197,11 +196,11 @@ export default function LoginPage() {
         <div className="flex justify-center">
           <form
             onSubmit={handleLogin}
-            className="compat-card w-full max-w-md"
+            className="bg-white/10 backdrop-blur-lg p-5 rounded-2xl shadow-2xl bg-gradient-to-br from-sky-500 via-gray-800 to-sky-600 w-full max-w-md"
             noValidate
           >
             {error ? (
-              <div className="compat-error mb-6">
+              <div className="bg-red-500/20 border border-red-500/30 text-red-100 text-sm p-3 rounded-lg mb-6 backdrop-blur-sm">
                 {error}
               </div>
             ) : (
@@ -221,7 +220,7 @@ export default function LoginPage() {
                   ref={usernameRef}
                   type="text"
                   placeholder="e.g. username@gmail.com"
-                  className="compat-input w-full pl-10 pr-4 py-3"
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 backdrop-blur-sm transition-all duration-200"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
@@ -264,7 +263,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className={`compat-btn w-full py-3 ${submitting ? 'compat-btn--loading' : ''}`}
+              className={`w-full py-3 rounded-xl font-semibold text-white transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-white/30 ${
+                submitting
+                  ? 'bg-gradient-to-r from-white/20 to-white/10 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-sky-400 to-sky-600 hover:from-blue-600 hover:to-gray-700 shadow-lg hover:shadow-xl'
+              }`}
             >
               <span className="flex items-center justify-center">
                 {submitting ? (

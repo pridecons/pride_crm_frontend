@@ -114,7 +114,7 @@
 //       if (isSocketAlive(socketRef.current)) return;
 
 //       const socket = new WebSocket(
-//         `${WS_BASE_URL_full}/ws/notification/${employee_code}`
+//         `${WS_BASE_URL_full}/api/v1/ws/notification/${employee_code}`
 //       );
 //       socketRef.current = socket;
 
@@ -728,7 +728,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       if (typeof window.WebSocket === "undefined") { startSSE(); return; }
       if (isSocketAlive(socketRef.current)) return;
 
-      const path = `/ws/notification/${String(employee_code)}`;
+      const path = `/api/v1/ws/notification/${String(employee_code)}`;
       const url = buildWsUrl(WS_BASE_URL_full, path);
 
       let socket;

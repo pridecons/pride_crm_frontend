@@ -47,19 +47,27 @@ function getFirstName(nameLike, usernameLike) {
 }
 
 function safeJSON(str) { try { return JSON.parse(str); } catch { return null; } }
+
+// utils/money.js
+const formatIndianGrouping = (n) => {
+  const s = Math.trunc(Math.abs(n)).toString();
+  if (s.length <= 3) return s;
+  const last3 = s.slice(-3);
+  const rest = s.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+  return rest + "," + last3;
+};
+
 const inr = (n) => {
   const num = Number(n || 0);
+  // try modern
   try {
-    return new Intl.NumberFormat('en-IN', { 
-      style: 'currency', 
-      currency: 'INR', 
-      maximumFractionDigits: 0 
-    }).format(num);
-  } catch (e) {
-    // पुराने browser fallback
-    return `₹${num.toLocaleString('en-IN')}`;
+    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(num).replace(/^/, "\u20B9 ");
+  } catch {
+    // very old fallback
+    return "\u20B9 " + formatIndianGrouping(num);
   }
 };
+
 
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
 

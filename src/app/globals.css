@@ -4,6 +4,7 @@
 
 /* Remove @theme inline and use standard CSS */
 :root {
+  --rupee-font: "Noto Sans","Segoe UI Symbol","Arial Unicode MS","DejaVu Sans",system-ui,sans-serif;
   --background: #ffffff;
   --foreground: #171717;
   
@@ -202,3 +203,5 @@ button {
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.rupee { font-family: var(--rupee-font); }

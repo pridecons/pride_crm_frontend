@@ -1010,7 +1010,7 @@ export default function UserModal({
                 </div>
 
                 {/* Senior (from /users) */}
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Reporting Profile
                   </label>
@@ -1053,7 +1053,7 @@ export default function UserModal({
 
                   {showSeniorList && filteredSeniors.length > 0 && createPortal(
                     <div
-                      className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
+                      className="absolute t-0 z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
                       style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
                     >
                       {filteredSeniors.map((u, idx) => (

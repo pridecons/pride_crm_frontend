@@ -14,6 +14,14 @@ import { toast } from "react-hot-toast";
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
 import CallButton from "@/components/Lead/CallButton";
 
+// put near the top of the file
+const Show = (v) =>
+  v == null || String(v).trim() === "" ? (
+    <span className="text-gray-800">—</span>
+  ) : (
+    String(v)
+  );
+
 export default function OldLeadsTable() {
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
@@ -68,7 +76,7 @@ export default function OldLeadsTable() {
     fetchSources();
   }, []);
 
- const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
+  const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
     setLoading(true);
     try {
       const params = {
@@ -94,10 +102,10 @@ export default function OldLeadsTable() {
 
       setLeads(data.assigned_old_leads || []);
       const serverTotal = data.count ?? data.total ?? 0;
-   setTotal(serverTotal);
-   // if current page is now out of range (after filter/date change), pull it back
-   const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
-   if (page > maxPages) setPage(maxPages);
+      setTotal(serverTotal);
+      // if current page is now out of range (after filter/date change), pull it back
+      const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
+      if (page > maxPages) setPage(maxPages);
     } catch (error) {
       ErrorHandling({ error: error, defaultError: "Failed to load leads" });
     } finally {
@@ -251,10 +259,10 @@ export default function OldLeadsTable() {
             className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
           />
         ) : (
-          <span>{lead.full_name}</span>
+          <span className="truncate">{Show(lead.full_name)}</span>
         ),
     },
-    { header: "Mobile", render: (lead) => lead.mobile },
+    { header: "Mobile", render: (lead) => Show(lead.mobile) },
     {
       header: "Response",
       render: (lead) => {
@@ -392,19 +400,19 @@ export default function OldLeadsTable() {
     },
   ];
 
-// const filteredLeads = leads.filter((lead) => {
-//   if (responseFilterId && lead.lead_response_id !== responseFilterId) return false;
-//   const created = new Date(lead.created_at);
-//   if (fromDate && created < new Date(fromDate)) return false;
-//   if (toDate && created > new Date(toDate)) return false;
-//   if (searchQuery) {
-//     const hay = `${lead.full_name} ${lead.mobile}`.toLowerCase();
-//     if (!hay.includes(searchQuery.toLowerCase())) return false;
-//   }
-//   return true;
-// });
+  // const filteredLeads = leads.filter((lead) => {
+  //   if (responseFilterId && lead.lead_response_id !== responseFilterId) return false;
+  //   const created = new Date(lead.created_at);
+  //   if (fromDate && created < new Date(fromDate)) return false;
+  //   if (toDate && created > new Date(toDate)) return false;
+  //   if (searchQuery) {
+  //     const hay = `${lead.full_name} ${lead.mobile}`.toLowerCase();
+  //     if (!hay.includes(searchQuery.toLowerCase())) return false;
+  //   }
+  //   return true;
+  // });
 
-const filteredLeads = leads; // backend already applied filters
+  const filteredLeads = leads; // backend already applied filters
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 ">
@@ -446,21 +454,21 @@ const filteredLeads = leads; // backend already applied filters
             }}
             className="px-3 py-2 border rounded text-sm"
           />
-  {applied ? (
-  <button
-    onClick={handleClear}
-    className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-  >
-    Clear
-  </button>
-) : fromDate || toDate ? (
-  <button
-    onClick={handleApply}
-    className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
-  >
-    Apply
-  </button>
-) : null}
+          {applied ? (
+            <button
+              onClick={handleClear}
+              className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+            >
+              Clear
+            </button>
+          ) : fromDate || toDate ? (
+            <button
+              onClick={handleApply}
+              className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+            >
+              Apply
+            </button>
+          ) : null}
 
         </div>
       </div>
@@ -495,11 +503,11 @@ const filteredLeads = leads; // backend already applied filters
               prev.map((l) =>
                 l.id === ftLead.id
                   ? {
-                      ...l,
-                      lead_response_id: ftId,
-                      ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                      ft_to_date: ftToDate.split("-").reverse().join("-"),
-                    }
+                    ...l,
+                    lead_response_id: ftId,
+                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
+                    ft_to_date: ftToDate.split("-").reverse().join("-"),
+                  }
                   : l
               )
             );

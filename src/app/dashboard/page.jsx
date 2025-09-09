@@ -151,6 +151,9 @@ export default function Dashboard() {
   const [optLoading, setOptLoading] = useState(false);
   const [optError, setOptError] = useState('');
 
+// state (near other states)
+const [showSuggestions, setShowSuggestions] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -261,6 +264,31 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [employeesTable, setEmployeesTable] = useState([]);
 
+  // --- Users table pagination ---
+const EMP_PAGE_SIZE = 10;
+const [empPage, setEmpPage] = useState(1);
+
+// Reset to page 1 whenever filters or data change
+useEffect(() => {
+  setEmpPage(1);
+}, [
+  fromDate,
+  toDate,
+  days,
+  view,
+  employeeCode,
+  profileId,
+  departmentId,
+  effectiveBranchId,
+  employeesTable
+]);
+
+const totalEmp = employeesTable?.length || 0;
+const totalEmpPages = Math.max(1, Math.ceil(totalEmp / EMP_PAGE_SIZE));
+const startIdx = (empPage - 1) * EMP_PAGE_SIZE;
+const endIdx = Math.min(startIdx + EMP_PAGE_SIZE, totalEmp);
+const pageRowsRaw = (employeesTable || []).slice(startIdx, endIdx);
+
   const queryParams = useMemo(() => {
     const p = { days, view };
     if (fromDate) p.from_date = fromDate;
@@ -322,6 +350,7 @@ export default function Dashboard() {
       (u.phone || '').toLowerCase().includes(q)
     ).slice(0, 25);
   }, [allowedUsers, debUserSearch]);
+  
 
   /* -----------------------------
      UI
@@ -441,13 +470,20 @@ export default function Dashboard() {
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                <input
-                  className="border border-gray-200 bg-white rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 focus:ring-blue-500"
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Search by name / code / email / phone"
-                />
-                {userSearch && (
+ <input
+  className="border border-gray-200 bg-white rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 focus:ring-blue-500"
+  value={userSearch}
+  onFocus={() => !employeeCode && setShowSuggestions(true)}
+  onChange={(e) => {
+    setUserSearch(e.target.value);
+    if (!employeeCode) setShowSuggestions(true);
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Escape") setShowSuggestions(false);
+  }}
+  placeholder="Search by name / code / email / phone"
+/>
+                {showSuggestions && userSearch && !employeeCode && (
                   <div className="absolute z-30 bg-white border border-gray-200 rounded-lg mt-2 w-full max-h-64 overflow-auto shadow-md">
                     {filteredUsers.length === 0 ? (
                       <div className="px-3 py-2.5 text-sm text-gray-500">No users found</div>
@@ -493,12 +529,7 @@ export default function Dashboard() {
           {optError && <div className="text-sm text-red-600 mt-2 bg-red-50 px-3 py-2 rounded-lg">{optError}</div>}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              onClick={fetchDashboard}
-              className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium shadow hover:shadow-md"
-            >
-              <span className="inline-flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" />Apply</span>
-            </button>
+            
             <button
               onClick={() => {
                 // setSourceId('');
@@ -691,17 +722,10 @@ export default function Dashboard() {
                 {/* Actions */}
                 <div className="md:col-span-2 flex md:justify-end gap-2">
                   <button
-                    onClick={fetchUserTable}
-                    className="h-9 px-3 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium shadow hover:shadow-md"
-                  >
-                    Apply
-                  </button>
-                  <button
                     onClick={() => {
                       setFromDate('');
                       setToDate('');
                       setDays(30);
-                      fetchUserTable();
                     }}
                     className="h-9 px-3 rounded-md bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300"
                   >
@@ -712,18 +736,61 @@ export default function Dashboard() {
             </div>
 
             {/* Table */}
-            <div className="max-h-[480px] overflow-y-auto pr-1">
-              <SimpleTable
-                cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue']}
-                rows={(employeesTable || []).map((u) => [
-                  `${u.employee_name} (${u.employee_code})`,
-                  u.role_name || u.role_id,
-                  num(u.total_leads),
-                  num(u.converted_leads),
-                  inr(u.total_revenue),
-                ])}
-              />
-            </div>
+<div className="max-h-[480px] overflow-y-auto pr-1 relative">
+  <SimpleTable
+    cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue']}
+    rows={pageRowsRaw.map((u) => [
+      `${u.employee_name} (${u.employee_code})`,
+      u.role_name || u.role_id,
+      num(u.total_leads),
+      num(u.converted_leads),
+      inr(u.total_revenue),
+    ])}
+  />
+</div>
+
+{/* Pagination */}
+<div className="mt-3 flex items-center justify-between">
+  <div className="text-xs text-gray-600">
+    {totalEmp === 0
+      ? 'No records'
+      : `Showing ${startIdx + 1}–${endIdx} of ${totalEmp}`}
+  </div>
+
+  <div className="flex items-center gap-2">
+    <button
+      type="button"
+      onClick={() => setEmpPage((p) => Math.max(1, p - 1))}
+      disabled={empPage === 1}
+      className={[
+        'h-9 px-3 rounded-md text-sm font-medium border',
+        empPage === 1
+          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+      ].join(' ')}
+    >
+      Previous
+    </button>
+
+    <span className="text-sm text-gray-700">
+      Page <span className="font-medium">{empPage}</span> / {totalEmpPages}
+    </span>
+
+    <button
+      type="button"
+      onClick={() => setEmpPage((p) => Math.min(totalEmpPages, p + 1))}
+      disabled={empPage === totalEmpPages}
+      className={[
+        'h-9 px-3 rounded-md text-sm font-medium border',
+        empPage === totalEmpPages
+          ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+      ].join(' ')}
+    >
+      Next
+    </button>
+  </div>
+</div>
           </TableWrap>
         )}
 

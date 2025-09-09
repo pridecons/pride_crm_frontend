@@ -3,6 +3,39 @@ import React, { useMemo, useState, useEffect } from "react";
 import { axiosInstance } from "@/api/Axios";
 
 // ---- Helpers ----
+// --- Add below your toDMY() helper ---
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function parseYMD(s) {
+  const [y, m, d] = String(s || "").split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return Date.UTC(y, m - 1, d); // use UTC to avoid TZ shifts
+}
+
+function addDays(ymd, n) {
+  const t = parseYMD(ymd);
+  if (t == null) return "";
+  const dt = new Date(t + n * MS_PER_DAY);
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function clampYMD(val, min, max) {
+  if (!val) return val;
+  if (min && parseYMD(val) < parseYMD(min)) return min;
+  if (max && parseYMD(val) > parseYMD(max)) return max;
+  return val;
+}
+
+function inclusiveSpanDays(from, to) {
+  const f = parseYMD(from);
+  const t = parseYMD(to);
+  if (f == null || t == null) return NaN;
+  return Math.floor((t - f) / MS_PER_DAY) + 1; // inclusive
+}
+
 function toInputYMD(d) {
   if (!d) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // already input format
@@ -21,13 +54,13 @@ function toDMY(d) {
 export default function FTModal({
   open,
   onClose,
-  onSave,                 
-  fromDate,               
-  toDate,                 
-  setFromDate,            
-  setToDate,              
-  serviceType,            
-  setServiceType,         
+  onSave,
+  fromDate,
+  toDate,
+  setFromDate,
+  setToDate,
+  serviceType,
+  setServiceType,
   serviceTypeOptions = ["Call", "SMS"],
   defaultServiceType = "call",
   loading = false,
@@ -36,11 +69,13 @@ export default function FTModal({
 
   const [localFrom, setLocalFrom] = useState("");
   const [localTo, setLocalTo] = useState("");
-  const [segmentLabels, setSegmentLabels] = useState([]); 
+  const [segmentLabels, setSegmentLabels] = useState([]);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
   const [segmentsError, setSegmentsError] = useState("");
-  const [selectedSegmentLabel, setSelectedSegmentLabel] = useState(""); 
+  const [selectedSegmentLabel, setSelectedSegmentLabel] = useState("");
   const [localServiceType, setLocalServiceType] = useState(defaultServiceType);
+  // Add this with your other state hooks
+  const [dateError, setDateError] = useState("");
 
   // Prefill dates
   useEffect(() => {
@@ -89,14 +124,47 @@ export default function FTModal({
   }, [serviceType]);
 
   const canSave = useMemo(() => {
-    return (
+    const hasBasics =
       !!selectedSegmentLabel &&
       (serviceType || localServiceType) &&
       localFrom &&
       localTo &&
-      !segmentsLoading
-    );
-  }, [selectedSegmentLabel, serviceType, localServiceType, localFrom, localTo, segmentsLoading]);
+      !segmentsLoading;
+
+    // must be within 5 days inclusive and to >= from
+    const okSpan =
+      localFrom &&
+      localTo &&
+      parseYMD(localTo) >= parseYMD(localFrom) &&
+      inclusiveSpanDays(localFrom, localTo) <= 5;
+
+    return hasBasics && okSpan && !dateError;
+  }, [
+    selectedSegmentLabel,
+    serviceType,
+    localServiceType,
+    localFrom,
+    localTo,
+    segmentsLoading,
+    dateError,
+  ]);
+  useEffect(() => {
+    if (!localFrom || !localTo) {
+      setDateError("");
+      return;
+    }
+    if (parseYMD(localTo) < parseYMD(localFrom)) {
+      setDateError("To Date cannot be before From Date.");
+      return;
+    }
+    const span = inclusiveSpanDays(localFrom, localTo);
+    if (span > 5) {
+      setDateError("Select a range of up to 5 days only.");
+      return;
+    }
+    setDateError("");
+  }, [localFrom, localTo]);
+
 
   const handleSave = () => {
     const fromVal = localFrom;
@@ -104,8 +172,8 @@ export default function FTModal({
     const svcVal = (serviceType ?? localServiceType)?.trim();
 
     const payload = {
-      ft_from_date: toDMY(fromVal),           
-      ft_to_date: toDMY(toVal),               
+      ft_from_date: toDMY(fromVal),
+      ft_to_date: toDMY(toVal),
       segment: selectedSegmentLabel,          // ✅ send label as-is from API
       ft_service_type: (svcVal || "").toLowerCase(),
     };
@@ -168,11 +236,17 @@ export default function FTModal({
               type="date"
               value={localFrom}
               onChange={(e) => {
-                setLocalFrom(e.target.value);
-                setFromDate?.(e.target.value);
+                const val = e.target.value;
+
+
+                setLocalFrom(val);
+
+                setFromDate?.(val);
               }}
               className="w-full border px-3 py-2 rounded"
               disabled={loading}
+              // Optional: if you want to limit how far back From can go based on To
+              max={localTo ? addDays(localTo, -4) : undefined}
             />
           </div>
 
@@ -183,12 +257,20 @@ export default function FTModal({
               type="date"
               value={localTo}
               onChange={(e) => {
-                setLocalTo(e.target.value);
-                setToDate?.(e.target.value);
+                const val = e.target.value;
+                setLocalTo(val);
+                setToDate?.(val);
               }}
               className="w-full border px-3 py-2 rounded"
               disabled={loading}
             />
+            <div className="text-xs mt-1">
+              <span className="text-gray-500">Max range: 5 days (inclusive)</span>
+              {dateError ? (
+                <div className="text-red-600 mt-1">{dateError}</div>
+              ) : null}
+            </div>
+
           </div>
         </div>
 

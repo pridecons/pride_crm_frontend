@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
-import { Bell, X, Menu, Search, User, Clock, ChevronDown } from 'lucide-react';
+import { Bell, X, Menu, Search, User, Clock, ChevronDown, Eye, EyeOff, Lock, Loader2 } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 import { axiosInstance, BASE_URL_full } from '@/api/Axios';
 import toast from 'react-hot-toast';
@@ -111,6 +111,8 @@ export default function Header({ onMenuClick, onSearch }) {
   const [responseCounts, setResponseCounts] = useState({});
   const [anchorRect, setAnchorRect] = useState(null);
   const lookupsLoadedRef = useRef(false);
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const loadLookupsIfNeeded = useCallback(async () => {
     if (lookupsLoadedRef.current) return;
@@ -507,161 +509,48 @@ export default function Header({ onMenuClick, onSearch }) {
 
           {/* Profile (md+) */}
           <div className="relative hidden md:block" ref={profileRef}>
-            <div className="flex items-center space-x-1.5 px-1 py-1 rounded-xl transition-all duration-200 group cursor-default">
+            <button
+              type="button"
+              onClick={toggleProfileMenu}
+              className="flex items-center space-x-2 px-1.5 py-1.5 rounded-xl hover:bg-white/50 transition-all duration-200 group"
+            >
               <div className="relative">
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
                   <User size={18} className="text-white" />
                 </div>
-                <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"} rounded-full border-2 border-white`}></div>
+                <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"} rounded-full border-2 border-white`} />
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
                 <p className="text-xs text-gray-500">{user?.role_pretty || "Role"}</p>
               </div>
-            </div>
+            </button>
+
+            {showProfileMenu && (
+              <div className="absolute right-0 mt-2 w-42 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => { setShowProfileMenu(false); setShowChangePassword(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Lock size={16} /> Change password
+                  </button>
+                  {/* (Optional) more items like 'View Profile', 'Logout' can go here */}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
       </div>
+      <ChangePasswordModal
+        open={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+      />
     </header>
   );
 }
-
-/* ---------------- Notifications (unchanged) ---------------- */
-// const ShowNotifications = ({ setIsConnect, employee_code }) => {
-//   const [showNotifications, setShowNotifications] = useState(false);
-//   const [messages, setMessages] = useState([]);
-//   const retryCountRef = useRef(0);
-//   const socketRef = useRef(null);
-//   const wrapperRef = useRef(null);
-
-//   useEffect(() => {
-//     if (!employee_code) return;
-//     const connect = () => {
-//       const socket = new WebSocket(`wss://crm.24x7techelp.com/api/v1/ws/notification/${employee_code}`);
-//       socketRef.current = socket;
-
-//       socket.onopen = () => { setIsConnect(true); retryCountRef.current = 0; };
-
-//       socket.onmessage = (event) => {
-//         const data = JSON.parse(event.data);
-//         if (!["connection_confirmed", "ping", "pong"].includes(data.type)) {
-//           const messageWithTime = { ...data, received_at: new Date() };
-//           setMessages((prev) => [...prev, messageWithTime]);
-
-//           toast.custom((t) => (
-//             <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
-//               <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 w-full">
-//                 <div className="bg-blue-100 rounded-full p-2">
-//                   <Bell size={16} className="text-blue-600" />
-//                 </div>
-//                 <div className="flex-1 w-full">
-//                   <p className="text-sm font-medium text-gray-900">{data?.title}</p>
-//                   <p className="text-xs text-gray-500" dangerouslySetInnerHTML={{ __html: data.message }} />
-//                   <p className="text-[10px] text-right text-gray-400 mt-1">
-//                     {(() => {
-//                       const date = new Date(messageWithTime.received_at);
-//                       let hours = date.getHours();
-//                       const minutes = String(date.getMinutes()).padStart(2, '0');
-//                       const ampm = hours >= 12 ? 'PM' : 'AM';
-//                       hours = hours % 12 || 12;
-//                       return `${hours}:${minutes} ${ampm}`;
-//                     })()}
-//                   </p>
-//                 </div>
-//               </div>
-//             </div>
-//           ));
-//         }
-//       };
-
-//       socket.onclose = () => {
-//         setIsConnect(false);
-//         if (retryCountRef.current < 10) {
-//           retryCountRef.current += 1;
-//           setTimeout(connect, 1000);
-//         }
-//       };
-//     };
-
-//     connect();
-//     return () => { socketRef.current?.close(); };
-//   }, [setIsConnect, employee_code]);
-
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-//         setShowNotifications(false);
-//       }
-//     };
-//     document.addEventListener("mousedown", handleClickOutside);
-//     return () => { document.removeEventListener("mousedown", handleClickOutside); };
-//   }, []);
-
-//   return (
-//     <div className="relative" ref={wrapperRef}>
-//       <button
-//         onClick={() => setShowNotifications(!showNotifications)}
-//         className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-//       >
-//         <Bell size={20} />
-//         {messages.length > 0 && (
-//           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
-//             {messages.length}
-//           </span>
-//         )}
-//       </button>
-
-//       {showNotifications && (
-//         <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
-//           <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
-//             <div className="flex items-center justify-between">
-//               <h3 className="font-semibold text-gray-900">Notifications</h3>
-//               <div className="flex items-center space-x-2">
-//                 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{messages?.length}</span>
-//                 {messages.length > 0 && (
-//                   <button onClick={() => setMessages([])} className="text-xs text-blue-600 hover:underline hover:text-blue-800">
-//                     Clear All
-//                   </button>
-//                 )}
-//               </div>
-//             </div>
-//           </div>
-
-//           <div className="p-4 max-h-60 overflow-y-auto space-y-3">
-//             {messages?.map((val, index) => (
-//               <div key={index} className="relative flex items-start space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 max-w-full">
-//                 <div className="bg-blue-100 rounded-full p-2">
-//                   <Bell size={16} className="text-blue-600" />
-//                 </div>
-//                 <div className="flex-1 overflow-hidden">
-//                   <p className="text-sm font-medium text-gray-900">{val?.title}</p>
-//                   <p className="text-xs text-gray-500 break-words whitespace-normal w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: val.message }} />
-//                   {val?.received_at && (
-//                     <p className="text-[10px] text-right text-gray-400 mt-1">
-//                       {new Date(val.received_at).toLocaleTimeString()}
-//                     </p>
-//                   )}
-//                 </div>
-//                 <button
-//                   onClick={() => {
-//                     const updated = [...messages];
-//                     updated.splice(index, 1);
-//                     setMessages(updated);
-//                   }}
-//                   className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
-//                   title="Delete"
-//                 >
-//                   <X size={14} />
-//                 </button>
-//               </div>
-//             ))}
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
 
 /* ---------------- SearchOverlay (unchanged except props pass-through) ---------------- */
 function SearchOverlay({
@@ -876,4 +765,171 @@ function SearchOverlay({
   );
 
   return createPortal(content, portalHost);
+}
+
+function ChangePasswordModal({ open, onClose }) {
+  const [oldPwd, setOldPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setOldPwd(""); setNewPwd(""); setConfirmPwd("");
+      setShowOld(false); setShowNew(false); setShowConfirm(false);
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  const validate = () => {
+    if (!oldPwd) return "Please enter your current password.";
+    if (!newPwd) return "Please enter a new password.";
+    if (newPwd.length < 8) return "New password must be at least 8 characters.";
+    // At least 1 char, 1 number, 1 special
+    const strong =
+      /[a-z]/.test(newPwd) &&
+      /[a-z]/.test(newPwd) &&
+      /\d/.test(newPwd) &&
+      /[^A-Za-z0-9]/.test(newPwd);
+    if (!strong) return "New password must include character, number, and special character.";
+    if (newPwd === oldPwd) return "New password must be different from the old password.";
+    if (newPwd !== confirmPwd) return "New password and confirm password do not match.";
+    return null;
+  };
+
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    const err = validate();
+    if (err) { toast.error(err); return; }
+
+    setSubmitting(true);
+    try {
+      const payload = { old_password: oldPwd, new_password: newPwd };
+      const { data } = await axiosInstance.post(
+        "/users/change-password",
+        payload,
+        { baseURL: BASE_URL_full }
+      );
+
+      toast.success(data?.message || "Password changed successfully.");
+      onClose?.();
+    } catch (error) {
+      ErrorHandling(error, toast);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1002] flex items-center justify-center">
+      {/* backdrop */}
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      {/* modal card */}
+      <div className="relative z-[1003] w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100">
+        <div className="px-5 py-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lock size={18} className="text-blue-600" />
+            <h3 className="text-sm font-semibold text-gray-900">Change Password</h3>
+          </div>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="p-5 space-y-4">
+          {/* Old password */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Current password</label>
+            <div className="relative">
+              <input
+                type={showOld ? "text" : "password"}
+                className="w-full h-11 px-3 pr-10 border rounded-xl bg-white text-gray-900 placeholder-gray-400"
+                placeholder="Enter current password"
+                value={oldPwd}
+                onChange={(e) => setOldPwd(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowOld(s => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                aria-label="Toggle current password visibility"
+              >
+                {showOld ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* New password */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">New password</label>
+            <div className="relative">
+              <input
+                type={showNew ? "text" : "password"}
+                className="w-full h-11 px-3 pr-10 border rounded-xl bg-white text-gray-900 placeholder-gray-400"
+                placeholder="Enter new password"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(s => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                aria-label="Toggle new password visibility"
+              >
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Must include upper, lower, number & special character; min 8 chars.
+            </p>
+          </div>
+
+          {/* Confirm */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Confirm new password</label>
+            <div className="relative">
+              <input
+                type={showConfirm ? "text" : "password"}
+                className="w-full h-11 px-3 pr-10 border rounded-xl bg-white text-gray-900 placeholder-gray-400"
+                placeholder="Re-enter new password"
+                value={confirmPwd}
+                onChange={(e) => setConfirmPwd(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(s => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                aria-label="Toggle confirm password visibility"
+              >
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 h-10 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+            >
+              {submitting && <Loader2 size={16} className="animate-spin" />} Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }

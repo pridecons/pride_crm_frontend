@@ -10,6 +10,7 @@ import {
   FileText as InvoiceIcon,
   Send,
   Share2,
+  ShieldCheck,
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import CallButton from "../CallButton";
@@ -61,7 +62,11 @@ export function ActionButtons({
           disabled={kycLoading || !currentLead?.email}
           className={`${btnBase} border-purple-500 text-purple-600 hover:bg-purple-100`}
         >
-          {kycLoading && <span className="animate-spin mr-2">⏳</span>}
+          {kycLoading ? (
+            <Loader2 size={16} className="mr-2 animate-spin" />
+          ) : (
+            <ShieldCheck size={16} className="mr-2" />
+          )}
           KYC
         </button>
       )}

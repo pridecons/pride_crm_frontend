@@ -1,20 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { axiosInstance } from "@/api/Axios";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
 import LoadingState from "@/components/LoadingState";
 import EmployeeWithDataAccuracy from "@/components/analytics/EmployeeWithDataAccuracy";
 import DashboardTables from "@/components/analytics/DashboardTable";
 import ResponseDistribution from "@/components/analytics/ResponseTable";
-
-/** Local safe loader (won't crash if LoadingState is undefined) */
-const Loader =
-    LoadingState ??
-    (({ message }) => (
-        <div className="p-6 text-gray-500">{message || "Loading..."}</div>
-    ));
 
 /* ====================== PAGE ====================== */
 export default function LeadAnalyticsPage() {
@@ -67,7 +59,3 @@ export default function LeadAnalyticsPage() {
         </div>
     );
 }
-
-/* ====================== DASHBOARD TABLES ====================== */
-/** Left: Lead Source (from admin/dashboard), Right: Response Distribution (NEW endpoint) */
-

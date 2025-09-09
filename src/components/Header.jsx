@@ -508,7 +508,7 @@ export default function Header({ onMenuClick, onSearch }) {
           </div>
 
           {/* Profile (md+) */}
-          + <div className="relative hidden md:block" ref={profileRef}>
+          <div className="relative hidden md:block" ref={profileRef}>
             <button
               type="button"
               onClick={toggleProfileMenu}

@@ -14,6 +14,14 @@ import { formatCallbackForAPI, isoToDatetimeLocal } from "@/utils/dateUtils";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import CallButton from "@/components/Lead/CallButton";
 
+// put near the top of the file
+const Show = (v) =>
+  v == null || String(v).trim() === "" ? (
+    <span className="text-gray-800">—</span>
+  ) : (
+    String(v)
+  );
+
 export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
@@ -226,7 +234,7 @@ export default function NewLeadsTable() {
               className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
             />
           ) : (
-            <span>{lead.full_name}</span>
+            <span className="truncate">{Show(lead.full_name)}</span>
           ),
       },
       { header: "Mobile", render: (lead) => lead.mobile },

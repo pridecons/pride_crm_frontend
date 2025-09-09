@@ -861,8 +861,8 @@ function TableWrap({ title, children, icon }) {
     <div className="bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl p-4 shadow-md overflow-hidden">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          {icon && <span className="text-base">{icon}</span>}
-          <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+          {icon && <span className="text-base rupee">{icon}</span>}
+          <h3 className="text-base font-semibold text-gray-800 rupee">{title}</h3>
         </div>
       </div>
       {children}
@@ -875,9 +875,9 @@ function SimpleTable({ cols = [], rows = [] }) {
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
         <thead className="sticky top-0 z-10">
-          <tr className="bg-white/90 backdrop-blur border-b border-gray-200">
+          <tr className="bg-white/90 backdrop-blur border-b border-gray-200 rupee">
             {cols.map((c) => (
-              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left">
+              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left rupee">
                 {c}
               </th>
             ))}
@@ -897,7 +897,7 @@ function SimpleTable({ cols = [], rows = [] }) {
             rows.map((r, i) => (
               <tr key={i} className="border-b border-gray-100 hover:bg-blue-50/50">
                 {r.map((cell, j) => (
-                  <td key={j} className="px-3 py-2.5 text-gray-700 align-top">{cell}</td>
+                  <td key={j} className="px-3 py-2.5 text-gray-700 align-top rupee">{cell}</td>
                 ))}
               </tr>
             ))

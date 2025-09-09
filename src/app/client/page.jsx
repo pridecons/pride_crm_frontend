@@ -281,7 +281,7 @@ const applyDate = useCallback(() => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-xs text-gray-500">Total Paid</p>
-              <p className="text-lg font-semibold text-green-600">
+              <p className="text-lg font-semibold text-green-600 rupee">
                 ₹{client.total_amount_paid ?? 0}
               </p>
             </div>
@@ -519,7 +519,7 @@ const applyDate = useCallback(() => {
                           {client.kyc_status ? "DONE" : "PENDING"}
                         </span>
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                      <td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-green-600 rupee">
                         ₹{client.total_amount_paid ?? 0}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -713,7 +713,7 @@ const applyDate = useCallback(() => {
                           </td>
 
                           {/* INVESTMENT (₹) */}
-                          <td className="px-4 py-3 text-sm font-medium text-green-600">
+                          <td className="px-4 py-3 text-sm font-medium text-green-600 rupee">
                             {typeof client.investment === "number"
                               ? `₹${client.investment}`
                               : typeof client.total_amount_paid === "number"

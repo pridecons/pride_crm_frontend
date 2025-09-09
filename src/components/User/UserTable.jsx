@@ -174,7 +174,7 @@ export default function UserTable({
                     </td>
 
                     <td className="px-5 py-4 truncate">{getSeniorLabel(u)}</td>
-                    <td className="px-5 py-4 truncate">{inr(u.target)}</td>
+                    <td className="px-5 py-4 truncate rupee">{inr(u.target)}</td>
 
                     <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
 

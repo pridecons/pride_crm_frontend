@@ -29,6 +29,7 @@ export default function ServicesPage() {
     billing_cycle: 'CALL',
     CALL: 0,
     service_type: [],
+    plan_type: '',
   });
   const [editId, setEditId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -36,8 +37,55 @@ export default function ServicesPage() {
   const [serviceTypeOptions, setServiceTypeOptions] = useState([]);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const allCheckboxRef = useRef(null);
-
+  const [planTypeOptions, setPlanTypeOptions] = useState([]);
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+const [activePlanType, setActivePlanType] = useState("");
   const SERVICE_API = '/services';
+
+
+const fetchPlanTypeOptions = async () => {
+  try {
+    const res = await axiosInstance.get('/services/plan-types');
+    const types = res.data || [];
+
+    setPlanTypeOptions(types);
+
+    // always default to All
+    if (!activePlanType) {
+      setActivePlanType("All");
+    }
+  } catch (error) {
+    ErrorHandling({ error: error, defaultError: "Failed to fetch plan types" });
+  }
+};
+
+
+useEffect(() => {
+  fetchServiceTypeOptions();
+  fetchPlanTypeOptions();
+  fetchServices();
+}, []);
+
+// filter services by active tab
+const filteredServices = services.filter((s) => {
+  const matchesType = activePlanType === "All" || s.plan_type === activePlanType;
+  const matchesBilling = s.billing_cycle === "CALL";
+  return matchesType && matchesBilling;
+});
+
+
+const availablePlanTypes = planTypeOptions.filter((type) =>
+  services.some(
+    (s) => s.plan_type === type && s.billing_cycle === "CALL"
+  )
+);
+
+
+useEffect(() => {
+  if (!activePlanType && availablePlanTypes.length > 0) {
+    setActivePlanType("All"); // default to All instead of first type
+  }
+}, [availablePlanTypes, activePlanType]);
 
   /* ---------- helpers ---------- */
   // Stable currency string: plain number during SSR, formatted after mount
@@ -157,6 +205,7 @@ export default function ServicesPage() {
       billing_cycle: 'CALL',
       CALL: 0,
       service_type: [],
+      plan_type: '',
     });
     setEditId(null);
     setIsModalOpen(false);
@@ -173,6 +222,7 @@ export default function ServicesPage() {
       service_type: Array.isArray(srv.service_type)
         ? srv.service_type
         : (srv.service_type ? [srv.service_type] : []),
+      plan_type: srv.plan_type || '',
     });
     setEditId(srv.id);
     setIsModalOpen(true);
@@ -215,17 +265,53 @@ export default function ServicesPage() {
           </button>}
 
         </div>
+<div className="flex flex-wrap gap-2 mb-8">
+  {/* All Plans button */}
+  <button
+    onClick={() => setActivePlanType("All")}
+    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+      activePlanType === "All"
+        ? "bg-indigo-600 text-white shadow-md"
+        : "bg-white text-gray-600 border hover:bg-indigo-50"
+    }`}
+  >
+    All Plans
+  </button>
+
+  {/* Show only plan types that have services */}
+  {availablePlanTypes.map((type) => (
+    <button
+      key={type}
+      onClick={() => setActivePlanType(type)}
+      className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+        activePlanType === type
+          ? "bg-indigo-600 text-white shadow-md"
+          : "bg-white text-gray-600 border hover:bg-indigo-50"
+      }`}
+    >
+      {type}
+    </button>
+  ))}
+</div>
+
+
+
 
         {loading ? (
           <LoadingState message="Loading services..." />
-        ) : callOnlyServices.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-xl text-gray-500 font-medium">No CALL services available</p>
-            <p className="text-gray-400 mt-2">Create your first CALL-based service to get started</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {callOnlyServices.map((srv) => {
+        ) : filteredServices.length === 0 ? (
+  <div className="text-center py-20">
+    <p className="text-xl text-gray-500 font-medium">
+      No {activePlanType} plans available
+    </p>
+    <p className="text-gray-400 mt-2">
+      Create your first {activePlanType} plan to get started
+    </p>
+  </div>
+) : (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+    {filteredServices.map((srv) => {
+
               const hasDiscount = Number(srv.discount_percent) > 0 && srv.discounted_price != null;
               const finalPrice = srv.discounted_price != null ? srv.discounted_price : srv.price;
               const youSave = hasDiscount ? (Number(srv.price) - Number(srv.discounted_price)).toFixed(2) : null;
@@ -243,7 +329,7 @@ export default function ServicesPage() {
                     {/* Corner ribbon for discount */}
                     {hasDiscount && (
                       <div className="absolute -right-10 top-4 z-10 rotate-45 bg-emerald-500 text-white text-xs font-semibold tracking-wide px-10 py-1 shadow-md">
-                        <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1 rupee">
                           <BadgePercent size={14} />
                           Save {Number(srv.discount_percent)}%
                         </span>
@@ -252,6 +338,9 @@ export default function ServicesPage() {
 
                     {/* Header */}
                     <div className="relative p-4 bg-gradient-to-br from-indigo-600 to-blue-600 text-white">
+                      <h3 className='text-red-500 font-semibold leading-snug line-clamp-2 pr-6'>
+                        {srv.plan_type}
+                      </h3>
                       <h3 className="text-lg font-semibold leading-snug line-clamp-2 pr-6">
                         {srv.name}
                       </h3>
@@ -273,25 +362,33 @@ export default function ServicesPage() {
                     {/* Body */}
                     <div className="p-4 relative">
 
-                      <div className="absolute right-2 top-2 flex items-center gap-2">
+                      <div className="absolute right-2 top-2 flex items-center">
 
-                        {hasPermission("edit_plan") && <button
-                          onClick={() => handleEdit(srv)}
-                          className="p-2 rounded-full hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
-                          aria-label="Edit"
-                          title="Edit"
-                        >
-                          <Pencil size={18} />
-                        </button>}
+                        {hasPermission("edit_plan") && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(srv)}
+                              className="p-1 rounded-full hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                              aria-label="Edit"
+                              title="Edit"
+                            >
+                              <Pencil size={18} />
+                            </button>
 
-                        {hasPermission("delete_plan") && <button
-                          onClick={() => handleDelete(srv.id)}
-                          className="p-2 rounded-full hover:bg-rose-50 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
-                          aria-label="Delete"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>}
+                            <button
+                              onClick={() => handleDelete(srv.id)}
+                              className="p-1 rounded-full hover:bg-rose-50 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
+                              aria-label="Delete"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </>
+                        )}
+
+                        {/* {hasPermission("delete_plan") &&  */}
+
+                        {/* } */}
 
                       </div>
 
@@ -436,6 +533,54 @@ export default function ServicesPage() {
                       className="p-4 border rounded-xl w-full"
                       required
                     />
+                  </div>
+
+                  {/* Plan Type */}
+                  <div className="relative md:col-span-2">
+                    <label className="block mb-2 font-medium text-gray-700">
+                      Plan Type <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="w-full text-left bg-white border p-4 rounded-xl focus:outline-none flex justify-between items-center"
+                      onClick={() => setShowPlanDropdown((v) => !v)}
+                    >
+                      <span>
+                        {formData.plan_type
+                          ? formData.plan_type
+                          : "Select Plan Type"}
+                      </span>
+                      <svg
+                        className={`w-4 h-4 ml-2 transition-transform ${showPlanDropdown ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showPlanDropdown && (
+                      <div className="absolute z-20 bg-white border rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
+                        {planTypeOptions.map((type) => (
+                          <label
+                            key={type}
+                            className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <input
+                              type="radio"
+                              name="plan_type"
+                              checked={formData.plan_type === type}
+                              onChange={() =>
+                                setFormData((prev) => ({ ...prev, plan_type: type }))
+                              }
+                              className="form-radio mr-2 accent-indigo-600"
+                            />
+                            <span>{type}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Service Type */}

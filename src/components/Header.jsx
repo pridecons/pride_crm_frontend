@@ -298,9 +298,15 @@ export default function Header({ onMenuClick, onSearch }) {
         baseURL: BASE_URL_full,
       });
 
-      const raw = Array.isArray(data) ? data : (data?.items || data?.results || data?.leads || []);
-      // Normalize to a consistent shape to avoid undefined fields killing the UI
-      const normalize = (l) => ({
+      // Prefer explicit arrays from API shape
+      const assignedRaw =
+        Array.isArray(data?.leads)
+          ? data.leads
+          : (Array.isArray(data) ? data : (data?.items || data?.results || []));
+      const activateRaw = Array.isArray(data?.activate_leads) ? data.activate_leads : [];
+
+      // Normalizers
+      const normalize = (l, assigned = false) => ({
         id: l?.id ?? l?.lead_id ?? l?._id,
         full_name: l?.full_name ?? l?.name ?? [l?.first_name, l?.last_name].filter(Boolean).join(" "),
         mobile: l?.mobile ?? l?.phone ?? l?.contact_no ?? "",
@@ -310,10 +316,26 @@ export default function Header({ onMenuClick, onSearch }) {
         source_id: l?.source_id ?? l?.lead_source_id ?? null,
         source_name: l?.source_name ?? "",
         branch_id: l?.branch_id ?? null,
+        is_masked: !!l?.is_masked,
+        __assigned: !!assigned,
+        __clickable: !!assigned && !!(l?.id ?? l?.lead_id ?? l?._id),
       });
 
-      const list = (Array.isArray(raw) ? raw : []).map(normalize).filter(x => x?.id != null);
+      // activate_leads usually come masked / without id
+      const normalizeActivate = (l) =>
+        normalize(
+          {
+            ...l,
+            // create a stable synthetic id so list rendering stays happy
+            id: l?.id ?? l?.lead_id ?? l?._id ?? `act:${l?.mobile || l?.email || Math.random().toString(36).slice(2)}`,
+          },
+          /* assigned */ false
+        );
 
+      const assigned = (assignedRaw || []).map((x) => normalize(x, true)).filter(x => x?.id != null);
+      const others   = (activateRaw || []).map(normalizeActivate);
+
+      const list = [...assigned, ...others].slice(0, 50);
       // Build counts
       const countsById = {};
       const countsByName = {};
@@ -367,7 +389,11 @@ export default function Header({ onMenuClick, onSearch }) {
   const handleSelect = (lead) => {
     setOpen(false); setExpanded(false); setHighlight(-1);
     setQuery(lead?.full_name || '');
-    router.push(`/lead/${lead.id}`);
+    if (lead?.__assigned && lead?.id) {
+      router.push(`/lead/${lead.id}`);
+    } else {
+      toast?.error("This lead isn't assigned to you.");
+    }
   };
 
   const handleEnterNoPick = () => {
@@ -710,9 +736,10 @@ function SearchOverlay({
                             const idx = visibleLeads.findIndex(v => v.id === lead.id);
                             if (idx >= 0) setHighlight(idx);
                           }}
-                          onClick={() => handleSelect(lead)}
+                           onClick={() => handleSelect(lead)}
                           className={[
-                            "px-3 py-2 cursor-pointer transition",
+                            "px-3 py-2 transition",
+                            lead.__assigned ? "cursor-pointer" : "cursor-not-allowed opacity-60",
                             active ? "bg-blue-50" : "hover:bg-gray-50"
                           ].join(' ')}
                         >
@@ -734,6 +761,11 @@ function SearchOverlay({
                                 <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                   Source: {sName}
                                 </span>
+                                {!lead.__assigned && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-600" title="Not assigned to you">
+                                    <Lock size={12} /> View only
+                                  </span>
+                                )}
                                 {lead.created_at && (
                                   <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                     {new Date(lead.created_at).toLocaleDateString('en-IN', {

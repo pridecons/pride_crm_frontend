@@ -24,6 +24,64 @@ function humanTime(iso) {
   return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
 }
 
+// Accepts objects from HTTP or WS and normalizes keys/shapes
+function normalizeMessage(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  const m = {
+    id: raw.id ?? raw.message_id ?? raw.msgId ?? Date.now(),
+    thread_id: raw.thread_id ?? raw.threadId ?? raw.room_id ?? raw.roomId ?? raw.thread ?? null,
+    sender_id: raw.sender_id ?? raw.senderId ?? raw.from ?? raw.user ?? "UNKNOWN",
+    body: raw.body ?? raw.text ?? raw.content ?? "",
+    created_at: raw.created_at ?? raw.createdAt ?? raw.timestamp ?? raw.time ?? new Date().toISOString(),
+  };
+
+  // Force ISO string if server sends epoch
+  if (typeof m.created_at === "number") {
+    m.created_at = new Date(m.created_at).toISOString();
+  }
+  return m;
+}
+
+// Key messages by sender|thread|body for quick de-dupe
+// top-level (outside component) — OK
+
+
+
+
+// Some WS servers wrap messages in an envelope; unwrap consistently.
+function unwrapWsEvent(data) {
+  // try parse JSON
+  try { data = typeof data === "string" ? JSON.parse(data) : data; } catch { /* keep as string */ }
+
+  // Helper to merge envelope fields into payload
+  const mergeEnv = (env, payload) => {
+    if (!payload || typeof payload !== "object") payload = {};
+    if (env && typeof env === "object") {
+      if (env.senderId && payload.sender_id == null && payload.senderId == null) {
+        payload.senderId = env.senderId;
+      }
+      if (env.createdAt && payload.created_at == null) payload.created_at = env.createdAt;
+      if (env.timestamp && payload.timestamp == null) payload.timestamp = env.timestamp;
+      if (env.time && payload.time == null) payload.time = env.time;
+      if (env.id && payload.id == null) payload.id = env.id; // just in case
+    }
+    return payload;
+  };
+
+  if (data && typeof data === "object") {
+    if (data.data && (data.type || data.kind)) return mergeEnv(data, data.data);
+    if (data.payload && (data.event || data.type)) return mergeEnv(data, data.payload);
+    if (data.message) return mergeEnv(data, data.message);
+    return data; // already a message object
+  }
+
+  // plain text
+  return { body: String(data || ""), sender_id: "SYSTEM" };
+}
+
+
+
 function useEmployeeCode() {
   const [code, setCode] = useState(null);
   useEffect(() => {
@@ -95,42 +153,38 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
         wsRef.current = ws;
 
         ws.onopen = () => {
-          setReady(true);
-          attemptsRef.current = 0;
-          clearTimers();
+  setReady(true);
+  attemptsRef.current = 0;
+  clearTimers();
 
-          // JOIN / SUBSCRIBE the current thread so server starts emitting room events
-          try {
-            ws.send(JSON.stringify({ type: "join", thread_id: threadId }));
-          } catch {}
+  // Try multiple join formats for compatibility
+  const room = String(threadId);
+  const joinMsgs = [
+    { type: "join", thread_id: room },
+    { action: "join", thread_id: room },
+    { event: "subscribe", payload: { thread_id: room } },
+    { type: "subscribe", room_id: room },
+  ];
+  for (const j of joinMsgs) { try { ws.send(JSON.stringify(j)); } catch {} }
 
-          // heartbeat ping every 25s
-          timers.current.heartbeat = setInterval(() => {
-            try { ws.send(JSON.stringify({ type: "ping", at: Date.now() })); } catch {}
-          }, 25000);
-        };
+  timers.current.heartbeat = setInterval(() => {
+    try { ws.send(JSON.stringify({ type: "ping", at: Date.now() })); } catch {}
+  }, 25000);
+};
+
 
         ws.onmessage = (ev) => {
-          // Accept multiple shapes: string, {type, data}, {event, payload}, raw message
-          let payload = null;
-          try { payload = JSON.parse(ev.data); } catch { payload = ev.data; }
+          const unwrapped = unwrapWsEvent(ev.data);
+          const norm = normalizeMessage(unwrapped);
 
-          // Normalize common server variants
-          if (payload && typeof payload === "object") {
-            if (payload.type && payload.data) {
-              onEvent?.(payload);                     // {type, data}
-            } else if (payload.event && payload.payload) {
-              onEvent?.({ type: payload.event, data: payload.payload });
-            } else if (payload.message) {
-              onEvent?.({ type: "message", data: payload.message });
-            } else {
-              // maybe it is already the message itself
-              onEvent?.({ type: "message", data: payload });
-            }
-          } else {
-            onEvent?.({ type: "message_text", data: String(payload || "") });
+          // If it's not a message (e.g., system ping), pass through raw so handler can ignore
+          if (!norm || !norm.thread_id) {
+            onEvent?.({ type: "misc", data: unwrapped });
+            return;
           }
+          onEvent?.({ type: "message", data: norm });
         };
+
 
         ws.onclose = () => {
           setReady(false);
@@ -190,27 +244,30 @@ function DayDivider({ date }) {
 }
 
 function MessageBubble({ mine, msg, showHeader, showAvatar }) {
-  const dt = toLocal(msg.created_at);
+  const created = msg.created_at ?? msg.createdAt ?? msg.timestamp ?? msg.time;
+  const dt = toLocal(created);
+
   return (
     <div className={clsx("flex gap-2 mb-2", mine ? "flex-row-reverse" : "flex-row")}>
       {!mine && showAvatar ? <Avatar name={msg.sender_id} id={msg.sender_id} /> : !mine ? <div className="w-8" /> : null}
       <div className={clsx("max-w-xs lg:max-w-md", mine ? "items-end" : "items-start")}>
         {showHeader && !mine && <div className="text-xs text-gray-600 mb-1 px-1">{msg.sender_id}</div>}
-        <div
-          className={clsx(
-            "px-3 py-2 rounded-2xl shadow-sm break-words",
-            mine ? "bg-green-500 text-white rounded-br-md" : "bg-white border rounded-bl-md"
-          )}
-        >
+        <div className={clsx(
+          "px-3 py-2 rounded-2xl shadow-sm break-words",
+          mine ? "bg-green-500 text-white rounded-br-md" : "bg-white border rounded-bl-md"
+        )}>
           <div className="text-sm whitespace-pre-wrap">{msg.body}</div>
           <div className={clsx("text-xs mt-1 text-right", mine ? "text-green-100" : "text-gray-500")}>
-            {dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {isNaN(dt.getTime())
+              ? "" // silently hide if bad
+              : dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* =========================================================
    User Select (autocomplete) & New Chat Modal
@@ -399,6 +456,20 @@ export default function WhatsAppChatPage() {
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
 
+  function msgKey(sender, threadId, body) {
+  return `${sender || ""}|${threadId || ""}|${(body || "").slice(0, 500)}`;
+}
+
+
+// INSIDE WhatsAppChatPage component:
+const recentSentRef = useRef(new Set());
+
+const rememberSent = useCallback((sender, threadId, body, ttlMs = 5000) => {
+  const k = msgKey(sender, threadId, body);
+  recentSentRef.current.add(k);
+  setTimeout(() => recentSentRef.current.delete(k), ttlMs);
+}, []);
+
   // Load users & branches once
   useEffect(() => {
     let alive = true;
@@ -511,37 +582,33 @@ useEffect(() => {
 const handleSocketEvent = useCallback((evt) => {
   if (!evt) return;
 
-  // Accept both {type:"message", data:{...}} and direct message payloads
-  const raw = evt.data ?? evt.message ?? evt;
-  if (evt.type === "message" || raw?.thread_id) {
-    const m = raw;
+  if (evt.type === "message" && evt.data) {
+    const m = normalizeMessage(evt.data);
+    if (!m) return;
     const tId = m.thread_id;
 
+    // If this matches something we just sent optimistically, ignore the echo
+    const k = msgKey(m.sender_id, tId, m.body);
+    if (recentSentRef.current.has(k)) {
+      // We keep the optimistic local copy already appended
+      return;
+    }
+
     if (tId === selectedId) {
-      // append to open chat
       setMessages((prev) => {
-        // de-dupe by id if server echoes same message
-        if (prev.length && m.id && prev.some(x => x.id === m.id)) return prev;
+        if (m.id && prev.some((x) => x.id === m.id)) return prev; // id-based de-dupe
         return [...prev, m];
       });
-
-      // update left list
       setThreads((prev) =>
-        prev.map((t) => (t.id === tId ? { ...t, last_message: m.body, last_message_time: m.created_at } : t))
+        prev.map((t) =>
+          t.id === tId ? { ...t, last_message: m.body, last_message_time: m.created_at, unread_count: 0 } : t
+        )
       );
-
-      // mark read immediately (optimistic)
-      setThreads((prev) => prev.map((t) => (t.id === tId ? { ...t, unread_count: 0 } : t)));
-
-      // best-effort server mark-read
       if (m.id) {
         axiosInstance.post(`/chat/${tId}/mark-read`, null, { params: { last_message_id: m.id } }).catch(() => {});
       }
-
-      // scroll to bottom
       setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 40);
     } else {
-      // update list & unread for other threads
       setThreads((prev) =>
         prev.map((t) =>
           t.id === tId
@@ -555,15 +622,10 @@ const handleSocketEvent = useCallback((evt) => {
         )
       );
     }
-    return;
-  }
-
-  if (evt.type === "message_text" && typeof evt.data === "string" && selectedId) {
-    const nowIso = new Date().toISOString();
-    setMessages((prev) => [...prev, { id: Date.now(), thread_id: selectedId, sender_id: "SYSTEM", body: evt.data, created_at: nowIso }]);
-    setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 40);
   }
 }, [selectedId]);
+
+
 
   // Boot WS for current thread
   const { ready: wsReady, sendJson: wsSend } = useChatSocket({
@@ -579,26 +641,30 @@ const handleSocketEvent = useCallback((evt) => {
     setText("");
 
     // Try WS first
-    const sent = wsSend({ type: "send", data: { thread_id: selectedId, body } });
+  const sent = wsSend({ type: "send", senderId: currentUser, data: { thread_id: selectedId, body } });
 
-    if (sent) {
-      // Optimistic append (remove if your server echoes immediately and you want no dup risk)
-      const local = {
-        id: Date.now(),
-        thread_id: selected.id,
-        sender_id: currentUser,
-        body,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, local]);
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === selected.id ? { ...t, last_message: body, last_message_time: local.created_at } : t
-        )
-      );
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-      return;
-    }
+if (sent) {
+  // mark this message so the upcoming echo is ignored
+  rememberSent(currentUser, selectedId, body);
+
+  // Optimistic append
+  const local = {
+    id: Date.now(),
+    thread_id: selected.id,
+    sender_id: currentUser,
+    body,
+    created_at: new Date().toISOString(),
+  };
+  setMessages((prev) => [...prev, local]);
+  setThreads((prev) =>
+    prev.map((t) =>
+      t.id === selected.id ? { ...t, last_message: body, last_message_time: local.created_at } : t
+    )
+  );
+  setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  return;
+}
+
 
     // HTTP fallback
     try {

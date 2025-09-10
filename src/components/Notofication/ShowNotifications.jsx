@@ -765,7 +765,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
         const jitter = Math.floor(Math.random() * 500);
         reconnectTimerRef.current = setTimeout(connectWS, base + jitter);
       };
-    }
+    } 
 
     connectWS();
 

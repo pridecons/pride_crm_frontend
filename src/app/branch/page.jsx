@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, Fragment, useRef } from "react";
+import React, { useEffect, useState, Fragment, useRef, useMemo } from "react";
 import { axiosInstance, BASE_URL } from "@/api/Axios";
 import { Dialog, Transition } from "@headlessui/react";
 import LoadingState from "@/components/LoadingState";
@@ -9,6 +9,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { Loader2, Check, Edit, Eye, EyeOff } from "lucide-react";
 import DocumentViewer from "@/components/DocumentViewer";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import { createPortal } from "react-dom";
 
 // ---- helpers ---------------------------------------------------------------
 const emptyManager = {
@@ -117,6 +118,73 @@ const BranchesPage = () => {
   // Add these states near other useState declarations
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [existingAgreementUrl, setExistingAgreementUrl] = useState("");
+
+// --- State autocomplete (Manager State) ---
+const [states, setStates] = useState([]);            // [{ state_name, code }]
+const [stateQuery, setStateQuery] = useState("");
+const [showStateList, setShowStateList] = useState(false);
+const [stateIndex, setStateIndex] = useState(0);
+const stateInputRef = useRef(null);
+const [statePopup, setStatePopup] = useState({ top: 0, left: 0, width: 0 });
+
+// --- Position the floating popup under the input ---
+const updateStatePopupPos = () => {
+  const el = stateInputRef.current;
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  setStatePopup({
+    top: r.bottom + window.scrollY,
+    left: r.left + window.scrollX,
+    width: r.width,
+  });
+};
+
+// --- Filter states using the query (case-insensitive, matches substrings) ---
+const filteredStates = useMemo(() => {
+  const q = (stateQuery || "").toUpperCase().trim();
+  if (!q) return states;
+  return (states || []).filter((s) =>
+    String(s.state_name || "").toUpperCase().includes(q)
+  );
+}, [stateQuery, states]);
+
+// --- Select a state from the list ---
+const selectManagerState = (name) => {
+  setFormData((p) => ({ ...p, manager_state: name }));
+  setStateQuery(name);
+  setShowStateList(false);
+};
+// Fetch states when the Add/Edit modal opens
+useEffect(() => {
+  if (!isOpen) return;
+  (async () => {
+    try {
+      const res = await axiosInstance.get("/state/");
+      // API may respond with { states: [...] } or just [...]
+      setStates(res?.data?.states || res?.data || []);
+    } catch {
+      setStates([]);
+    }
+  })();
+}, [isOpen]);
+
+// Keep popup aligned to input while open
+useEffect(() => {
+  if (!showStateList) return;
+  updateStatePopupPos();
+  const onScrollOrResize = () => updateStatePopupPos();
+  window.addEventListener("scroll", onScrollOrResize, true);
+  window.addEventListener("resize", onScrollOrResize);
+  return () => {
+    window.removeEventListener("scroll", onScrollOrResize, true);
+    window.removeEventListener("resize", onScrollOrResize);
+  };
+}, [showStateList]);
+
+// Keep local query in sync if manager_state is prefilled (edit mode)
+useEffect(() => {
+  setStateQuery(formData.manager_state || "");
+}, [formData.manager_state]);
 
   // password policy: ≥6 chars, at least one number & one special char
   const MGR_PASSWORD_REGEX =
@@ -907,17 +975,63 @@ const BranchesPage = () => {
                             required
                           />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-                          <input
-                            name="manager_state"
-                            value={formData.manager_state}
-                            onChange={handleChange}
-                            placeholder="Enter state"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                            required
-                          />
-                        </div>
+                        <div className="relative">
+  <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
+  <input
+    ref={stateInputRef}
+    name="manager_state"
+    value={formData.manager_state}
+    onChange={(e) => {
+      const v = e.target.value;
+      setFormData((p) => ({ ...p, manager_state: v }));
+      setStateQuery(v);
+      setShowStateList(true);
+      setStateIndex(0);
+      updateStatePopupPos();
+    }}
+    onFocus={() => { setShowStateList(true); updateStatePopupPos(); }}
+    onBlur={() => setTimeout(() => setShowStateList(false), 120)}
+    onKeyDown={(e) => {
+      if (!showStateList || filteredStates.length === 0) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setStateIndex((i) => Math.min(i + 1, filteredStates.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setStateIndex((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const pick = filteredStates[stateIndex];
+        if (pick) selectManagerState(pick.state_name);
+      } else if (e.key === "Escape") {
+        setShowStateList(false);
+      }
+    }}
+    placeholder="Start typing… e.g. MADHYA PRADESH"
+    autoComplete="off"
+    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-white"
+    required
+  />
+
+  {showStateList && filteredStates.length > 0 && createPortal(
+    <div
+      className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
+      style={{ top: statePopup.top, left: statePopup.left, width: statePopup.width }}
+    >
+      {filteredStates.map((s, idx) => (
+        <button
+          type="button"
+          key={s.code || s.state_name}
+          onMouseDown={(e) => { e.preventDefault(); selectManagerState(s.state_name); }}
+          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === stateIndex ? "bg-gray-100" : ""}`}
+        >
+          {s.state_name}
+        </button>
+      ))}
+    </div>,
+    document.body
+  )}
+</div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Pincode *</label>
                           <input

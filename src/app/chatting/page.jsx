@@ -126,6 +126,11 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
   const timers = useRef({ reconnect: null, heartbeat: null });
   const attemptsRef = useRef(0);
 
+  // Rate limit for peeking last message of a thread
+const peekCooldownMs = 60_000; // 1 minute
+const lastPeekAtRef = useRef(new Map()); // threadId -> last peek timestamp
+const inFlightRef = useRef(new Set());   // threadIds currently being peeked
+
   const clearTimers = () => {
     if (timers.current.heartbeat) clearInterval(timers.current.heartbeat);
     if (timers.current.reconnect) clearTimeout(timers.current.reconnect);
@@ -496,45 +501,74 @@ const rememberSent = useCallback((sender, threadId, body, ttlMs = 5000) => {
   }, []);
 
   // Poll threads (and fill last message if not present)
-  useEffect(() => {
-    let alive = true;
-    const loadThreads = async () => {
-      try {
-        const { data } = await axiosInstance.get("/chat/threads");
-        if (!alive) return;
-        const arr = Array.isArray(data) ? data : [];
-        setThreads((prev) => {
-          const prevMap = new Map(prev.map((t) => [t.id, t]));
-          return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
-        });
+useEffect(() => {
+  let cancelled = false;
 
-        // Best-effort fill last message/time for top threads lacking it
-        arr.slice(0, 20).forEach(async (t) => {
-          const ex = threads.find((x) => x.id === t.id);
-          if (ex?.last_message_time) return;
-          try {
-            const { data: last } = await axiosInstance.get(`/chat/${t.id}/messages`, { params: { limit: 1 } });
-            if (Array.isArray(last) && last.length) {
-              const m = last[last.length - 1];
-              setThreads((prev) =>
-                prev.map((x) => (x.id === t.id ? { ...x, last_message: m.body, last_message_time: m.created_at } : x))
-              );
-            }
-          } catch {}
-        });
-      } catch (e) {
-        console.error("threads load error", e);
+  const loadThreads = async () => {
+    try {
+      const { data } = await axiosInstance.get("/chat/threads");
+      if (cancelled) return;
+
+      const arr = Array.isArray(data) ? data : [];
+
+      // Merge new snapshot with existing thread data (keeps unread_count, etc.)
+      setThreads((prev) => {
+        const prevMap = new Map(prev.map((t) => [t.id, t]));
+        return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
+      });
+
+      // --- Throttled "peek" for missing last_message_time ---
+      const now = Date.now();
+      const toPeek = [];
+
+      // Only use the fresh server list (no stale closure on `threads`)
+      for (const t of arr) {
+        if (!t?.id) continue;
+        if (t.last_message_time) continue;                // already have it
+        if (inFlightRef.current.has(t.id)) continue;      // already fetching
+        const last = lastPeekAtRef.current.get(t.id) || 0;
+        if (now - last < peekCooldownMs) continue;        // within cooldown
+
+        toPeek.push(t.id);
+        if (toPeek.length >= 3) break;                    // cap concurrent peeks
       }
-    };
-    loadThreads();
-    const t = setInterval(loadThreads, 8000);
-    return () => { alive = false; clearInterval(t); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+      // Fire limited peeks for selected threads
+      toPeek.forEach(async (id) => {
+        inFlightRef.current.add(id);
+        lastPeekAtRef.current.set(id, Date.now());
+        try {
+          const { data: lastMsgs } = await axiosInstance.get(`/chat/${id}/messages`, { params: { limit: 1 } });
+          if (!cancelled && Array.isArray(lastMsgs) && lastMsgs.length) {
+            const m = lastMsgs[lastMsgs.length - 1];
+            setThreads((prev) =>
+              prev.map((x) =>
+                x.id === id ? { ...x, last_message: m.body, last_message_time: m.created_at } : x
+              )
+            );
+          }
+        } catch (_) {
+          // swallow; we'll be able to retry after cooldown
+        } finally {
+          inFlightRef.current.delete(id);
+        }
+      });
+    } catch (e) {
+      console.error("threads load error", e);
+    }
+  };
+
+  loadThreads();
+  const iv = setInterval(loadThreads, 8000); // your existing cadence
+  return () => { cancelled = true; clearInterval(iv); };
+}, []);
+
+
+const isPendingThread = (t) => !!t && !t.id && t.pending === true;
 
   // Load messages when selecting a thread
   useEffect(() => {
-    if (!selected) return;
+    if (!selected?.id) return;
     (async () => {
       try {
         const { data } = await axiosInstance.get(`/chat/${selected.id}/messages`, { params: { limit: 100 } });
@@ -634,64 +668,86 @@ const handleSocketEvent = useCallback((evt) => {
     onEvent: handleSocketEvent,
   });
 
-  // Prefer WS to send; fall back to HTTP
-  const handleSend = async () => {
-    if (!text.trim() || !selected) return;
-    const body = text.trim();
-    setText("");
+// Always send via HTTP API. WS is only for receiving events.
+const handleSend = async () => {
+  if (!text.trim() || !selected) return;
+  const body = text.trim();
+  setText("");
 
-    // Try WS first
-  const sent = wsSend({ type: "send", senderId: currentUser, data: { thread_id: selectedId, body } });
-
-if (sent) {
-  // mark this message so the upcoming echo is ignored
-  rememberSent(currentUser, selectedId, body);
-
-  // Optimistic append
-  const local = {
-    id: Date.now(),
-    thread_id: selected.id,
-    sender_id: currentUser,
-    body,
-    created_at: new Date().toISOString(),
-  };
-  setMessages((prev) => [...prev, local]);
-  setThreads((prev) =>
-    prev.map((t) =>
-      t.id === selected.id ? { ...t, last_message: body, last_message_time: local.created_at } : t
-    )
-  );
-  setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  return;
-}
-
-
-    // HTTP fallback
+  // A) Pending direct chat → create thread THEN send (HTTP), then add to recents
+  if (isPendingThread(selected)) {
     try {
-      const { data } = await axiosInstance.post(`/chat/${selected.id}/send`, { body });
-      setMessages((prev) => [...prev, data]);
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === selected.id ? { ...t, last_message: body, last_message_time: data.created_at } : t
-        )
-      );
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    } catch (e) {
-      console.error("send error", e);
-    }
-  };
+      const peerCode = selected?.peer?.employee_code;
+      // 1) Create direct thread
+      const { data: t } = await axiosInstance.post("/chat/direct/create", {
+        peer_employee_code: peerCode,
+      });
 
-  // Create direct / group
-  const handleCreateDirect = async (user) => {
-    try {
-      const { data: t } = await axiosInstance.post("/chat/direct/create", { peer_employee_code: user.employee_code });
+      // 2) Send message via HTTP
+      const { data: sentMsg } = await axiosInstance.post(`/chat/${t.id}/send`, { body });
+
+      // 3) Update UI — now it is eligible for "Recent chats"
       setThreads((prev) => (prev.find((x) => x.id === t.id) ? prev : [t, ...prev]));
       setSelected(t);
-      const { data: msgs } = await axiosInstance.get(`/chat/${t.id}/messages`, { params: { limit: 100 } });
-      setMessages(Array.isArray(msgs) ? msgs : []);
+      setMessages([sentMsg]);
+      setThreads((prev) =>
+        prev.map((th) =>
+          th.id === t.id
+            ? { ...th, last_message: sentMsg.body, last_message_time: sentMsg.created_at }
+            : th
+        )
+      );
+
+      // Optional: mark-read if you consider own-sent as read
+      try { await axiosInstance.post(`/chat/${t.id}/mark-read`, null, { params: { last_message_id: sentMsg.id } }); } catch {}
+
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      return;
     } catch (e) {
-      console.error("create direct error", e);
+      console.error("first send (create+send) error", e);
+      return;
     }
+  }
+
+  // B) Normal existing thread → ALWAYS use HTTP API to send
+  try {
+    const { data: sentMsg } = await axiosInstance.post(`/chat/${selected.id}/send`, { body });
+
+    // Append the server message (has authoritative id/timestamp).
+    setMessages((prev) => [...prev, sentMsg]);
+
+    // Update recents info
+    setThreads((prev) =>
+      prev.map((t) =>
+        t.id === selected.id
+          ? { ...t, last_message: sentMsg.body, last_message_time: sentMsg.created_at }
+          : t
+      )
+    );
+
+    // Mark as read (optional)
+    try { await axiosInstance.post(`/chat/${selected.id}/mark-read`, null, { params: { last_message_id: sentMsg.id } }); } catch {}
+
+    setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  } catch (e) {
+    console.error("send error", e);
+  }
+};
+
+
+  // Create direct / group
+  const handleCreateDirect = (user) => {
+    // Do NOT touch the threads list yet. Just open a pending chat.
+    setSelected({
+      pending: true,
+      type: "DIRECT",
+      name: user.full_name || user.name || user.employee_code,
+      peer: {
+        employee_code: user.employee_code,
+        full_name: user.full_name || user.name || user.employee_code,
+      },
+    });
+    setMessages([]); // empty until the first message is sent
   };
 
   const handleCreateGroup = async (name, usersArr) => {
@@ -712,7 +768,10 @@ if (sent) {
     return threads.filter((t) => (t.name || "Direct Chat").toLowerCase().includes(searchQuery.toLowerCase()));
   }, [threads, searchQuery]);
 
-  const getThreadName = (thread) => (thread.type === "GROUP" ? (thread.name || `Group #${thread.id}`) : "Direct Chat");
+  const getThreadName = (thread) =>
+    isPendingThread(thread)
+      ? (thread?.peer?.full_name || thread?.name || "New chat")
+     : (thread?.name || "Direct Chat");
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -841,7 +900,7 @@ if (sent) {
                   onClick={handleSend}
                   disabled={!text.trim() || !selected}
                   className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={wsReady ? "Send (WS)" : "Send (HTTP fallback)"}
+                  title="Send"
                 >
                   <Send size={18} />
                 </button>

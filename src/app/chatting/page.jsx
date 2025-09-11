@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { Search, Plus, Send, MoreVertical } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
@@ -10,8 +16,17 @@ import { axiosInstance } from "@/api/Axios";
    Utilities
 ========================================================= */
 const clsx = (...x) => x.filter(Boolean).join(" ");
-const toLocal = (iso) => { try { return new Date(iso); } catch { return new Date(); } };
-const isSameDay = (a, b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+const toLocal = (iso) => {
+  try {
+    return new Date(iso);
+  } catch {
+    return new Date();
+  }
+};
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
 
 /** Get "HH:MM" if <24h; weekday if <7d; else dd/mm */
 function humanTime(iso) {
@@ -19,7 +34,8 @@ function humanTime(iso) {
   const d = toLocal(iso);
   const now = new Date();
   const diff = now - d;
-  if (diff < 86_400_000) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (diff < 86_400_000)
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (diff < 604_800_000) return d.toLocaleDateString([], { weekday: "short" });
   return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
 }
@@ -28,12 +44,41 @@ function humanTime(iso) {
 function normalizeMessage(raw) {
   if (!raw || typeof raw !== "object") return null;
 
+  // some servers send content in "message" instead of "body"
+  const body =
+    raw.body ??
+    raw.text ??
+    raw.content ??
+    raw.message ?? // <-- your WS shape
+    "";
+
   const m = {
-    id: raw.id ?? raw.message_id ?? raw.msgId ?? Date.now(),
-    thread_id: raw.thread_id ?? raw.threadId ?? raw.room_id ?? raw.roomId ?? raw.thread ?? null,
-    sender_id: raw.sender_id ?? raw.senderId ?? raw.from ?? raw.user ?? "UNKNOWN",
-    body: raw.body ?? raw.text ?? raw.content ?? "",
-    created_at: raw.created_at ?? raw.createdAt ?? raw.timestamp ?? raw.time ?? new Date().toISOString(),
+    id:
+      raw.id ??
+      raw.message_id ??
+      raw.msgId ??
+      // synthesize a stable-ish id if server didn't send one
+      `${raw.thread_id ?? raw.threadId ?? "T"}-${
+        raw.sender_id ?? raw.senderId ?? "U"
+      }-${raw.timestamp ?? raw.time ?? Date.now()}`,
+    thread_id:
+      raw.thread_id ??
+      raw.threadId ??
+      raw.room_id ??
+      raw.roomId ??
+      raw.thread ??
+      null,
+    sender_id:
+      raw.sender_id ?? raw.senderId ?? raw.from ?? raw.user ?? "UNKNOWN",
+    body,
+    created_at:
+      raw.created_at ??
+      raw.createdAt ??
+      raw.timestamp ??
+      raw.time ??
+      new Date().toISOString(),
+    // keep original type if present (e.g., "message.new")
+    _type: raw.type ?? raw.event ?? undefined,
   };
 
   // Force ISO string if server sends epoch
@@ -43,44 +88,45 @@ function normalizeMessage(raw) {
   return m;
 }
 
-// Key messages by sender|thread|body for quick de-dupe
-// top-level (outside component) — OK
-
-
-
-
 // Some WS servers wrap messages in an envelope; unwrap consistently.
 function unwrapWsEvent(data) {
-  // try parse JSON
-  try { data = typeof data === "string" ? JSON.parse(data) : data; } catch { /* keep as string */ }
+  try {
+    data = typeof data === "string" ? JSON.parse(data) : data;
+  } catch {
+    /* keep as string */
+  }
 
-  // Helper to merge envelope fields into payload
   const mergeEnv = (env, payload) => {
     if (!payload || typeof payload !== "object") payload = {};
     if (env && typeof env === "object") {
-      if (env.senderId && payload.sender_id == null && payload.senderId == null) {
+      // bubble up common envelope fields
+      if (env.senderId && payload.sender_id == null && payload.senderId == null)
         payload.senderId = env.senderId;
-      }
-      if (env.createdAt && payload.created_at == null) payload.created_at = env.createdAt;
-      if (env.timestamp && payload.timestamp == null) payload.timestamp = env.timestamp;
+      if (env.createdAt && payload.created_at == null)
+        payload.created_at = env.createdAt;
+      if (env.timestamp && payload.timestamp == null)
+        payload.timestamp = env.timestamp;
       if (env.time && payload.time == null) payload.time = env.time;
-      if (env.id && payload.id == null) payload.id = env.id; // just in case
+      if (env.id && payload.id == null) payload.id = env.id;
+      if (env.type && payload.type == null) payload.type = env.type;
     }
     return payload;
   };
 
   if (data && typeof data === "object") {
+    // common wraps
     if (data.data && (data.type || data.kind)) return mergeEnv(data, data.data);
-    if (data.payload && (data.event || data.type)) return mergeEnv(data, data.payload);
-    if (data.message) return mergeEnv(data, data.message);
-    return data; // already a message object
+    if (data.payload && (data.event || data.type))
+      return mergeEnv(data, data.payload);
+    if (data.message && typeof data.message === "object")
+      return mergeEnv(data, data.message);
+    // your server sends the final shape directly — just return it
+    return data;
   }
 
-  // plain text
+  // plain text fallback
   return { body: String(data || ""), sender_id: "SYSTEM" };
 }
-
-
 
 function useEmployeeCode() {
   const [code, setCode] = useState(null);
@@ -89,8 +135,14 @@ function useEmployeeCode() {
       const ui = Cookies.get("user_info");
       if (ui) {
         const obj = JSON.parse(ui);
-        if (obj?.employee_code) { setCode(obj.employee_code); return; }
-        if (obj?.sub) { setCode(obj.sub); return; }
+        if (obj?.employee_code) {
+          setCode(obj.employee_code);
+          return;
+        }
+        if (obj?.sub) {
+          setCode(obj.sub);
+          return;
+        }
       }
       const tok = Cookies.get("access_token");
       if (tok) {
@@ -102,12 +154,10 @@ function useEmployeeCode() {
   return code;
 }
 
-/* =========================================================
-   WebSocket Hook
-========================================================= */
 function makeWsUrl(httpBase, threadId, token) {
   // prefer axios baseURL if available
-  let base = httpBase || (typeof window !== "undefined" ? window.location.origin : "");
+  let base =
+    httpBase || (typeof window !== "undefined" ? window.location.origin : "");
   try {
     const u = new URL(base);
     u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
@@ -115,10 +165,11 @@ function makeWsUrl(httpBase, threadId, token) {
     if (token) u.searchParams.set("token", token); // adjust param name if your backend expects different
     return u.toString();
   } catch {
-    return `/api/v1/ws/chat/${threadId}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    return `/api/v1/ws/chat/${threadId}${
+      token ? `?token=${encodeURIComponent(token)}` : ""
+    }`;
   }
 }
-
 
 function useChatSocket({ threadId, onEvent, enabled = true }) {
   const [ready, setReady] = useState(false);
@@ -126,10 +177,6 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
   const timers = useRef({ reconnect: null, heartbeat: null });
   const attemptsRef = useRef(0);
 
-  // Rate limit for peeking last message of a thread
-const peekCooldownMs = 60_000; // 1 minute
-const lastPeekAtRef = useRef(new Map()); // threadId -> last peek timestamp
-const inFlightRef = useRef(new Set());   // threadIds currently being peeked
 
   const clearTimers = () => {
     if (timers.current.heartbeat) clearInterval(timers.current.heartbeat);
@@ -139,14 +186,19 @@ const inFlightRef = useRef(new Set());   // threadIds currently being peeked
   };
 
   const closeSocket = () => {
-    try { wsRef.current?.close(1000, "navigate"); } catch {}
+    try {
+      wsRef.current?.close(1000, "navigate");
+    } catch {}
     wsRef.current = null;
     setReady(false);
     clearTimers();
   };
 
   useEffect(() => {
-    if (!enabled || !threadId) { closeSocket(); return; }
+    if (!enabled || !threadId) {
+      closeSocket();
+      return;
+    }
 
     const token = Cookies.get("access_token");
     const httpBase = axiosInstance?.defaults?.baseURL;
@@ -158,31 +210,44 @@ const inFlightRef = useRef(new Set());   // threadIds currently being peeked
         wsRef.current = ws;
 
         ws.onopen = () => {
-  setReady(true);
-  attemptsRef.current = 0;
-  clearTimers();
+          setReady(true);
+          attemptsRef.current = 0;
+          clearTimers();
 
-  // Try multiple join formats for compatibility
-  const room = String(threadId);
-  const joinMsgs = [
-    { type: "join", thread_id: room },
-    { action: "join", thread_id: room },
-    { event: "subscribe", payload: { thread_id: room } },
-    { type: "subscribe", room_id: room },
-  ];
-  for (const j of joinMsgs) { try { ws.send(JSON.stringify(j)); } catch {} }
+          // Try multiple join formats for compatibility
+          const room = String(threadId);
+          const joinMsgs = [
+            { type: "join", thread_id: room },
+            { action: "join", thread_id: room },
+            { event: "subscribe", payload: { thread_id: room } },
+            { type: "subscribe", room_id: room },
+          ];
+          for (const j of joinMsgs) {
+            try {
+              ws.send(JSON.stringify(j));
+            } catch {}
+          }
 
-  timers.current.heartbeat = setInterval(() => {
-    try { ws.send(JSON.stringify({ type: "ping", at: Date.now() })); } catch {}
-  }, 25000);
-};
-
+          timers.current.heartbeat = setInterval(() => {
+            try {
+              ws.send(JSON.stringify({ type: "ping", at: Date.now() }));
+            } catch {}
+          }, 25000);
+        };
 
         ws.onmessage = (ev) => {
           const unwrapped = unwrapWsEvent(ev.data);
-          const norm = normalizeMessage(unwrapped);
 
-          // If it's not a message (e.g., system ping), pass through raw so handler can ignore
+          // if server uses type like "message.new", accept it; ignore non-message types
+          const t = (unwrapped?.type || unwrapped?.event || "")
+            .toString()
+            .toLowerCase();
+          if (t && !t.startsWith("message")) {
+            onEvent?.({ type: "misc", data: unwrapped });
+            return;
+          }
+
+          const norm = normalizeMessage(unwrapped);
           if (!norm || !norm.thread_id) {
             onEvent?.({ type: "misc", data: unwrapped });
             return;
@@ -190,16 +255,20 @@ const inFlightRef = useRef(new Set());   // threadIds currently being peeked
           onEvent?.({ type: "message", data: norm });
         };
 
-
         ws.onclose = () => {
           setReady(false);
           clearTimers();
-          const attempt = (attemptsRef.current = (attemptsRef.current || 0) + 1);
+          const attempt = (attemptsRef.current =
+            (attemptsRef.current || 0) + 1);
           const delay = Math.min(30000, 1000 * Math.pow(2, attempt));
           timers.current.reconnect = setTimeout(connect, delay);
         };
 
-        ws.onerror = () => { try { ws.close(); } catch {} };
+        ws.onerror = () => {
+          try {
+            ws.close();
+          } catch {}
+        };
       } catch {
         const attempt = (attemptsRef.current = (attemptsRef.current || 0) + 1);
         const delay = Math.min(30000, 1000 * Math.pow(2, attempt));
@@ -208,19 +277,24 @@ const inFlightRef = useRef(new Set());   // threadIds currently being peeked
     };
 
     connect();
-    return () => { closeSocket(); };
+    return () => {
+      closeSocket();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, enabled]);
 
-  const sendJson = useCallback((obj) => {
-    try {
-      if (ready && wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify(obj));
-        return true;
-      }
-    } catch {}
-    return false;
-  }, [ready]);
+  const sendJson = useCallback(
+    (obj) => {
+      try {
+        if (ready && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify(obj));
+          return true;
+        }
+      } catch {}
+      return false;
+    },
+    [ready]
+  );
 
   return { ready, sendJson };
 }
@@ -230,10 +304,16 @@ const inFlightRef = useRef(new Set());   // threadIds currently being peeked
 ========================================================= */
 function Avatar({ name, id, size = "sm" }) {
   const label = (name || id || "?").trim();
-  const letters = label.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || "U";
+  const letters =
+    label
+      .replace(/[^A-Za-z0-9]/g, "")
+      .slice(0, 2)
+      .toUpperCase() || "U";
   const sizeClasses = size === "lg" ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs";
   return (
-    <div className={`flex ${sizeClasses} items-center justify-center rounded-full bg-gray-300 text-gray-700 font-medium`}>
+    <div
+      className={`flex ${sizeClasses} items-center justify-center rounded-full bg-gray-300 text-gray-700 font-medium`}
+    >
       {letters}
     </div>
   );
@@ -243,7 +323,9 @@ function DayDivider({ date }) {
   const label = date.toLocaleDateString([], { day: "2-digit", month: "short" });
   return (
     <div className="flex justify-center my-4">
-      <span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">{label}</span>
+      <span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full">
+        {label}
+      </span>
     </div>
   );
 }
@@ -253,26 +335,53 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
   const dt = toLocal(created);
 
   return (
-    <div className={clsx("flex gap-2 mb-2", mine ? "flex-row-reverse" : "flex-row")}>
-      {!mine && showAvatar ? <Avatar name={msg.sender_id} id={msg.sender_id} /> : !mine ? <div className="w-8" /> : null}
-      <div className={clsx("max-w-xs lg:max-w-md", mine ? "items-end" : "items-start")}>
-        {showHeader && !mine && <div className="text-xs text-gray-600 mb-1 px-1">{msg.sender_id}</div>}
-        <div className={clsx(
-          "px-3 py-2 rounded-2xl shadow-sm break-words",
-          mine ? "bg-green-500 text-white rounded-br-md" : "bg-white border rounded-bl-md"
-        )}>
+    <div
+      className={clsx(
+        "flex gap-2 mb-2",
+        mine ? "flex-row-reverse" : "flex-row"
+      )}
+    >
+      {!mine && showAvatar ? (
+        <Avatar name={msg.sender_id} id={msg.sender_id} />
+      ) : !mine ? (
+        <div className="w-8" />
+      ) : null}
+      <div
+        className={clsx(
+          "max-w-xs lg:max-w-md",
+          mine ? "items-end" : "items-start"
+        )}
+      >
+        {showHeader && !mine && (
+          <div className="text-xs text-gray-600 mb-1 px-1">{msg.sender_id}</div>
+        )}
+        <div
+          className={clsx(
+            "px-3 py-2 rounded-2xl shadow-sm break-words",
+            mine
+              ? "bg-green-500 text-white rounded-br-md"
+              : "bg-white border rounded-bl-md"
+          )}
+        >
           <div className="text-sm whitespace-pre-wrap">{msg.body}</div>
-          <div className={clsx("text-xs mt-1 text-right", mine ? "text-green-100" : "text-gray-500")}>
+          <div
+            className={clsx(
+              "text-xs mt-1 text-right",
+              mine ? "text-green-100" : "text-gray-500"
+            )}
+          >
             {isNaN(dt.getTime())
               ? "" // silently hide if bad
-              : dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              : dt.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
 
 /* =========================================================
    User Select (autocomplete) & New Chat Modal
@@ -293,8 +402,12 @@ function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
   }, [users, query]);
 
   const displayValue = multiple
-    ? (Array.isArray(value) && value.length > 0 ? `${value.length} selected` : "")
-    : value ? `${value.full_name || value.name} (${value.employee_code})` : query;
+    ? Array.isArray(value) && value.length > 0
+      ? `${value.length} selected`
+      : ""
+    : value
+    ? `${value.full_name || value.name} (${value.employee_code})`
+    : query;
 
   return (
     <div className="relative">
@@ -302,7 +415,10 @@ function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-green-500"
         placeholder={placeholder}
         value={displayValue}
-        onChange={(e) => { setQuery(e.target.value); if (!multiple) onChange(null); }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (!multiple) onChange(null);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 180)}
       />
@@ -315,7 +431,9 @@ function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
               className="w-full px-3 py-2 text-left hover:bg-gray-50 text-sm border-b border-gray-100 last:border-b-0"
               onClick={() => {
                 if (multiple) {
-                  const exists = value.find((v) => v.employee_code === user.employee_code);
+                  const exists = value.find(
+                    (v) => v.employee_code === user.employee_code
+                  );
                   if (!exists) onChange([...value, user]);
                 } else {
                   onChange(user);
@@ -324,9 +442,12 @@ function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
                 setOpen(false);
               }}
             >
-              <div className="font-medium">{user.full_name || user.name || user.employee_code}</div>
+              <div className="font-medium">
+                {user.full_name || user.name || user.employee_code}
+              </div>
               <div className="text-xs text-gray-500">
-                {user.employee_code}{user.branch_name ? ` • ${user.branch_name}` : ""}
+                {user.employee_code}
+                {user.branch_name ? ` • ${user.branch_name}` : ""}
               </div>
             </button>
           ))}
@@ -336,7 +457,13 @@ function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
   );
 }
 
-function NewChatModal({ isOpen, onClose, users, onCreateDirect, onCreateGroup }) {
+function NewChatModal({
+  isOpen,
+  onClose,
+  users,
+  onCreateDirect,
+  onCreateGroup,
+}) {
   const [tab, setTab] = useState("direct");
   const [directUser, setDirectUser] = useState(null);
   const [groupName, setGroupName] = useState("");
@@ -364,17 +491,28 @@ function NewChatModal({ isOpen, onClose, users, onCreateDirect, onCreateGroup })
         <div className="p-4 border-b">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">New Chat</h3>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-xl">×</button>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-xl"
+            >
+              ×
+            </button>
           </div>
           <div className="flex mt-3 bg-gray-100 rounded-lg p-1">
             <button
-              className={clsx("flex-1 py-2 text-sm rounded-md", tab === "direct" ? "bg-white shadow-sm" : "")}
+              className={clsx(
+                "flex-1 py-2 text-sm rounded-md",
+                tab === "direct" ? "bg-white shadow-sm" : ""
+              )}
               onClick={() => setTab("direct")}
             >
               Direct Chat
             </button>
             <button
-              className={clsx("flex-1 py-2 text-sm rounded-md", tab === "group" ? "bg-white shadow-sm" : "")}
+              className={clsx(
+                "flex-1 py-2 text-sm rounded-md",
+                tab === "group" ? "bg-white shadow-sm" : ""
+              )}
               onClick={() => setTab("group")}
             >
               Group Chat
@@ -385,7 +523,12 @@ function NewChatModal({ isOpen, onClose, users, onCreateDirect, onCreateGroup })
         <div className="p-4">
           {tab === "direct" ? (
             <div className="space-y-4">
-              <UserSelect users={users} value={directUser} onChange={setDirectUser} placeholder="Search for a user..." />
+              <UserSelect
+                users={users}
+                value={directUser}
+                onChange={setDirectUser}
+                placeholder="Search for a user..."
+              />
               <button
                 onClick={handleCreateDirect}
                 disabled={!directUser}
@@ -403,15 +546,32 @@ function NewChatModal({ isOpen, onClose, users, onCreateDirect, onCreateGroup })
                 onChange={(e) => setGroupName(e.target.value)}
               />
               <div>
-                <label className="block text-sm text-gray-600 mb-2">Add participants</label>
-                <UserSelect users={users} value={groupUsers} onChange={setGroupUsers} placeholder="Search users..." multiple />
+                <label className="block text-sm text-gray-600 mb-2">
+                  Add participants
+                </label>
+                <UserSelect
+                  users={users}
+                  value={groupUsers}
+                  onChange={setGroupUsers}
+                  placeholder="Search users..."
+                  multiple
+                />
                 {groupUsers.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {groupUsers.map((u) => (
-                      <span key={u.employee_code} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full text-xs">
+                      <span
+                        key={u.employee_code}
+                        className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full text-xs"
+                      >
                         {u.full_name || u.name || u.employee_code}
                         <button
-                          onClick={() => setGroupUsers(groupUsers.filter((x) => x.employee_code !== u.employee_code))}
+                          onClick={() =>
+                            setGroupUsers(
+                              groupUsers.filter(
+                                (x) => x.employee_code !== u.employee_code
+                              )
+                            )
+                          }
                           className="text-gray-500 hover:text-gray-700"
                         >
                           ×
@@ -461,27 +621,37 @@ export default function WhatsAppChatPage() {
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
 
+    // Rate limit for peeking last message of a thread
+  const peekCooldownMs = 60_000; // 1 minute
+  const lastPeekAtRef = useRef(new Map()); // threadId -> last peek timestamp
+  const inFlightRef = useRef(new Set()); // threadIds currently being peeked
+
   function msgKey(sender, threadId, body) {
-  return `${sender || ""}|${threadId || ""}|${(body || "").slice(0, 500)}`;
-}
+    return `${sender || ""}|${threadId || ""}|${(body || "").slice(0, 500)}`;
+  }
 
+  // INSIDE WhatsAppChatPage component:
+  const recentSentRef = useRef(new Set());
 
-// INSIDE WhatsAppChatPage component:
-const recentSentRef = useRef(new Set());
-
-const rememberSent = useCallback((sender, threadId, body, ttlMs = 5000) => {
-  const k = msgKey(sender, threadId, body);
-  recentSentRef.current.add(k);
-  setTimeout(() => recentSentRef.current.delete(k), ttlMs);
-}, []);
+  const rememberSent = useCallback((sender, threadId, body, ttlMs = 5000) => {
+    const k = msgKey(sender, threadId, body);
+    recentSentRef.current.add(k);
+    setTimeout(() => recentSentRef.current.delete(k), ttlMs);
+  }, []);
 
   // Load users & branches once
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const { data } = await axiosInstance.get("/users/", { params: { skip: 0, limit: 200, active_only: true } });
-        const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        const { data } = await axiosInstance.get("/users/", {
+          params: { skip: 0, limit: 200, active_only: true },
+        });
+        const list = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
         const normalized = list.map((u) => ({
           employee_code: u.employee_code || u.code || u.id || "",
           full_name: u.full_name || u.name || u.username || "",
@@ -489,108 +659,141 @@ const rememberSent = useCallback((sender, threadId, body, ttlMs = 5000) => {
           ...u,
         }));
         if (alive) setUsers(normalized);
-      } catch (e) { console.error("users load error", e); }
+      } catch (e) {
+        console.error("users load error", e);
+      }
 
       try {
         const { data: bdata } = await axiosInstance.get("/branches/");
-        const blist = Array.isArray(bdata?.data) ? bdata.data : Array.isArray(bdata) ? bdata : [];
+        const blist = Array.isArray(bdata?.data)
+          ? bdata.data
+          : Array.isArray(bdata)
+          ? bdata
+          : [];
         if (alive) setBranches(blist);
-      } catch (e) { console.error("branches load error", e); }
+      } catch (e) {
+        console.error("branches load error", e);
+      }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Poll threads (and fill last message if not present)
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  const loadThreads = async () => {
-    try {
-      const { data } = await axiosInstance.get("/chat/threads");
-      if (cancelled) return;
+    const loadThreads = async () => {
+      try {
+        const { data } = await axiosInstance.get("/chat/threads");
+        if (cancelled) return;
 
-      const arr = Array.isArray(data) ? data : [];
+        const arr = Array.isArray(data) ? data : [];
 
-      // Merge new snapshot with existing thread data (keeps unread_count, etc.)
-      setThreads((prev) => {
-        const prevMap = new Map(prev.map((t) => [t.id, t]));
-        return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
-      });
+        // Merge new snapshot with existing thread data (keeps unread_count, etc.)
+        setThreads((prev) => {
+          const prevMap = new Map(prev.map((t) => [t.id, t]));
+          return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
+        });
 
-      // --- Throttled "peek" for missing last_message_time ---
-      const now = Date.now();
-      const toPeek = [];
+        // --- Throttled "peek" for missing last_message_time ---
+        const now = Date.now();
+        const toPeek = [];
 
-      // Only use the fresh server list (no stale closure on `threads`)
-      for (const t of arr) {
-        if (!t?.id) continue;
-        if (t.last_message_time) continue;                // already have it
-        if (inFlightRef.current.has(t.id)) continue;      // already fetching
-        const last = lastPeekAtRef.current.get(t.id) || 0;
-        if (now - last < peekCooldownMs) continue;        // within cooldown
+        // Only use the fresh server list (no stale closure on `threads`)
+        for (const t of arr) {
+          if (!t?.id) continue;
+          if (t.last_message_time) continue; // already have it
+          if (inFlightRef.current.has(t.id)) continue; // already fetching
+          const last = lastPeekAtRef.current.get(t.id) || 0;
+          if (now - last < peekCooldownMs) continue; // within cooldown
 
-        toPeek.push(t.id);
-        if (toPeek.length >= 3) break;                    // cap concurrent peeks
-      }
-
-      // Fire limited peeks for selected threads
-      toPeek.forEach(async (id) => {
-        inFlightRef.current.add(id);
-        lastPeekAtRef.current.set(id, Date.now());
-        try {
-          const { data: lastMsgs } = await axiosInstance.get(`/chat/${id}/messages`, { params: { limit: 1 } });
-          if (!cancelled && Array.isArray(lastMsgs) && lastMsgs.length) {
-            const m = lastMsgs[lastMsgs.length - 1];
-            setThreads((prev) =>
-              prev.map((x) =>
-                x.id === id ? { ...x, last_message: m.body, last_message_time: m.created_at } : x
-              )
-            );
-          }
-        } catch (_) {
-          // swallow; we'll be able to retry after cooldown
-        } finally {
-          inFlightRef.current.delete(id);
+          toPeek.push(t.id);
+          if (toPeek.length >= 3) break; // cap concurrent peeks
         }
-      });
-    } catch (e) {
-      console.error("threads load error", e);
-    }
-  };
 
-  loadThreads();
-  const iv = setInterval(loadThreads, 8000); // your existing cadence
-  return () => { cancelled = true; clearInterval(iv); };
-}, []);
+        // Fire limited peeks for selected threads
+        toPeek.forEach(async (id) => {
+          inFlightRef.current.add(id);
+          lastPeekAtRef.current.set(id, Date.now());
+          try {
+            const { data: lastMsgs } = await axiosInstance.get(
+              `/chat/${id}/messages`,
+              { params: { limit: 1 } }
+            );
+            if (!cancelled && Array.isArray(lastMsgs) && lastMsgs.length) {
+              const m = lastMsgs[lastMsgs.length - 1];
+              setThreads((prev) =>
+                prev.map((x) =>
+                  x.id === id
+                    ? {
+                        ...x,
+                        last_message: m.body,
+                        last_message_time: m.created_at,
+                      }
+                    : x
+                )
+              );
+            }
+          } catch (_) {
+            // swallow; we'll be able to retry after cooldown
+          } finally {
+            inFlightRef.current.delete(id);
+          }
+        });
+      } catch (e) {
+        console.error("threads load error", e);
+      }
+    };
 
+    loadThreads();
+    const iv = setInterval(loadThreads, 8000); // your existing cadence
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, []);
 
-const isPendingThread = (t) => !!t && !t.id && t.pending === true;
+  const isPendingThread = (t) => !!t && !t.id && t.pending === true;
 
   // Load messages when selecting a thread
   useEffect(() => {
     if (!selected?.id) return;
     (async () => {
       try {
-        const { data } = await axiosInstance.get(`/chat/${selected.id}/messages`, { params: { limit: 100 } });
+        const { data } = await axiosInstance.get(
+          `/chat/${selected.id}/messages`,
+          { params: { limit: 100 } }
+        );
         const list = Array.isArray(data) ? data : [];
         setMessages(list);
 
         if (list.length) {
           const lastId = list[list.length - 1].id;
           // Mark read (HTTP fallback; also done via WS in a bit)
-          axiosInstance.post(`/chat/${selected.id}/mark-read`, null, { params: { last_message_id: lastId } }).catch(() => {});
+          axiosInstance
+            .post(`/chat/${selected.id}/mark-read`, null, {
+              params: { last_message_id: lastId },
+            })
+            .catch(() => {});
         }
-        setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
+        setTimeout(
+          () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
+          80
+        );
       } catch (e) {
         console.error("messages load error", e);
       }
     })();
   }, [selected?.id]);
   // Immediately clear local unread for this thread
-useEffect(() => {
-  if (!selectedId) return;
-  setThreads((prev) => prev.map((t) => (t.id === selectedId ? { ...t, unread_count: 0 } : t)));
-}, [selectedId]);
+  useEffect(() => {
+    if (!selectedId) return;
+    setThreads((prev) =>
+      prev.map((t) => (t.id === selectedId ? { ...t, unread_count: 0 } : t))
+    );
+  }, [selectedId]);
 
   // Rendered messages with day grouping and header collapsing
   const renderedMessages = useMemo(() => {
@@ -601,65 +804,87 @@ useEffect(() => {
       const date = toLocal(msg.created_at);
       if (!lastDay || !isSameDay(date, lastDay)) {
         result.push({ type: "DAY", key: `day-${date.toDateString()}`, date });
-        lastDay = date; lastSender = null;
+        lastDay = date;
+        lastSender = null;
       }
       const mine = msg.sender_id === currentUser;
       const showHeader = lastSender !== msg.sender_id;
       const showAvatar = !mine && showHeader;
-      result.push({ type: "MSG", key: `msg-${msg.id}`, mine, showHeader, showAvatar, msg });
+      result.push({
+        type: "MSG",
+        key: `msg-${msg.id}`,
+        mine,
+        showHeader,
+        showAvatar,
+        msg,
+      });
       lastSender = msg.sender_id;
     });
     return result;
   }, [messages, currentUser]);
 
-  // WebSocket: handle server events
-const handleSocketEvent = useCallback((evt) => {
-  if (!evt) return;
+  const handleSocketEvent = useCallback(
+    (evt) => {
+      if (!evt) return;
 
-  if (evt.type === "message" && evt.data) {
-    const m = normalizeMessage(evt.data);
-    if (!m) return;
-    const tId = m.thread_id;
+      if (evt.type === "message" && evt.data) {
+        const m = normalizeMessage(evt.data);
+        if (!m) return;
+        const tId = m.thread_id;
 
-    // If this matches something we just sent optimistically, ignore the echo
-    const k = msgKey(m.sender_id, tId, m.body);
-    if (recentSentRef.current.has(k)) {
-      // We keep the optimistic local copy already appended
-      return;
-    }
+        // If this matches something we just sent optimistically, ignore the echo
+        const k = msgKey(m.sender_id, tId, m.body);
+        if (recentSentRef.current.has(k)) {
+          // We keep the optimistic local copy already appended
+          return;
+        }
 
-    if (tId === selectedId) {
-      setMessages((prev) => {
-        if (m.id && prev.some((x) => x.id === m.id)) return prev; // id-based de-dupe
-        return [...prev, m];
-      });
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === tId ? { ...t, last_message: m.body, last_message_time: m.created_at, unread_count: 0 } : t
-        )
-      );
-      if (m.id) {
-        axiosInstance.post(`/chat/${tId}/mark-read`, null, { params: { last_message_id: m.id } }).catch(() => {});
+        if (tId === selectedId && m.sender_id !== currentUser) {
+          setMessages((prev) => {
+            if (m.id && prev.some((x) => x.id === m.id)) return prev; // id-based de-dupe
+            return [...prev, m];
+          });
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id === tId
+                ? {
+                    ...t,
+                    last_message: m.body,
+                    last_message_time: m.created_at,
+                    unread_count: 0,
+                  }
+                : t
+            )
+          );
+          if (m.id) {
+            axiosInstance
+              .post(`/chat/${tId}/mark-read`, null, {
+                params: { last_message_id: m.id },
+              })
+              .catch(() => {});
+          }
+          setTimeout(
+            () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
+            40
+          );
+        } else {
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id === tId
+                ? {
+                    ...t,
+                    last_message: m.body,
+                    last_message_time: m.created_at,
+                    unread_count: (t.unread_count || 0) + 1,
+                  }
+                : t
+            )
+          );
+        }
       }
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 40);
-    } else {
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === tId
-            ? {
-                ...t,
-                last_message: m.body,
-                last_message_time: m.created_at,
-                unread_count: (t.unread_count || 0) + 1,
-              }
-            : t
-        )
-      );
-    }
-  }
-}, [selectedId]);
-
-
+    },
+    [selectedId]
+  );
 
   // Boot WS for current thread
   const { ready: wsReady, sendJson: wsSend } = useChatSocket({
@@ -668,72 +893,101 @@ const handleSocketEvent = useCallback((evt) => {
     onEvent: handleSocketEvent,
   });
 
-// Always send via HTTP API. WS is only for receiving events.
-const handleSend = async () => {
-  if (!text.trim() || !selected) return;
-  const body = text.trim();
-  setText("");
+  // Always send via HTTP API. WS is only for receiving events.
+  const handleSend = async () => {
+    if (!text.trim() || !selected) return;
+    const body = text.trim();
+    setText("");
 
-  // A) Pending direct chat → create thread THEN send (HTTP), then add to recents
-  if (isPendingThread(selected)) {
+    // A) Pending direct chat → create thread THEN send (HTTP), then add to recents
+    if (isPendingThread(selected)) {
+      try {
+        const peerCode = selected?.peer?.employee_code;
+        // 1) Create direct thread
+        const { data: t } = await axiosInstance.post("/chat/direct/create", {
+          peer_employee_code: peerCode,
+        });
+
+        // 2) Send message via HTTP
+        const { data: sentMsg } = await axiosInstance.post(
+          `/chat/${t.id}/send`,
+          { body }
+        );
+
+        // 3) Update UI — now it is eligible for "Recent chats"
+        setThreads((prev) =>
+          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
+        );
+        setSelected(t);
+        setMessages([sentMsg]);
+        setThreads((prev) =>
+          prev.map((th) =>
+            th.id === t.id
+              ? {
+                  ...th,
+                  last_message: sentMsg.body,
+                  last_message_time: sentMsg.created_at,
+                }
+              : th
+          )
+        );
+
+        // Optional: mark-read if you consider own-sent as read
+        try {
+          await axiosInstance.post(`/chat/${t.id}/mark-read`, null, {
+            params: { last_message_id: sentMsg.id },
+          });
+        } catch {}
+
+        setTimeout(
+          () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
+          50
+        );
+        return;
+      } catch (e) {
+        console.error("first send (create+send) error", e);
+        return;
+      }
+    }
+
+    // B) Normal existing thread → ALWAYS use HTTP API to send
     try {
-      const peerCode = selected?.peer?.employee_code;
-      // 1) Create direct thread
-      const { data: t } = await axiosInstance.post("/chat/direct/create", {
-        peer_employee_code: peerCode,
-      });
+      const { data: sentMsg } = await axiosInstance.post(
+        `/chat/${selected.id}/send`,
+        { body }
+      );
 
-      // 2) Send message via HTTP
-      const { data: sentMsg } = await axiosInstance.post(`/chat/${t.id}/send`, { body });
+      // Append the server message (has authoritative id/timestamp).
+      setMessages((prev) => [...prev, sentMsg]);
 
-      // 3) Update UI — now it is eligible for "Recent chats"
-      setThreads((prev) => (prev.find((x) => x.id === t.id) ? prev : [t, ...prev]));
-      setSelected(t);
-      setMessages([sentMsg]);
+      // Update recents info
       setThreads((prev) =>
-        prev.map((th) =>
-          th.id === t.id
-            ? { ...th, last_message: sentMsg.body, last_message_time: sentMsg.created_at }
-            : th
+        prev.map((t) =>
+          t.id === selected.id
+            ? {
+                ...t,
+                last_message: sentMsg.body,
+                last_message_time: sentMsg.created_at,
+              }
+            : t
         )
       );
 
-      // Optional: mark-read if you consider own-sent as read
-      try { await axiosInstance.post(`/chat/${t.id}/mark-read`, null, { params: { last_message_id: sentMsg.id } }); } catch {}
+      // Mark as read (optional)
+      try {
+        await axiosInstance.post(`/chat/${selected.id}/mark-read`, null, {
+          params: { last_message_id: sentMsg.id },
+        });
+      } catch {}
 
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-      return;
+      setTimeout(
+        () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
+        50
+      );
     } catch (e) {
-      console.error("first send (create+send) error", e);
-      return;
+      console.error("send error", e);
     }
-  }
-
-  // B) Normal existing thread → ALWAYS use HTTP API to send
-  try {
-    const { data: sentMsg } = await axiosInstance.post(`/chat/${selected.id}/send`, { body });
-
-    // Append the server message (has authoritative id/timestamp).
-    setMessages((prev) => [...prev, sentMsg]);
-
-    // Update recents info
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === selected.id
-          ? { ...t, last_message: sentMsg.body, last_message_time: sentMsg.created_at }
-          : t
-      )
-    );
-
-    // Mark as read (optional)
-    try { await axiosInstance.post(`/chat/${selected.id}/mark-read`, null, { params: { last_message_id: sentMsg.id } }); } catch {}
-
-    setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-  } catch (e) {
-    console.error("send error", e);
-  }
-};
-
+  };
 
   // Create direct / group
   const handleCreateDirect = (user) => {
@@ -753,7 +1007,10 @@ const handleSend = async () => {
   const handleCreateGroup = async (name, usersArr) => {
     try {
       const participant_codes = usersArr.map((u) => u.employee_code);
-      const { data: t } = await axiosInstance.post("/chat/group/create", { name, participant_codes });
+      const { data: t } = await axiosInstance.post("/chat/group/create", {
+        name,
+        participant_codes,
+      });
       setThreads((prev) => [t, ...prev]);
       setSelected(t);
       setMessages([]);
@@ -765,13 +1022,17 @@ const handleSend = async () => {
   // Filter threads by search
   const filteredThreads = useMemo(() => {
     if (!searchQuery.trim()) return threads;
-    return threads.filter((t) => (t.name || "Direct Chat").toLowerCase().includes(searchQuery.toLowerCase()));
+    return threads.filter((t) =>
+      (t.name || "Direct Chat")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
+    );
   }, [threads, searchQuery]);
 
   const getThreadName = (thread) =>
     isPendingThread(thread)
-      ? (thread?.peer?.full_name || thread?.name || "New chat")
-     : (thread?.name || "Direct Chat");
+      ? thread?.peer?.full_name || thread?.name || "New chat"
+      : thread?.name || "Direct Chat";
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -781,13 +1042,20 @@ const handleSend = async () => {
         <div className="p-4 bg-gray-50 border-b">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-semibold">Chats</h1>
-            <button onClick={() => setShowNewChat(true)} className="p-2 text-gray-600 hover:bg-gray-200 rounded-full" title="New chat">
+            <button
+              onClick={() => setShowNewChat(true)}
+              className="p-2 text-gray-600 hover:bg-gray-200 rounded-full"
+              title="New chat"
+            >
               <Plus size={20} />
             </button>
           </div>
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={16}
+            />
             <input
               className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:bg-white focus:shadow-sm"
               placeholder="Search chats..."
@@ -808,14 +1076,24 @@ const handleSend = async () => {
                 selected?.id === thread.id && "bg-green-50"
               )}
             >
-              <Avatar name={getThreadName(thread)} id={String(thread.id)} size="lg" />
+              <Avatar
+                name={getThreadName(thread)}
+                id={String(thread.id)}
+                size="lg"
+              />
               <div className="ml-3 flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-sm truncate">{getThreadName(thread)}</h3>
-                  <span className="text-xs text-gray-500 ml-2">{humanTime(thread.last_message_time)}</span>
+                  <h3 className="font-medium text-sm truncate">
+                    {getThreadName(thread)}
+                  </h3>
+                  <span className="text-xs text-gray-500 ml-2">
+                    {humanTime(thread.last_message_time)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <p className="text-sm text-gray-600 truncate">{thread.last_message || " "}</p>
+                  <p className="text-sm text-gray-600 truncate">
+                    {thread.last_message || " "}
+                  </p>
                   {!!thread.unread_count && (
                     <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
                       {thread.unread_count}
@@ -835,13 +1113,22 @@ const handleSend = async () => {
             {/* Chat Header */}
             <div className="bg-white p-4 border-b flex items-center justify-between">
               <div className="flex items-center">
-                <Avatar name={getThreadName(selected)} id={String(selected.id)} size="lg" />
+                <Avatar
+                  name={getThreadName(selected)}
+                  id={String(selected.id)}
+                  size="lg"
+                />
                 <div className="ml-3">
                   <h2 className="font-semibold flex items-center gap-2">
                     {getThreadName(selected)}
-                    <span className={clsx("text-[11px] px-2 py-0.5 rounded-full",
-                      wsReady ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
-                    )}>
+                    <span
+                      className={clsx(
+                        "text-[11px] px-2 py-0.5 rounded-full",
+                        wsReady
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-500"
+                      )}
+                    >
                       {wsReady ? "Live" : "Offline"}
                     </span>
                   </h2>
@@ -851,7 +1138,10 @@ const handleSend = async () => {
                 </div>
               </div>
               {selected.type === "GROUP" && (
-                <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full" title="Group options">
+                <button
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-full"
+                  title="Group options"
+                >
                   <MoreVertical size={20} />
                 </button>
               )}

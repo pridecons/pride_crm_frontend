@@ -282,9 +282,9 @@ export default function NewResearchReportPage() {
         notes: notes || null,
         tags: tags
           ? tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
           : null,
 
         ipo: ipo.map((i) => ({
@@ -385,403 +385,268 @@ export default function NewResearchReportPage() {
      Render
   ----------------------------- */
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-4">New Research Report</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
 
-      <form onSubmit={onSubmit} className="space-y-6">
-        {/* Meta */}
-        <section className={SEC}>
-          <h2 className="text-lg font-semibold mb-4">Report Meta</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input
-              className="border rounded-lg h-11 px-3"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <input
-              type="date"
-              className="border rounded-lg h-11 px-3"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-            />
-            <input
-              className="border rounded-lg h-11 px-3"
-              placeholder="Tags (comma separated)"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-            />
-          </div>
-          <textarea
-            className="mt-3 w-full border rounded-lg min-h-[80px] p-3"
-            placeholder="Notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </section>
 
-        {/* IPO */}
-        <section className={SEC}>
-          <RowHeader title="IPO" onAdd={addIPO} />
-          {ipo.length === 0 && (
-            <p className="text-sm text-gray-500">No IPO rows yet.</p>
-          )}
-          {ipo.map((row, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
-              <input
-                placeholder="Company"
-                className="border rounded-lg h-11 px-3"
-                value={row.company || ""}
-                onChange={(e) =>
-                  setIpo((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, company: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Lot Size"
-                className="border rounded-lg h-11 px-3"
-                type="number"
-                value={row.lot_size ?? ""}
-                onChange={(e) =>
-                  setIpo((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, lot_size: numOrNull(e.target.value) } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Price Range"
-                className="border rounded-lg h-11 px-3"
-                value={row.price_range || ""}
-                onChange={(e) =>
-                  setIpo((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, price_range: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                type="date"
-                className="border rounded-lg h-11 px-3"
-                value={row.open_date || ""}
-                onChange={(e) =>
-                  setIpo((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, open_date: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                type="date"
-                className="border rounded-lg h-11 px-3"
-                value={row.close_date || ""}
-                onChange={(e) =>
-                  setIpo((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, close_date: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  placeholder="Category"
-                  className="border rounded-lg h-11 px-3 flex-1"
-                  value={row.category || ""}
-                  onChange={(e) =>
-                    setIpo((x) =>
-                      x.map((r, idx) =>
-                        idx === i ? { ...r, category: e.target.value } : r
-                      )
-                    )
-                  }
+        <form onSubmit={onSubmit} className="space-y-6">
+          {/* Meta Section - Card Style */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                Report Meta
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <input
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-gray-50 hover:bg-white"
+                    placeholder="Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Title</label>
+                </div>
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-gray-50 hover:bg-white"
+                    value={reportDate}
+                    onChange={(e) => setReportDate(e.target.value)}
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Report Date</label>
+                </div>
+                <div className="relative">
+                  <input
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-gray-50 hover:bg-white"
+                    placeholder="Tags (comma separated)"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Tags</label>
+                </div>
+              </div>
+              <div className="relative mt-4">
+                <textarea
+                  className="w-full border-2 border-gray-200 rounded-xl min-h-[100px] p-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-gray-50 hover:bg-white resize-none"
+                  placeholder="Notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                 />
-                <RemoveBtn
-                  onClick={() =>
-                    setIpo((x) => x.filter((_, idx) => idx !== i))
-                  }
-                />
+                <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Notes</label>
               </div>
             </div>
-          ))}
-        </section>
+          </section>
 
-        {/* Board Meetings */}
-        <section className={SEC}>
-          <RowHeader title="Board Meetings" onAdd={addBoard} />
-          {board.length === 0 && (
-            <p className="text-sm text-gray-500">No board meetings yet.</p>
-          )}
-          {board.map((row, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-              <input
-                placeholder="Company"
-                className="border rounded-lg h-11 px-3"
-                value={row.company || ""}
-                onChange={(e) =>
-                  setBoard((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, company: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                type="date"
-                className="border rounded-lg h-11 px-3"
-                value={row.date || ""}
-                onChange={(e) =>
-                  setBoard((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, date: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Agenda"
-                className="border rounded-lg h-11 px-3"
-                value={row.agenda || ""}
-                onChange={(e) =>
-                  setBoard((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, agenda: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <div className="flex items-center">
-                <RemoveBtn
-                  onClick={() => setBoard((x) => x.filter((_, idx) => idx !== i))}
-                />
-              </div>
+          {/* IPO Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b border-gray-200">
+              <RowHeader title="IPO" onAdd={addIPO} />
             </div>
-          ))}
-        </section>
-
-        {/* Corporate Actions */}
-        <section className={SEC}>
-          <RowHeader title="Corporate Actions" onAdd={addCorp} />
-          {corpActs.length === 0 && (
-            <p className="text-sm text-gray-500">No corporate actions yet.</p>
-          )}
-          {corpActs.map((row, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
-              <input
-                placeholder="Company"
-                className="border rounded-lg h-11 px-3"
-                value={row.company || ""}
-                onChange={(e) =>
-                  setCorpActs((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, company: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Action"
-                className="border rounded-lg h-11 px-3"
-                value={row.action || ""}
-                onChange={(e) =>
-                  setCorpActs((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, action: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                type="date"
-                className="border rounded-lg h-11 px-3"
-                value={row.ex_date || ""}
-                onChange={(e) =>
-                  setCorpActs((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, ex_date: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Details"
-                className="border rounded-lg h-11 px-3"
-                value={row.details || ""}
-                onChange={(e) =>
-                  setCorpActs((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, details: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <div className="flex items-center">
-                <RemoveBtn
-                  onClick={() =>
-                    setCorpActs((x) => x.filter((_, idx) => idx !== i))
-                  }
-                />
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* Result Calendar */}
-        <section className={SEC}>
-          <RowHeader title="Result Calendar" onAdd={addResult} />
-          {results.length === 0 && (
-            <p className="text-sm text-gray-500">No results yet.</p>
-          )}
-          {results.map((row, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
-              <input
-                placeholder="Company"
-                className="border rounded-lg h-11 px-3"
-                value={row.company || ""}
-                onChange={(e) =>
-                  setResults((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, company: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                type="date"
-                className="border rounded-lg h-11 px-3"
-                value={row.date || ""}
-                onChange={(e) =>
-                  setResults((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, date: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Type"
-                className="border rounded-lg h-11 px-3"
-                value={row.type || ""}
-                onChange={(e) =>
-                  setResults((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, type: e.target.value } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="LTP"
-                className="border rounded-lg h-11 px-3"
-                type="number"
-                step="any"
-                value={row.ltp ?? ""}
-                onChange={(e) =>
-                  setResults((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, ltp: numOrNull(e.target.value) } : r
-                    )
-                  )
-                }
-              />
-              <input
-                placeholder="Change"
-                className="border rounded-lg h-11 px-3"
-                type="number"
-                step="any"
-                value={row.change ?? ""}
-                onChange={(e) =>
-                  setResults((x) =>
-                    x.map((r, idx) =>
-                      idx === i ? { ...r, change: numOrNull(e.target.value) } : r
-                    )
-                  )
-                }
-              />
-              <div className="flex items-center">
-                <RemoveBtn
-                  onClick={() =>
-                    setResults((x) => x.filter((_, idx) => idx !== i))
-                  }
-                />
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* Top Gainers / Losers */}
-        <section className={SEC}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <RowHeader title="Top Gainers" onAdd={addGainer} />
-              {topGainers.length === 0 && (
-                <p className="text-sm text-gray-500">No gainers yet.</p>
+            <div className="p-6">
+              {ipo.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No IPO rows yet. Click add to get started.</p>
+                </div>
               )}
-              {topGainers.map((row, i) => (
+              {ipo.map((row, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-blue-300 transition-all duration-200"
                 >
                   <input
-                    placeholder="Symbol"
-                    className="border rounded-lg h-11 px-3"
-                    value={row.symbol || ""}
+                    placeholder="Company"
+                    className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.company || ""}
                     onChange={(e) =>
-                      setTopGainers((x) =>
+                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, company: e.target.value } : r)))
+                    }
+                  />
+
+                  <input
+                    placeholder="Lot Size"
+                    type="number"
+                    className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.lot_size ?? ""}
+                    onChange={(e) =>
+                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, lot_size: numOrNull(e.target.value) } : r)))
+                    }
+                  />
+
+                  <input
+                    placeholder="Price Range"
+                    className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.price_range || ""}
+                    onChange={(e) =>
+                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, price_range: e.target.value } : r)))
+                    }
+                  />
+
+                  <input
+                    type="date"
+                    className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.open_date || ""}
+                    onChange={(e) =>
+                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, open_date: e.target.value } : r)))
+                    }
+                  />
+
+                  <input
+                    type="date"
+                    className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.close_date || ""}
+                    onChange={(e) =>
+                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, close_date: e.target.value } : r)))
+                    }
+                  />
+
+                  <div className="flex items-center gap-2 min-w-0">
+                    <input
+                      placeholder="Category"
+                      className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                      value={row.category || ""}
+                      onChange={(e) =>
+                        setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, category: e.target.value } : r)))
+                      }
+                    />
+                    <RemoveBtn
+                      className="shrink-0"
+                      onClick={() => setIpo((x) => x.filter((_, idx) => idx !== i))}
+                    />
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          </section>
+
+          {/* Board Meetings Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
+              <RowHeader title="Board Meetings" onAdd={addBoard} />
+            </div>
+            <div className="p-6">
+              {board.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No board meetings yet. Click add to get started.</p>
+                </div>
+              )}
+              {board.map((row, i) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-purple-300 transition-all duration-200">
+                  <input
+                    placeholder="Company"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.company || ""}
+                    onChange={(e) =>
+                      setBoard((x) =>
                         x.map((r, idx) =>
-                          idx === i ? { ...r, symbol: e.target.value } : r
+                          idx === i ? { ...r, company: e.target.value } : r
                         )
                       )
                     }
                   />
                   <input
-                    placeholder="CMP"
-                    className="border rounded-lg h-11 px-3"
-                    type="number"
-                    step="any"
-                    value={row.cmp ?? ""}
+                    type="date"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.date || ""}
                     onChange={(e) =>
-                      setTopGainers((x) =>
+                      setBoard((x) =>
                         x.map((r, idx) =>
-                          idx === i ? { ...r, cmp: numOrNull(e.target.value) } : r
+                          idx === i ? { ...r, date: e.target.value } : r
                         )
                       )
                     }
                   />
                   <input
-                    placeholder="Price Δ"
-                    className="border rounded-lg h-11 px-3"
-                    type="number"
-                    step="any"
-                    value={row.price_change ?? ""}
+                    placeholder="Agenda"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.agenda || ""}
                     onChange={(e) =>
-                      setTopGainers((x) =>
+                      setBoard((x) =>
                         x.map((r, idx) =>
-                          idx === i
-                            ? { ...r, price_change: numOrNull(e.target.value) }
-                            : r
+                          idx === i ? { ...r, agenda: e.target.value } : r
+                        )
+                      )
+                    }
+                  />
+                  <div className="flex items-center">
+                    <RemoveBtn
+                      onClick={() => setBoard((x) => x.filter((_, idx) => idx !== i))}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Corporate Actions Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-6 py-4 border-b border-gray-200">
+              <RowHeader title="Corporate Actions" onAdd={addCorp} />
+            </div>
+            <div className="p-6">
+              {corpActs.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No corporate actions yet. Click add to get started.</p>
+                </div>
+              )}
+              {corpActs.map((row, i) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-orange-300 transition-all duration-200">
+                  <input
+                    placeholder="Company"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.company || ""}
+                    onChange={(e) =>
+                      setCorpActs((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, company: e.target.value } : r
                         )
                       )
                     }
                   />
                   <input
-                    placeholder="% Δ"
-                    className="border rounded-lg h-11 px-3"
-                    type="number"
-                    step="any"
-                    value={row.change_pct ?? ""}
+                    placeholder="Action"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.action || ""}
                     onChange={(e) =>
-                      setTopGainers((x) =>
+                      setCorpActs((x) =>
                         x.map((r, idx) =>
-                          idx === i
-                            ? { ...r, change_pct: numOrNull(e.target.value) }
-                            : r
+                          idx === i ? { ...r, action: e.target.value } : r
+                        )
+                      )
+                    }
+                  />
+                  <input
+                    type="date"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.ex_date || ""}
+                    onChange={(e) =>
+                      setCorpActs((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, ex_date: e.target.value } : r
+                        )
+                      )
+                    }
+                  />
+                  <input
+                    placeholder="Details"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.details || ""}
+                    onChange={(e) =>
+                      setCorpActs((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, details: e.target.value } : r
                         )
                       )
                     }
@@ -789,78 +654,91 @@ export default function NewResearchReportPage() {
                   <div className="flex items-center">
                     <RemoveBtn
                       onClick={() =>
-                        setTopGainers((x) => x.filter((_, idx) => idx !== i))
+                        setCorpActs((x) => x.filter((_, idx) => idx !== i))
                       }
                     />
                   </div>
                 </div>
               ))}
             </div>
+          </section>
 
-            <div>
-              <RowHeader title="Top Losers" onAdd={addLoser} />
-              {topLosers.length === 0 && (
-                <p className="text-sm text-gray-500">No losers yet.</p>
+          {/* Result Calendar Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-cyan-50 to-teal-50 px-6 py-4 border-b border-gray-200">
+              <RowHeader title="Result Calendar" onAdd={addResult} />
+            </div>
+            <div className="p-6">
+              {results.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No results yet. Click add to get started.</p>
+                </div>
               )}
-              {topLosers.map((row, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3"
-                >
+              {results.map((row, i) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-cyan-300 transition-all duration-200">
                   <input
-                    placeholder="Symbol"
-                    className="border rounded-lg h-11 px-3"
-                    value={row.symbol || ""}
+                    placeholder="Company"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.company || ""}
                     onChange={(e) =>
-                      setTopLosers((x) =>
+                      setResults((x) =>
                         x.map((r, idx) =>
-                          idx === i ? { ...r, symbol: e.target.value } : r
+                          idx === i ? { ...r, company: e.target.value } : r
                         )
                       )
                     }
                   />
                   <input
-                    placeholder="CMP"
-                    className="border rounded-lg h-11 px-3"
-                    type="number"
-                    step="any"
-                    value={row.cmp ?? ""}
+                    type="date"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.date || ""}
                     onChange={(e) =>
-                      setTopLosers((x) =>
+                      setResults((x) =>
                         x.map((r, idx) =>
-                          idx === i ? { ...r, cmp: numOrNull(e.target.value) } : r
+                          idx === i ? { ...r, date: e.target.value } : r
                         )
                       )
                     }
                   />
                   <input
-                    placeholder="Price Δ"
-                    className="border rounded-lg h-11 px-3"
-                    type="number"
-                    step="any"
-                    value={row.price_change ?? ""}
+                    placeholder="Type"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    value={row.type || ""}
                     onChange={(e) =>
-                      setTopLosers((x) =>
+                      setResults((x) =>
                         x.map((r, idx) =>
-                          idx === i
-                            ? { ...r, price_change: numOrNull(e.target.value) }
-                            : r
+                          idx === i ? { ...r, type: e.target.value } : r
                         )
                       )
                     }
                   />
                   <input
-                    placeholder="% Δ"
-                    className="border rounded-lg h-11 px-3"
+                    placeholder="LTP"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
                     type="number"
                     step="any"
-                    value={row.change_pct ?? ""}
+                    value={row.ltp ?? ""}
                     onChange={(e) =>
-                      setTopLosers((x) =>
+                      setResults((x) =>
                         x.map((r, idx) =>
-                          idx === i
-                            ? { ...r, change_pct: numOrNull(e.target.value) }
-                            : r
+                          idx === i ? { ...r, ltp: numOrNull(e.target.value) } : r
+                        )
+                      )
+                    }
+                  />
+                  <input
+                    placeholder="Change"
+                    className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    type="number"
+                    step="any"
+                    value={row.change ?? ""}
+                    onChange={(e) =>
+                      setResults((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, change: numOrNull(e.target.value) } : r
                         )
                       )
                     }
@@ -868,175 +746,406 @@ export default function NewResearchReportPage() {
                   <div className="flex items-center">
                     <RemoveBtn
                       onClick={() =>
-                        setTopLosers((x) => x.filter((_, idx) => idx !== i))
+                        setResults((x) => x.filter((_, idx) => idx !== i))
                       }
                     />
                   </div>
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* Top Gainers / Losers Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <span className="w-2 h-2 bg-indigo-600 rounded-full"></span>
+                Market Movers
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Top Gainers */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                  <RowHeader title="Top Gainers" onAdd={addGainer} />
+                  {topGainers.length === 0 && (
+                    <div className="text-center py-6 bg-white/50 rounded-lg mt-3">
+                      <svg className="w-10 h-10 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      <p className="text-sm text-gray-600">No gainers yet.</p>
+                    </div>
+                  )}
+                  {topGainers.map((row, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3 p-3 bg-white rounded-lg border border-green-100 hover:shadow-md transition-all duration-200"
+                    >
+                      <input
+                        placeholder="Symbol"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        value={row.symbol || ""}
+                        onChange={(e) =>
+                          setTopGainers((x) =>
+                            x.map((r, idx) =>
+                              idx === i ? { ...r, symbol: e.target.value } : r
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="CMP"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        type="number"
+                        step="any"
+                        value={row.cmp ?? ""}
+                        onChange={(e) =>
+                          setTopGainers((x) =>
+                            x.map((r, idx) =>
+                              idx === i ? { ...r, cmp: numOrNull(e.target.value) } : r
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="Price Δ"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        type="number"
+                        step="any"
+                        value={row.price_change ?? ""}
+                        onChange={(e) =>
+                          setTopGainers((x) =>
+                            x.map((r, idx) =>
+                              idx === i
+                                ? { ...r, price_change: numOrNull(e.target.value) }
+                                : r
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="% Δ"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        type="number"
+                        step="any"
+                        value={row.change_pct ?? ""}
+                        onChange={(e) =>
+                          setTopGainers((x) =>
+                            x.map((r, idx) =>
+                              idx === i
+                                ? { ...r, change_pct: numOrNull(e.target.value) }
+                                : r
+                            )
+                          )
+                        }
+                      />
+                      <div className="flex items-center">
+                        <RemoveBtn
+                          onClick={() =>
+                            setTopGainers((x) => x.filter((_, idx) => idx !== i))
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Top Losers */}
+                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4 border border-red-200">
+                  <RowHeader title="Top Losers" onAdd={addLoser} />
+                  {topLosers.length === 0 && (
+                    <div className="text-center py-6 bg-white/50 rounded-lg mt-3">
+                      <svg className="w-10 h-10 mx-auto text-red-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                      </svg>
+                      <p className="text-sm text-gray-600">No losers yet.</p>
+                    </div>
+                  )}
+                  {topLosers.map((row, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3 p-3 bg-white rounded-lg border border-red-100 hover:shadow-md transition-all duration-200"
+                    >
+                      <input
+                        placeholder="Symbol"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        value={row.symbol || ""}
+                        onChange={(e) =>
+                          setTopLosers((x) =>
+                            x.map((r, idx) =>
+                              idx === i ? { ...r, symbol: e.target.value } : r
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="CMP"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        type="number"
+                        step="any"
+                        value={row.cmp ?? ""}
+                        onChange={(e) =>
+                          setTopLosers((x) =>
+                            x.map((r, idx) =>
+                              idx === i ? { ...r, cmp: numOrNull(e.target.value) } : r
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="Price Δ"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        type="number"
+                        step="any"
+                        value={row.price_change ?? ""}
+                        onChange={(e) =>
+                          setTopLosers((x) =>
+                            x.map((r, idx) =>
+                              idx === i
+                                ? { ...r, price_change: numOrNull(e.target.value) }
+                                : r
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="% Δ"
+                        className="border-2 border-gray-200 rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        type="number"
+                        step="any"
+                        value={row.change_pct ?? ""}
+                        onChange={(e) =>
+                          setTopLosers((x) =>
+                            x.map((r, idx) =>
+                              idx === i
+                                ? { ...r, change_pct: numOrNull(e.target.value) }
+                                : r
+                            )
+                          )
+                        }
+                      />
+                      <div className="flex items-center">
+                        <RemoveBtn
+                          onClick={() =>
+                            setTopLosers((x) => x.filter((_, idx) => idx !== i))
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* FII/DII Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+              <h3 className="font-semibold text-white flex items-center gap-2">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                FII / DII Activity
+              </h3>
+            </div>
+            <div className="p-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    value={fiiDii.date}
+                    onChange={(e) => setFiiDii({ ...fiiDii, date: e.target.value })}
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Date</label>
+                </div>
+                <div className="relative">
+                  <input
+                    placeholder="FII Cash"
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    type="number"
+                    step="any"
+                    value={fiiDii?.fii_fpi?.cash ?? ""}
+                    onChange={(e) =>
+                      setFiiDii((x) => ({
+                        ...x,
+                        fii_fpi: { ...(x.fii_fpi || {}), cash: numOrNull(e.target.value) },
+                      }))
+                    }
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">FII Cash</label>
+                </div>
+                <div className="relative">
+                  <input
+                    placeholder="FII Debt"
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    type="number"
+                    step="any"
+                    value={fiiDii?.fii_fpi?.debt ?? ""}
+                    onChange={(e) =>
+                      setFiiDii((x) => ({
+                        ...x,
+                        fii_fpi: { ...(x.fii_fpi || {}), debt: numOrNull(e.target.value) },
+                      }))
+                    }
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">FII Debt</label>
+                </div>
+                <div className="relative">
+                  <input
+                    placeholder="DII Cash"
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    type="number"
+                    step="any"
+                    value={fiiDii?.dii?.cash ?? ""}
+                    onChange={(e) =>
+                      setFiiDii((x) => ({
+                        ...x,
+                        dii: { ...(x.dii || {}), cash: numOrNull(e.target.value) },
+                      }))
+                    }
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">DII Cash</label>
+                </div>
+                <div className="relative">
+                  <input
+                    placeholder="DII Debt"
+                    className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    type="number"
+                    step="any"
+                    value={fiiDii?.dii?.debt ?? ""}
+                    onChange={(e) =>
+                      setFiiDii((x) => ({
+                        ...x,
+                        dii: { ...(x.dii || {}), debt: numOrNull(e.target.value) },
+                      }))
+                    }
+                  />
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">DII Debt</label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Calls: Index Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-6 py-4 border-b border-gray-200">
+              <RowHeader title="Calls — Index" onAdd={addCallIndex} />
+            </div>
+            <div className="p-6">
+              {callsIndex.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No index calls yet. Click add to get started.</p>
+                </div>
+              )}
+              {callsIndex.map((row, i) => (
+                <CallRow
+                  key={i}
+                  row={row}
+                  onRemove={() =>
+                    setCallsIndex((x) => x.filter((_, idx) => idx !== i))
+                  }
+                  onChange={(newRow) =>
+                    setCallsIndex((x) => x.map((r, idx) => (idx === i ? newRow : r)))
+                  }
+                  uploading={
+                    uploadingIdx.type === "index" && uploadingIdx.i === i
+                  }
+                  onUpload={async (file) => {
+                    try {
+                      setUploadingIdx({ type: "index", i });
+                      const url = await uploadChartImage(file);
+                      setCallsIndex((x) =>
+                        x.map((r, idx) => (idx === i ? { ...r, chart_url: url } : r))
+                      );
+                    } finally {
+                      setUploadingIdx({ type: "", i: -1 });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+
+          {/* Calls: Stock Section */}
+          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="bg-gradient-to-r from-rose-50 to-pink-50 px-6 py-4 border-b border-gray-200">
+              <RowHeader title="Calls — Stock" onAdd={addCallStock} />
+            </div>
+            <div className="p-6">
+              {callsStock.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <p className="text-sm text-gray-500">No stock calls yet. Click add to get started.</p>
+                </div>
+              )}
+              {callsStock.map((row, i) => (
+                <CallRow
+                  key={i}
+                  row={row}
+                  onRemove={() =>
+                    setCallsStock((x) => x.filter((_, idx) => idx !== i))
+                  }
+                  onChange={(newRow) =>
+                    setCallsStock((x) => x.map((r, idx) => (idx === i ? newRow : r)))
+                  }
+                  uploading={
+                    uploadingIdx.type === "stock" && uploadingIdx.i === i
+                  }
+                  onUpload={async (file) => {
+                    try {
+                      setUploadingIdx({ type: "stock", i });
+                      const url = await uploadChartImage(file);
+                      setCallsStock((x) =>
+                        x.map((r, idx) => (idx === i ? { ...r, chart_url: url } : r))
+                      );
+                    } finally {
+                      setUploadingIdx({ type: "", i: -1 });
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+
+          {/* Submit Section */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center gap-4 flex-wrap">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-60 disabled:transform-none"
+              >
+                {submitting ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {submitting ? "Saving Report..." : "Create Report"}
+              </button>
+
+              {submitOk ? (
+                <span className="inline-flex items-center gap-2 text-green-700 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
+                  <CheckCircle2 size={20} />
+                  {submitOk}
+                </span>
+              ) : null}
+
+              {submitErr ? (
+                <span className="inline-flex items-center gap-2 text-red-700 bg-red-50 px-4 py-2 rounded-lg border border-red-200">
+                  <XCircle size={20} />
+                  {submitErr}
+                </span>
+              ) : null}
+            </div>
           </div>
-        </section>
-
-        {/* FII/DII */}
-        <section className={SEC}>
-          <h3 className="font-semibold text-gray-800 mb-3">FII / DII</h3>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <input
-              type="date"
-              className="border rounded-lg h-11 px-3"
-              value={fiiDii.date}
-              onChange={(e) => setFiiDii({ ...fiiDii, date: e.target.value })}
-            />
-            <input
-              placeholder="FII Cash"
-              className="border rounded-lg h-11 px-3"
-              type="number"
-              step="any"
-              value={fiiDii?.fii_fpi?.cash ?? ""}
-              onChange={(e) =>
-                setFiiDii((x) => ({
-                  ...x,
-                  fii_fpi: { ...(x.fii_fpi || {}), cash: numOrNull(e.target.value) },
-                }))
-              }
-            />
-            <input
-              placeholder="FII Debt"
-              className="border rounded-lg h-11 px-3"
-              type="number"
-              step="any"
-              value={fiiDii?.fii_fpi?.debt ?? ""}
-              onChange={(e) =>
-                setFiiDii((x) => ({
-                  ...x,
-                  fii_fpi: { ...(x.fii_fpi || {}), debt: numOrNull(e.target.value) },
-                }))
-              }
-            />
-            <input
-              placeholder="DII Cash"
-              className="border rounded-lg h-11 px-3"
-              type="number"
-              step="any"
-              value={fiiDii?.dii?.cash ?? ""}
-              onChange={(e) =>
-                setFiiDii((x) => ({
-                  ...x,
-                  dii: { ...(x.dii || {}), cash: numOrNull(e.target.value) },
-                }))
-              }
-            />
-            <input
-              placeholder="DII Debt"
-              className="border rounded-lg h-11 px-3"
-              type="number"
-              step="any"
-              value={fiiDii?.dii?.debt ?? ""}
-              onChange={(e) =>
-                setFiiDii((x) => ({
-                  ...x,
-                  dii: { ...(x.dii || {}), debt: numOrNull(e.target.value) },
-                }))
-              }
-            />
-          </div>
-        </section>
-
-        {/* Calls: Index */}
-        <section className={SEC}>
-          <RowHeader title="Calls — Index" onAdd={addCallIndex} />
-          {callsIndex.length === 0 && (
-            <p className="text-sm text-gray-500">No index calls yet.</p>
-          )}
-          {callsIndex.map((row, i) => (
-            <CallRow
-              key={i}
-              row={row}
-              onRemove={() =>
-                setCallsIndex((x) => x.filter((_, idx) => idx !== i))
-              }
-              onChange={(newRow) =>
-                setCallsIndex((x) => x.map((r, idx) => (idx === i ? newRow : r)))
-              }
-              uploading={
-                uploadingIdx.type === "index" && uploadingIdx.i === i
-              }
-              onUpload={async (file) => {
-                try {
-                  setUploadingIdx({ type: "index", i });
-                  const url = await uploadChartImage(file);
-                  setCallsIndex((x) =>
-                    x.map((r, idx) => (idx === i ? { ...r, chart_url: url } : r))
-                  );
-                } finally {
-                  setUploadingIdx({ type: "", i: -1 });
-                }
-              }}
-            />
-          ))}
-        </section>
-
-        {/* Calls: Stock */}
-        <section className={SEC}>
-          <RowHeader title="Calls — Stock" onAdd={addCallStock} />
-          {callsStock.length === 0 && (
-            <p className="text-sm text-gray-500">No stock calls yet.</p>
-          )}
-          {callsStock.map((row, i) => (
-            <CallRow
-              key={i}
-              row={row}
-              onRemove={() =>
-                setCallsStock((x) => x.filter((_, idx) => idx !== i))
-              }
-              onChange={(newRow) =>
-                setCallsStock((x) => x.map((r, idx) => (idx === i ? newRow : r)))
-              }
-              uploading={
-                uploadingIdx.type === "stock" && uploadingIdx.i === i
-              }
-              onUpload={async (file) => {
-                try {
-                  setUploadingIdx({ type: "stock", i });
-                  const url = await uploadChartImage(file);
-                  setCallsStock((x) =>
-                    x.map((r, idx) => (idx === i ? { ...r, chart_url: url } : r))
-                  );
-                } finally {
-                  setUploadingIdx({ type: "", i: -1 });
-                }
-              }}
-            />
-          ))}
-        </section>
-
-        {/* Submit */}
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-black text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
-            {submitting ? "Saving..." : "Create Report"}
-          </button>
-
-          {submitOk ? (
-            <span className="inline-flex items-center gap-2 text-green-700">
-              <CheckCircle2 size={18} />
-              {submitOk}
-            </span>
-          ) : null}
-
-          {submitErr ? (
-            <span className="inline-flex items-center gap-2 text-red-700">
-              <XCircle size={18} />
-              {submitErr}
-            </span>
-          ) : null}
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

@@ -347,7 +347,7 @@ export default function NewLeadsTable() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border-b border-gray-200 max-w-7xl mx-auto overflow-hidden">
+      <div className="bg-white rounded-xl border-b border-gray-200 mx-2 overflow-hidden">
         <LeadsDataTable
           leads={paginatedLeads}
           loading={loading}

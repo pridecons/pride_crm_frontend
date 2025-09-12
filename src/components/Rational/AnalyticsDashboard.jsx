@@ -60,7 +60,7 @@ function AnalyticsDashboard() {
 
   return (
     <div className="bg-gray-50 min-h-screen pt-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-2">
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <MetricCard

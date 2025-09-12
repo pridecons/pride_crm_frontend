@@ -339,7 +339,7 @@ const { name, value } = e.target;
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-7xl mx-auto p-6 bg-white rounded shadow">
+    <form onSubmit={handleSubmit} className="mx-2 p-6 bg-white rounded shadow">
       {/* Basic Details */}
       <div className="bg-gradient-to-r from-blue-900 to-blue-400 text-white px-4 py-2 rounded-t font-bold">
         Basic Details

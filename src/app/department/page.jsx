@@ -24,7 +24,7 @@ export default function Department() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full mx-2">
         
           <AddDepartmentModal
             isOpen={openAddDeptModal}

@@ -504,7 +504,7 @@ useEffect(() => {
   // -------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="mx-2 p-6">
         {/* Header */}
         <div className="flex justify-end mb-6">
           {hasPermission("branch_add") && (

@@ -1250,7 +1250,7 @@ export default function ClientsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-2 px-4 sm:px-6 lg:px-8 py-8">
         {(role === "SUPERADMIN" || role === "BRANCH MANAGER") && (
           <div className="mb-4 flex flex-col gap-4">
             {role === "SUPERADMIN" && hasPermission("client_select_branch") && (

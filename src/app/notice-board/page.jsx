@@ -254,7 +254,7 @@ export default function NoticeBoardPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-            <div className="p-4 md:p-6 max-w-6xl mx-auto">
+            <div className="p-4 md:p-6 mx-2">
                 {/* Header */}
                 <div className="mb-8">
                     <div className="flex items-center gap-4 mb-2">

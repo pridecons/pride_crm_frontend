@@ -352,7 +352,7 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-2">
         {/* Header */}
         <div className="flex flex-col lg:flex-row items-center sm:items-start lg:justify-between mb-6">
           {/* Search + Date */}

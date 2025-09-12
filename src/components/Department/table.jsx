@@ -123,7 +123,7 @@ const formatPerm = (s = "") =>
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="w-full max-w-6xl mx-auto mt-6">
+    <div className="w-full mx-2 mt-6">
       {/* Action Buttons */}
       <div className="flex justify-end">
         <div className="flex gap-4 mb-4">

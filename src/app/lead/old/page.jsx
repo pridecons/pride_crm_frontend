@@ -473,7 +473,7 @@ export default function OldLeadsTable() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 max-w-7xl mx-auto overflow-hidden">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 mx-2 overflow-hidden">
         <LeadsDataTable
           leads={leads}
           loading={loading}

@@ -173,74 +173,25 @@ export default function Sidebar({ branchId, onClose }) {
         section: "leads",
         icon: Target,
         items: [
-          {
-            href: "/lead",
-            icon: Target,
-            label: "New Lead",
-            access: "new_lead_page",
-          },
-          {
-            href: "/lead/old",
-            icon: History,
-            label: "Old Lead",
-            access: "old_lead_page",
-          },
-          {
-            href: "/lead/add",
-            icon: UserPlus,
-            label: "Add Lead",
-            access: "add_lead_page",
-          },
-          {
-            href: "/client",
-            icon: Users,
-            label: "Client",
-            access: "client_page",
-          },
+          { href: "/lead", icon: Target, label: "New Lead", access: "new_lead_page" },
+          { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page" },
+          { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page" },
+          { href: "/client", icon: Users, label: "Client", access: "client_page" },
         ],
       },
 
+      // ---- MANAGEMENT (subgroup inside section) ----
       {
         title: "Management",
         section: "management",
         icon: SlidersHorizontal,
         items: [
-          {
-            href: "/lead/manage",
-            icon: Wrench,
-            label: "Manage Leads",
-            access: "lead_manage_page",
-          },
-          {
-            href: "/lead/manage/source",
-            icon: Tag,
-            label: "Lead Source",
-            access: "lead_source_page",
-          },
-          {
-            href: "/lead/manage/response",
-            icon: MessageSquare,
-            label: "Lead Response",
-            access: "lead_response_page",
-          },
-          {
-            href: "/lead/manage/fetch-limit",
-            icon: Gauge,
-            label: "Fetch Limit",
-            access: "fetch_limit_page",
-          },
-          {
-            href: "/lead/manage/lead-upload",
-            icon: UploadCloud,
-            label: "Lead Upload",
-            access: "lead_upload_page",
-          },
-          {
-            href: "/lead/manage/analytics",
-            icon: BarChart3,
-            label: "Lead Analytics",
-            access: "",
-          },
+          { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page" },
+          { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page" },
+          { href: "/lead/manage/response", icon: MessageSquare, label: "Lead Response", access: "lead_response_page" },
+          { href: "/lead/manage/fetch-limit", icon: Gauge, label: "Fetch Limit", access: "fetch_limit_page" },
+          { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page" },
+          { href: "/lead/manage/analytics", icon: BarChart3, label: "Lead Analytics", access: "" },
         ],
       },
 
@@ -250,54 +201,20 @@ export default function Sidebar({ branchId, onClose }) {
         section: "configuration",
         icon: Settings,
         items: [
-          {
-            href: "/branch",
-            icon: Building2,
-            label: "Branch",
-            access: "branch_page",
-          },
-          {
-            href: "/department",
-            icon: Building,
-            label: "Department",
-            access: "department_page",
-          },
-          {
-            href: "/user",
-            icon: UserCheck,
-            label: "Users",
-            access: "user_page",
-          },
-          {
-            href: "/user/attendance",
-            icon: CalendarCheck,
-            label: "Attendance",
-            access: "attandance_page",
-          },
-          {
-            href: "/plans",
-            icon: ClipboardList,
-            label: "Plans",
-            access: "plane_page",
-          },
-          {
-            href: "/permission",
-            icon: ShieldCheck,
-            label: "Permissions",
-            access: "permission_page",
-          },
+          { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
+          { href: "/department", icon: Building, label: "Department", access: "department_page" },
+          { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
+          { href: "/user/attendance", icon: CalendarCheck, label: "Attendance", access: "attandance_page" },
+          { href: "/plans", icon: ClipboardList, label: "Plans", access: "plane_page" },
+          { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
         ],
       },
+
       // ---- PAYMENT ----
       {
         title: "Payment",
         items: [
-          {
-            href: "/payment",
-            icon: CreditCard,
-            label: "Payment",
-            access: "payment_page",
-          },
+          { href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" },
         ],
       },
 
@@ -305,33 +222,44 @@ export default function Sidebar({ branchId, onClose }) {
       {
         title: "Researcher",
         items: [
-          {
-            href: "/rational",
-            icon: MessageCircle,
-            label: "Messenger",
-            access: "messanger_page",
-          },
+          { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
+          // ⬇️ Added as requested
+          { href: "/research-report", icon: FileText, label: "Research Report", access: "research_report_page" },
         ],
       },
 
-      // ---- TEMPLATES (auto-hides if none allowed) ----
+      // ---- CHAT (separate group) ----
+      {
+        title: "Chat",
+        items: [
+          // ⬇️ Separate route as requested
+          { href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" },
+        ],
+      },
+
+      // ---- NOTICE BOARD (separate group) ----
+      {
+        title: "Notice Board",
+        items: [
+          // ⬇️ Separate route as requested
+          { href: "/notice-board", icon: ClipboardList, label: "Notice Board", access: "notice_board_page" },
+        ],
+      },
+
+      // ---- TEMPLATES ----
       {
         title: "Template",
         section: "template",
         icon: FileText,
         items: [
           { href: "/email", icon: Mail, label: "Email", access: "email_page" },
-          {
-            href: "/sms",
-            icon: MessageCircle,
-            label: "SMS",
-            access: "sms_page",
-          },
+          { href: "/sms", icon: MessageCircle, label: "SMS", access: "sms_page" },
         ],
       },
     ],
     []
   );
+
 
   /* -----------------------------
      FILTER BY PERMISSIONS

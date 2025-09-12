@@ -19,6 +19,9 @@ export default function Main({ children }) {
       <Toaster
         position="bottom-center"
         reverseOrder={false}
+        toastOptions={{
+          duration: 4000, 
+        }}
       />
       {/* Header */}
       {pathname !== "/login" && (

@@ -45,6 +45,17 @@ function normalizeMessage(raw) {
   if (!raw || typeof raw !== "object") return null;
   const body = raw.body ?? raw.text ?? raw.content ?? raw.message ?? "";
 
+  const attachments = Array.isArray(raw.attachments)
+    ? raw.attachments.map((a) => ({
+        id: a.id ?? a.attachment_id ?? a.idStr ?? `${Date.now()}`,
+        filename: a.filename ?? a.name ?? "file",
+        mime_type: a.mime_type ?? a.mimetype ?? "application/octet-stream",
+        size_bytes: a.size_bytes ?? a.size ?? 0,
+        url: a.url ?? a.link ?? "",
+        thumb_url: a.thumb_url ?? a.thumbnail ?? null,
+      }))
+    : [];
+
   const m = {
     id:
       raw.id ??
@@ -74,11 +85,8 @@ function normalizeMessage(raw) {
       "UNKNOWN",
     body,
     created_at:
-      raw.created_at ??
-      raw.createdAt ??
-      raw.timestamp ??
-      raw.time ??
-      new Date().toISOString(),
+      raw.created_at ?? raw.createdAt ?? raw.timestamp ?? raw.time ?? new Date().toISOString(),
+    attachments, // <— NEW
     _type: raw.type ?? raw.event ?? undefined,
   };
   if (typeof m.created_at === "number") {
@@ -98,7 +106,6 @@ function unwrapWsEvent(data) {
   const mergeEnv = (env, payload) => {
     if (!payload || typeof payload !== "object") payload = {};
     if (env && typeof env === "object") {
-      // bubble up common envelope fields
       if (env.senderId && payload.sender_id == null && payload.senderId == null)
         payload.senderId = env.senderId;
       if (env.createdAt && payload.created_at == null)
@@ -113,17 +120,12 @@ function unwrapWsEvent(data) {
   };
 
   if (data && typeof data === "object") {
-    // common wraps
     if (data.data && (data.type || data.kind)) return mergeEnv(data, data.data);
-    if (data.payload && (data.event || data.type))
-      return mergeEnv(data, data.payload);
+    if (data.payload && (data.event || data.type)) return mergeEnv(data, data.payload);
     if (data.message && typeof data.message === "object")
       return mergeEnv(data, data.message);
-    // your server sends the final shape directly — just return it
     return data;
   }
-
-  // plain text fallback
   return { body: String(data || ""), sender_id: "SYSTEM" };
 }
 
@@ -154,14 +156,13 @@ function useEmployeeCode() {
 }
 
 function makeWsUrl(httpBase, threadId, token) {
-  // prefer axios baseURL if available
   let base =
     httpBase || (typeof window !== "undefined" ? window.location.origin : "");
   try {
     const u = new URL(base);
     u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
     u.pathname = `/api/v1/ws/chat/${threadId}`;
-    if (token) u.searchParams.set("token", token); // adjust param name if your backend expects different
+    if (token) u.searchParams.set("token", token);
     return u.toString();
   } catch {
     return `/api/v1/ws/chat/${threadId}${
@@ -176,18 +177,14 @@ function makeInboxWsUrl(httpBase, token) {
   try {
     const u = new URL(base);
     u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
-    // user-wide endpoint (no thread id)
     u.pathname = `/api/v1/ws/chat`;
     if (token) u.searchParams.set("token", token);
     return u.toString();
   } catch {
-    return `/api/v1/ws/chat${
-      token ? `?token=${encodeURIComponent(token)}` : ""
-    }`;
+    return `/api/v1/ws/chat${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   }
 }
 
-// Compare IDs; try numeric then lexicographic
 function compareMsgId(a, b) {
   const na = Number(a);
   const nb = Number(b);
@@ -243,7 +240,6 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
           attemptsRef.current = 0;
           clearTimers();
 
-          // Try multiple join formats for compatibility
           const room = String(threadId);
           const joinMsgs = [
             { type: "join", thread_id: room },
@@ -266,23 +262,18 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
 
         ws.onmessage = (ev) => {
           const unwrapped = unwrapWsEvent(ev.data);
-
           const t = (unwrapped?.type || unwrapped?.event || "")
             .toString()
             .toLowerCase();
 
-          // Allow typing/read events to bubble to parent if the thread matches
           if (t.includes("typing") || t.includes("read")) {
             onEvent?.({ type: t.includes("typing") ? "typing" : "read", data: unwrapped });
             return;
           }
-
-          // if server uses type like "message.new", accept it; ignore non-message types
           if (t && !t.startsWith("message")) {
             onEvent?.({ type: "misc", data: unwrapped });
             return;
           }
-
           const norm = normalizeMessage(unwrapped);
           if (!norm || !norm.thread_id) {
             onEvent?.({ type: "misc", data: unwrapped });
@@ -294,8 +285,7 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
         ws.onclose = () => {
           setReady(false);
           clearTimers();
-          const attempt = (attemptsRef.current =
-            (attemptsRef.current || 0) + 1);
+          const attempt = (attemptsRef.current = (attemptsRef.current || 0) + 1);
           const delay = Math.min(30000, 1000 * Math.pow(2, attempt));
           timers.current.reconnect = setTimeout(connect, delay);
         };
@@ -385,7 +375,6 @@ function useInboxSocket({
           attemptsRef.current = 0;
           clearTimers();
 
-          // Try common “subscribe to all/my inbox” shapes
           const joinMsgs = [
             { type: "subscribe_user", user: String(currentUser) },
             { type: "join", scope: "user", user: String(currentUser) },
@@ -406,7 +395,6 @@ function useInboxSocket({
         };
 
         ws.onmessage = (ev) => {
-          // accept message/typing/read-like events
           const unwrapped = unwrapWsEvent(ev.data);
           const t = (unwrapped?.type || unwrapped?.event || "")
             .toString()
@@ -425,17 +413,14 @@ function useInboxSocket({
             if (norm && norm.thread_id) onEvent?.({ kind: "message", data: norm });
             return;
           }
-          // ignore other events silently
         };
 
         ws.onclose = () => {
           setReady(false);
           clearTimers();
-          // exponential backoff reconnect
           const attempt = (attemptsRef.current = (attemptsRef.current || 0) + 1);
           const delay = Math.min(30000, 1000 * Math.pow(2, attempt));
           timers.current.reconnect = setTimeout(connect, delay);
-          // while trying to reconnect, keep data somewhat fresh
           startPollingFallback();
         };
 
@@ -499,7 +484,6 @@ function DayDivider({ date }) {
 }
 
 function Tick({ state }) {
-  // state: "sending" | "sent" | "delivered" | "read"
   if (state === "sending") {
     return (
       <svg viewBox="0 0 24 24" className="w-3 h-3 opacity-60">
@@ -523,12 +507,58 @@ function Tick({ state }) {
       </svg>
     );
   }
-  // read (blue)
   return (
     <svg viewBox="0 0 24 24" className="w-4 h-4 text-sky-500">
       <path d="M3 13l4 4 6-8" fill="none" stroke="currentColor" strokeWidth="2" />
       <path d="M9 17l2 2 9-12" fill="none" stroke="currentColor" strokeWidth="2" />
     </svg>
+  );
+}
+
+function fileKindIcon(mime, filename) {
+  const m = (mime || "").toLowerCase();
+  const f = (filename || "").toLowerCase();
+  if (m.startsWith("image/")) return "🖼️";
+  if (m === "application/pdf" || f.endsWith(".pdf")) return "📄";
+  if (m.includes("sheet") || f.endsWith(".xls") || f.endsWith(".xlsx") || f.endsWith(".csv"))
+    return "📊";
+  if (m.startsWith("text/") || f.endsWith(".txt") || f.endsWith(".csv")) return "📝";
+  return "📦";
+}
+
+function AttachmentGrid({ atts = [] }) {
+  if (!atts.length) return null;
+  return (
+    <div className="mt-2 grid grid-cols-2 gap-2">
+      {atts.map((a) => {
+        const isImg = (a.mime_type || "").startsWith("image/");
+        return (
+          <a
+            key={a.id}
+            href={a.url}
+            target="_blank"
+            rel="noreferrer"
+            className="group block rounded-md overflow-hidden border border-gray-200 bg-white hover:shadow-sm"
+          >
+            {isImg ? (
+              <img
+                src={a.thumb_url || a.url}
+                alt={a.filename}
+                className="w-full h-36 object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="h-36 flex items-center justify-center text-4xl">
+                {fileKindIcon(a.mime_type, a.filename)}
+              </div>
+            )}
+            <div className="px-2 py-1 text-[12px] truncate text-gray-700 border-t">
+              {a.filename}
+            </div>
+          </a>
+        );
+      })}
+    </div>
   );
 }
 
@@ -552,7 +582,6 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
       )}
 
       <div className="max-w-[78%] relative group">
-        {/* Tail */}
         <span
           className={clsx(
             "absolute top-0",
@@ -562,7 +591,6 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
           )}
           aria-hidden
         />
-        {/* Bubble */}
         <div
           className={clsx(
             "px-3 py-2 rounded-2xl shadow-sm break-words whitespace-pre-wrap",
@@ -575,9 +603,14 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
             <div className="text-[11px] text-gray-500 mb-1">{msg.sender_id}</div>
           )}
 
-          <div className="text-[15px] leading-5">{msg.body}</div>
+          {!!(msg.body || "").trim() && (
+            <div className="text-[15px] leading-5">{msg.body}</div>
+          )}
 
-          {/* Time + ticks row */}
+          {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+            <AttachmentGrid atts={msg.attachments} />
+          )}
+
           <div
             className={clsx(
               "mt-1 flex items-center gap-1",
@@ -589,7 +622,6 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
           </div>
         </div>
 
-        {/* Hover actions */}
         <div className="absolute -top-3 opacity-0 group-hover:opacity-100 transition pointer-events-none right-0">
           <div className="flex gap-1 pointer-events-auto">
             <button className="text-[11px] px-2 py-0.5 bg-black/60 text-white rounded-full">
@@ -609,7 +641,7 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
 }
 
 /* =========================================================
-   User Select (autocomplete) & New Chat Modal
+   User Select & New Chat Modal
 ========================================================= */
 function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
   const [query, setQuery] = useState("");
@@ -835,7 +867,7 @@ export default function WhatsAppChatPage() {
 
   // Directory
   const [users, setUsers] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [branches, setBranches] = useState([]); // kept for future filter/use
 
   // UI state
   const [text, setText] = useState("");
@@ -843,16 +875,19 @@ export default function WhatsAppChatPage() {
   const [showNewChat, setShowNewChat] = useState(false);
 
   // Read receipts + typing
-  const [readUpToByOthers, setReadUpToByOthers] = useState(() => new Map()); // threadId -> last_read_message_id
+  const [readUpToByOthers, setReadUpToByOthers] = useState(() => new Map());
   const [typing, setTyping] = useState(false);
 
   // Unread divider + jump to latest
   const [firstUnreadIdx, setFirstUnreadIdx] = useState(null);
   const [showJump, setShowJump] = useState(false);
 
+  // Attachments (new)
+  const [pendingFiles, setPendingFiles] = useState([]); // File[]
+
   // Refs
-  const scrollRef = useRef(null); // bottom anchor
-  const listRef = useRef(null); // messages scroller
+  const scrollRef = useRef(null);
+  const listRef = useRef(null);
   const textareaRef = useRef(null);
 
   // Background peeking throttle
@@ -923,7 +958,7 @@ export default function WhatsAppChatPage() {
     };
   }, []);
 
-  // Poll threads (and fill last message if not present)
+  // Poll threads + peek recent messages
   useEffect(() => {
     let cancelled = false;
 
@@ -934,7 +969,6 @@ export default function WhatsAppChatPage() {
 
         const arr = Array.isArray(data) ? data : [];
 
-        // Merge new snapshot with existing thread data (keeps unread_count, etc.)
         setThreads((prev) => {
           const prevMap = new Map(prev.map((t) => [t.id, t]));
           return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
@@ -1019,7 +1053,6 @@ export default function WhatsAppChatPage() {
         const list = Array.isArray(data) ? data : [];
         setMessages(list);
 
-        // compute unread divider if you have "last_read_message_id_self" on the thread
         const lastReadId = selected?.last_read_message_id_self;
         if (!lastReadId) {
           setFirstUnreadIdx(null);
@@ -1046,7 +1079,7 @@ export default function WhatsAppChatPage() {
     })();
   }, [selected?.id]);
 
-  // Immediately clear local unread for this thread
+  // Clear local unread for current thread
   useEffect(() => {
     if (!selectedId) return;
     setThreads((prev) =>
@@ -1054,16 +1087,16 @@ export default function WhatsAppChatPage() {
     );
   }, [selectedId]);
 
-  // Handle inbox-wide events (message/typing/read)
+  // Inbox-wide events
   const handleInboxEvent = useCallback(
     (evt) => {
       if (!evt) return;
 
-      // READ RECEIPT EVENT
       if (evt.kind === "read") {
         const tid =
           evt.data.thread_id || evt.data.threadId || evt.data.room_id || evt.data.roomId;
-        const lr = evt.data.last_read_id || evt.data.lastReadId || evt.data.last_read_message_id;
+        const lr =
+          evt.data.last_read_id || evt.data.lastReadId || evt.data.last_read_message_id;
         if (tid && lr != null) {
           setReadUpToByOthers((prev) => {
             const m = new Map(prev);
@@ -1083,7 +1116,6 @@ export default function WhatsAppChatPage() {
         return;
       }
 
-      // TYPING EVENT
       if (evt.kind === "typing") {
         const tid =
           evt.data.thread_id || evt.data.threadId || evt.data.room_id || evt.data.roomId;
@@ -1096,7 +1128,6 @@ export default function WhatsAppChatPage() {
         return;
       }
 
-      // MESSAGE EVENT
       if (evt.kind === "message" && evt.data) {
         const m = evt.data;
         const tId = m.thread_id;
@@ -1105,7 +1136,6 @@ export default function WhatsAppChatPage() {
         setThreads((prev) => {
           const idx = prev.findIndex((t) => t.id === tId);
           if (idx === -1) {
-            // optimistic placeholder so the badge shows immediately
             const placeholder = {
               id: tId,
               name: m.thread_name || "Direct Chat",
@@ -1116,7 +1146,6 @@ export default function WhatsAppChatPage() {
             };
             return [placeholder, ...prev];
           }
-          // update existing
           return prev.map((t) =>
             t.id === tId
               ? {
@@ -1132,7 +1161,6 @@ export default function WhatsAppChatPage() {
           );
         });
 
-        // hydrate placeholder with real data in the background (non-blocking)
         (async () => {
           try {
             const { data: t } = await axiosInstance.get(`/chat/threads/${tId}`);
@@ -1149,7 +1177,6 @@ export default function WhatsAppChatPage() {
     [currentUser, selected?.id, selectedId]
   );
 
-  // Fallback short poll to keep the list fresh if inbox WS isn’t available
   const fallbackTick = useCallback(async () => {
     try {
       const { data } = await axiosInstance.get("/chat/threads");
@@ -1169,16 +1196,16 @@ export default function WhatsAppChatPage() {
     onFallbackTick: fallbackTick,
   });
 
-  // Thread-specific socket (message + optional read/typing relayed)
+  // Thread socket
   const handleSocketEvent = useCallback(
     (evt) => {
       if (!evt) return;
 
-      // Thread-scoped read/typing
       if (evt.type === "read") {
         const tid =
           evt.data.thread_id || evt.data.threadId || evt.data.room_id || evt.data.roomId;
-        const lr = evt.data.last_read_id || evt.data.lastReadId || evt.data.last_read_message_id;
+        const lr =
+          evt.data.last_read_id || evt.data.lastReadId || evt.data.last_read_message_id;
         if (tid && lr != null && tid === selected?.id) {
           setReadUpToByOthers((prev) => {
             const m = new Map(prev);
@@ -1207,7 +1234,6 @@ export default function WhatsAppChatPage() {
         return;
       }
 
-      // Normal message flow
       if (evt.type === "message" && evt.data) {
         const m = normalizeMessage(evt.data);
         if (!m || !m.thread_id) return;
@@ -1215,7 +1241,6 @@ export default function WhatsAppChatPage() {
         const tId = m.thread_id;
         const isSelf = String(m.sender_id) === String(currentUser);
 
-        // 1) Self-echo from server: never bump unread
         if (isSelf) {
           setThreads((prev) =>
             prev.map((t) =>
@@ -1241,7 +1266,6 @@ export default function WhatsAppChatPage() {
           return;
         }
 
-        // 2) Messages from other users
         if (tId === selectedId) {
           setMessages((prev) => {
             if (m.id && prev.some((x) => x.id === m.id)) return prev;
@@ -1294,47 +1318,71 @@ export default function WhatsAppChatPage() {
     onEvent: handleSocketEvent,
   });
 
+  /* ============================
+       Attachments UX
+  ============================ */
+  const onPickFiles = (fileList) => {
+    const arr = Array.from(fileList || []);
+    const filtered = arr.filter((f) => f.size <= 25 * 1024 * 1024); // 25MB
+    setPendingFiles((prev) => [...prev, ...filtered]);
+  };
+
+  const removePending = (idx) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const postMessageFormData = async (threadId, body, files) => {
+    const fd = new FormData();
+    fd.append("body", body || "");
+    (files || []).forEach((f) => fd.append("files", f)); // must match backend param name
+    const { data } = await axiosInstance.post(`/chat/${threadId}/send`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  };
+
   // Always send via HTTP API. WS is only for receiving events.
   const handleSend = async () => {
-    if (!text.trim() || !selected) return;
+    if ((!text.trim() && pendingFiles.length === 0) || !selected) return;
     const body = text.trim();
     setText("");
 
-    // A) Pending direct chat → create thread THEN send (HTTP), then add to recents
-    if (isPendingThread(selected)) {
-      try {
+    // optimistic temp bubble (with file names)
+    const tempId = `tmp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        thread_id: selected.id,
+        sender_id: currentUser,
+        body,
+        created_at: new Date().toISOString(),
+        attachments: pendingFiles.map((f, i) => ({
+          id: `tmp-${f.name}-${i}`,
+          filename: f.name,
+          mime_type: f.type || "application/octet-stream",
+          size_bytes: f.size || 0,
+          url: "", // replaced by server after upload
+        })),
+        _status: "sending",
+      },
+    ]);
+
+    const sendFiles = pendingFiles.slice();
+    setPendingFiles([]);
+
+    try {
+      if (isPendingThread(selected)) {
         const peerCode = selected?.peer?.employee_code;
         rememberSent(currentUser, selected.id, body);
 
-        // 1) Optimistic temp bubble
-        const tempId = `tmp-${Date.now()}`;
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: tempId,
-            thread_id: selected.id,
-            sender_id: currentUser,
-            body,
-            created_at: new Date().toISOString(),
-            _status: "sending",
-          },
-        ]);
-
-        // 2) Create direct thread
         const { data: t } = await axiosInstance.post("/chat/direct/create", {
           peer_employee_code: peerCode,
         });
 
-        // 3) Send message via HTTP
-        const { data: sentMsg } = await axiosInstance.post(
-          `/chat/${t.id}/send`,
-          { body }
-        );
+        const sentMsg = await postMessageFormData(t.id, body, sendFiles);
 
-        // Replace temp, update lists
-        setThreads((prev) =>
-          prev.find((x) => x.id === t.id) ? prev : [t, ...prev]
-        );
+        setThreads((prev) => (prev.find((x) => x.id === t.id) ? prev : [t, ...prev]));
         setSelected(t);
         setMessages((prev) =>
           prev
@@ -1352,54 +1400,26 @@ export default function WhatsAppChatPage() {
               : th
           )
         );
-
-        // Optional: mark-read for own-sent
         try {
           await axiosInstance.post(`/chat/${t.id}/mark-read`, null, {
             params: { last_message_id: sentMsg.id },
           });
         } catch {}
-
         setTimeout(
           () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
           50
         );
         return;
-      } catch (e) {
-        console.error("first send (create+send) error", e);
-        return;
       }
-    }
 
-    // B) Normal existing thread → ALWAYS use HTTP API to send
-    try {
-      // temp optimistic
-      const tempId = `tmp-${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: tempId,
-          thread_id: selected.id,
-          sender_id: currentUser,
-          body,
-          created_at: new Date().toISOString(),
-          _status: "sending",
-        },
-      ]);
+      const sentMsg = await postMessageFormData(selected.id, body, sendFiles);
 
-      const { data: sentMsg } = await axiosInstance.post(
-        `/chat/${selected.id}/send`,
-        { body }
-      );
-
-      // Replace temp with server message, set delivered
       setMessages((prev) =>
         prev.map((m) =>
           m.id === tempId ? { ...sentMsg, _status: "delivered" } : m
         )
       );
 
-      // Update recents info
       setThreads((prev) =>
         prev.map((t) =>
           t.id === selected.id
@@ -1412,7 +1432,6 @@ export default function WhatsAppChatPage() {
         )
       );
 
-      // Mark as read (optional)
       try {
         await axiosInstance.post(`/chat/${selected.id}/mark-read`, null, {
           params: { last_message_id: sentMsg.id },
@@ -1425,16 +1444,17 @@ export default function WhatsAppChatPage() {
       );
     } catch (e) {
       console.error("send error", e);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, _status: "failed" } : m))
+      );
     }
   };
 
-  // Rendered messages with day grouping and header collapsing + read state merge
   const renderedMessages = useMemo(() => {
     const result = [];
     let lastDay = null;
     let lastSender = null;
     (messages || []).forEach((msg) => {
-      // derive _status if missing and it's mine
       if (msg.sender_id === currentUser) {
         if (!msg._status) {
           msg._status = String(msg.id).startsWith("tmp-")
@@ -1480,52 +1500,139 @@ export default function WhatsAppChatPage() {
       style={{
         background: "linear-gradient(180deg,#eae6df 0%, #d1d7db 100%)",
       }}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (e.dataTransfer?.files?.length) onPickFiles(e.dataTransfer.files);
+      }}
+      onPaste={(e) => {
+        const items = e.clipboardData?.items || [];
+        const files = [];
+        for (const it of items) {
+          if (it.kind === "file") {
+            const f = it.getAsFile();
+            if (f) files.push(f);
+          }
+        }
+        if (files.length) onPickFiles(files);
+      }}
     >
       {/* Sidebar */}
-      {/* Sidebar */}
-<div className="w-80 bg-white border-r flex flex-col">
-  {/* Header */}
-  <div className="p-4 bg-gray-50 border-b">
-    <div className="flex items-center justify-between mb-4">
-      <h1 className="text-xl font-semibold">Chats</h1>
-      <button
-        onClick={() => setShowNewChat(true)} // now only for group chat
-        className="p-2 text-gray-600 hover:bg-gray-200 rounded-full"
-        title="New Group"
-      >
-        <Plus size={20} />
-      </button>
-    </div>
-    {/* Search */}
-    <div className="relative">
-      <Search
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-        size={16}
-      />
-      <input
-        className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:bg-white focus:shadow-sm"
-        placeholder="Search chats or users..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
-    </div>
-  </div>
+      <div className="w-80 bg-white border-r flex flex-col">
+        <div className="p-4 bg-gray-50 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-semibold">Chats</h1>
+            <button
+              onClick={() => setShowNewChat(true)}
+              className="p-2 text-gray-600 hover:bg-gray-200 rounded-full"
+              title="New Group"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={16}
+            />
+            <input
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:bg-white focus:shadow-sm"
+              placeholder="Search chats or users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
 
-  {/* Chat/User List */}
-  <div className="flex-1 overflow-y-auto">
-    {searchQuery.trim()
-      ? (
-        <>
-          {/* Matching Threads */}
-          {threads
-            .filter((t) =>
-              (t.name || "Direct Chat")
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase())
-            )
-            .map((thread) => (
+        <div className="flex-1 overflow-y-auto">
+          {searchQuery.trim() ? (
+            <>
+              {threads
+                .filter((t) =>
+                  (t.name || "Direct Chat")
+                    .toLowerCase()
+                    .includes(searchQuery.toLowerCase())
+                )
+                .map((thread) => (
+                  <div
+                    key={`thread-${thread.id}`}
+                    onClick={() => setSelected(thread)}
+                    className={clsx(
+                      "flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer",
+                      selected?.id === thread.id && "bg-emerald-50"
+                    )}
+                  >
+                    <Avatar
+                      name={getThreadName(thread)}
+                      id={String(thread.id)}
+                      size="lg"
+                    />
+                    <div className="ml-3 flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-[15px] truncate">
+                          {getThreadName(thread)}
+                        </h3>
+                        <span className="text-[11px] text-gray-500 ml-2">
+                          {humanTime(thread.last_message_time)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <p className="text-[13px] text-gray-600 truncate">
+                          {thread.last_message || " "}
+                        </p>
+                        {!!thread.unread_count && (
+                          <span className="ml-2 bg-emerald-500 text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
+                            {thread.unread_count}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              {users
+                .filter((u) =>
+                  (u.full_name || u.name || u.employee_code || "")
+                    .toLowerCase()
+                    .includes(searchQuery.toLowerCase())
+                )
+                .map((user) => (
+                  <div
+                    key={`user-${user.employee_code}`}
+                    onClick={() =>
+                      setSelected({
+                        pending: true,
+                        type: "DIRECT",
+                        name: user.full_name || user.name || user.employee_code,
+                        peer: {
+                          employee_code: user.employee_code,
+                          full_name:
+                            user.full_name || user.name || user.employee_code,
+                        },
+                      })
+                    }
+                    className="flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer"
+                  >
+                    <Avatar
+                      name={user.full_name || user.name}
+                      id={user.employee_code}
+                      size="lg"
+                    />
+                    <div className="ml-3 flex-1 min-w-0">
+                      <h3 className="font-semibold text-[15px] truncate">
+                        {user.full_name || user.name}
+                      </h3>
+                      <p className="text-[13px] text-gray-600 truncate">
+                        {user.employee_code}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+            </>
+          ) : (
+            threads.map((thread) => (
               <div
-                key={`thread-${thread.id}`}
+                key={thread.id}
                 onClick={() => setSelected(thread)}
                 className={clsx(
                   "flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer",
@@ -1558,91 +1665,10 @@ export default function WhatsAppChatPage() {
                   </div>
                 </div>
               </div>
-            ))}
-
-          {/* Matching Users (for direct chat) */}
-          {users
-            .filter((u) =>
-              (u.full_name || u.name || u.employee_code || "")
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase())
-            )
-            .map((user) => (
-              <div
-                key={`user-${user.employee_code}`}
-                onClick={() =>
-                  setSelected({
-                    pending: true,
-                    type: "DIRECT",
-                    name: user.full_name || user.name || user.employee_code,
-                    peer: {
-                      employee_code: user.employee_code,
-                      full_name:
-                        user.full_name || user.name || user.employee_code,
-                    },
-                  })
-                }
-                className="flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer"
-              >
-                <Avatar
-                  name={user.full_name || user.name}
-                  id={user.employee_code}
-                  size="lg"
-                />
-                <div className="ml-3 flex-1 min-w-0">
-                  <h3 className="font-semibold text-[15px] truncate">
-                    {user.full_name || user.name}
-                  </h3>
-                  <p className="text-[13px] text-gray-600 truncate">
-                    {user.employee_code}
-                  </p>
-                </div>
-              </div>
-            ))}
-        </>
-      )
-      : (
-        /* Normal chat list (when search empty) */
-        threads.map((thread) => (
-          <div
-            key={thread.id}
-            onClick={() => setSelected(thread)}
-            className={clsx(
-              "flex items-center px-3 py-2 border-b hover:bg-gray-50 cursor-pointer",
-              selected?.id === thread.id && "bg-emerald-50"
-            )}
-          >
-            <Avatar
-              name={getThreadName(thread)}
-              id={String(thread.id)}
-              size="lg"
-            />
-            <div className="ml-3 flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-[15px] truncate">
-                  {getThreadName(thread)}
-                </h3>
-                <span className="text-[11px] text-gray-500 ml-2">
-                  {humanTime(thread.last_message_time)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-0.5">
-                <p className="text-[13px] text-gray-600 truncate">
-                  {thread.last_message || " "}
-                </p>
-                {!!thread.unread_count && (
-                  <span className="ml-2 bg-emerald-500 text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
-                    {thread.unread_count}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-  </div>
-</div>
-
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative">
@@ -1701,7 +1727,7 @@ export default function WhatsAppChatPage() {
               }}
             >
               <div className="space-y-1">
-                {renderedMessages.map((it, i) => {
+                {renderedMessages.map((it) => {
                   const node =
                     it.type === "DAY" ? (
                       <DayDivider key={it.key} date={it.date} />
@@ -1739,7 +1765,6 @@ export default function WhatsAppChatPage() {
                 <div ref={scrollRef} />
               </div>
 
-              {/* Jump to latest */}
               {showJump && (
                 <button
                   onClick={() =>
@@ -1755,19 +1780,44 @@ export default function WhatsAppChatPage() {
               )}
             </div>
 
-            {/* Composer */}
+            {/* Composer (with attachments) */}
             <div className="bg-white p-4 border-t">
+              <input
+                id="chat-file-input"
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => onPickFiles(e.target.files)}
+              />
+              {pendingFiles.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {pendingFiles.map((f, i) => (
+                    <span
+                      key={`${f.name}-${i}`}
+                      className="inline-flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-[12px]"
+                    >
+                      <span>
+                        {fileKindIcon(f.type, f.name)} {f.name}
+                      </span>
+                      <button
+                        onClick={() => removePending(i)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-end space-x-3">
                 <div className="flex-1 relative flex items-end gap-2">
                   <button
                     className="p-2 rounded-full hover:bg-gray-100"
-                    title="Emoji"
-                  >
-                    😊
-                  </button>
-                  <button
-                    className="p-2 rounded-full hover:bg-gray-100"
                     title="Attach"
+                    onClick={() =>
+                      document.getElementById("chat-file-input")?.click()
+                    }
                   >
                     📎
                   </button>
@@ -1775,7 +1825,7 @@ export default function WhatsAppChatPage() {
                     ref={textareaRef}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder="Type a message…  (attach files with 📎, paste, or drag & drop)"
                     rows={1}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-full resize-none focus:outline-none focus:border-green-500 max-h-32"
                     onKeyDown={(e) => {
@@ -1785,16 +1835,10 @@ export default function WhatsAppChatPage() {
                       }
                     }}
                   />
-                  <button
-                    className="p-2 rounded-full hover:bg-gray-100"
-                    title="Voice"
-                  >
-                    🎤
-                  </button>
                 </div>
                 <button
                   onClick={handleSend}
-                  disabled={!text.trim() || !selected}
+                  disabled={(!text.trim() && pendingFiles.length === 0) || !selected}
                   className="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Send"
                 >

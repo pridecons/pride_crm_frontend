@@ -380,6 +380,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
   // ---- Dynamic {#var#} builder state ----
   const rational_val = [
     { name: "#var#", value: "#var#" },
+    { name: "Recommendation", value: "recommendation" },
     { name: "Stock Name", value: "stock_name" },
     { name: "Entry Price", value: "entry_price" },
     { name: "Targets", value: "targets" },
@@ -602,6 +603,8 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                   >
                     <option value="TRANSACTIONAL">Transactional</option>
                     <option value="PROMOTIONAL">Promotional</option>
+                    <option value="Explicit">Service Explicit</option>
+                    <option value="Implicit">Service Implicit</option>
                   </select>
                 </label>
               </div>
@@ -714,7 +717,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                   Dynamic Variable Builder
                 </span>
                 <div className="p-4 border-2 border-indigo-100 rounded-xl bg-indigo-50/30">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 overflow-y-auto">
                     {textParts.map((part, idx) => (
                       <div key={`part-${idx}`} className="flex items-center gap-2">
                         {/* Editable text chunk */}

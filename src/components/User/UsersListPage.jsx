@@ -221,7 +221,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
-import { Users } from "lucide-react";
+import { Users, Upload } from "lucide-react";
 import StatsCards from "./StatsCards";
 import UserFilters from "./UserFilters";
 import UserTable from "./UserTable";
@@ -230,6 +230,7 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import UserModal from "./UserModal";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import BulkUserUploadModal from "./BulkUserUploadModal"; // ⬅️ NEW
 
 /* -------------------------- role helpers (dynamic) ------------------------- */
 const normalizeRoleKey = (r) =>
@@ -267,10 +268,14 @@ export default function UsersListPage() {
 
   const [detailsUser, setDetailsUser] = useState(null);
 
-  // Modal control
+  // Create/Edit Modal control
   const [modalMode, setModalMode] = useState(null); // "add" | "edit" | null
   const [modalUser, setModalUser] = useState(null);
   const [modalKey, setModalKey] = useState(0);
+
+  // ⬇️ Bulk Upload Modal control
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkKey, setBulkKey] = useState(0);
 
   // Filters
   const [selectedRole, setSelectedRole] = useState("All");
@@ -287,6 +292,11 @@ export default function UsersListPage() {
     setModalUser(u);
     setModalMode("edit");
     setModalKey((k) => k + 1);
+  };
+
+  const openBulk = () => {
+    setBulkOpen(true);
+    setBulkKey((k) => k + 1);
   };
 
   useEffect(() => {
@@ -379,25 +389,40 @@ export default function UsersListPage() {
     return roleMatch && branchMatch && !!searchMatch;
   });
 
+  const canAdd = hasPermission("user_add_user");
+  const canBulk = hasPermission("user_bulk_upload") || hasPermission("user_add_user"); // fallback
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
             <p className="text-gray-600 flex items-center gap-2">
               <Users className="w-4 h-4" /> Manage and track all users
             </p>
           </div>
-          {hasPermission("user_add_user") && (
-            <button
-              onClick={openAdd}
-              className="bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2"
-            >
-              + Add User
-            </button>
-          )}
+
+          <div className="flex items-center gap-3">
+            {canBulk && (
+              <button
+                onClick={openBulk}
+                className="bg-indigo-600 text-white px-3 py-2 rounded-xl hover:bg-indigo-700 flex items-center gap-2 shadow-sm"
+              >
+                <Upload className="w-4 h-4" />
+                Bulk Upload
+              </button>
+            )}
+            {canAdd && (
+              <button
+                onClick={openAdd}
+                className="bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2 shadow-sm"
+              >
+                + Add User
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
@@ -446,6 +471,19 @@ export default function UsersListPage() {
           onClose={() => setDetailsUser(null)}
           user={detailsUser}
           branchMap={branchMap}
+        />
+
+        {/* ⬇️ Bulk Upload Modal */}
+        <BulkUserUploadModal
+          key={bulkKey}
+          isOpen={bulkOpen}
+          onClose={() => setBulkOpen(false)}
+          onSuccess={() => {
+            fetchUsers();
+            setBulkOpen(false);
+          }}
+          roles={roles}          // ⬅️ pass roles
+          branches={branches} 
         />
       </div>
     </div>

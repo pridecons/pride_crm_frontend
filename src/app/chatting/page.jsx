@@ -10,7 +10,8 @@ import React, {
 import { Search, Plus, Send, MoreVertical } from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
-import { axiosInstance } from "@/api/Axios";
+import { axiosInstance, BASE_URL } from "@/api/Axios";
+import { useDocViewer } from "@/helper/useDocViewer";
 
 /* =========================================================
    Utilities
@@ -47,13 +48,13 @@ function normalizeMessage(raw) {
 
   const attachments = Array.isArray(raw.attachments)
     ? raw.attachments.map((a) => ({
-        id: a.id ?? a.attachment_id ?? a.idStr ?? `${Date.now()}`,
-        filename: a.filename ?? a.name ?? "file",
-        mime_type: a.mime_type ?? a.mimetype ?? "application/octet-stream",
-        size_bytes: a.size_bytes ?? a.size ?? 0,
-        url: a.url ?? a.link ?? "",
-        thumb_url: a.thumb_url ?? a.thumbnail ?? null,
-      }))
+      id: a.id ?? a.attachment_id ?? a.idStr ?? `${Date.now()}`,
+      filename: a.filename ?? a.name ?? "file",
+      mime_type: a.mime_type ?? a.mimetype ?? "application/octet-stream",
+      size_bytes: a.size_bytes ?? a.size ?? 0,
+      url: a.url ?? a.link ?? "",
+      thumb_url: a.thumb_url ?? a.thumbnail ?? null,
+    }))
     : [];
 
   const m = {
@@ -61,13 +62,12 @@ function normalizeMessage(raw) {
       raw.id ??
       raw.message_id ??
       raw.msgId ??
-      `${raw.thread_id ?? raw.threadId ?? "T"}-${
-        raw.sender_id ??
-        raw.senderId ??
-        raw.from ??
-        raw.from_employee_code ??
-        raw.user ??
-        "U"
+      `${raw.thread_id ?? raw.threadId ?? "T"}-${raw.sender_id ??
+      raw.senderId ??
+      raw.from ??
+      raw.from_employee_code ??
+      raw.user ??
+      "U"
       }-${raw.timestamp ?? raw.time ?? Date.now()}`,
     thread_id:
       raw.thread_id ??
@@ -150,7 +150,7 @@ function useEmployeeCode() {
         const p = jwtDecode(tok);
         setCode(p?.sub || p?.employee_code || null);
       }
-    } catch {}
+    } catch { }
   }, []);
   return code;
 }
@@ -165,9 +165,8 @@ function makeWsUrl(httpBase, threadId, token) {
     if (token) u.searchParams.set("token", token);
     return u.toString();
   } catch {
-    return `/api/v1/ws/chat/${threadId}${
-      token ? `?token=${encodeURIComponent(token)}` : ""
-    }`;
+    return `/api/v1/ws/chat/${threadId}${token ? `?token=${encodeURIComponent(token)}` : ""
+      }`;
   }
 }
 
@@ -214,7 +213,7 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
   const closeSocket = () => {
     try {
       wsRef.current?.close(1000, "navigate");
-    } catch {}
+    } catch { }
     wsRef.current = null;
     setReady(false);
     clearTimers();
@@ -250,13 +249,13 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
           for (const j of joinMsgs) {
             try {
               ws.send(JSON.stringify(j));
-            } catch {}
+            } catch { }
           }
 
           timers.current.heartbeat = setInterval(() => {
             try {
               ws.send(JSON.stringify({ type: "ping", at: Date.now() }));
-            } catch {}
+            } catch { }
           }, 25000);
         };
 
@@ -293,7 +292,7 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
         ws.onerror = () => {
           try {
             ws.close();
-          } catch {}
+          } catch { }
         };
       } catch {
         const attempt = (attemptsRef.current = (attemptsRef.current || 0) + 1);
@@ -316,7 +315,7 @@ function useChatSocket({ threadId, onEvent, enabled = true }) {
           wsRef.current.send(JSON.stringify(obj));
           return true;
         }
-      } catch {}
+      } catch { }
       return false;
     },
     [ready]
@@ -347,7 +346,7 @@ function useInboxSocket({
     if (!enabled || !currentUser) {
       try {
         wsRef.current?.close(1000, "inbox-off");
-      } catch {}
+      } catch { }
       wsRef.current = null;
       setReady(false);
       clearTimers();
@@ -384,13 +383,13 @@ function useInboxSocket({
           for (const j of joinMsgs) {
             try {
               ws.send(JSON.stringify(j));
-            } catch {}
+            } catch { }
           }
 
           timers.current.heartbeat = setInterval(() => {
             try {
               ws.send(JSON.stringify({ type: "ping", at: Date.now() }));
-            } catch {}
+            } catch { }
           }, 25000);
         };
 
@@ -427,7 +426,7 @@ function useInboxSocket({
         ws.onerror = () => {
           try {
             ws.close();
-          } catch {}
+          } catch { }
         };
       } catch {
         const attempt = (attemptsRef.current = (attemptsRef.current || 0) + 1);
@@ -441,7 +440,7 @@ function useInboxSocket({
     return () => {
       try {
         wsRef.current?.close(1000, "inbox-unmount");
-      } catch {}
+      } catch { }
       wsRef.current = null;
       setReady(false);
       clearTimers();
@@ -526,19 +525,25 @@ function fileKindIcon(mime, filename) {
   return "📦";
 }
 
-function AttachmentGrid({ atts = [] }) {
+function AttachmentGrid({ atts = [], onOpen }) {
   if (!atts.length) return null;
   return (
     <div className="mt-2 grid grid-cols-2 gap-2">
       {atts.map((a) => {
         const isImg = (a.mime_type || "").startsWith("image/");
+        const handleOpen = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // title preference: filename -> mime fallback
+          const title = a.filename || (a.mime_type || "Attachment");
+          onOpen?.(a.url, title);
+        };
         return (
-          <a
+          <button
             key={a.id}
-            href={a.url}
-            target="_blank"
-            rel="noreferrer"
-            className="group block rounded-md overflow-hidden border border-gray-200 bg-white hover:shadow-sm"
+            type="button"
+            onClick={handleOpen}
+            className="group block rounded-md overflow-hidden border border-gray-200 bg-white hover:shadow-sm text-left"
           >
             {isImg ? (
               <img
@@ -553,14 +558,15 @@ function AttachmentGrid({ atts = [] }) {
               </div>
             )}
             <div className="px-2 py-1 text-[12px] truncate text-gray-700 border-t">
-              {a.filename}
+              {a.filename || "Attachment"}
             </div>
-          </a>
+          </button>
         );
       })}
     </div>
   );
 }
+
 
 function MessageBubble({ mine, msg, showHeader, showAvatar }) {
   const created = msg.created_at ?? msg.createdAt ?? msg.timestamp ?? msg.time;
@@ -608,7 +614,7 @@ function MessageBubble({ mine, msg, showHeader, showAvatar }) {
           )}
 
           {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
-            <AttachmentGrid atts={msg.attachments} />
+            <AttachmentGrid atts={msg.attachments} onOpen={msg._onOpenAttachment} />
           )}
 
           <div
@@ -663,8 +669,8 @@ function UserSelect({ users, value, onChange, placeholder, multiple = false }) {
       ? `${value.length} selected`
       : ""
     : value
-    ? `${value.full_name || value.name} (${value.employee_code})`
-    : query;
+      ? `${value.full_name || value.name} (${value.employee_code})`
+      : query;
 
   return (
     <div className="relative">
@@ -857,6 +863,11 @@ function NewChatModal({
    Main Page
 ========================================================= */
 export default function WhatsAppChatPage() {
+  const { openDoc, DocViewerPortal } = useDocViewer({
+    defaultTitle: "Attachment",
+    canDownload: true,
+    baseUrl: BASE_URL,
+  });
   const currentUser = useEmployeeCode();
 
   // Core data
@@ -928,8 +939,8 @@ export default function WhatsAppChatPage() {
         const list = Array.isArray(data?.data)
           ? data.data
           : Array.isArray(data)
-          ? data
-          : [];
+            ? data
+            : [];
         const normalized = list.map((u) => ({
           employee_code: u.employee_code || u.code || u.id || "",
           full_name: u.full_name || u.name || u.username || "",
@@ -946,8 +957,8 @@ export default function WhatsAppChatPage() {
         const blist = Array.isArray(bdata?.data)
           ? bdata.data
           : Array.isArray(bdata)
-          ? bdata
-          : [];
+            ? bdata
+            : [];
         if (alive) setBranches(blist);
       } catch (e) {
         console.error("branches load error", e);
@@ -1067,7 +1078,7 @@ export default function WhatsAppChatPage() {
             .post(`/chat/${selected.id}/mark-read`, null, {
               params: { last_message_id: lastId },
             })
-            .catch(() => {});
+            .catch(() => { });
         }
         setTimeout(
           () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
@@ -1149,14 +1160,14 @@ export default function WhatsAppChatPage() {
           return prev.map((t) =>
             t.id === tId
               ? {
-                  ...t,
-                  last_message: m.body,
-                  last_message_time: m.created_at,
-                  unread_count:
-                    isSelf || tId === selectedId
-                      ? t.unread_count || 0
-                      : (t.unread_count || 0) + 1,
-                }
+                ...t,
+                last_message: m.body,
+                last_message_time: m.created_at,
+                unread_count:
+                  isSelf || tId === selectedId
+                    ? t.unread_count || 0
+                    : (t.unread_count || 0) + 1,
+              }
               : t
           );
         });
@@ -1170,7 +1181,7 @@ export default function WhatsAppChatPage() {
                 ? prev.map((x) => (x.id === tId ? { ...x, ...t } : x))
                 : [t, ...prev]
             );
-          } catch {}
+          } catch { }
         })();
       }
     },
@@ -1186,7 +1197,7 @@ export default function WhatsAppChatPage() {
         const merged = arr.map((t) => ({ ...byId.get(t.id), ...t }));
         return merged;
       });
-    } catch {}
+    } catch { }
   }, []);
 
   useInboxSocket({
@@ -1200,8 +1211,12 @@ export default function WhatsAppChatPage() {
   const handleSocketEvent = useCallback(
     (evt) => {
       if (!evt) return;
+      const m = evt.data;
+      const isSelf = String(m.sender_id) === String(currentUser);
 
-      if (evt.type === "read") {
+      console.log("isSelf : ",isSelf)
+
+      if (evt.type === "read" && !isSelf) {
         const tid =
           evt.data.thread_id || evt.data.threadId || evt.data.room_id || evt.data.roomId;
         const lr =
@@ -1222,7 +1237,7 @@ export default function WhatsAppChatPage() {
         }
         return;
       }
-      if (evt.type === "typing") {
+      if (evt.type === "typing" && !isSelf) {
         const tid =
           evt.data.thread_id || evt.data.threadId || evt.data.room_id || evt.data.roomId;
         const who = evt.data.user || evt.data.sender_id || evt.data.senderId;
@@ -1234,7 +1249,7 @@ export default function WhatsAppChatPage() {
         return;
       }
 
-      if (evt.type === "message" && evt.data) {
+      if (evt.type === "message" && evt.data && !isSelf) {
         const m = normalizeMessage(evt.data);
         if (!m || !m.thread_id) return;
 
@@ -1246,10 +1261,10 @@ export default function WhatsAppChatPage() {
             prev.map((t) =>
               t.id === tId
                 ? {
-                    ...t,
-                    last_message: m.body,
-                    last_message_time: m.created_at,
-                  }
+                  ...t,
+                  last_message: m.body,
+                  last_message_time: m.created_at,
+                }
                 : t
             )
           );
@@ -1275,11 +1290,11 @@ export default function WhatsAppChatPage() {
             prev.map((t) =>
               t.id === tId
                 ? {
-                    ...t,
-                    last_message: m.body,
-                    last_message_time: m.created_at,
-                    unread_count: 0,
-                  }
+                  ...t,
+                  last_message: m.body,
+                  last_message_time: m.created_at,
+                  unread_count: 0,
+                }
                 : t
             )
           );
@@ -1288,7 +1303,7 @@ export default function WhatsAppChatPage() {
               .post(`/chat/${tId}/mark-read`, null, {
                 params: { last_message_id: m.id },
               })
-              .catch(() => {});
+              .catch(() => { });
           }
           requestAnimationFrame(() =>
             scrollRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -1298,11 +1313,11 @@ export default function WhatsAppChatPage() {
             prev.map((t) =>
               t.id === tId
                 ? {
-                    ...t,
-                    last_message: m.body,
-                    last_message_time: m.created_at,
-                    unread_count: (t.unread_count || 0) + 1,
-                  }
+                  ...t,
+                  last_message: m.body,
+                  last_message_time: m.created_at,
+                  unread_count: (t.unread_count || 0) + 1,
+                }
                 : t
             )
           );
@@ -1393,10 +1408,10 @@ export default function WhatsAppChatPage() {
           prev.map((th) =>
             th.id === t.id
               ? {
-                  ...th,
-                  last_message: sentMsg.body,
-                  last_message_time: sentMsg.created_at,
-                }
+                ...th,
+                last_message: sentMsg.body,
+                last_message_time: sentMsg.created_at,
+              }
               : th
           )
         );
@@ -1404,7 +1419,7 @@ export default function WhatsAppChatPage() {
           await axiosInstance.post(`/chat/${t.id}/mark-read`, null, {
             params: { last_message_id: sentMsg.id },
           });
-        } catch {}
+        } catch { }
         setTimeout(
           () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
           50
@@ -1424,10 +1439,10 @@ export default function WhatsAppChatPage() {
         prev.map((t) =>
           t.id === selected.id
             ? {
-                ...t,
-                last_message: sentMsg.body,
-                last_message_time: sentMsg.created_at,
-              }
+              ...t,
+              last_message: sentMsg.body,
+              last_message_time: sentMsg.created_at,
+            }
             : t
         )
       );
@@ -1436,7 +1451,7 @@ export default function WhatsAppChatPage() {
         await axiosInstance.post(`/chat/${selected.id}/mark-read`, null, {
           params: { last_message_id: sentMsg.id },
         });
-      } catch {}
+      } catch { }
 
       setTimeout(
         () => scrollRef.current?.scrollIntoView({ behavior: "smooth" }),
@@ -1482,7 +1497,7 @@ export default function WhatsAppChatPage() {
         mine,
         showHeader,
         showAvatar,
-        msg,
+        msg: { ...msg, _onOpenAttachment: (url, title) => openDoc(url, title) },
       });
       lastSender = msg.sender_id;
     });
@@ -1496,10 +1511,8 @@ export default function WhatsAppChatPage() {
 
   return (
     <div
-      className="flex h-screen"
-      style={{
-        background: "linear-gradient(180deg,#eae6df 0%, #d1d7db 100%)",
-      }}
+      className="flex h-screen overflow-hidden"
+      style={{ background: "linear-gradient(180deg,#eae6df 0%, #d1d7db 100%)" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -1518,8 +1531,8 @@ export default function WhatsAppChatPage() {
       }}
     >
       {/* Sidebar */}
-      <div className="w-80 bg-white border-r flex flex-col">
-        <div className="p-4 bg-gray-50 border-b">
+      <div className="w-80 shrink-0 bg-white border-r flex flex-col overflow-hidden">
+        <div className="sticky top-0 z-20 p-4 bg-white/95 backdrop-blur border-b">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-semibold">Chats</h1>
             <button
@@ -1531,10 +1544,7 @@ export default function WhatsAppChatPage() {
             </button>
           </div>
           <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
-            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-full text-sm focus:outline-none focus:bg-white focus:shadow-sm"
               placeholder="Search chats or users..."
@@ -1543,7 +1553,6 @@ export default function WhatsAppChatPage() {
             />
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto">
           {searchQuery.trim() ? (
             <>
@@ -1700,8 +1709,8 @@ export default function WhatsAppChatPage() {
                     {typing
                       ? "typing…"
                       : selected.type === "GROUP"
-                      ? "Group"
-                      : "Online"}
+                        ? "Group"
+                        : "Online"}
                   </p>
                 </div>
               </div>
@@ -1745,7 +1754,7 @@ export default function WhatsAppChatPage() {
                     firstUnreadIdx != null &&
                     it.type === "MSG" &&
                     renderedMessages.findIndex((x) => x.key === it.key) ===
-                      firstUnreadIdx;
+                    firstUnreadIdx;
 
                   return isThisUnreadDivider ? (
                     <React.Fragment key={`wrap-${it.key}`}>
@@ -1890,6 +1899,7 @@ export default function WhatsAppChatPage() {
           }
         }}
       />
+      {DocViewerPortal}
     </div>
   );
 }

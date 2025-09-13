@@ -481,7 +481,7 @@ export default function PaymentHistoryPage() {
   const isBranchDropdownDisabled = role === "BRANCH MANAGER";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="mx-2 px-4 py-8">
       <h2 className="text-2xl font-bold mb-6">All Employee Payment History</h2>
       {!(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
         <div className="mb-4 inline-flex rounded-md shadow-sm" role="group">

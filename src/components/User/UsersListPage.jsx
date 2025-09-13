@@ -394,7 +394,7 @@ export default function UsersListPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-2">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -452,7 +452,7 @@ export default function UsersListPage() {
 
         {/* Create/Edit Modal */}
         <UserModal
-          key={modalKey}
+          key={`user-modal-${modalKey}`} 
           mode={modalMode}
           isOpen={!!modalMode}
           onClose={() => setModalMode(null)}
@@ -475,7 +475,7 @@ export default function UsersListPage() {
 
         {/* ⬇️ Bulk Upload Modal */}
         <BulkUserUploadModal
-          key={bulkKey}
+          key={`bulk-upload-${bulkKey}`}
           isOpen={bulkOpen}
           onClose={() => setBulkOpen(false)}
           onSuccess={() => {

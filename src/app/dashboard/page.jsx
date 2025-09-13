@@ -357,7 +357,7 @@ const pageRowsRaw = (employeesTable || []).slice(startIdx, endIdx);
   ----------------------------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="p-4 md:p-6 space-y-6 mx-2">
 
         {/* Greeting header (only for Branch Manager & Employees) */}
         {!isSuperAdmin && (

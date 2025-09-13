@@ -1,68 +1,58 @@
-'use client';
-
-import { useState } from 'react'
-import Header from "@/components/Header"
-import Sidebar from "@/components/Sidebar"
-import { usePathname } from 'next/navigation'
-import { Toaster } from 'react-hot-toast'
-import { PermissionsProvider } from '@/context/PermissionsContext' 
+"use client";
+import Header from "@/components/Header";
+import CoreSidebar from "@/components/Sidebar";
+import { PermissionsProvider } from "@/context/PermissionsContext";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Toaster } from "react-hot-toast";
 
 export default function Main({ children }) {
-  const pathname = usePathname()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const headerHeight = 64 // Adjust based on your Header height in px (e.g., h-16 = 64px)
+  useEffect(() => { setSidebarOpen(false); }, [pathname]);
+
+  const showChrome = pathname !== "/login";
+  const SB_PX = 256;                     // <- sidebar width
+  const sbw = sidebarOpen ? SB_PX : 0;
 
   return (
     <PermissionsProvider>
-    <div className="min-h-screen bg-gray-50">
-      <Toaster
-        position="bottom-center"
-        reverseOrder={false}
-        toastOptions={{
-          duration: 4000, 
-        }}
-      />
-      {/* Header */}
-      {pathname !== "/login" && (
-        <div className="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-50">
-          <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        </div>
-      )}
+      <div className="min-h-screen bg-gray-50" style={{ '--sbw': `${sbw}px` }}>
+  <Toaster position="bottom-center" toastOptions={{ duration: 4000 }} />
 
-      {/* Sidebar */}
-      {pathname !== "/login" && (
-        <div
-          className="fixed left-0 top-16 w-64 bg-white border-r border-gray-200 shadow-md h-[calc(100vh-64px)] z-40 hidden lg:block"
-        >
-          <Sidebar onClose={() => setSidebarOpen(false)}  />
-        </div>
-      )}
-      {pathname !== "/login" && sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-gray-200 opacity-60"
-            onClick={() => setSidebarOpen(false)}
-          ></div>
+  {showChrome && (
+    <header
+      className="fixed top-0 inset-x-0 z-50 h-16"
+      style={{ paddingLeft: 'var(--sbw)', transition: 'padding-left 200ms ease' }}
+    >
+      <Header onMenuClick={() => setSidebarOpen(v => !v)} sidebarOpen={sidebarOpen} />
+    </header>
+  )}
 
-          {/* Sidebar panel */}
-          <div className="relative w-64 bg-white h-full shadow-md z-50">
-            <Sidebar onClose={() => setSidebarOpen(false)} />
-          </div>
-        </div>
-      )}
-
-
-      {/* Main Content */}
-      <main
-        className={`${
-          pathname !== "/login" ? 'lg:ml-64 mt-16' : ''
-        }`}
+  {showChrome && (
+    <>
+      <aside
+        className="fixed top-0 bottom-0 left-0 z-[40] w-64 transition-transform duration-200"
+        style={{ transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)' }}
       >
-        {children}
-      </main>
-    </div>
+        <CoreSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      </aside>
+      <button
+        aria-hidden
+        className={sidebarOpen ? 'fixed inset-0 z-[30] block' : 'hidden'}
+        onClick={() => setSidebarOpen(false)}
+      />
+    </>
+  )}
+
+  <main
+    className="min-h-screen"
+    style={{ paddingTop: showChrome ? '64px' : '0px', paddingLeft: 'var(--sbw)', transition: 'padding-left 200ms ease' }}
+  >
+    {children}
+  </main>
+</div>
     </PermissionsProvider>
-  )
+  );
 }

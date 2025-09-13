@@ -28,7 +28,7 @@ export default function NewLeadsTable() {
   const [sources, setSources] = useState([]);
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit] = useState(50);
 
   const [editId, setEditId] = useState(null);
   const [userId, setUserId] = useState(null);
@@ -238,6 +238,21 @@ export default function NewLeadsTable() {
           ),
       },
       { header: "Mobile", render: (lead) => lead.mobile },
+
+      // 🔹 NEW: Email column
+      {
+        header: "Email",
+        align: "center",
+        render: (lead) =>
+          lead.email ? (
+            <a>
+              {lead.email}
+            </a>
+          ) : (
+            <span className="text-gray-400">—</span>
+          ),
+      },
+
       {
         header: "Response",
         render: (lead) => (
@@ -268,39 +283,52 @@ export default function NewLeadsTable() {
         render: (lead) => (
           <div className="flex gap-2">
             <CallButton lead={lead} onRefresh={fetchLeads} />
+
             <button
               onClick={() => router.push(`/lead/${lead.id}`)}
-              className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"
               title="Edit lead"
+              className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
             >
-              <Pencil size={14} />
+              <Pencil
+                size={22}
+                className="transition-transform duration-150 group-hover:scale-110"
+              />
             </button>
+
             <button
               onClick={() => {
                 setStoryLead(lead);
                 setIsStoryModalOpen(true);
               }}
-              className="w-8 h-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
               title="View Story"
+              className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-purple-500 hover:text-purple-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
             >
-              <BookOpenText size={18} />
+              <BookOpenText
+                size={22}
+                className="transition-transform duration-150 group-hover:scale-110"
+              />
             </button>
+
             <button
               onClick={() => {
                 setSelectedLeadId(lead.id);
                 setIsCommentModalOpen(true);
               }}
-              className="w-8 h-8 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
               title="Comments"
+              className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-teal-500 hover:text-teal-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
             >
-              <MessageCircle size={16} />
+              <MessageCircle
+                size={22}
+                className="transition-transform duration-150 group-hover:scale-110"
+              />
             </button>
           </div>
         ),
-      },
+      }
     ],
     [editId, responses, sources, router]
   );
+
 
   const filteredLeads = useMemo(() => leads.filter((l) => !l.lead_response_id), [leads]);
   const paginatedLeads = useMemo(
@@ -309,28 +337,10 @@ export default function NewLeadsTable() {
   );
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200
+             p-4 overflow-hidden flex flex-col">
       {/* Assignment status bar */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <Info size={16} />
-          <span>
-            {assignmentMeta.can_fetch_new
-              ? "You can fetch new leads."
-              : "Active leads present — complete them to fetch new leads."}
-          </span>
-          {assignmentMeta.last_fetch_limit != null && (
-            <span className="ml-2 inline-block px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">
-              Last fetch limit: {assignmentMeta.last_fetch_limit}
-            </span>
-          )}
-          {assignmentMeta.assignment_ttl_hours != null && (
-            <span className="ml-2 inline-block px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">
-              TTL: {assignmentMeta.assignment_ttl_hours}h
-            </span>
-          )}
-        </div>
-
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end mb-4">
         <button
           onClick={handleFetchLeads}
           disabled={loading}
@@ -347,7 +357,7 @@ export default function NewLeadsTable() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border-b border-gray-200 mx-2 overflow-hidden">
+      <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-200 mx-2 overflow-hidden flex flex-col">
         <LeadsDataTable
           leads={paginatedLeads}
           loading={loading}

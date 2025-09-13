@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
-import { Bell, X, Menu, Search, User, Clock, ChevronDown, Eye, EyeOff, Lock, Loader2 } from 'lucide-react';
+import { Bell, X, Menu, Search, User, Clock, ChevronDown, Eye, EyeOff, Lock, Loader2, LogOut, MessageCircle } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 import { axiosInstance, BASE_URL_full } from '@/api/Axios';
 import toast from 'react-hot-toast';
 import { createPortal } from "react-dom";
 import { usePermissions } from "@/context/PermissionsContext";
 import ShowNotifications from "./Notofication/ShowNotifications";
+import { doLogout } from "@/utils/logout";
 
 /** ---------- helpers ---------- */
 function toPrettyRole(r = '') {
@@ -72,9 +73,10 @@ function getUserFromCookies() {
   }
 }
 
-export default function Header({ onMenuClick, onSearch }) {
+export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const { hasPermission } = usePermissions();
   const router = useRouter();
+  const handleLogout = () => doLogout(router);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [user, setUser] = useState(null);
 
@@ -113,6 +115,27 @@ export default function Header({ onMenuClick, onSearch }) {
   const lookupsLoadedRef = useRef(false);
 
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  // ---- Chat unread bubble ----
+  const [chatUnread, setChatUnread] = useState(0);
+
+  const fetchChatUnread = useCallback(async () => {
+    try {
+      // same endpoint your chat page uses
+      const { data } = await axiosInstance.get('/chat/threads', { baseURL: BASE_URL_full });
+      const arr = Array.isArray(data) ? data : [];
+      const total = arr.reduce((sum, t) => sum + (Number(t?.unread_count) || 0), 0);
+      setChatUnread(total);
+    } catch {
+      // ignore errors; next tick will refresh
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchChatUnread();                   // initial
+    const id = setInterval(fetchChatUnread, 8000); // poll every ~8s
+    return () => clearInterval(id);
+  }, [fetchChatUnread]);
 
   const loadLookupsIfNeeded = useCallback(async () => {
     if (lookupsLoadedRef.current) return;
@@ -333,7 +356,7 @@ export default function Header({ onMenuClick, onSearch }) {
         );
 
       const assigned = (assignedRaw || []).map((x) => normalize(x, true)).filter(x => x?.id != null);
-      const others   = (activateRaw || []).map(normalizeActivate);
+      const others = (activateRaw || []).map(normalizeActivate);
 
       const list = [...assigned, ...others].slice(0, 50);
       // Build counts
@@ -426,148 +449,196 @@ export default function Header({ onMenuClick, onSearch }) {
     : "sm:max-w-md";
 
   return (
-    <header className="bg-gradient-to-br from-sky-300 via-gray-300 to-sky-200 px-4 py-2 lg:px-4 relative">
-      <div className="absolute inset-0 pointer-events-none" />
-      <div className="flex items-center justify-between relative z-10">
-        {/* Logo + Menu */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onMenuClick}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden transition duration-150"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="relative">
-            <img src="/pride_logo_nobg.png" alt="Logo" width={130} height={55} className="transition-transform duration-200 hover:scale-105" />
-            <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
-          </div>
-        </div>
+    <header
+      className="fixed top-0 left-0 right-0 z-50 h-16"
+      style={{ paddingLeft: "var(--sbw)", transition: "padding-left 200ms ease" }}
+    >
+      {/* solid white header like CoreUI; subtle divider */}
+      <div className="h-full bg-white border-b border-gray-200">
+        <div className="h-full px-4 lg:px-4 flex items-center justify-between relative">
 
-        {/* -------- Global Search -------- */}
-        {hasPermission("header_global_search") && (
-          <div
-            className={`flex-1 ${searchWidthCls} mx-3 hidden sm:block transition-all duration-200`}
-            ref={searchWrapRef}
-          >
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={16} />
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder="Search lead by name, phone, or email…"
-                className={`w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl transition bg-gray-50
- outline-none ring-0 focus:outline-none focus:ring-0 focus:shadow-none
- hover:shadow-md ${open ? 'invisible pointer-events-none' :
-                    'focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white'}`}
-                value={query}
-                onChange={(e) => { setQuery(e.target.value) }}
-                onKeyDown={onKeyDown}
-                onFocus={() => {
-                  setExpanded(true);
-                  requestAnimationFrame(() => {
-                    const el = searchWrapRef.current;
-                    if (!el) return;
-                    setAnchorRect(el.getBoundingClientRect());
-                    setOpen(true);
-                    inputRef.current?.blur();
-                  });
-                }}
-                autoComplete="off"
-              />
-              {query && (
-                <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                  onClick={() => { setQuery(''); setSuggestions([]); setOpen(false); setHighlight(-1); inputRef.current?.focus(); }}
-                  aria-label="Clear search"
-                >
-                  <X size={16} />
-                </button>
-              )}
-
-              {open && anchorRect && portalHostRef.current && (
-                <SearchOverlay
-                  key="global-search-overlay"
-                  anchorRect={anchorRect}
-                  overlayRef={overlayRef}
-                  portalHost={portalHostRef.current}
-                  query={query}
-                  setQuery={setQuery}
-                  onClose={() => { setOpen(false); setExpanded(false); setHighlight(-1); }}
-                  loading={loading}
-                  responseTabs={responseTabs}
-                  responseCounts={responseCounts}
-                  activeResponse={activeResponse}
-                  setActiveResponse={setActiveResponse}
-                  groupedByResponse={groupedByResponse}
-                  openGroups={openGroups}
-                  setOpenGroups={setOpenGroups}
-                  visibleLeads={visibleLeads}
-                  highlight={highlight}
-                  setHighlight={setHighlight}
-                  handleSelect={handleSelect}
-                  respMap={respMap}
-                  branchMap={branchMap}
-                  sourceMap={sourceMap}
-                  onEnterNoPick={handleEnterNoPick}
-                />
-              )}
-            </div>
-          </div>
-        )}
-        {/* -------- /Global Search -------- */}
-
-        {/* Right cluster */}
-        <div className="flex items-center gap-6">
-          <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
-
-          {/* Clock */}
-          <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-100 rounded-full p-1">
-                <Clock size={14} className="text-blue-600" />
-              </div>
-              <div className="text-sm">
-                <div className="font-semibold text-gray-900">{currentTime}</div>
-                <div className="text-xs text-gray-500">{currentDate}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Profile (md+) */}
-          <div className="relative hidden md:block" ref={profileRef}>
+          {/* Left cluster: menu + (mobile-only) logo */}
+          <div className="flex items-center gap-3">
+            {/* Hamburger — toggles mobile sidebar */}
+            {/* Show the hamburger on ALL sizes so desktop can collapse too */}
             <button
-              type="button"
-              onClick={toggleProfileMenu}
-              className="flex items-center space-x-2 px-1.5 py-1.5 rounded-xl hover:bg-white/50 transition-all duration-200 group"
+              onClick={onMenuClick}
+              className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition duration-150"
+              aria-label="Toggle sidebar"
             >
-              <div className="relative">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                  <User size={18} className="text-white" />
-                </div>
-                <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"} rounded-full border-2 border-white`} />
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
-                <p className="text-xs text-gray-500">{user?.role_pretty || "Role"}</p>
-              </div>
+              <Menu size={20} />
             </button>
 
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-42 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-                <div className="py-1">
-                  <button
-                    type="button"
-                    onClick={() => { setShowProfileMenu(false); setShowChangePassword(true); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <Lock size={16} /> Change password
-                  </button>
-                  {/* (Optional) more items like 'View Profile', 'Logout' can go here */}
-                </div>
+            {/* Show the logo in the header ONLY when the sidebar is closed on mobile.
+     On desktop (lg+), the logo stays in the sidebar, so we hide it here. */}
+            {/* Show header logo whenever the sidebar is CLOSED (any breakpoint) */}
+            {!sidebarOpen && (
+              <div className="relative">
+                <img
+                  src="/pride_logo_nobg.png"
+                  alt="Logo"
+                  width={130}
+                  height={55}
+                  className="transition-transform duration-200 hover:scale-105"
+                  onClick={()=> router.push("/dashboard")}
+                />
+                <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
               </div>
             )}
           </div>
 
+          {/* -------- Global Search -------- */}
+          {hasPermission("header_global_search") && (
+            <div
+              className={`flex-1 ${searchWidthCls} mx-3 hidden sm:block transition-all duration-200`}
+              ref={searchWrapRef}
+            >
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={16} />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Search lead by name, phone, or email…"
+                  className={`w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl transition bg-gray-50
+ outline-none ring-0 focus:outline-none focus:ring-0 focus:shadow-none
+ hover:shadow-md ${open ? 'invisible pointer-events-none' :
+                      'focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white'}`}
+                  value={query}
+                  onChange={(e) => { setQuery(e.target.value) }}
+                  onKeyDown={onKeyDown}
+                  onFocus={() => {
+                    setExpanded(true);
+                    requestAnimationFrame(() => {
+                      const el = searchWrapRef.current;
+                      if (!el) return;
+                      setAnchorRect(el.getBoundingClientRect());
+                      setOpen(true);
+                      inputRef.current?.blur();
+                    });
+                  }}
+                  autoComplete="off"
+                />
+                {query && (
+                  <button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                    onClick={() => { setQuery(''); setSuggestions([]); setOpen(false); setHighlight(-1); inputRef.current?.focus(); }}
+                    aria-label="Clear search"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+
+                {open && anchorRect && portalHostRef.current && (
+                  <SearchOverlay
+                    key="global-search-overlay"
+                    anchorRect={anchorRect}
+                    overlayRef={overlayRef}
+                    portalHost={portalHostRef.current}
+                    query={query}
+                    setQuery={setQuery}
+                    onClose={() => { setOpen(false); setExpanded(false); setHighlight(-1); }}
+                    loading={loading}
+                    responseTabs={responseTabs}
+                    responseCounts={responseCounts}
+                    activeResponse={activeResponse}
+                    setActiveResponse={setActiveResponse}
+                    groupedByResponse={groupedByResponse}
+                    openGroups={openGroups}
+                    setOpenGroups={setOpenGroups}
+                    visibleLeads={visibleLeads}
+                    highlight={highlight}
+                    setHighlight={setHighlight}
+                    handleSelect={handleSelect}
+                    respMap={respMap}
+                    branchMap={branchMap}
+                    sourceMap={sourceMap}
+                    onEnterNoPick={handleEnterNoPick}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+          {/* -------- /Global Search -------- */}
+
+          {/* Right cluster */}
+          <div className="flex items-center ">
+            <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
+
+            {/* Chat icon with unread bubble */}
+            <button
+              type="button"
+              onClick={() => router.push('/chatting')}
+              className="relative pr-4 m-0 rounded-lg hover:bg-gray-100 text-gray-700"
+              aria-label="Open chat"
+              title="Chat"
+            >
+              <MessageCircle size={20} />
+              {chatUnread > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white
+                     text-[10px] leading-[18px] text-center"
+                >
+                  {chatUnread > 99 ? '99+' : chatUnread}
+                </span>
+              )}
+            </button>
+
+            {/* Clock */}
+            <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="bg-blue-100 rounded-full p-1">
+                  <Clock size={14} className="text-blue-600" />
+                </div>
+                <div className="text-sm">
+                  <div className="font-semibold text-gray-900">{currentTime}</div>
+                  <div className="text-xs text-gray-500">{currentDate}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile (md+) */}
+            <div className="relative hidden md:block" ref={profileRef}>
+              <button
+                type="button"
+                onClick={toggleProfileMenu}
+                className="flex items-center space-x-2 px-1.5 py-1.5 rounded-xl hover:bg-gray-100 transition-all duration-200 group"
+              >
+                <div className="relative">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                    <User size={18} className="text-white" />
+                  </div>
+                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${isConnect ? "bg-green-500" : "bg-red-500"} rounded-full border-2 border-white`} />
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
+                  <p className="text-xs text-gray-500">{user?.role_pretty || "Role"}</p>
+                </div>
+              </button>
+
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-42 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => { setShowProfileMenu(false); setShowChangePassword(true); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Lock size={16} /> Change password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut size={16} /> Logout
+                    </button>
+                    {/* (Optional) more items like 'View Profile', 'Logout' can go here */}
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
       </div>
       <ChangePasswordModal
@@ -736,7 +807,7 @@ function SearchOverlay({
                             const idx = visibleLeads.findIndex(v => v.id === lead.id);
                             if (idx >= 0) setHighlight(idx);
                           }}
-                           onClick={() => handleSelect(lead)}
+                          onClick={() => handleSelect(lead)}
                           className={[
                             "px-3 py-2 transition",
                             lead.__assigned ? "cursor-pointer" : "cursor-not-allowed opacity-60",

@@ -21,11 +21,12 @@ export default function LeadsDataTable({
 
     const widthFor = (h) => {
         const key = String(h || "").toLowerCase();
-        if (key.includes("client")) return "30%";
-        if (key.includes("mobile") || key.includes("phone")) return "18%";
-        if (key.includes("response")) return "22%";
-        if (key.includes("source")) return "12%";
-        if (key.includes("action")) return "18%";
+        if (key.includes("client")) return "20%";
+        if (key.includes("email")) return "22%";     // 🔹 NEW
+        if (key.includes("mobile") || key.includes("phone")) return "14%";
+        if (key.includes("response")) return "18%";
+        if (key.includes("source")) return "10%";
+        if (key.includes("action")) return "12%";
         return undefined;
     };
 
@@ -48,11 +49,11 @@ export default function LeadsDataTable({
     };
 
     return (
-        <div>
+        <div className="flex flex-col h-full overflow-hidden">
             {loading ? (
                 <LoadingState message="Loading leads..." />
             ) : (
-                <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
+                <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]">
                     <table className="w-full text-sm table-fixed border-collapse">
                         <colgroup>
                             {columns.map((col) => (
@@ -105,8 +106,8 @@ export default function LeadsDataTable({
                                                     <td
                                                         key={cIdx}
                                                         className={`px-4 py-3 align-middle whitespace-nowrap truncate ${String(col?.header || "").toLowerCase().includes("client")
-                                                                ? "text-left"  // 👈 force left for Client Name column
-                                                                : alignClass(col)
+                                                            ? "text-left"  // 👈 force left for Client Name column
+                                                            : alignClass(col)
                                                             }`}
                                                         title={!isBlank(out) ? String(out) : undefined}
                                                     >
@@ -124,14 +125,14 @@ export default function LeadsDataTable({
                                                 <td
                                                     key={cIdx}
                                                     className={`px-4 py-3 align-middle whitespace-nowrap ${String(col?.header || "").toLowerCase().includes("client")
-                                                            ? "text-left"
-                                                            : alignClass(col)
+                                                        ? "text-left"
+                                                        : alignClass(col)
                                                         }`}
                                                 >
                                                     <div
                                                         className={`flex ${String(col?.header || "").toLowerCase().includes("client")
-                                                                ? "justify-start"   // 👈 left-align content
-                                                                : justifyClass(col)
+                                                            ? "justify-start"   // 👈 left-align content
+                                                            : justifyClass(col)
                                                             } items-center gap-2`}
                                                     >
                                                         {out}
@@ -147,7 +148,7 @@ export default function LeadsDataTable({
                 </div>
             )}
 
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between text-sm">
+            <div className="mt-auto shrink-0 bg-gray-50 px-6 pt-0.5 border-t border-gray-200 flex items-center justify-between text-sm">
                 <span className="text-gray-600">
                     Showing {start} to {end} of {total} entries
                 </span>
@@ -156,8 +157,8 @@ export default function LeadsDataTable({
                         onClick={() => onPageChange(page - 1)}
                         disabled={page === 1}
                         className={`px-4 py-2 rounded-lg border transition ${page === 1
-                                ? "border-gray-200 text-gray-400 cursor-not-allowed"
-                                : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                            ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                            : "border-gray-300 text-gray-700 hover:bg-gray-100"
                             }`}
                     >
                         Previous
@@ -169,14 +170,19 @@ export default function LeadsDataTable({
                         onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                         disabled={page >= totalPages}
                         className={`px-4 py-2 rounded-lg border transition ${page >= totalPages
-                                ? "border-gray-200 text-gray-400 cursor-not-allowed"
-                                : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                            ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                            : "border-gray-300 text-gray-700 hover:bg-gray-100"
                             }`}
                     >
                         Next
                     </button>
                 </div>
             </div>
+            <style jsx>{`
+  .no-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, new Edge */
+  }
+`}</style>
         </div>
     );
 }

@@ -264,6 +264,18 @@ export default function OldLeadsTable() {
     },
     { header: "Mobile", render: (lead) => Show(lead.mobile) },
     {
+      header: "Email",
+      align: "left",
+      render: (lead) =>
+        lead.email ? (
+          <a>
+            {lead.email}
+          </a>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
       header: "Response",
       render: (lead) => {
         const respName = responseNameMap[lead.lead_response_id] || "";
@@ -363,41 +375,53 @@ export default function OldLeadsTable() {
         </span>
       ),
     },
-    {
-      header: "Actions",
-      render: (lead) => (
-        <div className="flex gap-2">
-          <CallButton lead={lead} onRefresh={fetchLeads} />
-          <button
-            onClick={() => router.push(`/lead/${lead.id}`)}
-            className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow"
-            title="Edit lead"
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            onClick={() => {
-              setStoryLead(lead);
-              setIsStoryModalOpen(true);
-            }}
-            className="w-8 h-8 bg-purple-500 hover:bg-purple-600 text-white rounded-full flex items-center justify-center shadow"
-            title="View Story"
-          >
-            <BookOpenText size={18} />
-          </button>
-          <button
-            onClick={() => {
-              setSelectedLeadId(lead.id);
-              setIsCommentModalOpen(true);
-            }}
-            className="w-8 h-8 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
-            title="Comments"
-          >
-            <MessageCircle size={16} />
-          </button>
-        </div>
-      ),
-    },
+{
+  header: "Actions",
+  render: (lead) => (
+    <div className="flex gap-2">
+      <CallButton lead={lead} onRefresh={fetchLeads} />
+
+      <button
+        onClick={() => router.push(`/lead/${lead.id}`)}
+        title="Edit lead"
+        className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+      >
+        <Pencil
+          size={22}
+          className="transition-transform duration-150 group-hover:scale-110"
+        />
+      </button>
+
+      <button
+        onClick={() => {
+          setStoryLead(lead);
+          setIsStoryModalOpen(true);
+        }}
+        title="View Story"
+        className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-purple-500 hover:text-purple-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+      >
+        <BookOpenText
+          size={22}
+          className="transition-transform duration-150 group-hover:scale-110"
+        />
+      </button>
+
+      <button
+        onClick={() => {
+          setSelectedLeadId(lead.id);
+          setIsCommentModalOpen(true);
+        }}
+        title="Comments"
+        className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-teal-500 hover:text-teal-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+      >
+        <MessageCircle
+          size={22}
+          className="transition-transform duration-150 group-hover:scale-110"
+        />
+      </button>
+    </div>
+  ),
+}
   ];
 
   // const filteredLeads = leads.filter((lead) => {
@@ -415,9 +439,10 @@ export default function OldLeadsTable() {
   const filteredLeads = leads; // backend already applied filters
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 ">
+    <div className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200
+             bg-gray-50 p-4 overflow-hidden flex flex-col">
       {/* filters (unchanged UI) */}
-      <div className="flex flex-wrap gap-4 py-4 bg-gray-50">
+      <div className="shrink-0 w-full flex flex-wrap gap-4 py-4 bg-gray-50 justify-end md:justify-end">
         <select
           value={responseFilterId || ""}
           onChange={(e) => {
@@ -436,6 +461,7 @@ export default function OldLeadsTable() {
         </select>
 
         <div className="flex items-center gap-3">
+          <label>From</label>
           <input
             type="date"
             value={fromDate}
@@ -445,6 +471,7 @@ export default function OldLeadsTable() {
             }}
             className="px-3 py-2 border rounded text-sm"
           />
+          <label>To</label>
           <input
             type="date"
             value={toDate}
@@ -473,7 +500,7 @@ export default function OldLeadsTable() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 mx-2 overflow-hidden">
+      <div className="flex-1 min-h-0 bg-white rounded-xl shadow-md border border-gray-200 mx-2 overflow-hidden flex flex-col">
         <LeadsDataTable
           leads={leads}
           loading={loading}

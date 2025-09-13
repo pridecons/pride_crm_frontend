@@ -452,7 +452,7 @@ export default function UsersListPage() {
 
         {/* Create/Edit Modal */}
         <UserModal
-          key={modalKey}
+          key={`user-modal-${modalKey}`} 
           mode={modalMode}
           isOpen={!!modalMode}
           onClose={() => setModalMode(null)}
@@ -475,7 +475,7 @@ export default function UsersListPage() {
 
         {/* ⬇️ Bulk Upload Modal */}
         <BulkUserUploadModal
-          key={bulkKey}
+          key={`bulk-upload-${bulkKey}`}
           isOpen={bulkOpen}
           onClose={() => setBulkOpen(false)}
           onSuccess={() => {

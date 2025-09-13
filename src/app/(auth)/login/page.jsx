@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { jwtDecode } from 'jwt-decode'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, User, Lock } from 'lucide-react'
-import { axiosInstance } from '@/api/Axios'  // Import axiosInstance
+import { authAxiosInstance } from '@/api/Axios'  // Import authAxiosInstance
 import { ErrorHandling } from '@/helper/ErrorHandling'
 
 // Map numeric role_id → canonical key
@@ -127,7 +127,7 @@ export default function LoginPage() {
       body.append('client_id', 'string')
       body.append('client_secret', 'string')
 
-      const res = await axiosInstance.post('/auth/login', body, {
+      const res = await authAxiosInstance.post('/auth/login', body, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           Accept: 'application/json',

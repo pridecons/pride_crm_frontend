@@ -32,48 +32,50 @@ const fmtDur = (sec) => {
 // IST time with AM/PM
 const formatIST = (s) => {
   if (!s) return "—";
-  const looksISO = s.includes("T") || /[+-]\d\d:?\d\d$/.test(s) || s.endsWith("Z");
+
+  // const looksISO = s.includes("T") || /[+-]\d\d:?\d\d$/.test(s) || s.endsWith("Z");
   try {
-    if (looksISO) {
-      const d = new Date(s);
-      return new Intl.DateTimeFormat("en-IN", {
-        timeZone: "Asia/Kolkata",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      }).format(d);
-    }
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
-    if (m) {
-      const y = m[1];
-      const mo = parseInt(m[2], 10);
-      const d = m[3];
-      let hh = parseInt(m[4], 10);
-      const mm = m[5];
-      const ss = m[6];
-      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      const ampm = hh >= 12 ? "PM" : "AM";
-      hh = hh % 12 || 12;
-      const pad = (x) => String(x).padStart(2, "0");
-      return `${d} ${months[mo - 1]} ${y}, ${pad(hh)}:${mm}:${ss} ${ampm}`;
-    }
-    const d = new Date(s);
-    if (!isNaN(d)) {
-      return new Intl.DateTimeFormat("en-IN", {
-        timeZone: "Asia/Kolkata",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      }).format(d);
-    }
+    return s
+    // if (looksISO) {
+    //   const d = new Date(s);
+    //   return new Intl.DateTimeFormat("en-IN", {
+    //     timeZone: "Asia/Kolkata",
+    //     day: "2-digit",
+    //     month: "short",
+    //     year: "numeric",
+    //     hour: "numeric",
+    //     minute: "2-digit",
+    //     second: "2-digit",
+    //     hour12: true,
+    //   }).format(d);
+    // }
+    // const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+    // if (m) {
+    //   const y = m[1];
+    //   const mo = parseInt(m[2], 10);
+    //   const d = m[3];
+    //   let hh = parseInt(m[4], 10);
+    //   const mm = m[5];
+    //   const ss = m[6];
+    //   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    //   const ampm = hh >= 12 ? "PM" : "AM";
+    //   hh = hh % 12 || 12;
+    //   const pad = (x) => String(x).padStart(2, "0");
+    //   return `${d} ${months[mo - 1]} ${y}, ${pad(hh)}:${mm}:${ss} ${ampm}`;
+    // }
+    // const d = new Date(s);
+    // if (!isNaN(d)) {
+    //   return new Intl.DateTimeFormat("en-IN", {
+    //     timeZone: "Asia/Kolkata",
+    //     day: "2-digit",
+    //     month: "short",
+    //     year: "numeric",
+    //     hour: "numeric",
+    //     minute: "2-digit",
+    //     second: "2-digit",
+    //     hour12: true,
+    //   }).format(d);
+    // }
   } catch (_) {}
   return s;
 };

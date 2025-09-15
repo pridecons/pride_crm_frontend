@@ -11,8 +11,12 @@ import { createPortal } from "react-dom";
 import { usePermissions } from "@/context/PermissionsContext";
 import ShowNotifications from "./Notofication/ShowNotifications";
 import { doLogout } from "@/utils/logout";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /** ---------- helpers ---------- */
+
+const CHAT_UNREAD_VIA_HTTP = false; // ⬅️ OFF = never call /chat/threads automatically
+
 function toPrettyRole(r = '') {
   const clean = String(r || '')
     .trim()
@@ -118,24 +122,45 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
   // ---- Chat unread bubble ----
   const [chatUnread, setChatUnread] = useState(0);
-
   const fetchChatUnread = useCallback(async () => {
     try {
-      // same endpoint your chat page uses
       const { data } = await axiosInstance.get('/chat/threads', { baseURL: BASE_URL_full });
       const arr = Array.isArray(data) ? data : [];
-      const total = arr.reduce((sum, t) => sum + (Number(t?.unread_count) || 0), 0);
+      const total = arr.reduce((sum, t) => {
+        // try multiple possible keys
+        const v =
+          t?.unread_count ??
+          t?.unread ??
+          t?.unseen_count ??
+          t?.unreadMessages ??
+          t?.unread_for_me ??
+          0;
+        return sum + Number(v || 0);
+      }, 0);
       setChatUnread(total);
     } catch {
-      // ignore errors; next tick will refresh
+      // ignore; next tick will retry
     }
   }, []);
 
-  useEffect(() => {
-    fetchChatUnread();                   // initial
-    const id = setInterval(fetchChatUnread, 8000); // poll every ~8s
-    return () => clearInterval(id);
-  }, [fetchChatUnread]);
+
+/** ✅ auth bootstrap: set axios auth + extract user for header */
+useEffect(() => {
+  // ensure auth header before first call
+  const token = Cookies.get('access_token');
+  if (token) {
+    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
+
+  // ⬅️ initialize header user (reads cookie and/or JWT)
+  const u = getUserFromCookies();
+  if (u) setUser(u);
+
+  if (!CHAT_UNREAD_VIA_HTTP) return;   // nothing below runs when false
+  fetchChatUnread();
+  const id = setInterval(fetchChatUnread, 8000);
+  return () => clearInterval(id);
+}, [fetchChatUnread]);
 
   const loadLookupsIfNeeded = useCallback(async () => {
     if (lookupsLoadedRef.current) return;
@@ -278,13 +303,18 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
   /** ✅ auth bootstrap: set axios auth + extract user for header */
   useEffect(() => {
-    const accessToken = Cookies.get('access_token');
-    if (accessToken) {
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+    // ensure auth header before first call
+    const token = Cookies.get('access_token');
+    if (token) {
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    const u = getUserFromCookies();
-    if (u) setUser(u);
-  }, []);
+
+    if (!CHAT_UNREAD_VIA_HTTP) return;   // ⬅️ stop here
+  fetchChatUnread();
+  const id = setInterval(fetchChatUnread, 8000);
+  return () => clearInterval(id);
+  }, [fetchChatUnread]);
+
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -449,10 +479,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     : "sm:max-w-md";
 
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 h-16"
-      style={{ paddingLeft: "var(--sbw)", transition: "padding-left 200ms ease" }}
-    >
+    <header className="fixed top-0 left-0 right-0 z-50 h-16 shadow-lg">
       {/* solid white header like CoreUI; subtle divider */}
       <div className="h-full bg-white border-b border-gray-200">
         <div className="h-full px-4 lg:px-4 flex items-center justify-between relative">
@@ -472,19 +499,17 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             {/* Show the logo in the header ONLY when the sidebar is closed on mobile.
      On desktop (lg+), the logo stays in the sidebar, so we hide it here. */}
             {/* Show header logo whenever the sidebar is CLOSED (any breakpoint) */}
-            {!sidebarOpen && (
-              <div className="relative">
-                <img
-                  src="/pride_logo_nobg.png"
-                  alt="Logo"
-                  width={130}
-                  height={55}
-                  className="transition-transform duration-200 hover:scale-105"
-                  onClick={()=> router.push("/dashboard")}
-                />
-                <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
-              </div>
-            )}
+            <div className="relative">
+              <img
+                src="/pride_logo_nobg.png"
+                alt="Logo"
+                width={130}
+                height={55}
+                className="transition-transform duration-200 hover:scale-105"
+                onClick={() => router.push("/dashboard")}
+              />
+              <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200 -z-10" />
+            </div>
           </div>
 
           {/* -------- Global Search -------- */}
@@ -568,15 +593,16 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             <button
               type="button"
               onClick={() => router.push('/chatting')}
-              className="relative pr-4 m-0 rounded-lg hover:bg-gray-100 text-gray-700"
+              className="relative pr-4 rounded-lg hover:bg-gray-100 text-gray-700"
               aria-label="Open chat"
               title="Chat"
             >
               <MessageCircle size={20} />
               {chatUnread > 0 && (
                 <span
-                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white
-                     text-[10px] leading-[18px] text-center"
+                  className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3
+                 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white
+                 text-[10px] leading-[18px] text-center z-10"
                 >
                   {chatUnread > 99 ? '99+' : chatUnread}
                 </span>

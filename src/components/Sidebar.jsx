@@ -6,60 +6,27 @@ import Link from "next/link";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import {
-  Home,
-  Target,
-  History,
-  UserPlus,
-  Users,
-  Building2,
-  Building,
-  Settings,
-  FileText,
-  Wrench,
-  Tag,
-  Gauge,
-  UploadCloud,
-  BarChart3,
-  UserCheck,
-  ShieldCheck,
-  ClipboardList,
-  CreditCard,
-  Mail,
-  MessageCircle,
-  MessageSquare,
-  CalendarCheck,
-  ChevronDown,
-  ChevronRight,
-  LogOut,
-  User,
-  SlidersHorizontal
+  Home, Target, History, UserPlus, Users, Building2, Building, Settings,
+  FileText, Wrench, Tag, Gauge, UploadCloud, BarChart3, UserCheck, ShieldCheck,
+  ClipboardList, CreditCard, Mail, MessageCircle, MessageSquare, CalendarCheck,
+  ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
+import { createPortal } from "react-dom";
 
-/* -----------------------------------
-   Helpers
------------------------------------ */
+/* ----------------------------------- */
 function isPathActive(pathname, href, match = "exact") {
   if (!pathname || !href) return false;
   const p = pathname.replace(/\/+$/, "");
   const h = href.replace(/\/+$/, "");
-  if (match === "prefix") {
-    return p === h || (h !== "/" && p.startsWith(h + "/"));
-  }
+  if (match === "prefix") return p === h || (h !== "/" && p.startsWith(h + "/"));
   return p === h;
 }
 
-/* -----------------------------------
-   Mini brand (CoreUI style)
------------------------------------ */
-
-
-/* -----------------------------------
-   Mobile user (only < md) 
------------------------------------ */
+/* ----------------------------------- */
 function MobileUser() {
   const [user, setUser] = useState(null);
-  const [isConnect, setIsConnect] = useState(false);
+  const [isConnect] = useState(false);
 
   useEffect(() => {
     const accessToken = Cookies.get("access_token");
@@ -76,31 +43,18 @@ function MobileUser() {
         <div className="w-9 h-9 rounded-full grid place-items-center bg-slate-700">
           <User size={16} className="text-slate-200" />
         </div>
-        <span
-          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#2f353a] ${isConnect ? "bg-emerald-500" : "bg-red-500"
-            }`}
-        />
+        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#2f353a] ${isConnect ? "bg-emerald-500" : "bg-red-500"}`} />
       </div>
       <div className="min-w-0">
-        <p className="text-[13px] text-slate-100 font-medium truncate">
-          {user?.name || "User"}
-        </p>
-        <p className="text-[11px] text-slate-400 truncate">
-          {user?.role || "Role"}
-        </p>
+        <p className="text-[13px] text-slate-100 font-medium truncate">{user?.name || "User"}</p>
+        <p className="text-[11px] text-slate-400 truncate">{user?.role || "Role"}</p>
       </div>
     </div>
   );
 }
 
-/* -----------------------------------
-   CoreUI-like Sidebar
-   - dark palette
-   - grouped sections
-   - collapsible groups with chevrons
-   - compact nav items
------------------------------------ */
-export default function CoreSidebar({ open, onClose }) {
+/* ----------------------------------- */
+export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose }) {
   const { hasPermission } = usePermissions();
   const pathname = usePathname();
 
@@ -121,26 +75,70 @@ export default function CoreSidebar({ open, onClose }) {
     }
   }, []);
 
-  const toggle = (key) =>
-    setExpanded((s) => ({ ...s, [key]: !s[key] }));
+  const toggle = (key) => setExpanded((s) => ({ ...s, [key]: !s[key] }));
+
+  function HoverTip({ show, x, y, label }) {
+    if (!show) return null;
+    return createPortal(
+      <div
+        className="fixed z-[9999] pointer-events-none -translate-y-1/2"
+        style={{ left: x, top: y }}
+      >
+        <div className="rounded bg-slate-800 px-2 py-1 text-xs text-white shadow-lg whitespace-nowrap">
+          {label}
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   const NavItem = ({ href, icon: Icon, label, activeMatch = "exact" }) => {
     const active = isPathActive(pathname, href, activeMatch);
+    const base = "rounded-md text-[13px] transition leading-none";
+    const palette = active
+      ? "bg-slate-800/80 text-white"
+      : "text-slate-300 hover:bg-slate-800/60 hover:text-white";
+
+    const [tip, setTip] = useState({ show: false, x: 0, y: 0 });
+    const iconRef = useState(null)[0] || (typeof window !== "undefined" ? { current: null } : { current: null }); // safe init
+    const setIconRef = (el) => (iconRef.current = el);
+
+    const handleEnter = () => {
+      if (!collapsed || !iconRef.current) return;
+      const r = iconRef.current.getBoundingClientRect();
+      // place tooltip 10px to the right, vertically centered with the icon box
+      setTip({ show: true, x: r.right + 10, y: r.top + r.height / 2 });
+    };
+    const handleLeave = () => setTip((t) => ({ ...t, show: false }));
+
     return (
       <li>
         <Link
           href={href}
           onClick={onClose}
+          aria-label={label}
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
           className={[
-            "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition",
-            active
-              ? "bg-slate-800/80 text-white"
-              : "text-slate-300 hover:bg-slate-800/60 hover:text-white",
+            "flex items-center",
+            collapsed ? "justify-center h-10 w-10" : "gap-2.5 px-3 py-2",
+            base,
+            palette,
           ].join(" ")}
         >
-          <Icon size={16} className={active ? "text-white" : "text-slate-400"} />
-          <span className="truncate">{label}</span>
+          {/* anchor element for measuring */}
+          <span
+            ref={setIconRef}
+            className={collapsed ? "h-10 w-10 grid place-items-center" : "grid place-items-center"}
+          >
+            <Icon size={18} className={active ? "text-white" : "text-slate-400"} />
+          </span>
+
+          {!collapsed && <span className="truncate">{label}</span>}
         </Link>
+
+        {/* fixed-position tooltip rendered to body */}
+        {collapsed && <HoverTip show={tip.show} x={tip.x} y={tip.y} label={label} />}
       </li>
     );
   };
@@ -148,23 +146,16 @@ export default function CoreSidebar({ open, onClose }) {
   /* ------------ MENU ------------- */
   const rawMenu = useMemo(
     () => [
+      { items: [{ href: "/dashboard", icon: Home, label: "Home", access: "" }] },
       {
-        items: [{ href: "/dashboard", icon: Home, label: "Home", access: "" }],
-      },
-      {
-        title: "LEADS",
-        section: "leads",
-        icon: Target,
+        title: "LEADS", section: "leads", icon: Target,
         items: [
           { href: "/lead", icon: Target, label: "New Lead", access: "new_lead_page", activeMatch: "exact" },
           { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page", activeMatch: "exact" },
           { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page", activeMatch: "exact" },
           { href: "/client", icon: Users, label: "Client", access: "client_page" },
-          // subgroup
           {
-            title: "MANAGEMENT",
-            section: "management",
-            icon: SlidersHorizontal,
+            title: "MANAGEMENT", section: "management", icon: SlidersHorizontal,
             items: [
               { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "prefix" },
               { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
@@ -177,9 +168,7 @@ export default function CoreSidebar({ open, onClose }) {
         ],
       },
       {
-        title: "CONFIGURATION",
-        section: "configuration",
-        icon: Settings,
+        title: "CONFIGURATION", section: "configuration", icon: Settings,
         items: [
           { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
           { href: "/department", icon: Building, label: "Department", access: "department_page" },
@@ -189,33 +178,18 @@ export default function CoreSidebar({ open, onClose }) {
           { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
         ],
       },
+      { items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }] },
       {
-        
-        items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }],
-      },
-      {
-        title: "RESEARCHER",
-        items: [
+        title: "RESEARCHER", items: [
           { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
           { href: "/research-report", icon: FileText, label: "Research Report", access: "research_report_page" },
-        ],
+        ]
       },
+      { title: "CHAT", items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
+      { title: "MAIL", items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
+      { title: "NOTICE BOARD", items: [{ href: "/notice-board", icon: ClipboardList, label: "Notice Board", access: "notice_board_page" }] },
       {
-        title: "CHAT",
-        items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }],
-      },
-      {
-        title: "MAIL",
-        items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page"}],
-      },
-      {
-        title: "NOTICE BOARD",
-        items: [{ href: "/notice-board", icon: ClipboardList, label: "Notice Board", access: "notice_board_page" }],
-      },
-      {
-        title: "TEMPLATE",
-        section: "template",
-        icon: FileText,
+        title: "TEMPLATE", section: "template", icon: FileText,
         items: [
           { href: "/email", icon: Mail, label: "Email", access: "email_page" },
           { href: "/sms", icon: MessageCircle, label: "SMS", access: "sms_page" },
@@ -225,63 +199,49 @@ export default function CoreSidebar({ open, onClose }) {
     []
   );
 
-  /* -------- Permission filter ------- */
   const filteredMenu = useMemo(() => {
-    const can = (acc) => (acc === "" || hasPermission(acc));
-
+    const can = (acc) => acc === "" || hasPermission(acc);
     const filterItems = (items = []) =>
-      items
-        .map((item) => {
-          if (!item.href && Array.isArray(item.items)) {
-            const sub = filterItems(item.items);
-            if (!sub.length) return null;
-            return { ...item, items: sub };
-          }
-          return can(item.access) ? item : null;
-        })
-        .filter(Boolean);
-
-    return rawMenu
-      .map((sec) => {
-        if (sec.section) {
-          const its = filterItems(sec.items);
-          if (!its.length) return null;
-          return { ...sec, items: its };
+      items.map((item) => {
+        if (!item.href && Array.isArray(item.items)) {
+          const sub = filterItems(item.items);
+          if (!sub.length) return null;
+          return { ...item, items: sub };
         }
-        const its = filterItems(sec.items || []);
+        return can(item.access) ? item : null;
+      }).filter(Boolean);
+
+    return rawMenu.map((sec) => {
+      if (sec.section) {
+        const its = filterItems(sec.items);
         if (!its.length) return null;
         return { ...sec, items: its };
-      })
-      .filter(Boolean);
+      }
+      const its = filterItems(sec.items || []);
+      if (!its.length) return null;
+      return { ...sec, items: its };
+    }).filter(Boolean);
   }, [rawMenu, hasPermission]);
 
-  /* -----------------------------------
-     RENDER
-  ----------------------------------- */
+  /* ----------------------------------- */
   return (
-    <aside
-      className="
-        fixed top-0 bottom-0 left-0 z-[40] w-64
-        bg-gray-900 text-slate-200
-        transition-transform duration-200
-        flex flex-col"
-      style={{ transform: open ? 'translateX(0)' : 'translateX(-100%)' }}
+    <div
+      className="h-full bg-gray-900 text-slate-200 flex flex-col md:w-[var(--sbw)]"
+      style={{ width: widthPx }} // for mobile slide-in width
       role="navigation"
       aria-label="Sidebar"
     >
-      <div className="h-16 px-3 flex items-center border-b border-black/10">
-        <img src="/pride_logo_nobg.png" alt="Logo" width={130} height={55} />
-      </div>
 
-      {/* Mobile user */}
+      {/* Mobile user block */}
       <MobileUser />
 
       {/* Scrollable nav */}
-      <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain thin-scroll px-2 py-3">
+      <nav
+        className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${collapsed ? 'px-1 py-3' : 'px-2 py-3'} no-scrollbar`}>
         {filteredMenu.map((section, idx) => (
           <div key={`sec-${idx}`} className="mb-3">
-            {/* Section title (CoreUI uppercase) */}
-            {section.title && (
+            {/* Section title */}
+            {!collapsed && section.title && (
               <div className="px-3 py-2">
                 <span className="text-[10px] font-semibold tracking-[0.06em] text-slate-400">
                   {section.title}
@@ -289,8 +249,9 @@ export default function CoreSidebar({ open, onClose }) {
               </div>
             )}
 
-            {/* If collapsible section */}
-            {section.section ? (
+            {/* Collapsible sections only expand in full mode.
+                In collapsed mode we show only their direct leaf items (flattened). */}
+            {section.section && !collapsed ? (
               <div className="space-y-1">
                 <button
                   type="button"
@@ -315,7 +276,6 @@ export default function CoreSidebar({ open, onClose }) {
                       item.href ? (
                         <NavItem key={`item-${j}`} {...item} />
                       ) : (
-                        // subgroup collapsible
                         <li key={`grp-${j}`} className="space-y-1">
                           <button
                             type="button"
@@ -348,16 +308,22 @@ export default function CoreSidebar({ open, onClose }) {
                 )}
               </div>
             ) : (
-              // Non-collapsible section
+              // Non-collapsible section OR collapsed mini mode
               <ul className="space-y-1">
-                {section.items.map((item, i) => (
-                  <NavItem key={`leaf-${i}`} {...item} />
-                ))}
+                {(
+                  collapsed && section.section
+                    ? section.items.flatMap(it => (it.items ? it.items : it)) // flatten when collapsed
+                    : section.items
+                ).map((item, i) =>
+                  item.href ? (
+                    <NavItem key={`leaf-${i}`} {...item} />
+                  ) : null
+                )}
               </ul>
             )}
           </div>
         ))}
       </nav>
-    </aside>
+    </div>
   );
 }

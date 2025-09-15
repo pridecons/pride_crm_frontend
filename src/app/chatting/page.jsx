@@ -18,6 +18,7 @@ import ChatHeader from "@/components/chatting/ChatHeader";
 import MessageList from "@/components/chatting/MessageList";
 import NewChatModal from "@/components/chatting/NewChatModal";
 import Composer from "@/components/chatting/Composer";
+import ParticipantsModal from "@/components/chatting/ParticipantsModal";
 
 export default function WhatsAppChatPage() {
   const { openDoc, DocViewerPortal } = useDocViewer({
@@ -47,6 +48,8 @@ export default function WhatsAppChatPage() {
 
   // Unread divider index
   const [firstUnreadIdx, setFirstUnreadIdx] = useState(null);
+
+  const [showParticipants, setShowParticipants] = useState(false);
 
   // Throttled peeking
   const peekCooldownMs = 10_000;
@@ -94,68 +97,58 @@ export default function WhatsAppChatPage() {
     return () => { alive = false; };
   }, []);
 
-  // Poll threads + peek last message
-  useEffect(() => {
-    let cancelled = false;
+// ===== Config toggles (put near top of the file) =====
+const USE_WS_ONLY = true;            // true => no periodic HTTP polling
+const INITIAL_THREADS_FETCH = true;  // set false to skip even the one-time load
 
-    const loadThreads = async () => {
-      try {
-        const { data } = await axiosInstance.get("/chat/threads");
-        if (cancelled) return;
-        const arr = Array.isArray(data) ? data : [];
+// ===== Replace the polling+peek effect with these two effects =====
 
-        setThreads((prev) => {
-          const prevMap = new Map(prev.map((t) => [t.id, t]));
-          return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
-        });
+// (A) One-time initial load (optional)
+useEffect(() => {
+  if (!INITIAL_THREADS_FETCH) return;
+  let cancelled = false;
 
-        // Throttled recents peek
-        const now = Date.now();
-        const toPeek = [];
-        for (const t of arr) {
-          if (!t?.id) continue;
-          if (t.id === selectedId) continue;
-          if (inFlightRef.current.has(t.id)) continue;
-          const last = lastPeekAtRef.current.get(t.id) || 0;
-          if (now - last < peekCooldownMs) continue;
-          toPeek.push(t.id);
-          if (toPeek.length >= 8) break;
-        }
+  (async () => {
+    try {
+      const { data } = await axiosInstance.get("/chat/threads");
+      if (cancelled) return;
+      const arr = Array.isArray(data) ? data : [];
+      setThreads((prev) => {
+        const prevMap = new Map(prev.map((t) => [t.id, t]));
+        return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
+      });
+    } catch (e) {
+      console.error("initial threads load error", e);
+    }
+  })();
 
-        toPeek.forEach(async (id) => {
-          inFlightRef.current.add(id);
-          lastPeekAtRef.current.set(id, Date.now());
-          try {
-            const { data: lastMsgs } = await axiosInstance.get(`/chat/${id}/messages`, { params: { limit: 1 } });
-            if (cancelled || !Array.isArray(lastMsgs) || !lastMsgs.length) return;
-            const m = lastMsgs[lastMsgs.length - 1];
-            setThreads((prev) =>
-              prev.map((x) => {
-                if (x.id !== id) return x;
-                const prevTs = x.last_message_time ? new Date(x.last_message_time).getTime() : 0;
-                const nextTs = m?.created_at ? new Date(m.created_at).getTime() : 0;
-                const isNewer = nextTs > prevTs;
-                const isSelf = String(m?.sender_id) === String(currentUser);
-                const bump = isNewer && !isSelf && id !== selectedId ? 1 : 0;
-                return {
-                  ...x,
-                  last_message: m.body,
-                  last_message_time: m.created_at,
-                  unread_count: (x.unread_count || 0) + bump,
-                };
-              })
-            );
-          } catch { } finally { inFlightRef.current.delete(id); }
-        });
-      } catch (e) { console.error("threads load error", e); }
-    };
+  return () => { cancelled = true; };
+}, []);
 
-    loadThreads();
-    const iv = setInterval(loadThreads, 3000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [selectedId, currentUser]);
+// (B) No periodic polling or peeking when WS is used
+useEffect(() => {
+  if (USE_WS_ONLY) return; // <-- disables the old poller entirely
+  // (intentionally left blank)
+}, []);
+
 
   // Load messages when selecting a thread
+  useEffect(() => {
+    if (!selected?.id) return;
+    // if we already have participants, skip
+    if (Array.isArray(selected.participants) && selected.participants.length) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: t } = await axiosInstance.get(`/chat/threads/${selected.id}`);
+        if (!alive || !t?.id) return;
+        // merge participants & any new meta into selected
+        setSelected((prev) => (prev?.id === t.id ? { ...prev, ...t } : prev));
+      } catch { }
+    })();
+    return () => { alive = false; };
+  }, [selected?.id]);
+
   useEffect(() => {
     if (!selected?.id) return;
     (async () => {
@@ -275,7 +268,7 @@ export default function WhatsAppChatPage() {
     } catch { }
   }, []);
 
-  useInboxSocket({ currentUser, enabled: !!currentUser, onEvent: handleInboxEvent, onFallbackTick: fallbackTick });
+  useInboxSocket({ currentUser, enabled: !!currentUser, onEvent: handleInboxEvent });
 
   // Thread socket events
   const handleSocketEvent = useCallback((evt) => {
@@ -312,6 +305,13 @@ export default function WhatsAppChatPage() {
       if (!msg || !msg.thread_id) return;
       const tId = msg.thread_id;
       const mine = String(msg.sender_id) === String(currentUser);
+
+      // 🔒 De-dup: if we *just* sent this text in this thread, skip the WS echo.
+      // Works even if the backend incorrectly tags the echo as not "mine".
+      const echoKey = `${currentUser || ""}|${tId || ""}|${(msg.body || "").slice(0, 500)}`;
+      if (recentSentRef.current.has(echoKey)) {
+        return;
+      }
 
       if (mine) {
         setThreads((prev) => prev.map((t) => (t.id === tId ? { ...t, last_message: msg.body, last_message_time: msg.created_at } : t)));
@@ -358,6 +358,9 @@ export default function WhatsAppChatPage() {
 
   const handleSend = async (body, files) => {
     if ((!body && (!files || files.length === 0)) || !selected) return false;
+
+    // mark so any WS echo of this message is ignored
+    rememberSent(currentUser, selected.id, body || "");
 
     // optimistic bubble
     const tempId = `tmp-${Date.now()}`;
@@ -460,8 +463,20 @@ export default function WhatsAppChatPage() {
             />
 
             {/* RIGHT */}
-            <div className="w-[60%] flex flex-col min-h-0">
-              <ChatHeader selected={selected} typing={typing} />
+            <div className="flex-1 flex flex-col min-h-0">
+              <ChatHeader
+                selected={selected}
+                typing={typing}
+                onShowParticipants={async () => {
+                  if (selected?.id && !Array.isArray(selected.participants)) {
+                    try {
+                      const { data: t } = await axiosInstance.get(`/chat/threads/${selected.id}`);
+                      if (t?.id) setSelected((prev) => (prev?.id === t.id ? { ...prev, ...t } : prev));
+                    } catch { }
+                  }
+                  setShowParticipants(true);
+                }}
+              />
 
               <MessageList
                 selected={selected}
@@ -486,6 +501,12 @@ export default function WhatsAppChatPage() {
 
         {/* <p className="text-center py-3 text-sm">Design inspired by …</p> */}
       </div>
+
+      <ParticipantsModal
+        open={showParticipants && selected?.type === "GROUP"}
+        onClose={() => setShowParticipants(false)}
+        participants={Array.isArray(selected?.participants) ? selected.participants : []}
+      />
 
       <NewChatModal
         isOpen={showNewChat}

@@ -8,7 +8,7 @@ export default function ProfileModal({
   isOpen,
   onClose,
   onSave,
-  profile, // optional (if provided => edit mode)
+  profile,
 }) {
   const isEdit = !!profile;
 
@@ -110,329 +110,189 @@ export default function ProfileModal({
 
   if (!isOpen) return null;
 
+  const selectedDepartment = departments.find(dept => dept.id === selectedDepartmentId);
+
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white border rounded-xl shadow-lg w-full sm:max-w-3xl max-w-md max-h-[90vh] overflow-y-auto p-6 mt-20 animate-fadeIn"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-6 border-b pb-2">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {isEdit ? "Edit Profile" : "Add New Profile"}
-          </h2>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
+        {/* Header */}
+        <div className="flex justify-between items-center p-8 pb-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">
+              {isEdit ? "Edit Profile" : "Create New Profile"}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {isEdit ? "Update profile information and permissions" : "Define a new role with specific permissions"}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-full hover:bg-white/80 transition-colors duration-200"
           >
-            ✖
+            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="gap-2 grid grid-cols-2 w-full">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Profile Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Enter profile name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 outline-none"
-              required
-            />
-          </div>
+        <div className="p-8">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Profile Name */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Profile Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Senior Manager"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                required
+              />
+            </div>
 
-          {/* Department Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Department <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 outline-none"
-              value={selectedDepartmentId || ""}
-              onChange={(e) => setSelectedDepartmentId(e.target.value)}
-              required
-            >
-              <option value="" disabled>
-                Select Department
-              </option>
-              {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Hierarchy Level */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hierarchy Level
-            </label>
-            <input
-              type="number"
-              placeholder="Hierarchy Level"
-              value={hierarchyLevel}
-              onChange={(e) => setHierarchyLevel(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 outline-none"
-              min="1"
-            />
-          </div>
-
-          {/* Permissions */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Default Permissions
-            </label>
-            <button
-              type="button"
-              onClick={() => setOpenPermModal(true)}
-              className="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-            >
-              Select Permissions
-            </button>
-
-            {selectedPerms.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {selectedPerms.map((perm, idx) => (
-                  <span
-                    key={idx}
-                    className="bg-blue-50 text-blue-700 text-xs font-medium px-2 py-1 rounded-full"
-                  >
-                    {perm}
-                  </span>
-                ))}
+            {/* Department Dropdown */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Department <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white appearance-none"
+                  value={selectedDepartmentId || ""}
+                  onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Choose a department
+                  </option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
-            )}
-          </div>
+              {selectedDepartment && (
+                <p className="text-xs text-indigo-600 mt-1">
+                  Selected: {selectedDepartment.name}
+                </p>
+              )}
+            </div>
 
-          <PermissionsModal
-            isOpen={openPermModal}
-            onClose={() => setOpenPermModal(false)}
-            selectedPermissions={selectedPerms}
-            onChange={handlePermChange}
-            availablePermissions={departmentPermissions}
-          />
+            {/* Hierarchy Level */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Hierarchy Level
+              </label>
+              <input
+                type="number"
+                placeholder="1"
+                value={hierarchyLevel}
+                onChange={(e) => setHierarchyLevel(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                min="1"
+              />
+              <p className="text-xs text-gray-500">Lower numbers indicate higher authority</p>
+            </div>
 
-          {/* Description */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              placeholder="Enter description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 outline-none"
-              rows={3}
-            />
-          </div>
+            {/* Permissions */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Default Permissions
+              </label>
+              <button
+                type="button"
+                onClick={() => setOpenPermModal(true)}
+                className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:ring-4 focus:ring-indigo-200 transition-all duration-200 font-medium shadow-lg"
+                disabled={!selectedDepartmentId}
+              >
+                {!selectedDepartmentId ? "Select Department First" : `Select Permissions (${selectedPerms.length} selected)`}
+              </button>
 
-          {/* Active */}
-          <label className="flex items-center gap-3 text-base text-gray-700">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              className="h-6 w-6 text-green-600 border-gray-300 rounded focus:ring-green-500"
-            />
-            Active
-          </label>
+              {selectedPerms.length > 0 && (
+                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200 mt-2">
+                  <p className="text-sm font-medium text-indigo-800 mb-2">Selected Permissions:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPerms.map((perm, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200"
+                      >
+                        {perm}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t col-span-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-            >
-              {isEdit ? "Update" : "Save"}
-            </button>
-          </div>
-        </form>
+            {/* Description - Full Width */}
+            <div className="lg:col-span-2 space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                Description
+              </label>
+              <textarea
+                placeholder="Describe the role responsibilities and scope..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Active Status */}
+            <div className="lg:col-span-2">
+              <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="profile-active"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="w-5 h-5 text-green-600 border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2"
+                />
+                <div>
+                  <label htmlFor="profile-active" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    Active Profile
+                  </label>
+                  <p className="text-xs text-gray-500">Active profiles can be assigned to users</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="lg:col-span-2 flex justify-end gap-3 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 focus:ring-4 focus:ring-gray-200 transition-all duration-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-200 transition-all duration-200 font-medium shadow-lg"
+              >
+                {isEdit ? "Update Profile" : "Create Profile"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <PermissionsModal
+          isOpen={openPermModal}
+          onClose={() => setOpenPermModal(false)}
+          selectedPermissions={selectedPerms}
+          onChange={handlePermChange}
+          availablePermissions={departmentPermissions}
+        />
       </div>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-// export default function AddProfileModal({ isOpen, onClose, onAdd, departmentId, departments }) {
-//   const [name, setName] = useState("");
-//   const [hierarchyLevel, setHierarchyLevel] = useState(1);
-//   const [defaultPermissions, setDefaultPermissions] = useState("");
-//   const [description, setDescription] = useState("");
-//   const [isActive, setIsActive] = useState(true);
-//   const [openPermModal, setOpenPermModal] = useState(false);
-//   const [selectedPerms, setSelectedPerms] = useState([]);
-//   const [users, setUsers] = useState([]);
-
-//   const handlePermChange = (perms) => {
-//     setSelectedPerms(perms);
-//     setDefaultPermissions(perms.join(", "));
-//   };
-
-//   // const fetchUsers = async () => {
-//   //   try {
-//   //     const res = await axiosInstance.get("/users");
-//   //     const userList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-//   //     setUsers(userList);
-//   //   } catch (err) {
-//   //     console.error("Failed to fetch users:", err);
-//   //     setUsers([]);
-//   //   }
-//   // };
-
-//   // useEffect(() => {
-//   //   fetchUsers();
-//   // }, []);
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     try {
-//       const payload = {
-//         name,
-//         department_id: Number(departmentId), // Use the departmentId prop directly
-//         hierarchy_level: Number(hierarchyLevel),
-//         default_permissions: defaultPermissions
-//           ? defaultPermissions.split(",").map((p) => p.trim())
-//           : [],
-//         description,
-//         is_active: isActive,
-//       };
-
-//       const res = await axiosInstance.post("/profile-role/", payload);
-//       onAdd(res.data);
-
-//       // Reset form
-//       setName("");
-//       setHierarchyLevel(1);
-//       setDefaultPermissions("");
-//       setDescription("");
-//       setIsActive(true);
-//       onClose();
-//     } catch (error) {
-//       console.error("Error adding profile:", error);
-//     }
-//   };
-  
-//   // inside your component, after fetching users
-//   // const hierarchyOptions = Array.from(
-//   //   new Map(
-//   //     users
-//   //       .filter(u => u.profile_role)
-//   //       .map(u => [u.profile_role.id, { id: u.profile_role.id, name: u.profile_role.name, level: u.profile_role.hierarchy_level }])
-//   //   ).values()
-//   // );
-
-//   // Get selected department name
-//   const selectedDepartment = departments?.find(dept => dept.id === departmentId);
-
-//   // Always call hooks, but conditionally render the modal
-//   if (!isOpen) return null;
-
-//   return (
-//     <div
-//       className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30"
-//       onClick={onClose}
-//     >
-//       <div
-//         className="bg-white rounded-lg shadow-lg p-6 w-96"
-//         onClick={(e) => e.stopPropagation()}
-//       >
-//         {/* Modal header */}
-//         <div className="flex justify-between items-center mb-4">
-//           <h2 className="text-xl font-semibold">Add Profile</h2>
-//           <button onClick={onClose} className="text-gray-500 hover:text-gray-800">
-//             ✖
-//           </button>
-//         </div>
-
-//         {/* Form */}
-//         <form onSubmit={handleSubmit}>
-//           <input
-//             type="text"
-//             placeholder="Profile Name"
-//             value={name}
-//             onChange={(e) => setName(e.target.value)}
-//             className="w-full border rounded-md p-2 mb-2"
-//             required
-//           />
-          
-//           {/* Display selected department instead of input field */}
-//           <div className="w-full border rounded-md p-2 mb-2 bg-gray-100">
-//             <span className="text-gray-600"></span>
-//             <span className="font-medium">{selectedDepartment?.name || 'No department selected'}</span>
-//           </div>
-          
-         
-//            <input
-//             type="text"
-//             placeholder="hierarchy_level"
-//             value={name}
-//             onChange={(e) => setName(e.target.hierarchy_level)}
-//             className="w-full border rounded-md p-2 mb-2"
-//           />
-
-//           <button
-//             onClick={() => setOpenPermModal(true)}
-//             className="px-4 py-2 bg-blue-500 text-white rounded mb-2"
-//             type="button"
-//           >
-//             Select Permissions
-//           </button>
-
-//           <PermissionsModal
-//             isOpen={openPermModal}
-//             onClose={() => setOpenPermModal(false)}
-//             selectedPermissions={selectedPerms}
-//             onChange={handlePermChange}
-//           />
-
-//           <textarea
-//             placeholder="Description"
-//             value={description}
-//             onChange={(e) => setDescription(e.target.value)}
-//             className="w-full border rounded-md p-2 mb-2"
-//           />
-//           <label className="flex items-center gap-2 mb-3">
-//             <input
-//               type="checkbox"
-//               checked={isActive}
-//               onChange={(e) => setIsActive(e.target.checked)}
-//             />
-//             Active
-//           </label>
-
-//           <button
-//             type="submit"
-//             className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-//           >
-//             Save
-//           </button>
-//         </form>
-//       </div>
-//     </div>
-//   );
-// }
-

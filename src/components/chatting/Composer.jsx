@@ -35,7 +35,7 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
   }));
 
   return (
-    <div className="bg-white px-5 py-3 border-t border-gray-300 relative">
+    <div className="bg-white px-5 py-3 border-t border-gray-300 relative overflow-x-hidden">
       <input
         ref={fileInputRef}
         id="chat-file-input"
@@ -46,20 +46,20 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
       />
 
       {pendingFiles.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2 min-w-0">
           {pendingFiles.map((f, i) => (
             <span
               key={`${f.name}-${i}`}
-              className="inline-flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-[12px]"
+              className="inline-flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-[12px] max-w-full min-w-0"
             >
-              <span>{fileKindIcon(f.type, f.name)} {f.name}</span>
+              <span className="min-w-0 max-w-[60vw] sm:max-w-[40vw] truncate">{fileKindIcon(f.type, f.name)} {f.name}</span>
               <button onClick={() => removePending(i)} className="text-gray-500 hover:text-gray-700">×</button>
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex items-center">
+      <div className="flex items-center min-w-0 gap-2">
         <button
           className="mr-2 h-[33px] w-[33px] rounded-full bg-[#05728f] text-white flex items-center justify-center"
           title="Attach"
@@ -69,7 +69,7 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
         </button>
 
         <input
-          className="flex-1 bg-transparent border-0 text-[#4c4c4c] text-[15px] min-h-[48px] focus:outline-none"
+          className="flex-1 w-0 min-w-0 bg-transparent border-0 text-[#4c4c4c] text-[15px] min-h-[48px] focus:outline-none"
           placeholder="Type a message"
           value={text}
           onChange={(e) => setText(e.target.value)}

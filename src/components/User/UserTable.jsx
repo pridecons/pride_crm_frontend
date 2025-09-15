@@ -150,7 +150,6 @@ export default function UserTable({
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-200">
-      <useRoleBranch/>
       {/* Outer wrapper keeps horizontal scroll; inner wrapper scrolls vertically so header can stick */}
       <div className="overflow-x-auto">
         <div className="relative max-h-[70vh] overflow-y-auto">

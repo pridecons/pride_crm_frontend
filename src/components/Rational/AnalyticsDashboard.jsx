@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Users, Target, TrendingUp, PieChart } from 'lucide-react';
-import { axiosInstance } from '@/api/Axios'; 
+import { axiosInstance } from '@/api/Axios';
 
 
 function AnalyticsDashboard() {
@@ -72,28 +72,16 @@ function AnalyticsDashboard() {
           <MetricCard
             title="Active Users"
             value={analyticsData.active_users}
-            icon={<Users className="w-6 h-6 text-green-600" />}
-            bgColor="bg-green-100"
+            icon={<Users className="w-6 h-6 text-pink-500" />}
+            bgColor="bg-pink-100"
           />
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{analyticsData.success_rate}%</p>
-              </div>
-              <div className="bg-emerald-100 p-3 rounded-full">
-                <Target className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${analyticsData.success_rate}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
+          
+          <MetricCard
+            title="Success Rate"
+            value={`${analyticsData.success_rate}%`}
+            icon={<Target className="w-6 h-6 text-emerald-600" />}
+            bgColor="bg-emerald-100"
+          />
           <MetricCard
             title="Performance"
             value="Excellent"
@@ -154,15 +142,16 @@ export default AnalyticsDashboard;
 
 // Helper components
 const MetricCard = ({ title, value, icon, bgColor, textColor = 'text-gray-900' }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+  <div className="bg-white shadow-sm border border-gray-200 p-6">
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm font-medium text-gray-600">{title}</p>
         <p className={`text-3xl font-bold ${textColor} mt-2`}>{value}</p>
       </div>
-      <div className={`${bgColor} p-3 rounded-full`}>
+      <div className='px-2'>
+        <div className={`${bgColor} p-2 rounded`}>
         {icon}
-      </div>
+      </div></div>
     </div>
   </div>
 );

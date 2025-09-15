@@ -6,6 +6,26 @@ import React from "react";
 const isBlank = (v) =>
     v == null || (typeof v === "string" && v.trim() === "");
 
+// Show "local@….." when the email is long; keep full email in title (hover)
+const formatEmailForCell = (value, header) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return { text: "", title: undefined };
+
+  // Only for email columns
+  if (!/email/i.test(String(header || ""))) {
+    return { text: raw, title: raw };
+  }
+
+  // Short enough → show as-is
+  if (raw.length <= 18) return { text: raw, title: raw };
+
+  // Long email → "local@….."
+  const at = raw.indexOf("@");
+  if (at === -1) return { text: raw.slice(0, 10) + "…..", title: raw }; // fallback if no "@"
+  const local = raw.slice(0, at);
+  return { text: `${local}@…..`, title: raw };
+};
+
 export default function LeadsDataTable({
     leads = [],
     loading = false,
@@ -97,28 +117,32 @@ export default function LeadsDataTable({
                                             const out = col.render ? col.render(lead) : null;
 
                                             // Plain value
-                                            if (
-                                                typeof out === "string" ||
-                                                typeof out === "number" ||
-                                                out == null
-                                            ) {
-                                                return (
-                                                    <td
-                                                        key={cIdx}
-                                                        className={`px-4 py-3 align-middle whitespace-nowrap truncate ${String(col?.header || "").toLowerCase().includes("client")
-                                                            ? "text-left"  // 👈 force left for Client Name column
-                                                            : alignClass(col)
-                                                            }`}
-                                                        title={!isBlank(out) ? String(out) : undefined}
-                                                    >
-                                                        {isBlank(out) ? (
-                                                            <span className="text-gray-400">—</span>
-                                                        ) : (
-                                                            String(out)
-                                                        )}
-                                                    </td>
-                                                );
-                                            }
+                                            // Plain value
+if (
+  typeof out === "string" ||
+  typeof out === "number" ||
+  out == null
+) {
+  const { text, title } = formatEmailForCell(out, col.header);
+
+  return (
+    <td
+      key={cIdx}
+      className={`px-4 py-3 align-middle whitespace-nowrap truncate ${
+        String(col?.header || "").toLowerCase().includes("client")
+          ? "text-left" // keep Client left aligned
+          : alignClass(col)
+      }`}
+      title={!isBlank(out) ? title : undefined}  // hover shows full email
+    >
+      {isBlank(out) ? (
+        <span className="text-gray-400">—</span>
+      ) : (
+        text
+      )}
+    </td>
+  );
+}
 
                                             // JSX value — also center flex content
                                             return (

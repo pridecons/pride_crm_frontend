@@ -9,8 +9,14 @@ import { Toaster } from "react-hot-toast";
 export default function Main({ children }) {
   const pathname = usePathname();
 
-  // open/close toggle button state
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // open/close toggle button state (persisted)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sidebarOpen");
+      if (saved === "true" || saved === "false") return saved === "true";
+    }
+    return true; // default
+  });
 
   // track if viewport is desktop (>= md)
   const [isDesktop, setIsDesktop] = useState(false);
@@ -27,8 +33,20 @@ export default function Main({ children }) {
 
   // If we’re on login, force the sidebar closed (no mini icons either)
   useEffect(() => {
-    if (!showChrome) setSidebarOpen(false);
+    if (!showChrome) {
+      setSidebarOpen(false);
+    } else {
+      // leaving login: restore last saved preference
+      const saved = typeof window !== "undefined" && localStorage.getItem("sidebarOpen");
+      if (saved === "true" || saved === "false") setSidebarOpen(saved === "true");
+    }
   }, [showChrome]);
+
+  useEffect(() => {
+    if (showChrome) {
+      localStorage.setItem("sidebarOpen", String(sidebarOpen));
+    }
+  }, [sidebarOpen, showChrome]);
 
   const FULL_W = 256;
   const MINI_W = 64;
@@ -44,8 +62,8 @@ export default function Main({ children }) {
   const asideTransform = isDesktop
     ? "translateX(0)"
     : sidebarOpen
-    ? "translateX(0)"
-    : "translateX(-100%)";
+      ? "translateX(0)"
+      : "translateX(-100%)";
 
   return (
     <PermissionsProvider>
@@ -74,7 +92,9 @@ export default function Main({ children }) {
               <CoreSidebar
                 collapsed={isDesktop && !sidebarOpen}
                 widthPx={isDesktop ? sbw : FULL_W}
-                onClose={() => setSidebarOpen(false)}
+                onClose={() => {
+                  if (!isDesktop) setSidebarOpen(false); // only close on mobile overlay
+                }}
               />
             </aside>
 

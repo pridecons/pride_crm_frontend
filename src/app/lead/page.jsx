@@ -106,6 +106,17 @@ export default function NewLeadsTable() {
     }
   };
 
+  // Shows "local@….." if email is long; keeps full value for title/hover
+  const shortEmail = (email) => {
+    const raw = String(email || "").trim();
+    if (!raw) return "";
+    if (raw.length <= 28) return raw;
+    const at = raw.indexOf("@");
+    if (at === -1) return raw.slice(0, 18) + "…..";
+    const local = raw.slice(0, at);
+    return `${local}@…..`;
+  };
+
   // 2) POST /leads/fetch (only when clicking button), then refresh assignments
   const handleFetchLeads = async () => {
     setLoading(true);
@@ -242,12 +253,15 @@ export default function NewLeadsTable() {
       // 🔹 NEW: Email column
       {
         header: "Email",
-        align: "center",
+        align: "left",
         render: (lead) =>
           lead.email ? (
-            <a>
-              {lead.email}
-            </a>
+            <span
+              className="inline-block max-w-[180px] md:max-w-[240px] truncate align-middle"
+              title={lead.email}                     // <-- hover shows full email
+            >
+              {shortEmail(lead.email)}
+            </span>
           ) : (
             <span className="text-gray-400">—</span>
           ),

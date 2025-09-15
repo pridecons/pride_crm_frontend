@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
 import {
   X,
@@ -22,14 +23,16 @@ import {
   Save,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { usePermissions } from '@/context/PermissionsContext';
+import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export default function FetchLimitConfigPage() {
   const { hasPermission } = usePermissions();
   const router = useRouter();
+
+  // --- existing state ---
   const [configs, setConfigs] = useState([]);
-  const [roles, setRoles] = useState([]);        // [{id, name}, ...]
+  const [roles, setRoles] = useState([]); // [{id, name}, ...]
   const [branches, setBranches] = useState([]);
   const [isCreateNew, setIsCreateNew] = useState(false);
   const [form, setForm] = useState({
@@ -45,56 +48,117 @@ export default function FetchLimitConfigPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Map role_id -> role_name for quick lookup
+  // --- NEW: auth-derived role & branch (from cookie) ---
+  const [role, setRole] = useState(null);
+  const [myBranchId, setMyBranchId] = useState(null);
+  const isSuperAdmin = String(role || "").toUpperCase() === "SUPERADMIN";
+
+  // Map role_id -> role_name
   const roleMap = useMemo(
     () =>
-      Object.fromEntries(
-        (roles || []).map((r) => [String(r.id), String(r.name)])
-      ),
+      Object.fromEntries((roles || []).map((r) => [String(r.id), String(r.name)])),
     [roles]
   );
-
-  // Convenience to get a human-readable role name from a config row
   const getRoleName = (cfg) =>
     roleMap[String(cfg.role_id)] || cfg.role_name || String(cfg.role_id);
+
+  // --- read user_info cookie once ---
+  useEffect(() => {
+    try {
+      const raw = Cookies.get("user_info");
+      if (raw) {
+        const u = JSON.parse(raw);
+
+        const r =
+          u?.role_name ||
+          u?.role ||
+          u?.user?.role_name ||
+          u?.user?.role ||
+          u?.user_info?.role_name ||
+          u?.user_info?.role ||
+          null;
+
+        const b =
+          u?.branch_id ||
+          u?.branch?.id ||
+          u?.user?.branch_id ||
+          u?.user?.branch?.id ||
+          u?.user_info?.branch_id ||
+          u?.user_info?.branch?.id ||
+          null;
+
+        if (r) setRole(String(r).toUpperCase());
+        if (b != null) setMyBranchId(String(b));
+      }
+    } catch (e) {
+      console.warn("Failed to parse user_info cookie:", e);
+    }
+  }, []);
 
   useEffect(() => {
     fetchConfigs();
     fetchRoles();
     fetchBranches();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, myBranchId]); // refetch when we learn role/branch
 
+  // --- fetchers with branch gating ---
   const fetchConfigs = async () => {
     try {
+      // Prefer server-side filtering if available
+      if (!isSuperAdmin && myBranchId) {
+        try {
+          const { data } = await axiosInstance.get(
+            `/lead-fetch-config/?branch_id=${myBranchId}`
+          );
+          setConfigs(Array.isArray(data) ? data : []);
+          return;
+        } catch (e) {
+          console.warn("Server branch filter failed, falling back to client filter:", e);
+        }
+      }
+
+      // Fallback: fetch all and client-filter later
       const { data } = await axiosInstance.get("/lead-fetch-config/");
-      setConfigs(data);
-    } catch(error) {
-      ErrorHandling({ error: error, defaultError: "Failed to load configurations"});
+      setConfigs(Array.isArray(data) ? data : []);
+    } catch (error) {
+      ErrorHandling({ error, defaultError: "Failed to load configurations" });
     }
   };
 
   const fetchRoles = async () => {
     try {
       const { data } = await axiosInstance.get("/profile-role/");
-      setRoles(data);
+      setRoles(Array.isArray(data) ? data : []);
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to load roles"});
+      ErrorHandling({ error, defaultError: "Failed to load roles" });
     }
   };
 
   const fetchBranches = async () => {
     try {
-      const { data } = await axiosInstance.get("/branches/?skip=0&limit=100&active_only=false");
-      setBranches(data);
-    } catch (error){
-       ErrorHandling({ error: error, defaultError: "Failed to load branches"});
+      const { data } = await axiosInstance.get(
+        "/branches/?skip=0&limit=100&active_only=false"
+      );
+      const all = Array.isArray(data) ? data : [];
+      if (isSuperAdmin) {
+        setBranches(all);
+      } else if (myBranchId) {
+        const mine = all.find((b) => String(b.id) === String(myBranchId));
+        setBranches(mine ? [mine] : []); // non-SA only sees own branch in dropdowns
+      } else {
+        setBranches([]); // unknown branch, keep empty
+      }
+    } catch (error) {
+      ErrorHandling({ error, defaultError: "Failed to load branches" });
     }
   };
 
+  // --- form helpers / lifecycle ---
   const resetForm = () => {
     setForm({
       role_id: "",
-      branch_id: "",
+      branch_id: isSuperAdmin ? "" : String(myBranchId || ""), // lock branch for non-SA
       per_request_limit: "",
       daily_call_limit: "",
       assignment_ttl_hours: "",
@@ -114,7 +178,8 @@ export default function FetchLimitConfigPage() {
     setEditingId(cfg.id);
     setForm({
       role_id: String(cfg.role_id),
-      branch_id: String(cfg.branch_id),
+      // lock to own branch if not superadmin
+      branch_id: String(isSuperAdmin ? cfg.branch_id : myBranchId || cfg.branch_id),
       per_request_limit: String(cfg.per_request_limit),
       daily_call_limit: String(cfg.daily_call_limit),
       assignment_ttl_hours: String(cfg.assignment_ttl_hours),
@@ -128,9 +193,12 @@ export default function FetchLimitConfigPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // force branch for non-superadmin
+    const branch_id_final = isSuperAdmin ? form.branch_id : myBranchId;
+
     const payload = {
       role_id: String(form.role_id),
-      branch_id: Number(form.branch_id),
+      branch_id: Number(branch_id_final),
       per_request_limit: Number(form.per_request_limit),
       daily_call_limit: Number(form.daily_call_limit),
       assignment_ttl_hours: Number(form.assignment_ttl_hours),
@@ -148,8 +216,8 @@ export default function FetchLimitConfigPage() {
       }
       await fetchConfigs();
       resetForm();
-    } catch(error) {
-      ErrorHandling({error: error, defaultError: "Save failed! Please try again."});
+    } catch (error) {
+      ErrorHandling({ error, defaultError: "Save failed! Please try again." });
     } finally {
       setIsSubmitting(false);
     }
@@ -162,38 +230,45 @@ export default function FetchLimitConfigPage() {
       toast.success("Deleted");
       await fetchConfigs();
     } catch (error) {
-       ErrorHandling({error: error, defaultError: "Delete failed!"});
+      ErrorHandling({ error, defaultError: "Delete failed!" });
     }
   };
 
-  // Filter uses role_name & branch_name (NOT role_id)
-  const filtered = configs.filter((c) => {
-    const rn = getRoleName(c).toLowerCase();
-    const bn = (c.branch_name ?? "").toLowerCase();
-    const q = searchTerm.toLowerCase();
-    return rn.includes(q) || bn.includes(q);
-  });
+  // --- DATA GATING ---
+  // Gate to branch for non-superadmin
+  const branchGated = useMemo(() => {
+    if (isSuperAdmin) return configs;
+    if (!myBranchId) return []; // if we don't know user's branch yet, show none
+    return configs.filter((c) => String(c.branch_id) === String(myBranchId));
+  }, [configs, isSuperAdmin, myBranchId]);
 
-  // Stats
-  const totalConfigs = configs.length;
-  const totalDailyLimit = configs.reduce((sum, c) => sum + (c.daily_call_limit || 0), 0);
+  // Search against gated data
+  const filtered = useMemo(() => {
+    const q = (searchTerm || "").toLowerCase();
+    return branchGated.filter((c) => {
+      const rn = getRoleName(c)?.toLowerCase?.() || "";
+      const bn = (c.branch_name || "").toLowerCase();
+      return rn.includes(q) || bn.includes(q);
+    });
+  }, [branchGated, searchTerm, getRoleName]);
+
+  // Stats computed from gated data
+  const totalConfigs = branchGated.length;
+  const totalDailyLimit = branchGated.reduce((sum, c) => sum + (c.daily_call_limit || 0), 0);
   const averagePerRequest =
-    configs.length > 0
+    branchGated.length > 0
       ? Math.round(
-          configs.reduce((sum, c) => sum + (c.per_request_limit || 0), 0) / configs.length
+          branchGated.reduce((sum, c) => sum + (c.per_request_limit || 0), 0) /
+            branchGated.length
         )
       : 0;
-  // Unique roles should be counted by role_name
-  const uniqueRoles = new Set(configs.map((c) => getRoleName(c))).size;
+  const uniqueRoles = new Set(branchGated.map((c) => getRoleName(c))).size;
 
   return (
     <div className="p-6">
       {/* Breadcrumb */}
       <nav className="flex items-center text-sm text-gray-500 mb-6">
-        <span
-          onClick={() => router.push("/dashboard")}
-          className="cursor-pointer hover:underline"
-        >
+        <span onClick={() => router.push("/dashboard")} className="cursor-pointer hover:underline">
           Dashboard
         </span>
         <ChevronRight className="mx-2 w-4 h-4" />
@@ -202,9 +277,7 @@ export default function FetchLimitConfigPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Fetch Limit Configuration
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Fetch Limit Configuration</h1>
         {hasPermission("fetch_limit_create_new") && !isCreateNew && (
           <button
             onClick={handleCreateClick}
@@ -249,17 +322,34 @@ export default function FetchLimitConfigPage() {
                 ]}
                 required
               />
-              <SelectField
-                icon={<Building />}
-                label="Branch"
-                value={form.branch_id}
-                onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
-                options={[
-                  { value: "", label: "Select branch" },
-                  ...branches.map((b) => ({ value: String(b.id), label: b.name })),
-                ]}
-                required
-              />
+
+              {/* Branch: SUPERADMIN can choose; others see locked branch */}
+              {isSuperAdmin ? (
+                <SelectField
+                  icon={<Building />}
+                  label="Branch"
+                  value={form.branch_id}
+                  onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
+                  options={[
+                    { value: "", label: "Select branch" },
+                    ...branches.map((b) => ({ value: String(b.id), label: b.name })),
+                  ]}
+                  required
+                />
+              ) : (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Building />
+                    Branch
+                  </label>
+                  {/* hidden input to submit branch */}
+                  <input type="hidden" value={myBranchId || ""} />
+                  <div className="w-full border border-gray-300 rounded-md p-2 bg-gray-50 text-gray-700">
+                    {branches?.[0]?.name || "Your Branch"}
+                  </div>
+                </div>
+              )}
+
               <InputField
                 icon={<Clock />}
                 label="Old Lead Remove (days)"
@@ -275,9 +365,7 @@ export default function FetchLimitConfigPage() {
                 label="Per Request Limit"
                 type="number"
                 value={form.per_request_limit}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, per_request_limit: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, per_request_limit: e.target.value }))}
                 required
               />
               <InputField
@@ -285,9 +373,7 @@ export default function FetchLimitConfigPage() {
                 label="Daily Call Limit"
                 type="number"
                 value={form.daily_call_limit}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, daily_call_limit: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, daily_call_limit: e.target.value }))}
                 required
               />
               <InputField
@@ -295,9 +381,7 @@ export default function FetchLimitConfigPage() {
                 label="Last Fetch Threshold"
                 type="number"
                 value={form.last_fetch_limit}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, last_fetch_limit: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, last_fetch_limit: e.target.value }))}
                 required
               />
               <InputField
@@ -446,14 +530,7 @@ function StatCard({ icon, label, value, color }) {
   );
 }
 
-function SelectField({
-  icon,
-  label,
-  options = [],
-  value,
-  onChange,
-  placeholder = "Select…",
-}) {
+function SelectField({ icon, label, options = [], value, onChange, placeholder = "Select…" }) {
   return (
     <div className="space-y-2">
       {label && (

@@ -102,6 +102,108 @@ function formatDDMMYYYY(dt) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
+function StateAutocomplete({
+  value,
+  disabled,
+  onPick,         // (obj | null) -> void   obj = { state_name, code }
+  placeholder = "Select state",
+  busy = false,
+  list = [],      // <-- NEW
+  error = null,   // <-- NEW
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value || "");
+  const [hoverIdx, setHoverIdx] = useState(-1);
+
+  useEffect(() => {
+    setQuery(value || "");
+  }, [value]);
+
+  const filtered = (arr, q) => {
+    if (!q) return arr.slice(0, 10);
+    const s = q.toLowerCase();
+    return arr.filter(i => i.state_name.toLowerCase().includes(s)).slice(0, 12);
+  };
+
+  const onSelect = (item) => {
+    onPick?.(item || null);
+    setOpen(false);
+  };
+
+  const onKeyDown = (e) => {
+    if (!open) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHoverIdx(i => Math.min(i + 1, filtered(list, query).length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHoverIdx(i => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const arr = filtered(list, query);
+      const pick = arr[hoverIdx] || arr[0];
+      if (pick) onSelect(pick);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  const listNow = filtered(list, query);
+
+  return (
+    <div className="relative">
+      <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={query}
+          disabled={disabled}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            onPick?.(
+              e.target.value
+                ? { state_name: e.target.value, code: null }
+                : null
+            );
+          }}
+          onFocus={() => !disabled && setOpen(true)}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+        />
+        {busy && <MiniLoader />}
+      </div>
+
+      {open && !disabled && (
+        <div
+          className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white shadow"
+          onMouseLeave={() => setHoverIdx(-1)}
+        >
+          {error ? (
+            <div className="px-3 py-2 text-sm text-red-600">{error}</div>
+) : listNow.length ? (
+  listNow.map((item, idx) => (
+    <button
+      key={`${item.state_name}-${item.code ?? "x"}`}
+      type="button"
+      onClick={() => onSelect(item)}
+      onMouseEnter={() => setHoverIdx(idx)}
+      className={`w-full text-left px-3 py-2 text-sm ${idx === hoverIdx ? "bg-indigo-50" : "bg-white"} hover:bg-indigo-50`}
+    >
+      {item.state_name}
+      {/* code hidden */}
+    </button>
+  ))
+) : (
+
+            <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const ViewAndEditLead = ({
   currentLead,
   editFormData,
@@ -122,23 +224,48 @@ export const ViewAndEditLead = ({
   const [panVerifiedData, setPanVerifiedData] = useState(null);
   const [selectedResponse, setSelectedResponse] = useState(editFormData.lead_response_id || "");
 
-// NEW: track which fields were populated by PAN and should be locked
-const [panLocked, setPanLocked] = useState({
-  pan: false,           // keep PAN editable in edit mode (we won't lock this)
-  full_name: false,
-  father_name: false,
-  dob: false,
-  address: false,
-  city: false,
-  state: false,
-  district: false,
-  pincode: false,
-  country: false,
-  aadhaar: false,
-  gender: false,
-});
+// ---- States (for autocomplete) ----
+const [stateList, setStateList] = useState([]);         // [{state_name, code}, ...]
+const [stateLoading, setStateLoading] = useState(false);
+const [stateError, setStateError] = useState(null);
 
-const isFilled = (v) => v != null && String(v).trim() !== "";
+useEffect(() => {
+  let cancel = false;
+  (async () => {
+    setStateLoading(true);
+    setStateError(null);
+    try {
+      // uses your axiosInstance baseURL (same as other endpoints)
+      const res = await axiosInstance.get("/state/");
+      const items = Array.isArray(res?.data?.states) ? res.data.states : [];
+      if (!cancel) setStateList(items);
+    } catch (err) {
+      if (!cancel) setStateError("Failed to load states");
+      ErrorHandling?.({ error: err });
+    } finally {
+      if (!cancel) setStateLoading(false);
+    }
+  })();
+  return () => { cancel = true; };
+}, []);
+
+  // NEW: track which fields were populated by PAN and should be locked
+  const [panLocked, setPanLocked] = useState({
+    pan: false,           // keep PAN editable in edit mode (we won't lock this)
+    full_name: false,
+    father_name: false,
+    dob: false,
+    address: false,
+    city: false,
+    state: false,
+    district: false,
+    pincode: false,
+    country: false,
+    aadhaar: false,
+    gender: false,
+  });
+
+  const isFilled = (v) => v != null && String(v).trim() !== "";
 
   useEffect(() => {
     let cancelled = false;
@@ -189,11 +316,11 @@ const isFilled = (v) => v != null && String(v).trim() !== "";
       // Mobile is read-only: ignore any attempts to change
       if (name === "mobile") return;
       // NEW: normalize DOB to YYYY-MM-DD so both manual DD-MM-YYYY and picker work
-    if (name === "dob") {
-      const ymd = toYMD(newVal);
-      setEditFormData((p) => ({ ...p, dob: ymd }));
-      return; // no further processing needed
-    }
+      if (name === "dob") {
+        const ymd = toYMD(newVal);
+        setEditFormData((p) => ({ ...p, dob: ymd }));
+        return; // no further processing needed
+      }
 
       // Update form state
       setEditFormData((p) => ({
@@ -233,21 +360,21 @@ const isFilled = (v) => v != null && String(v).trim() !== "";
                     : p.gender,
             }));
             // AFTER setEditFormData(...) in the PAN success block, ADD:
-const addr = r.user_address || {};
-setPanLocked({
-  pan: false, // keep PAN editable in edit mode to allow re-verify/change
-  full_name:   isFilled(r.user_full_name),
-  father_name: isFilled(r.user_father_name),
-  dob:         isFilled(r.user_dob),
-  address:     isFilled(addr.full),
-  city:        isFilled(addr.city),
-  state:       isFilled(addr.state),
-  district:    isFilled(addr.district),
-  pincode:     isFilled(addr.zip),
-  country:     isFilled(addr.country),
-  aadhaar:     isFilled(r.masked_aadhaar),
-  gender:      isFilled(r.user_gender),
-});
+            const addr = r.user_address || {};
+            setPanLocked({
+              pan: false, // keep PAN editable in edit mode to allow re-verify/change
+              full_name: isFilled(r.user_full_name),
+              father_name: isFilled(r.user_father_name),
+              dob: isFilled(r.user_dob),
+              address: isFilled(addr.full),
+              city: isFilled(addr.city),
+              state: isFilled(addr.state),
+              district: isFilled(addr.district),
+              pincode: isFilled(addr.zip),
+              country: isFilled(addr.country),
+              aadhaar: isFilled(r.masked_aadhaar),
+              gender: isFilled(r.user_gender),
+            });
             toast.success("PAN verified and autofilled!");
           } else {
             throw new Error("Verification failed");
@@ -294,7 +421,7 @@ setPanLocked({
     { name: "father_name", label: "Father Name", icon: User, placeholder: "Enter father name" },
     { name: "aadhaar", label: "Aadhaar Number", icon: CreditCard, placeholder: "Enter Aadhaar" },
     { name: "email", label: "Email", icon: Mail, type: "email", placeholder: "Enter email" },
-        { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
+    { name: "dob", label: "Date of Birth", icon: Calendar, type: "date" },
     { name: "age", label: "Age", icon: Calendar, type: "number", readonly: true },
     {
       name: "gender",
@@ -361,19 +488,30 @@ setPanLocked({
   ];
 
   // Which fields to lock after PAN fetched or saved
-// REMOVE lockedFields array completely
+  // REMOVE lockedFields array completely
 
-// NEW: lock rules
-const isLocked = (name) => {
-  // view mode: everything read-only
-  if (!isEditMode) return true;
+  // NEW: lock rules
+  const isLocked = (name) => {
+    // view mode: everything read-only
+    if (!isEditMode) return true;
 
-  // mobile must never be editable
-  if (name === "mobile") return true;
+    // mobile must never be editable
+    if (name === "mobile") return true;
 
-  // lock only the fields that PAN actually populated
-  return !!panLocked[name];
-};
+    // lock only the fields that PAN actually populated
+    return !!panLocked[name];
+  };
+
+  // Compact email for view mode: "local@…..", keep full in title/hover
+  const shortEmail = (email) => {
+    const raw = String(email || "").trim();
+    if (!raw) return "";
+    if (raw.length <= 18) return raw;
+    const at = raw.indexOf("@");
+    if (at === -1) return raw.slice(0, 10) + "…..";
+    const local = raw.slice(0, at);
+    return `${local}@…..`;
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -471,44 +609,72 @@ const isLocked = (name) => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {(leadType === "COMPANY" ? personalCompany : personalIndividual).map((f) => {
-  // Age is derived
-  if (f.name === "age") {
-    return (
-      <InputField
-        key={f.name}
-        {...f}
-        value={calculateAge(editFormData.dob)}
-        isEditMode={false}
-      />
-    );
-  }
+            // Age is derived
+            if (f.name === "age") {
+              return (
+                <InputField
+                  key={f.name}
+                  {...f}
+                  value={calculateAge(editFormData.dob)}
+                  isEditMode={false}
+                />
+              );
+            }
 
-  // PAN: keep editable in edit mode (no lock), show loader suffix
-  if (f.name === "pan") {
-    return (
-      <InputField
-        key={f.name}
-        {...f}
-        value={editFormData.pan}
-        isEditMode={isEditMode}               // always editable in edit mode
-        onInputChange={handleInputChange}
-        suffix={panLoading ? <MiniLoader /> : null}
-        autoCapitalize="characters"
-      />
-    );
-  }
+            // PAN: keep editable in edit mode (no lock), show loader suffix
+            if (f.name === "pan") {
+              return (
+                <InputField
+                  key={f.name}
+                  {...f}
+                  value={editFormData.pan}
+                  isEditMode={isEditMode}
+                  onInputChange={handleInputChange}
+                  suffix={panLoading ? <MiniLoader /> : null}
+                  autoCapitalize="characters"
+                />
+              );
+            }
 
-  // Default: editable only if not locked by PAN (and in edit mode)
-  return (
-    <InputField
-      key={f.name}
-      {...f}
-      value={editFormData[f.name]}
-      isEditMode={!isLocked(f.name)}
-      onInputChange={handleInputChange}
-    />
-  );
-})}
+            // 🔹 Email: shorten in view mode, full value on hover
+            if (f.name === "email") {
+              if (isEditMode) {
+                return (
+                  <InputField
+                    key={f.name}
+                    {...f}
+                    value={editFormData.email}
+                    isEditMode
+                    onInputChange={handleInputChange}
+                  />
+                );
+              }
+              return (
+                <div key="email">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {f.label || "Email"}
+                  </label>
+                  <div
+                    className="px-3 py-2 bg-gray-50 rounded border border-gray-200 overflow-hidden truncate"
+                    title={editFormData.email || ""}   // <-- hover shows full email
+                  >
+                    {shortEmail(editFormData.email) || "—"}  {/* <-- compact display */}
+                  </div>
+                </div>
+              );
+            }
+
+            // Default: editable only if not locked by PAN (and in edit mode)
+            return (
+              <InputField
+                key={f.name}
+                {...f}
+                value={editFormData[f.name]}
+                isEditMode={!isLocked(f.name)}
+                onInputChange={handleInputChange}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -519,26 +685,71 @@ const isLocked = (name) => {
           Address Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {addressFields.map((f) =>
-            f.name === "address" ? (
-              <div key={f.name} className="md:col-span-4">
-                <InputField
-                  {...f}
-                  value={editFormData.address}
-                  isEditMode={!isLocked("address")}
-                  onInputChange={handleInputChange}
-                />
-              </div>
-            ) : (
-              <InputField
-                key={f.name}
-                {...f}
-                value={editFormData[f.name]}
-                isEditMode={!isLocked(f.name)} 
-                onInputChange={handleInputChange}
-              />
-            )
-          )}
+          {addressFields.map((f) => {
+  if (f.name === "address") {
+    return (
+      <div key={f.name} className="md:col-span-4">
+        <InputField
+          {...f}
+          value={editFormData.address}
+          isEditMode={!isLocked("address")}
+          onInputChange={handleInputChange}
+        />
+      </div>
+    );
+  }
+
+  if (f.name === "state") {
+    // If locked or view-mode -> keep your normal read-only input
+    if (isLocked("state")) {
+      return (
+        <InputField
+          key="state"
+          {...f}
+          value={editFormData.state}
+          isEditMode={false}
+          onInputChange={handleInputChange}
+        />
+      );
+    }
+
+    // Editable -> show autocomplete
+    return (
+      <div key="state">
+        <StateAutocomplete
+  value={editFormData.state || ""}
+  disabled={false}
+  busy={stateLoading}
+  list={stateList}          // <-- pass list
+  error={stateError}        // <-- pass error
+  onPick={(picked) => {
+    if (!picked) {
+      setEditFormData((p) => ({ ...p, state: "", state_code: null }));
+      return;
+    }
+    setEditFormData((p) => ({
+      ...p,
+      state: picked.state_name || "",
+      state_code: picked.code ?? null,
+    }));
+  }}
+/>
+      </div>
+    );
+  }
+
+  // default for other address fields
+  return (
+    <InputField
+      key={f.name}
+      {...f}
+      value={editFormData[f.name]}
+      isEditMode={!isLocked(f.name)}
+      onInputChange={handleInputChange}
+    />
+  );
+})}
+
         </div>
       </section>
 
@@ -602,7 +813,7 @@ const isLocked = (name) => {
                     {...f}
                     value={sel}
                     isEditMode={isEditMode}
-                    onInputChange={(e) => handleResponseSelectSafely(e.target.value, isEditMode ? "edit" : "view")}
+                    onInputChange={(e) => handleResponseSelect(e.target.value)}
                     options={leadResponses}
                   />
 

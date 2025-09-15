@@ -47,7 +47,7 @@ export default function Department() {
       <div className="mx-2 px-6 py-8">
         <div className="space-y-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -87,7 +87,7 @@ export default function Department() {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Department Accordion */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

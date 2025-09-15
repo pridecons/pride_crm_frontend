@@ -96,9 +96,9 @@ export default function DepartmentAccordion() {
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="w-full mx-2 mt-6">
+    <div className="w-full  mt-6">
       {/* Action Buttons */}
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-6 pr-3">
         <div className="flex gap-3">
           <button
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-medium shadow-lg"

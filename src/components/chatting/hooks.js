@@ -43,12 +43,12 @@ export function useChatSocket({ threadId, onEvent, enabled = true }) {
     timers.current.heartbeat = timers.current.reconnect = null;
   };
 
-  const closeSocket = () => {
-    try { wsRef.current?.close(1000, "navigate"); } catch {}
-    wsRef.current = null;
-    setReady(false);
-    clearTimers();
-  };
+  const closeSocket = useCallback(() => {
+  try { wsRef.current?.close(1000, "navigate"); } catch {}
+  wsRef.current = null;
+  setReady(false);
+  clearTimers();
+}, []);
 
   useEffect(() => {
     if (!enabled || !threadId) { closeSocket(); return; }
@@ -114,7 +114,7 @@ export function useChatSocket({ threadId, onEvent, enabled = true }) {
 
     connect();
     return () => { closeSocket(); };
-  }, [threadId, enabled]);
+  },[threadId, enabled, closeSocket, onEvent]);
 
   const sendJson = useCallback((obj) => {
     try {
@@ -217,7 +217,7 @@ export function useInboxSocket({ currentUser, onEvent, enabled = true, onFallbac
       setReady(false);
       clearTimers();
     };
-  }, [enabled, currentUser]);
+  }, [enabled, currentUser, onEvent, onFallbackTick]);
 
   return { inboxReady: ready };
 }

@@ -114,7 +114,7 @@ export default function UserFilters({
   }, [isSuperAdmin, branchId, selectedBranch, setSelectedBranch]);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100 flex flex-col lg:flex-row justify-between gap-4">
+    <div className="bg-white  shadow-lg p-2 mb-8 border border-gray-100 flex flex-col lg:flex-row justify-between gap-4">
       <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input

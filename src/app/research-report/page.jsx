@@ -20,11 +20,16 @@ function numOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-const SEC = "border rounded-2xl p-4 bg-white shadow-sm";
+/* ============ CONFIG ============
+ * Set to true if you want to send images with old keys:
+ *   commentaryImage_{i}, stockPickImage_{i}
+ * Otherwise (default) it will send:
+ *   commentary_images[], stockpick_images[]
+ * Your backend supports BOTH.
+ */
+const USE_OLD_IMAGE_KEYS = false;
+/* ================================= */
 
-/* -----------------------------
-   Reusable Row Controls
------------------------------ */
 function RowHeader({ title, onAdd }) {
   return (
     <div className="flex items-center justify-between mb-3">
@@ -41,13 +46,13 @@ function RowHeader({ title, onAdd }) {
   );
 }
 
-function RemoveBtn({ onClick, title = "Remove" }) {
+function RemoveBtn({ onClick, title = "Remove", className = "" }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
-      className="p-2 rounded-lg border hover:bg-red-50 hover:border-red-300"
+      className={`p-2 rounded-lg border hover:bg-red-50 hover:border-red-300 ${className}`}
     >
       <Trash2 size={16} className="text-red-600" />
     </button>
@@ -56,15 +61,16 @@ function RemoveBtn({ onClick, title = "Remove" }) {
 
 /* -----------------------------
    Calls row (shared by Index/Stock)
+   NOTE: we store the picked file on the row as `chart_file`
 ----------------------------- */
-function CallRow({ row, onChange, onRemove, onUpload, uploading }) {
+function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
   const set = (k, v) => onChange({ ...row, [k]: v });
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    await onUpload(file); // parent sets chart_url
-    e.target.value = null; // reset
+    onPickFile(file); // parent sets row.chart_file
+    e.target.value = null;
   };
 
   return (
@@ -139,15 +145,8 @@ function CallRow({ row, onChange, onRemove, onUpload, uploading }) {
             disabled={uploading}
           />
         </label>
-        {row.chart_url ? (
-          <a
-            href={row.chart_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-600 text-sm underline"
-          >
-            View
-          </a>
+        {row.chart_file ? (
+          <span className="text-xs text-green-600">File attached</span>
         ) : (
           <span className="text-xs text-gray-500">No chart</span>
         )}
@@ -174,6 +173,7 @@ export default function NewResearchReportPage() {
   const [topLosers, setTopLosers] = useState([]);
   const [fiiDii, setFiiDii] = useState({
     date: "",
+    // UI keeps cash/debt; we will map -> buy/sell at submit
     fii_fpi: { cash: null, debt: null },
     dii: { cash: null, debt: null },
   });
@@ -235,7 +235,7 @@ export default function NewResearchReportPage() {
         t1: null,
         t2: null,
         sl: null,
-        chart_url: "",
+        chart_file: null, // <— store the file object here
       },
     ]);
   const addCallStock = () =>
@@ -249,26 +249,12 @@ export default function NewResearchReportPage() {
         t1: null,
         t2: null,
         sl: null,
-        chart_url: "",
+        chart_file: null,
       },
     ]);
 
   /* -----------------------------
-     Image upload
-  ----------------------------- */
-  async function uploadChartImage(file) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const { data } = await axiosInstance.post(
-      "/research/upload-chart",
-      fd,
-      { headers: { "Content-Type": "multipart/form-data" } }
-    );
-    return data?.url;
-  }
-
-  /* -----------------------------
-     Submit
+     Submit (multipart/form-data)
   ----------------------------- */
   async function onSubmit(e) {
     e.preventDefault();
@@ -276,15 +262,16 @@ export default function NewResearchReportPage() {
     setSubmitOk(null);
     setSubmitErr(null);
     try {
+      // ---- payload (JSON expected by your API) ----
       const payload = {
         report_date: reportDate || null,
         title: title || null,
         notes: notes || null,
         tags: tags
           ? tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
           : null,
 
         ipo: ipo.map((i) => ({
@@ -331,45 +318,62 @@ export default function NewResearchReportPage() {
           change_pct: numOrNull(g.change_pct),
         })),
 
+        // 🔁 Map UI (cash/debt) -> backend (buy/sell)
         fii_dii: {
           date: fiiDii.date || null,
           fii_fpi: {
-            cash: numOrNull(fiiDii?.fii_fpi?.cash),
-            debt: numOrNull(fiiDii?.fii_fpi?.debt),
+            buy: numOrNull(fiiDii?.fii_fpi?.cash),
+            sell: numOrNull(fiiDii?.fii_fpi?.debt),
           },
           dii: {
-            cash: numOrNull(fiiDii?.dii?.cash),
-            debt: numOrNull(fiiDii?.dii?.debt),
+            buy: numOrNull(fiiDii?.dii?.cash),
+            sell: numOrNull(fiiDii?.dii?.debt),
           },
         },
 
-        calls_index: callsIndex.map((c) => ({
-          symbol: c.symbol || null,
-          view: c.view || null,
-          entry_at: numOrNull(c.entry_at),
-          buy_above: numOrNull(c.buy_above),
-          t1: numOrNull(c.t1),
-          t2: numOrNull(c.t2),
-          sl: numOrNull(c.sl),
-          chart_url: c.chart_url || null,
-        })),
-
-        calls_stock: callsStock.map((c) => ({
-          symbol: c.symbol || null,
-          view: c.view || null,
-          entry_at: numOrNull(c.entry_at),
-          buy_above: numOrNull(c.buy_above),
-          t1: numOrNull(c.t1),
-          t2: numOrNull(c.t2),
-          sl: numOrNull(c.sl),
-          chart_url: c.chart_url || null,
-        })),
+        // We don't include chart_file in the JSON payload;
+        // files go separately in FormData.
+        calls_index: callsIndex.map(({ chart_file, ...rest }) => rest),
+        calls_stock: callsStock.map(({ chart_file, ...rest }) => rest),
       };
 
-      const { data } = await axiosInstance.post("/research/", payload);
-      setSubmitOk(data?.id ? `Created Report #${data.id}` : "Created");
-      // Optional: reset small fields, keep big lists if you prefer
-      // setIpo([]); setBoard([]); ...
+      // ---- multipart form ----
+      const fd = new FormData();
+      fd.append("payload", JSON.stringify(payload));
+
+      if (USE_OLD_IMAGE_KEYS) {
+        // Old pattern: commentaryImage_{idx}, stockPickImage_{idx}
+        callsIndex.forEach((c, i) => {
+          if (c.chart_file) {
+            fd.append(`commentaryImage_${i}`, c.chart_file, `index_${i}.jpg`);
+          }
+        });
+        callsStock.forEach((c, i) => {
+          if (c.chart_file) {
+            fd.append(`stockPickImage_${i}`, c.chart_file, `stock_${i}.jpg`);
+          }
+        });
+      } else {
+        // New pattern: commentary_images[], stockpick_images[]
+        callsIndex.forEach((c, i) => {
+          if (c.chart_file) {
+            fd.append("commentary_images[]", c.chart_file, `index_${i}.jpg`);
+          }
+        });
+        callsStock.forEach((c, i) => {
+          if (c.chart_file) {
+            fd.append("stockpick_images[]", c.chart_file, `stock_${i}.jpg`);
+          }
+        });
+      }
+
+      const { data } = await axiosInstance.post(
+        "/research/create-with-images",
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      setSubmitOk(data?.message || "Created");
     } catch (err) {
       const msg =
         err?.response?.data?.detail ||
@@ -387,10 +391,8 @@ export default function NewResearchReportPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
       <div className="mx-2 p-4 md:p-6">
-
-
         <form onSubmit={onSubmit} className="space-y-6">
-          {/* Meta Section - Card Style */}
+          {/* Meta Section */}
           <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -407,7 +409,9 @@ export default function NewResearchReportPage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Title</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    Title
+                  </label>
                 </div>
                 <div className="relative">
                   <input
@@ -416,7 +420,9 @@ export default function NewResearchReportPage() {
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Report Date</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    Report Date
+                  </label>
                 </div>
                 <div className="relative">
                   <input
@@ -425,7 +431,9 @@ export default function NewResearchReportPage() {
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Tags</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    Tags
+                  </label>
                 </div>
               </div>
               <div className="relative mt-4">
@@ -435,7 +443,9 @@ export default function NewResearchReportPage() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-                <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Notes</label>
+                <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                  Notes
+                </label>
               </div>
             </div>
           </section>
@@ -448,10 +458,9 @@ export default function NewResearchReportPage() {
             <div className="p-6">
               {ipo.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <p className="text-sm text-gray-500">No IPO rows yet. Click add to get started.</p>
+                  <p className="text-sm text-gray-500">
+                    No IPO rows yet. Click add to get started.
+                  </p>
                 </div>
               )}
               {ipo.map((row, i) => (
@@ -464,64 +473,88 @@ export default function NewResearchReportPage() {
                     className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
                     value={row.company || ""}
                     onChange={(e) =>
-                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, company: e.target.value } : r)))
+                      setIpo((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, company: e.target.value } : r
+                        )
+                      )
                     }
                   />
-
                   <input
                     placeholder="Lot Size"
                     type="number"
                     className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
                     value={row.lot_size ?? ""}
                     onChange={(e) =>
-                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, lot_size: numOrNull(e.target.value) } : r)))
+                      setIpo((x) =>
+                        x.map((r, idx) =>
+                          idx === i
+                            ? { ...r, lot_size: numOrNull(e.target.value) }
+                            : r
+                        )
+                      )
                     }
                   />
-
                   <input
                     placeholder="Price Range"
                     className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
                     value={row.price_range || ""}
                     onChange={(e) =>
-                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, price_range: e.target.value } : r)))
+                      setIpo((x) =>
+                        x.map((r, idx) =>
+                          idx === i
+                            ? { ...r, price_range: e.target.value }
+                            : r
+                        )
+                      )
                     }
                   />
-
                   <input
                     type="date"
                     className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
                     value={row.open_date || ""}
                     onChange={(e) =>
-                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, open_date: e.target.value } : r)))
+                      setIpo((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, open_date: e.target.value } : r
+                        )
+                      )
                     }
                   />
-
                   <input
                     type="date"
                     className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
                     value={row.close_date || ""}
                     onChange={(e) =>
-                      setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, close_date: e.target.value } : r)))
+                      setIpo((x) =>
+                        x.map((r, idx) =>
+                          idx === i ? { ...r, close_date: e.target.value } : r
+                        )
+                      )
                     }
                   />
-
                   <div className="flex items-center gap-2 min-w-0">
                     <input
                       placeholder="Category"
                       className="w-full min-w-0 h-11 px-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
                       value={row.category || ""}
                       onChange={(e) =>
-                        setIpo((x) => x.map((r, idx) => (idx === i ? { ...r, category: e.target.value } : r)))
+                        setIpo((x) =>
+                          x.map((r, idx) =>
+                            idx === i ? { ...r, category: e.target.value } : r
+                          )
+                        )
                       }
                     />
                     <RemoveBtn
                       className="shrink-0"
-                      onClick={() => setIpo((x) => x.filter((_, idx) => idx !== i))}
+                      onClick={() =>
+                        setIpo((x) => x.filter((_, idx) => idx !== i))
+                      }
                     />
                   </div>
                 </div>
               ))}
-
             </div>
           </section>
 
@@ -533,14 +566,16 @@ export default function NewResearchReportPage() {
             <div className="p-6">
               {board.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <p className="text-sm text-gray-500">No board meetings yet. Click add to get started.</p>
+                  <p className="text-sm text-gray-500">
+                    No board meetings yet. Click add to get started.
+                  </p>
                 </div>
               )}
               {board.map((row, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-purple-300 transition-all duration-200">
+                <div
+                  key={i}
+                  className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-purple-300 transition-all duration-200"
+                >
                   <input
                     placeholder="Company"
                     className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
@@ -579,7 +614,9 @@ export default function NewResearchReportPage() {
                   />
                   <div className="flex items-center">
                     <RemoveBtn
-                      onClick={() => setBoard((x) => x.filter((_, idx) => idx !== i))}
+                      onClick={() =>
+                        setBoard((x) => x.filter((_, idx) => idx !== i))
+                      }
                     />
                   </div>
                 </div>
@@ -595,14 +632,16 @@ export default function NewResearchReportPage() {
             <div className="p-6">
               {corpActs.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <p className="text-sm text-gray-500">No corporate actions yet. Click add to get started.</p>
+                  <p className="text-sm text-gray-500">
+                    No corporate actions yet. Click add to get started.
+                  </p>
                 </div>
               )}
               {corpActs.map((row, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-orange-300 transition-all duration-200">
+                <div
+                  key={i}
+                  className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-orange-300 transition-all duration-200"
+                >
                   <input
                     placeholder="Company"
                     className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
@@ -671,14 +710,16 @@ export default function NewResearchReportPage() {
             <div className="p-6">
               {results.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <p className="text-sm text-gray-500">No results yet. Click add to get started.</p>
+                  <p className="text-sm text-gray-500">
+                    No results yet. Click add to get started.
+                  </p>
                 </div>
               )}
               {results.map((row, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-cyan-300 transition-all duration-200">
+                <div
+                  key={i}
+                  className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-cyan-300 transition-all duration-200"
+                >
                   <input
                     placeholder="Company"
                     className="border-2 border-gray-200 rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
@@ -724,7 +765,9 @@ export default function NewResearchReportPage() {
                     onChange={(e) =>
                       setResults((x) =>
                         x.map((r, idx) =>
-                          idx === i ? { ...r, ltp: numOrNull(e.target.value) } : r
+                          idx === i
+                            ? { ...r, ltp: numOrNull(e.target.value) }
+                            : r
                         )
                       )
                     }
@@ -738,7 +781,9 @@ export default function NewResearchReportPage() {
                     onChange={(e) =>
                       setResults((x) =>
                         x.map((r, idx) =>
-                          idx === i ? { ...r, change: numOrNull(e.target.value) } : r
+                          idx === i
+                            ? { ...r, change: numOrNull(e.target.value) }
+                            : r
                         )
                       )
                     }
@@ -755,7 +800,7 @@ export default function NewResearchReportPage() {
             </div>
           </section>
 
-          {/* Top Gainers / Losers Section */}
+          {/* Market Movers Section */}
           <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
             <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -770,9 +815,6 @@ export default function NewResearchReportPage() {
                   <RowHeader title="Top Gainers" onAdd={addGainer} />
                   {topGainers.length === 0 && (
                     <div className="text-center py-6 bg-white/50 rounded-lg mt-3">
-                      <svg className="w-10 h-10 mx-auto text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
                       <p className="text-sm text-gray-600">No gainers yet.</p>
                     </div>
                   )}
@@ -855,9 +897,6 @@ export default function NewResearchReportPage() {
                   <RowHeader title="Top Losers" onAdd={addLoser} />
                   {topLosers.length === 0 && (
                     <div className="text-center py-6 bg-white/50 rounded-lg mt-3">
-                      <svg className="w-10 h-10 mx-auto text-red-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                      </svg>
                       <p className="text-sm text-gray-600">No losers yet.</p>
                     </div>
                   )}
@@ -953,13 +992,17 @@ export default function NewResearchReportPage() {
                     type="date"
                     className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
                     value={fiiDii.date}
-                    onChange={(e) => setFiiDii({ ...fiiDii, date: e.target.value })}
+                    onChange={(e) =>
+                      setFiiDii({ ...fiiDii, date: e.target.value })
+                    }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">Date</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    Date
+                  </label>
                 </div>
                 <div className="relative">
                   <input
-                    placeholder="FII Cash"
+                    placeholder="FII Buy (cash)"
                     className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
                     type="number"
                     step="any"
@@ -967,15 +1010,20 @@ export default function NewResearchReportPage() {
                     onChange={(e) =>
                       setFiiDii((x) => ({
                         ...x,
-                        fii_fpi: { ...(x.fii_fpi || {}), cash: numOrNull(e.target.value) },
+                        fii_fpi: {
+                          ...(x.fii_fpi || {}),
+                          cash: numOrNull(e.target.value),
+                        },
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">FII Cash</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    FII Cash (buy)
+                  </label>
                 </div>
                 <div className="relative">
                   <input
-                    placeholder="FII Debt"
+                    placeholder="FII Sell (debt)"
                     className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
                     type="number"
                     step="any"
@@ -983,15 +1031,20 @@ export default function NewResearchReportPage() {
                     onChange={(e) =>
                       setFiiDii((x) => ({
                         ...x,
-                        fii_fpi: { ...(x.fii_fpi || {}), debt: numOrNull(e.target.value) },
+                        fii_fpi: {
+                          ...(x.fii_fpi || {}),
+                          debt: numOrNull(e.target.value),
+                        },
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">FII Debt</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    FII Debt (sell)
+                  </label>
                 </div>
                 <div className="relative">
                   <input
-                    placeholder="DII Cash"
+                    placeholder="DII Buy (cash)"
                     className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
                     type="number"
                     step="any"
@@ -1003,11 +1056,13 @@ export default function NewResearchReportPage() {
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">DII Cash</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    DII Cash (buy)
+                  </label>
                 </div>
                 <div className="relative">
                   <input
-                    placeholder="DII Debt"
+                    placeholder="DII Sell (debt)"
                     className="w-full border-2 border-gray-200 rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
                     type="number"
                     step="any"
@@ -1019,13 +1074,15 @@ export default function NewResearchReportPage() {
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">DII Debt</label>
+                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                    DII Debt (sell)
+                  </label>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Calls: Index Section */}
+          {/* Calls: Index */}
           <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
             <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-6 py-4 border-b border-gray-200">
               <RowHeader title="Calls — Index" onAdd={addCallIndex} />
@@ -1033,10 +1090,9 @@ export default function NewResearchReportPage() {
             <div className="p-6">
               {callsIndex.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <p className="text-sm text-gray-500">No index calls yet. Click add to get started.</p>
+                  <p className="text-sm text-gray-500">
+                    No index calls yet. Click add to get started.
+                  </p>
                 </div>
               )}
               {callsIndex.map((row, i) => (
@@ -1047,28 +1103,22 @@ export default function NewResearchReportPage() {
                     setCallsIndex((x) => x.filter((_, idx) => idx !== i))
                   }
                   onChange={(newRow) =>
-                    setCallsIndex((x) => x.map((r, idx) => (idx === i ? newRow : r)))
+                    setCallsIndex((x) =>
+                      x.map((r, idx) => (idx === i ? newRow : r))
+                    )
                   }
-                  uploading={
-                    uploadingIdx.type === "index" && uploadingIdx.i === i
-                  }
-                  onUpload={async (file) => {
-                    try {
-                      setUploadingIdx({ type: "index", i });
-                      const url = await uploadChartImage(file);
-                      setCallsIndex((x) =>
-                        x.map((r, idx) => (idx === i ? { ...r, chart_url: url } : r))
-                      );
-                    } finally {
-                      setUploadingIdx({ type: "", i: -1 });
-                    }
+                  uploading={uploadingIdx.type === "index" && uploadingIdx.i === i}
+                  onPickFile={(file) => {
+                    setCallsIndex((x) =>
+                      x.map((r, idx) => (idx === i ? { ...r, chart_file: file } : r))
+                    );
                   }}
                 />
               ))}
             </div>
           </section>
 
-          {/* Calls: Stock Section */}
+          {/* Calls: Stock */}
           <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
             <div className="bg-gradient-to-r from-rose-50 to-pink-50 px-6 py-4 border-b border-gray-200">
               <RowHeader title="Calls — Stock" onAdd={addCallStock} />
@@ -1076,10 +1126,9 @@ export default function NewResearchReportPage() {
             <div className="p-6">
               {callsStock.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <p className="text-sm text-gray-500">No stock calls yet. Click add to get started.</p>
+                  <p className="text-sm text-gray-500">
+                    No stock calls yet. Click add to get started.
+                  </p>
                 </div>
               )}
               {callsStock.map((row, i) => (
@@ -1090,28 +1139,22 @@ export default function NewResearchReportPage() {
                     setCallsStock((x) => x.filter((_, idx) => idx !== i))
                   }
                   onChange={(newRow) =>
-                    setCallsStock((x) => x.map((r, idx) => (idx === i ? newRow : r)))
+                    setCallsStock((x) =>
+                      x.map((r, idx) => (idx === i ? newRow : r))
+                    )
                   }
-                  uploading={
-                    uploadingIdx.type === "stock" && uploadingIdx.i === i
-                  }
-                  onUpload={async (file) => {
-                    try {
-                      setUploadingIdx({ type: "stock", i });
-                      const url = await uploadChartImage(file);
-                      setCallsStock((x) =>
-                        x.map((r, idx) => (idx === i ? { ...r, chart_url: url } : r))
-                      );
-                    } finally {
-                      setUploadingIdx({ type: "", i: -1 });
-                    }
+                  uploading={uploadingIdx.type === "stock" && uploadingIdx.i === i}
+                  onPickFile={(file) => {
+                    setCallsStock((x) =>
+                      x.map((r, idx) => (idx === i ? { ...r, chart_file: file } : r))
+                    );
                   }}
                 />
               ))}
             </div>
           </section>
 
-          {/* Submit Section */}
+          {/* Submit */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
             <div className="flex items-center gap-4 flex-wrap">
               <button
@@ -1122,8 +1165,18 @@ export default function NewResearchReportPage() {
                 {submitting ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 )}
                 {submitting ? "Saving Report..." : "Create Report"}

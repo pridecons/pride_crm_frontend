@@ -1,7 +1,90 @@
 // src/components/chat/atoms.jsx
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { clsx, fileKindIcon, toLocal } from "./utils";
+import { axiosInstance, BASE_URL } from "@/api/Axios";
+
+/* -------------------------------- helpers -------------------------------- */
+
+// Resolve any relative URL against the *origin* of your API base, not the API path.
+function getApiOrigin() {
+  // Prefer axios baseURL → origin; else fall back to BASE_URL → origin; else window origin
+  const base =
+    (axiosInstance && axiosInstance.defaults && axiosInstance.defaults.baseURL) ||
+    BASE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  try {
+    return new URL(base, typeof window !== "undefined" ? window.location.origin : "http://localhost").origin;
+  } catch {
+    return typeof window !== "undefined" ? window.location.origin : "";
+  }
+}
+const API_ORIGIN = getApiOrigin();
+
+const toAbs = (u = "") => {
+  if (!u) return "";
+  if (/^(data:|blob:|https?:\/\/)/i.test(u)) return u; // already absolute
+  if (u.startsWith("//")) return `${typeof window !== "undefined" ? window.location.protocol : "https:"}${u}`;
+  if (u.startsWith("/")) return `${API_ORIGIN}${u}`; // root-relative → origin + path
+  // bare relative path → origin + "/" + path
+  return `${API_ORIGIN}/${u}`;
+};
+
+// Try to load <img> anonymously first; if it fails (auth/CORS), fetch as blob with axiosInstance.
+function SecureImage({ src, alt, className }) {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    let blobUrl = null;
+    const absolute = toAbs(src);
+
+    if (!absolute) {
+      setUrl(null);
+      return;
+    }
+
+    const probe = new Image();
+    // Some servers require anonymous probe to fail before we use auth’d blob fetch
+    probe.crossOrigin = "anonymous";
+    probe.onload = () => {
+      if (alive) setUrl(absolute);
+    };
+    probe.onerror = async () => {
+      try {
+        const { data } = await axiosInstance.get(absolute, {
+          responseType: "blob",
+          // Helpful on some stacks that gate by Accept
+          headers: { Accept: "*/*" },
+          withCredentials: true,
+        });
+        blobUrl = URL.createObjectURL(data);
+        if (alive) setUrl(blobUrl);
+      } catch {
+        if (alive) setUrl(null); // keeps placeholder visible
+      }
+    };
+    probe.src = absolute;
+
+    return () => {
+      alive = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [src]);
+
+  if (!url) {
+    return (
+      <div
+        className={`w-full h-36 flex items-center justify-center bg-white text-gray-400 text-sm ${className || ""}`}
+      >
+        image
+      </div>
+    );
+  }
+  return <img src={url} alt={alt} className={className} loading="lazy" />;
+}
+
+/* ------------------------------- UI atoms ------------------------------- */
 
 export function Avatar({ name, id, size = "sm" }) {
   const label = (name || id || "?").trim();
@@ -63,8 +146,9 @@ export function AttachmentGrid({ atts = [], onOpen }) {
         const handleOpen = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          onOpen?.(a.url, a.filename || a.mime_type || "Attachment");
+          onOpen?.(toAbs(a.url), a.filename || a.mime_type || "Attachment", a.mime_type || "");
         };
+        const thumb = a.thumb_url ? toAbs(a.thumb_url) : toAbs(a.url);
         return (
           <button
             key={a.id}
@@ -73,11 +157,10 @@ export function AttachmentGrid({ atts = [], onOpen }) {
             className="group block rounded-md overflow-hidden border border-gray-200 bg-white hover:shadow-sm text-left"
           >
             {isImg ? (
-              <img
-                src={a.thumb_url || a.url}
+              <SecureImage
+                src={thumb}
                 alt={a.filename}
-                className="w-full h-36 object-cover"
-                loading="lazy"
+                className="w-full h-36 object-cover max-w-full"
               />
             ) : (
               <div className="h-36 flex items-center justify-center text-4xl">
@@ -118,16 +201,18 @@ export function MessageBubble({ mine, msg, showHeader, showAvatar }) {
 
         <div
           className={clsx(
-            "rounded-[6px] px-3 py-2 text-[14px] leading-5",
+            "rounded-[6px] px-3 py-2 text-[14px] leading-5 break-words",
             mine ? "bg-[#05728f] text-white shadow-sm" : "bg-[#ebebeb] text-[#646464]"
           )}
         >
           {!!(msg.body || "").trim() && (
             <div className="whitespace-pre-wrap">{msg.body}</div>
           )}
+
           {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
             <AttachmentGrid atts={msg.attachments} onOpen={msg._onOpenAttachment} />
           )}
+
           <div
             className={clsx(
               "mt-1 flex items-center gap-1",

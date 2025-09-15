@@ -6,13 +6,24 @@ import CommentModal from "@/components/Lead/CommentModal";
 import FTModal from "@/components/Lead/FTModal";
 import LeadsDataTable from "@/components/Lead/LeadsTable";
 import StoryModal from "@/components/Lead/StoryModal";
-import { Pencil, BookOpenText, MessageCircle } from "lucide-react";
+import { Pencil, BookOpenText, MessageCircle, Filter, RotateCcw, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 // ✨ IST-safe helpers — same ones used on the Lead page
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
 import CallButton from "@/components/Lead/CallButton";
+
+// 🔷 tiny utility classes so buttons/inputs look consistent
+const BTN_BASE =
+  "inline-flex items-center gap-2 rounded-full text-sm font-medium px-4 py-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2";
+const BTN_PRIMARY =
+  BTN_BASE +
+  " bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-500 hover:to-blue-500 focus:ring-indigo-500";
+const BTN_SOFT =
+  BTN_BASE + " bg-gray-100 text-gray-800 hover:bg-gray-200 focus:ring-gray-400";
+const INPUT_PILL =
+  "px-3 py-2 rounded-full border border-gray-200 bg-white shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500";
 
 // put near the top of the file
 const Show = (v) =>
@@ -375,53 +386,53 @@ export default function OldLeadsTable() {
         </span>
       ),
     },
-{
-  header: "Actions",
-  render: (lead) => (
-    <div className="flex gap-2">
-      <CallButton lead={lead} onRefresh={fetchLeads} />
+    {
+      header: "Actions",
+      render: (lead) => (
+        <div className="flex gap-2">
+          <CallButton lead={lead} onRefresh={fetchLeads} />
 
-      <button
-        onClick={() => router.push(`/lead/${lead.id}`)}
-        title="Edit lead"
-        className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
-      >
-        <Pencil
-          size={22}
-          className="transition-transform duration-150 group-hover:scale-110"
-        />
-      </button>
+          <button
+            onClick={() => router.push(`/lead/${lead.id}`)}
+            title="Edit lead"
+            className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+          >
+            <Pencil
+              size={22}
+              className="transition-transform duration-150 group-hover:scale-110"
+            />
+          </button>
 
-      <button
-        onClick={() => {
-          setStoryLead(lead);
-          setIsStoryModalOpen(true);
-        }}
-        title="View Story"
-        className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-purple-500 hover:text-purple-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
-      >
-        <BookOpenText
-          size={22}
-          className="transition-transform duration-150 group-hover:scale-110"
-        />
-      </button>
+          <button
+            onClick={() => {
+              setStoryLead(lead);
+              setIsStoryModalOpen(true);
+            }}
+            title="View Story"
+            className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-purple-500 hover:text-purple-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+          >
+            <BookOpenText
+              size={22}
+              className="transition-transform duration-150 group-hover:scale-110"
+            />
+          </button>
 
-      <button
-        onClick={() => {
-          setSelectedLeadId(lead.id);
-          setIsCommentModalOpen(true);
-        }}
-        title="Comments"
-        className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-teal-500 hover:text-teal-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
-      >
-        <MessageCircle
-          size={22}
-          className="transition-transform duration-150 group-hover:scale-110"
-        />
-      </button>
-    </div>
-  ),
-}
+          <button
+            onClick={() => {
+              setSelectedLeadId(lead.id);
+              setIsCommentModalOpen(true);
+            }}
+            title="Comments"
+            className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-teal-500 hover:text-teal-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+          >
+            <MessageCircle
+              size={22}
+              className="transition-transform duration-150 group-hover:scale-110"
+            />
+          </button>
+        </div>
+      ),
+    }
   ];
 
   // const filteredLeads = leads.filter((lead) => {
@@ -441,62 +452,80 @@ export default function OldLeadsTable() {
   return (
     <div className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200
              bg-gray-50 p-4 overflow-hidden flex flex-col">
-      {/* filters (unchanged UI) */}
-      <div className="shrink-0 w-full flex flex-wrap gap-4 py-4 bg-gray-50 justify-end md:justify-end">
-        <select
-          value={responseFilterId || ""}
-          onChange={(e) => {
-            const newResponseId = e.target.value ? Number(e.target.value) : null;
-            setResponseFilterId(newResponseId);
-            setPage(1);
-          }}
-          className="px-3 py-2 border rounded text-sm"
-        >
-          <option value="">All Responses</option>
-          {responses.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
 
-        <div className="flex items-center gap-3">
-          <label>From</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
-              setApplied(false);
-            }}
-            className="px-3 py-2 border rounded text-sm"
-          />
-          <label>To</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => {
-              setToDate(e.target.value);
-              setApplied(false);
-            }}
-            className="px-3 py-2 border rounded text-sm"
-          />
-          {applied ? (
-            <button
-              onClick={handleClear}
-              className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
+      {/* 🔷 Filters bar — colorful & professional */}
+      <div className="shrink-0 w-full py-4 bg-gray-50">
+        <div className="w-full flex flex-wrap items-center justify-end gap-3 md:gap-4
+                  p-2 md:p-2 ">
+          {/* Response */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500">Response</span>
+            <select
+              value={responseFilterId || ""}
+              onChange={(e) => {
+                const newResponseId = e.target.value ? Number(e.target.value) : null;
+                setResponseFilterId(newResponseId);
+                setPage(1);
+              }}
+              className={INPUT_PILL + " pr-8"}
             >
+              <option value="">All Responses</option>
+              {responses.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Divider */}
+          <span className="hidden sm:block h-6 w-px bg-gray-200" />
+
+          {/* Date range */}
+          <div className="flex items-center gap-2">
+            <Calendar size={16} className="text-gray-500" />
+            <label className="text-xs font-medium text-gray-500">From</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setApplied(false);
+              }}
+              className={INPUT_PILL}
+            />
+            <label className="text-xs font-medium text-gray-500">To</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setApplied(false);
+              }}
+              className={INPUT_PILL}
+            />
+          </div>
+
+          {/* Divider */}
+          <span className="hidden sm:block h-6 w-px bg-gray-200" />
+
+          {/* Actions */}
+          {applied ? (
+            <button onClick={handleClear} className={BTN_SOFT} title="Clear dates">
+              <RotateCcw size={16} />
               Clear
             </button>
-          ) : fromDate || toDate ? (
-            <button
-              onClick={handleApply}
-              className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
-            >
+          ) : (fromDate || toDate) ? (
+            <button onClick={handleApply} className={BTN_PRIMARY} title="Apply date range">
+              <Filter size={16} />
               Apply
+              {activeFilters > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs rounded-full bg-white/20">
+                  {activeFilters}
+                </span>
+              )}
             </button>
           ) : null}
-
         </div>
       </div>
 

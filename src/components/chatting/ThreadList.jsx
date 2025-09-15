@@ -30,15 +30,19 @@ export default function ThreadList({
   }, [users, q]);
 
   return (
-    <div className="w-[40%] border-r border-gray-300 bg-[#f8f8f8] flex flex-col overflow-hidden min-h-0">
+    <div
+      className="shrink-0 border-r border-gray-200 bg-[#f8fafc] flex flex-col overflow-hidden min-h-0"
+      style={{ width: "315px" }}   // ⬅️ reduced width (fixed, clean)
+    >
       {/* Sticky head */}
-      <div className="sticky top-0 z-10 bg-[#f8f8f8] border-b border-gray-300 px-5 py-3">
+      <div className="sticky top-0 z-10 bg-[#f8fafc] border-b border-gray-200 px-5 py-3">
         <div className="flex items-center">
-          <h4 className="text-[#05728f] text-[21px] font-semibold flex-1">Recent</h4>
+          <h4 className="text-[#0f766e] text-[20px] font-semibold flex-1">Recent Chats</h4>
           <button
             onClick={onOpenNewChat}
             className="ml-3 inline-flex items-center justify-center h-9 w-9 rounded-full hover:bg-gray-200 text-gray-700"
             title="New Group"
+            aria-label="New Group"
           >
             <Plus size={18} />
           </button>
@@ -47,7 +51,7 @@ export default function ThreadList({
         <div className="mt-3 relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
-            className="w-full pl-9 pr-3 py-2 bg-transparent border-1 border-b border-blue-500 rounded-2xl focus:outline-none focus:border-gray-400 text-sm"
+            className="w-full pl-9 pr-3 py-2 bg-white/80 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500/40 text-sm"
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -64,22 +68,22 @@ export default function ThreadList({
                 key={`thread-${thread.id}`}
                 onClick={() => onSelectThread(thread)}
                 className={clsx(
-                  "w-full text-left px-4 py-3 border-b border-gray-300 hover:bg-gray-100",
-                  selectedId === thread.id && "bg-gray-200"
+                  "w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80",
+                  selectedId === thread.id && "bg-gray-100"
                 )}
               >
                 <div className="flex">
-                  <div className="w-[11%] pt-1">
+                  <div className="w-[44px] pt-1">
                     <Avatar name={thread.name} id={String(thread.id)} size="lg" />
                   </div>
-                  <div className="pl-4 w-[89%]">
-                    <h5 className="text-[15px] text-[#464646] font-semibold mb-1">
+                  <div className="pl-4 min-w-0 flex-1">
+                    <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
                       {thread.name || "Direct Chat"}
-                      <span className="float-right text-[13px] text-gray-500 font-normal">
+                      <span className="float-right text-[12px] text-gray-500 font-normal">
                         {humanTime(thread.last_message_time)}
                       </span>
                     </h5>
-                    <p className="text-[14px] text-[#989898] truncate">
+                    <p className="text-[13px] text-[#6b7280] truncate">
                       {thread.last_message || " "}
                     </p>
                   </div>
@@ -91,17 +95,17 @@ export default function ThreadList({
               <button
                 key={`user-${user.employee_code}`}
                 onClick={() => onSelectUserAsPending(user)}
-                className="w-full text-left px-4 py-3 border-b border-gray-300 hover:bg-gray-100"
+                className="w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80"
               >
                 <div className="flex">
-                  <div className="w-[11%] pt-1">
+                  <div className="w-[44px] pt-1">
                     <Avatar name={user.full_name || user.name} id={user.employee_code} size="lg" />
                   </div>
-                  <div className="pl-4 w-[89%]">
-                    <h5 className="text-[15px] text-[#464646] font-semibold mb-1">
+                  <div className="pl-4 min-w-0 flex-1">
+                    <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
                       {user.full_name || user.name}
                     </h5>
-                    <p className="text-[14px] text-[#989898] truncate">{user.employee_code}</p>
+                    <p className="text-[13px] text-[#6b7280] truncate">{user.employee_code}</p>
                   </div>
                 </div>
               </button>
@@ -113,25 +117,25 @@ export default function ThreadList({
               key={thread.id}
               onClick={() => onSelectThread(thread)}
               className={clsx(
-                "w-full text-left px-4 py-3 border-b border-gray-300 hover:bg-gray-100",
-                selectedId === thread.id && "bg-gray-200"
+                "w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80",
+                selectedId === thread.id && "bg-gray-100"
               )}
             >
               <div className="flex">
-                <div className="w-[11%] pt-1">
+                <div className="w-[44px] pt-1">
                   <Avatar name={thread.name} id={String(thread.id)} size="lg" />
                 </div>
-                <div className="pl-4 w-[89%]">
-                  <h5 className="text-[15px] text-[#464646] font-semibold mb-1">
+                <div className="pl-4 min-w-0 flex-1">
+                  <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
                     {thread.name || "Direct Chat"}
-                    <span className="float-right text-[13px] text-gray-500 font-normal">
+                    <span className="float-right text-[12px] text-gray-500 font-normal">
                       {humanTime(thread.last_message_time)}
                     </span>
                   </h5>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[14px] text-[#989898] truncate">{thread.last_message || " "}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] text-[#6b7280] truncate">{thread.last_message || " "}</p>
                     {!!thread.unread_count && (
-                      <span className="ml-2 bg-[#05728f] text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
+                      <span className="ml-2 bg-teal-600 text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
                         {thread.unread_count}
                       </span>
                     )}

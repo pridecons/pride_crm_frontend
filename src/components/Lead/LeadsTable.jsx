@@ -148,7 +148,7 @@ export default function LeadsDataTable({
                 </div>
             )}
 
-            <div className="mt-auto shrink-0 bg-gray-50 px-6 pt-0.5 border-t border-gray-200 flex items-center justify-between text-sm">
+            <div className="mt-auto shrink-0 bg-gray-50 px-6 py-1 border-t border-gray-200 flex items-center justify-between text-sm">
                 <span className="text-gray-600">
                     Showing {start} to {end} of {total} entries
                 </span>
@@ -157,8 +157,8 @@ export default function LeadsDataTable({
                         onClick={() => onPageChange(page - 1)}
                         disabled={page === 1}
                         className={`px-4 py-2 rounded-lg border transition ${page === 1
-                            ? "border-gray-200 text-gray-400 cursor-not-allowed"
-                            : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                            ? "border-blue-300 text-gray-400 cursor-not-allowed"
+                            : "border-blue-400 text-gray-700 hover:bg-gray-100"
                             }`}
                     >
                         Previous
@@ -170,8 +170,8 @@ export default function LeadsDataTable({
                         onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                         disabled={page >= totalPages}
                         className={`px-4 py-2 rounded-lg border transition ${page >= totalPages
-                            ? "border-gray-200 text-gray-400 cursor-not-allowed"
-                            : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                            ? "border-blue-300 text-gray-400 cursor-not-allowed"
+                            : "border-blue-400 text-gray-700 hover:bg-gray-100"
                             }`}
                     >
                         Next

@@ -194,8 +194,8 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
       {
         title: "REPORTS", section: "reports", icon: BarChart3,
         items: [
-          { href: "/reports/client", icon: UserCheck, label: "Client", access: "" },
-          { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "" },
+          { href: "/reports/client", icon: UserCheck, label: "Client Report", access: "reports_client_page" },
+          { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
         ],
       },
 

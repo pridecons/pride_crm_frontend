@@ -11,6 +11,7 @@ import {
   Send,
   Share2,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import CallButton from "../CallButton";

@@ -9,7 +9,8 @@ import {
   Home, Target, History, UserPlus, Users, Building2, Building, Settings,
   FileText, Wrench, Tag, Gauge, UploadCloud, BarChart3, UserCheck, ShieldCheck,
   ClipboardList, CreditCard, Mail, MessageCircle, MessageSquare, CalendarCheck,
-  ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal
+  ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal,
+  PhoneCall
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -64,6 +65,7 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
     management: false,
     configuration: true,
     template: false,
+    reports: false,
   });
 
   useEffect(() => {
@@ -188,6 +190,15 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
       { title: "CHAT", items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
       { title: "MAIL", items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
       { title: "NOTICE BOARD", items: [{ href: "/notice-board", icon: ClipboardList, label: "Notice Board", access: "notice_board_page" }] },
+
+      {
+        title: "REPORTS", section: "reports", icon: BarChart3,
+        items: [
+          { href: "/reports/client", icon: UserCheck, label: "Client", access: "" },
+          { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "" },
+        ],
+      },
+
       {
         title: "TEMPLATE", section: "template", icon: FileText,
         items: [

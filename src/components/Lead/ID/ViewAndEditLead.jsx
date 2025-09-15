@@ -122,7 +122,23 @@ export const ViewAndEditLead = ({
   const [panVerifiedData, setPanVerifiedData] = useState(null);
   const [selectedResponse, setSelectedResponse] = useState(editFormData.lead_response_id || "");
 
+// NEW: track which fields were populated by PAN and should be locked
+const [panLocked, setPanLocked] = useState({
+  pan: false,           // keep PAN editable in edit mode (we won't lock this)
+  full_name: false,
+  father_name: false,
+  dob: false,
+  address: false,
+  city: false,
+  state: false,
+  district: false,
+  pincode: false,
+  country: false,
+  aadhaar: false,
+  gender: false,
+});
 
+const isFilled = (v) => v != null && String(v).trim() !== "";
 
   useEffect(() => {
     let cancelled = false;
@@ -216,6 +232,22 @@ export const ViewAndEditLead = ({
                     ? "Female"
                     : p.gender,
             }));
+            // AFTER setEditFormData(...) in the PAN success block, ADD:
+const addr = r.user_address || {};
+setPanLocked({
+  pan: false, // keep PAN editable in edit mode to allow re-verify/change
+  full_name:   isFilled(r.user_full_name),
+  father_name: isFilled(r.user_father_name),
+  dob:         isFilled(r.user_dob),
+  address:     isFilled(addr.full),
+  city:        isFilled(addr.city),
+  state:       isFilled(addr.state),
+  district:    isFilled(addr.district),
+  pincode:     isFilled(addr.zip),
+  country:     isFilled(addr.country),
+  aadhaar:     isFilled(r.masked_aadhaar),
+  gender:      isFilled(r.user_gender),
+});
             toast.success("PAN verified and autofilled!");
           } else {
             throw new Error("Verification failed");
@@ -329,31 +361,19 @@ export const ViewAndEditLead = ({
   ];
 
   // Which fields to lock after PAN fetched or saved
-  const lockedFields = [
-    "pan",
-    "full_name",
-    "father_name",
-    "dob",
-    "address",
-    "city",
-    "state",
-    "pincode",
-    "country",
-    "aadhaar",
-    "gender",
-    "mobile",
-  ];
+// REMOVE lockedFields array completely
+
+// NEW: lock rules
 const isLocked = (name) => {
-    // mobile must never be editable
-    if (name === "mobile") return true;
-    // allow PAN only in edit mode
-    if (name === "pan") return !isEditMode;
-    return (
-      !isEditMode ||
-      (currentLead.pan && lockedFields.includes(name)) ||
-      (panFetched && lockedFields.includes(name))
-    );
-  };
+  // view mode: everything read-only
+  if (!isEditMode) return true;
+
+  // mobile must never be editable
+  if (name === "mobile") return true;
+
+  // lock only the fields that PAN actually populated
+  return !!panLocked[name];
+};
 
   return (
     <div className="flex flex-col gap-6">
@@ -451,54 +471,44 @@ const isLocked = (name) => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {(leadType === "COMPANY" ? personalCompany : personalIndividual).map((f) => {
-            // Age field
-            if (f.name === "age") {
-              return (
-                <InputField
-                  key={f.name}
-                  {...f}
-                  value={calculateAge(editFormData.dob)}
-                  isEditMode={false}
-                />
-              );
-            }
-            // PAN field with loader
-            if (f.name === "pan") {
-              return (
-                <InputField
-                  key={f.name}
-                  {...f}
-                  value={editFormData.pan}
-                  isEditMode={!isLocked("pan")}
-                  onInputChange={handleInputChange}
-                  suffix={panLoading ? <MiniLoader /> : null}
-                  autoCapitalize="characters"
-                />
-              );
-            }
-            // Locked fields after PAN
-            if (lockedFields.includes(f.name)) {
-              return (
-                <InputField
-                  key={f.name}
-                  {...f}
-                  value={editFormData[f.name]}
-                  isEditMode={!isLocked(f.name)}
-                  onInputChange={handleInputChange}
-                />
-              );
-            }
-            // Everything else
-            return (
-              <InputField
-                key={f.name}
-                {...f}
-                value={editFormData[f.name]}
-                isEditMode={isEditMode}
-                onInputChange={handleInputChange}
-              />
-            );
-          })}
+  // Age is derived
+  if (f.name === "age") {
+    return (
+      <InputField
+        key={f.name}
+        {...f}
+        value={calculateAge(editFormData.dob)}
+        isEditMode={false}
+      />
+    );
+  }
+
+  // PAN: keep editable in edit mode (no lock), show loader suffix
+  if (f.name === "pan") {
+    return (
+      <InputField
+        key={f.name}
+        {...f}
+        value={editFormData.pan}
+        isEditMode={isEditMode}               // always editable in edit mode
+        onInputChange={handleInputChange}
+        suffix={panLoading ? <MiniLoader /> : null}
+        autoCapitalize="characters"
+      />
+    );
+  }
+
+  // Default: editable only if not locked by PAN (and in edit mode)
+  return (
+    <InputField
+      key={f.name}
+      {...f}
+      value={editFormData[f.name]}
+      isEditMode={!isLocked(f.name)}
+      onInputChange={handleInputChange}
+    />
+  );
+})}
         </div>
       </section>
 
@@ -515,7 +525,7 @@ const isLocked = (name) => {
                 <InputField
                   {...f}
                   value={editFormData.address}
-                  isEditMode={isEditMode}
+                  isEditMode={!isLocked("address")}
                   onInputChange={handleInputChange}
                 />
               </div>
@@ -524,7 +534,7 @@ const isLocked = (name) => {
                 key={f.name}
                 {...f}
                 value={editFormData[f.name]}
-                isEditMode={isEditMode}
+                isEditMode={!isLocked(f.name)} 
                 onInputChange={handleInputChange}
               />
             )

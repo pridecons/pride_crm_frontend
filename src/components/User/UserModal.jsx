@@ -42,20 +42,49 @@ const toISOorUndefined = (ddmmyyyy) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const roleKey = (r) => (r || "").toString().toUpperCase().replace(/\s+/g, "");
-const getRoleKeySafe = (currentUser) => {
-  let role = currentUser?.role;
-  if (!role) {
-    try {
-      const raw = Cookies.get("user_info");
-      if (raw) {
-        const p = JSON.parse(raw);
-        role = p?.role ?? p?.user?.role ?? p?.user_info?.role;
-      }
-    } catch { }
-  }
-  return roleKey(role);
-};
+// --- Role helpers copied/adapted from UserFilters ---
+function toRoleKey(v) {
+  const canon = String(v || "").toUpperCase().trim().replace(/\s+/g, " ");
+  return canon === "SUPER ADMINISTRATOR" ? "SUPERADMIN" : canon; // unify
+}
+
+function getRoleKeyFromEverywhere(currentUser) {
+  // 1) Try context first
+  const ctxRole =
+    currentUser?.role_name ||
+    currentUser?.role ||
+    currentUser?.user?.role_name ||
+    currentUser?.user?.role;
+  if (ctxRole) return toRoleKey(ctxRole);
+
+  // 2) Try cookie (same as UserFilters)
+  try {
+    const uiRaw = Cookies.get("user_info");
+    if (uiRaw) {
+      const ui = JSON.parse(uiRaw);
+      const cookieRole =
+        ui?.role_name ||
+        ui?.role ||
+        ui?.user?.role_name ||
+        ui?.user?.role ||
+        ui?.profile_role?.name ||
+        null;
+      if (cookieRole) return toRoleKey(cookieRole);
+    }
+  } catch {}
+
+  // 3) Try access_token fallback (same as UserFilters)
+  try {
+    const token = Cookies.get("access_token");
+    if (token) {
+      const p = jwtDecode(token);
+      const tRole = p?.role_name || p?.role || null;
+      if (tRole) return toRoleKey(tRole);
+    }
+  } catch {}
+
+  return ""; // unknown
+}
 
 export default function UserModal({
   mode = "add",
@@ -65,8 +94,12 @@ export default function UserModal({
   onSuccess,
 }) {
   const isEdit = mode === "edit";
-  const { currentUser } = usePermissions();
-  const currentRoleKey = getRoleKeySafe(currentUser);
+const { currentUser } = usePermissions();
+ const currentRoleKey = getRoleKeyFromEverywhere(currentUser);
+ const isSuperAdmin = currentRoleKey === "SUPERADMIN";
+ // password gate
+ const canEditPassword = isSuperAdmin;           // edit mode only
+ const showPasswordField = !isEdit || canEditPassword;
 
   const passwordRegex =
     /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
@@ -275,7 +308,7 @@ export default function UserModal({
         // branch preselect rules
         if (isEdit && user?.branch_id) {
           setSelectedBranchId(String(user.branch_id));
-        } else if (currentRoleKey !== "SUPERADMIN") {
+       } else if (!isSuperAdmin) {
           const eff =
             currentUser?.branch_id ??
             (() => {
@@ -572,8 +605,10 @@ export default function UserModal({
       ? "Must be 10 digits"
       : "";
   const passwordError =
-    formData.password.length > 0 && !passwordRegex.test(formData.password)
-      ? "Password must be ≥6 chars with a number & special char"
+    showPasswordField &&
+    formData.password.length > 0 &&
+    !passwordRegex.test(formData.password)
+     ? "Password must be ≥6 chars with a number & special char"
       : "";
 
   // -------- Submit ----------
@@ -610,13 +645,27 @@ export default function UserModal({
     if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number))
       return ErrorHandling({ defaultError: "Phone must be 10 digits" });
 
-    // Password validation
-    if (!isEdit && !passwordRegex.test(formData.password)) {
-      return ErrorHandling({ defaultError: "Password must be ≥6 chars, include a number & special char" });
-    }
-    if (isEdit && formData.password && !passwordRegex.test(formData.password)) {
-      return ErrorHandling({ defaultError: "Password must be ≥6 chars, include a number & special char" });
-    }
+ // ----- Password validation -----
+// Create: always require & validate
+if (!isEdit) {
+  if (!passwordRegex.test(formData.password)) {
+    return ErrorHandling({
+      defaultError: "Password must be ≥6 chars, include a number & special char",
+    });
+  }
+}
+
+// Edit: Only SuperAdmin may change password
+if (isEdit && formData.password) {
+  if (!canEditPassword) {
+    return ErrorHandling({ defaultError: "Only SuperAdmin can change passwords." });
+  }
+  if (!passwordRegex.test(formData.password)) {
+    return ErrorHandling({
+      defaultError: "Password must be ≥6 chars, include a number & special char",
+    });
+  }
+}
 
     // Build payload
     const payload = {
@@ -665,15 +714,15 @@ export default function UserModal({
     toast.loading(isEdit ? "Updating…" : "Adding user…");
     try {
       let res;
-      if (isEdit) {
-        if (formData.password) payload.password = formData.password;
-        res = await axiosInstance.put(`/users/${user.employee_code}`, payload);
-      } else {
-        res = await axiosInstance.post("/users/", {
-          ...payload,
-          password: formData.password,
-        });
-      }
+if (isEdit) {
+  if (canEditPassword && formData.password) {
+    payload.password = formData.password;
+  }
+  res = await axiosInstance.put(`/users/${user.employee_code}`, payload);
+} else {
+  payload.password = formData.password; // create
+  res = await axiosInstance.post("/users/", payload);
+}
 
       toast.dismiss();
       toast.success(isEdit ? "Updated!" : "Added!");
@@ -730,7 +779,7 @@ export default function UserModal({
                   value={selectedBranchId}
                   onChange={(e) => setSelectedBranchId(e.target.value)}
                   required={isBranchRequired}
-                  disabled={currentRoleKey !== "SUPERADMIN" && !!selectedBranchId}
+                  disabled={!isSuperAdmin && !!selectedBranchId}
                   title={
                     currentRoleKey !== "SUPERADMIN"
                       ? "Branch is fixed for your role"
@@ -929,53 +978,52 @@ export default function UserModal({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {isEdit ? "Reset Password" : "Password *"}
-                  </label>
-                  {isEdit && (
-                    <p className="text-xs text-gray-500 mb-1">
-                      Leave blank to keep existing password.
-                    </p>
-                  )}
-                  {passwordError && (
-                    <div
-                      id="pwd-error"
-                      className="mb-1 text-xs text-red-600 font-medium"
-                    >
-                      {passwordError}
-                    </div>
-                  )}
-                  <div className="relative">
-                    <input
-                      className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
-                      type={showPwd ? "text" : "password"}
-                      value={formData.password ?? ""}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                      autoComplete="new-password"
-                      required={!isEdit}
-                      placeholder={
-                        isEdit ? "Enter new password" : "Create a password"
-                      }
-                      aria-invalid={!!passwordError}
-                      aria-describedby={passwordError ? "pwd-error" : undefined}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPwd((v) => !v)}
-                      className="absolute inset-y-0 right-3 flex items-center"
-                      aria-label={showPwd ? "Hide password" : "Show password"}
-                    >
-                      {showPwd ? (
-                        <EyeOff className="w-5 h-5 text-gray-500" />
-                      ) : (
-                        <Eye className="w-5 h-5 text-gray-500" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                {/* Password (Create) / Reset Password (Edit, SuperAdmin only) */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    {isEdit ? "Reset Password" : "Password *"}
+  </label>
+
+  {isEdit && !canEditPassword ? (
+    <div className="text-xs text-gray-500 p-3 border rounded-xl bg-gray-50">
+      Only <span className="font-semibold">SuperAdmin</span> can change user passwords.
+    </div>
+  ) : (
+    <>
+      {isEdit && (
+        <p className="text-xs text-gray-500 mb-1">
+          Leave blank to keep existing password.
+        </p>
+      )}
+      {passwordError && (
+        <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
+          {passwordError}
+        </div>
+      )}
+      <div className="relative">
+        <input
+          className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
+          type={showPwd ? "text" : "password"}
+          value={formData.password ?? ""}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          autoComplete="new-password"
+          required={!isEdit}  // create required; edit optional
+          placeholder={isEdit ? "Enter new password" : "Create a password"}
+          aria-invalid={!!passwordError}
+          aria-describedby={passwordError ? "pwd-error" : undefined}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPwd((v) => !v)}
+          className="absolute inset-y-0 right-3 flex items-center"
+          aria-label={showPwd ? "Hide password" : "Show password"}
+        >
+          {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
+        </button>
+      </div>
+    </>
+  )}
+</div>
               </div>
 
               {/* Right column */}

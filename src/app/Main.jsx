@@ -22,36 +22,45 @@ export default function Main({ children }) {
     return () => mq.removeEventListener?.("change", apply);
   }, []);
 
-  // close on route change (mobile UX)
-  useEffect(() => {
-    if (!isDesktop) setSidebarOpen(false);
-  }, [pathname, isDesktop]);
-
+  // Are we on the login page?
   const showChrome = pathname !== "/login";
+
+  // If we’re on login, force the sidebar closed (no mini icons either)
+  useEffect(() => {
+    if (!showChrome) setSidebarOpen(false);
+  }, [showChrome]);
+
   const FULL_W = 256;
   const MINI_W = 64;
 
   // Compute current sidebar width for header/main padding
   const sbw = useMemo(() => {
+    if (!showChrome) return 0; // ⬅️ No sidebar width on login
     if (!isDesktop) return sidebarOpen ? FULL_W : 0; // mobile overlay
-    return sidebarOpen ? FULL_W : MINI_W;           // desktop mini
-  }, [sidebarOpen, isDesktop]);
+    return sidebarOpen ? FULL_W : MINI_W; // desktop mini
+  }, [showChrome, sidebarOpen, isDesktop]);
 
   // On desktop we **never** slide out; on mobile we slide
   const asideTransform = isDesktop
     ? "translateX(0)"
     : sidebarOpen
-      ? "translateX(0)"
-      : "translateX(-100%)";
+    ? "translateX(0)"
+    : "translateX(-100%)";
 
   return (
     <PermissionsProvider>
-      <div className="min-h-screen bg-gray-50" style={{ ["--sbw"]: `${sbw}px` }}>
+      <div
+        className="min-h-screen bg-gray-50"
+        style={showChrome ? { ["--sbw"]: `${sbw}px` } : undefined}
+      >
         <Toaster position="bottom-center" toastOptions={{ duration: 4000 }} />
 
         {showChrome && (
           <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200">
-            <Header onMenuClick={() => setSidebarOpen(v => !v)} sidebarOpen={sidebarOpen} />
+            <Header
+              onMenuClick={() => setSidebarOpen((v) => !v)}
+              sidebarOpen={sidebarOpen}
+            />
           </header>
         )}
 
@@ -84,7 +93,7 @@ export default function Main({ children }) {
           className="min-h-screen"
           style={{
             paddingTop: showChrome ? "64px" : "0px",
-            paddingLeft: "var(--sbw)",
+            paddingLeft: showChrome ? "var(--sbw)" : 0, // ⬅️ No left pad on login
             transition: "padding-left 200ms ease",
           }}
         >

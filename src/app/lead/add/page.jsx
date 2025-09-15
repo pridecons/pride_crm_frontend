@@ -48,6 +48,22 @@ export default function LeadForm() {
   const [leadResponses, setLeadResponses] = useState([])
   const [loadingPan, setLoadingPan] = useState(false)
   const [panVerified, setPanVerified] = useState(false)
+  // Track only the fields populated by PAN; lock just those.
+const [panLocked, setPanLocked] = useState({
+  pan: false,
+  pan_type: false,
+  full_name: false,
+  father_name: false,
+  dob: false,
+  aadhaar: false,
+  state: false,
+  city: false,
+  district: false,
+  pincode: false,
+  address: false,
+});
+
+const isFilled = (v) => v != null && String(v).trim() !== "";
   const [submitting, setSubmitting] = useState(false)
   const [segmentsList, setSegmentsList] = useState([])
 
@@ -147,29 +163,46 @@ export default function LeadForm() {
         new URLSearchParams({ pannumber: formData.pan }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       )
-      if (res.data?.success && res.data.data?.result) {
-        const r = res.data.data.result
-        if (formData.pan_type !== r.pan_type) {
-          toast(`Switching PAN type to "${r.pan_type === 'Person' ? 'Individual' : 'Company'}"`, { icon: 'ℹ️' })
-        }
-        setFormData(prev => ({
-          ...prev,
-          full_name: r.user_full_name ?? prev.full_name ?? '',
-          father_name: r.user_father_name ?? prev.father_name ?? '',
-          dob: r.user_dob || prev.dob || '',
-          aadhaar: r.masked_aadhaar ?? prev.aadhaar ?? '',
-          city: r.user_address?.city ?? prev.city ?? '',
-          state: r.user_address?.state ?? prev.state ?? '',
-          district: r.user_address?.district ?? prev.district ?? '',
-          pincode: r.user_address?.zip ?? prev.pincode ?? '',
-          address: r.user_address?.full ?? prev.address ?? '',
-          pan_type: r.pan_type,
-        }))
-        setPanVerified(true)
-        toast.success('PAN verified and details autofilled!')
-      } else {
-        ErrorHandling({ defaultError: "PAN verification failed" })
-      }
+if (res.data?.success && res.data.data?.result) {
+  const r = res.data.data.result;
+  if (formData.pan_type !== r.pan_type) {
+    toast(`Switching PAN type to "${r.pan_type === 'Person' ? 'Individual' : 'Company'}"`, { icon: 'ℹ️' });
+  }
+
+  setFormData(prev => ({
+    ...prev,
+    full_name: r.user_full_name ?? prev.full_name ?? '',
+    father_name: r.user_father_name ?? prev.father_name ?? '',
+    dob: r.user_dob || prev.dob || '',
+    aadhaar: r.masked_aadhaar ?? prev.aadhaar ?? '',
+    city: r.user_address?.city ?? prev.city ?? '',
+    state: r.user_address?.state ?? prev.state ?? '',
+    district: r.user_address?.district ?? prev.district ?? '',
+    pincode: r.user_address?.zip ?? prev.pincode ?? '',
+    address: r.user_address?.full ?? prev.address ?? '',
+    pan_type: r.pan_type,
+  }));
+
+  const addr = r.user_address || {};
+  setPanLocked({
+    pan: true,               // PAN input locks after verify
+    pan_type: true,          // PAN type locks after verify
+    full_name:  isFilled(r.user_full_name),
+    father_name:isFilled(r.user_father_name),
+    dob:        isFilled(r.user_dob),
+    aadhaar:    isFilled(r.masked_aadhaar),
+    state:      isFilled(addr.state),
+    city:       isFilled(addr.city),
+    district:   isFilled(addr.district),
+    pincode:    isFilled(addr.zip),
+    address:    isFilled(addr.full),
+  });
+
+  setPanVerified(true);
+  toast.success('PAN verified and details autofilled!');
+} else {
+  ErrorHandling({ defaultError: "PAN verification failed" });
+}
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Error verifying PAN" })
     } finally {
@@ -177,10 +210,14 @@ export default function LeadForm() {
     }
   }
 
-  const handleResetPan = () => {
-    setPanVerified(false)
-    setFormData(p => ({ ...p, full_name: '', father_name: '', dob: '', aadhaar: '', city: '', state: '', district: '', pan_type: 'Person' }))
-  }
+const handleEditPan = () => {
+  setPanVerified(false);
+  setPanLocked(prev => {
+    const allFalse = {};
+    for (const k of Object.keys(prev)) allFalse[k] = false;
+    return allFalse;
+  });
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -279,7 +316,13 @@ export default function LeadForm() {
       <Section title="Basic Details">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="PAN Type">
-            <select name="pan_type" value={formData.pan_type} onChange={handleChange} disabled={panVerified} className={baseSelect}>
+            <select
+  name="pan_type"
+  value={formData.pan_type}
+  onChange={handleChange}
+  disabled={panLocked.pan_type}   // was panVerified
+  className={baseSelect}
+>
               <option value="">Select PAN Type</option>
               <option value="Person">Individual</option>
               <option value="Company">Company</option>
@@ -288,28 +331,43 @@ export default function LeadForm() {
 
           <Field label="PAN Number">
             <div className="flex gap-2">
-              <input
-                name="pan" value={formData.pan} onChange={handleChange}
-                placeholder="ABCDE1234F" disabled={panVerified}
-                maxLength={10} pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
-                className={baseInput}
-              />
-              {panVerified ? (
-                <button type="button" onClick={handleResetPan} className="rounded-lg bg-amber-500 px-3 text-white text-sm hover:bg-amber-600">Edit</button>
-              ) : (
-                <button type="button" onClick={handleVerifyPan} disabled={loadingPan} className="rounded-lg bg-blue-700 px-3 text-white text-sm hover:bg-blue-800">
-                  {loadingPan ? 'Verifying…' : 'Verify'}
-                </button>
-              )}
-            </div>
+  <input
+    name="pan"
+    value={formData.pan}
+    onChange={handleChange}
+    placeholder="ABCDE1234F"
+    disabled={panLocked.pan}       // was panVerified
+    maxLength={10}
+    pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
+    className={baseInput}
+  />
+  {panLocked.pan ? (                 // was panVerified ? (...)
+    <button
+      type="button"
+      onClick={handleEditPan}
+      className="rounded-lg bg-amber-500 px-3 text-white text-sm hover:bg-amber-600"
+    >
+      Edit
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={handleVerifyPan}
+      disabled={loadingPan}
+      className="rounded-lg bg-blue-700 px-3 text-white text-sm hover:bg-blue-800"
+    >
+      {loadingPan ? 'Verifying…' : 'Verify'}
+    </button>
+  )}
+</div>
           </Field>
 
           <Field label="Full Name">
-            <input name="full_name" value={formData.full_name} onChange={handleChange} disabled={panVerified} placeholder="Full Name" className={baseInput} />
+            <input name="full_name" value={formData.full_name} onChange={handleChange} disabled={panLocked.full_name} placeholder="Full Name" className={baseInput} />
           </Field>
 
           <Field label="Father Name">
-            <input name="father_name" value={formData.father_name} onChange={handleChange} disabled={panVerified} placeholder="Father Name" className={baseInput} />
+            <input name="father_name" value={formData.father_name} onChange={handleChange} disabled={panLocked.father_name} placeholder="Father Name" className={baseInput} />
           </Field>
 
           <Field label="Mobile">
@@ -325,11 +383,11 @@ export default function LeadForm() {
           </Field>
 
           <Field label="Date of Birth (DD-MM-YYYY)">
-            <input name="dob" value={formData.dob} onChange={handleChange} placeholder="DD-MM-YYYY" pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$" disabled={panVerified} className={baseInput} />
+            <input name="dob" value={formData.dob} onChange={handleChange} placeholder="DD-MM-YYYY" pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$" disabled={panLocked.dob} className={baseInput} />
           </Field>
 
           <Field label="Aadhaar Number">
-            <input name="aadhaar" inputMode="numeric" value={formData.aadhaar} onChange={handleChange} maxLength={12} pattern="^[0-9]{12}$" placeholder="12-digit Aadhaar" disabled={panVerified} className={baseInput} />
+            <input name="aadhaar" inputMode="numeric" value={formData.aadhaar} onChange={handleChange} maxLength={12} pattern="^[0-9]{12}$" placeholder="12-digit Aadhaar" disabled={panLocked.aadhaar} className={baseInput} />
           </Field>
 
           <Field label="GST Number">
@@ -355,6 +413,7 @@ export default function LeadForm() {
               placeholder="Start typing… e.g. MADHYA PRADESH"
               className={cn(baseInput, "bg-gray-50")}
               autoComplete="off"
+              disabled={panLocked.state}
             />
             {showStateList && filteredStates.length > 0 && (
               <div className="absolute left-0 right-0 mt-1 z-50 bg-white border rounded-md shadow max-h-60 overflow-auto">
@@ -372,19 +431,19 @@ export default function LeadForm() {
           </Field>
 
           <Field label="District">
-            <input name="district" value={formData.district} onChange={handleChange} placeholder="District" className={baseInput} />
+            <input name="district" value={formData.district} onChange={handleChange} placeholder="District" className={baseInput} disabled={panLocked.district} />
           </Field>
 
           <Field label="City">
-            <input name="city" value={formData.city} onChange={handleChange} placeholder="City" className={cn(baseInput, "bg-gray-50")} />
+            <input name="city" value={formData.city} onChange={handleChange} placeholder="City" className={cn(baseInput, "bg-gray-50")} disabled={panLocked.city} />
           </Field>
 
           <Field label="Pin Code">
-            <input name="pincode" inputMode="numeric" value={formData.pincode} onChange={handleChange} placeholder="Pin Code" className={baseInput} />
+            <input name="pincode" inputMode="numeric" value={formData.pincode} onChange={handleChange} placeholder="Pin Code" className={baseInput} disabled={panLocked.pincode} />
           </Field>
 
           <Field label="Address" className="md:col-span-2">
-            <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Full address" className={baseArea} />
+            <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Full address" className={baseArea} disabled={panLocked.address} />
           </Field>
         </div>
       </Section>

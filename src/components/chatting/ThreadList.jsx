@@ -1,9 +1,76 @@
 // src/components/chat/ThreadList.jsx
 "use client";
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { Avatar } from "./atoms";
 import { clsx, humanTime } from "./utils";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+
+/* ----------------------------- helpers ----------------------------- */
+const toStr = (v) => (v == null ? "" : String(v));
+
+const normalizeRoleKey = (r) =>
+  toStr(r).trim().toUpperCase().replace(/\s+/g, "_") || "";
+
+const getBranchIdLike = (obj) => {
+  if (!obj) return null;
+  if (obj.branch_id != null) return String(obj.branch_id);
+  if (obj.branchId != null) return String(obj.branchId);
+  if (obj.branch && obj.branch.id != null) return String(obj.branch.id);
+  return null;
+};
+
+// Normalize unread count across possible shapes/types; clamp to >= 0.
+function getUnread(t) {
+  if (!t) return 0;
+  let v =
+    t.unread_count != null
+      ? t.unread_count
+      : t.unreadCount != null
+      ? t.unreadCount
+      : t.unread != null
+      ? t.unread
+      : t.unreadMessages != null
+      ? t.unreadMessages
+      : 0;
+
+  // Handle strings like "0", "3"
+  if (typeof v === "string") {
+    const n = parseInt(v, 10);
+    v = isNaN(n) ? 0 : n;
+  }
+  if (typeof v !== "number") v = 0;
+  return v < 0 ? 0 : v;
+}
+
+function useCurrentUserRB() {
+  const [state, setState] = useState({ role: null, branchId: null });
+
+  useEffect(() => {
+    try {
+      const ui = Cookies.get("user_info");
+      if (ui) {
+        const obj = JSON.parse(ui);
+        const role = normalizeRoleKey(obj?.role || obj?.user_role || obj?.role_name);
+        const branchId = getBranchIdLike(obj);
+        setState({ role, branchId });
+        return;
+      }
+      const tok = Cookies.get("access_token");
+      if (tok) {
+        const p = jwtDecode(tok);
+        const role = normalizeRoleKey(p?.role);
+        const branchId = getBranchIdLike(p);
+        setState({ role, branchId });
+        return;
+      }
+    } catch {}
+    setState({ role: null, branchId: null });
+  }, []);
+
+  return state; // {role, branchId}
+}
 
 export default function ThreadList({
   threads,
@@ -16,23 +83,75 @@ export default function ThreadList({
   onOpenNewChat,
 }) {
   const q = (searchQuery || "").toLowerCase();
+  const { role, branchId } = useCurrentUserRB();
+  const isSuperAdmin = normalizeRoleKey(role) === "SUPERADMIN";
 
+  // Threads search
   const filteredThreads = useMemo(() => {
-    if (!q) return threads;
-    return threads.filter((t) => (t.name || "Direct Chat").toLowerCase().includes(q));
+    if (!q) return threads || [];
+    const safe = Array.isArray(threads) ? threads : [];
+    return safe.filter((t) => (t?.name || "Direct Chat").toLowerCase().includes(q));
   }, [threads, q]);
 
+  // Users search: SUPERADMIN sees all; others only same-branch users
   const filteredUsers = useMemo(() => {
     if (!q) return [];
-    return users.filter((u) =>
+    const base = Array.isArray(users) ? users : [];
+    const byQuery = base.filter((u) =>
       (u.full_name || u.name || u.employee_code || "").toLowerCase().includes(q)
     );
-  }, [users, q]);
+    if (isSuperAdmin) return byQuery;
+    const myBranch = branchId != null ? String(branchId) : null;
+    if (!myBranch) return [];
+    return byQuery.filter((u) => {
+      const ub = getBranchIdLike(u);
+      return ub != null && String(ub) === myBranch;
+    });
+  }, [users, q, isSuperAdmin, branchId]);
+
+  // Reusable thread row (shows unread badge consistently)
+  const ThreadRow = ({ thread }) => {
+    const unread = getUnread(thread);
+    return (
+      <button
+        key={thread.id}
+        onClick={() => onSelectThread(thread)}
+        className={clsx(
+          "w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80",
+          selectedId === thread.id && "bg-gray-100"
+        )}
+      >
+        <div className="flex">
+          <div className="w-[44px] pt-1">
+            <Avatar name={thread.name} id={String(thread.id)} size="lg" />
+          </div>
+          <div className="pl-4 min-w-0 flex-1">
+            <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
+              {thread.name || "Direct Chat"}
+              <span className="float-right text-[12px] text-gray-500 font-normal">
+                {humanTime ? humanTime(thread.last_message_time) : ""}
+              </span>
+            </h5>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] text-[#6b7280] truncate">
+                {thread.last_message || " "}
+              </p>
+              {unread > 0 && (
+                <span className="ml-2 bg-teal-600 text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
+                  {unread}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div
       className="shrink-0 border-r border-gray-200 bg-[#f8fafc] flex flex-col overflow-hidden min-h-0"
-      style={{ width: "315px" }}   // ⬅️ reduced width (fixed, clean)
+      style={{ width: "315px" }}
     >
       {/* Sticky head */}
       <div className="sticky top-0 z-10 bg-[#f8fafc] border-b border-gray-200 px-5 py-3">
@@ -63,32 +182,8 @@ export default function ThreadList({
       <div className="flex-1 overflow-y-auto">
         {q ? (
           <>
-            {filteredThreads.map((thread) => (
-              <button
-                key={`thread-${thread.id}`}
-                onClick={() => onSelectThread(thread)}
-                className={clsx(
-                  "w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80",
-                  selectedId === thread.id && "bg-gray-100"
-                )}
-              >
-                <div className="flex">
-                  <div className="w-[44px] pt-1">
-                    <Avatar name={thread.name} id={String(thread.id)} size="lg" />
-                  </div>
-                  <div className="pl-4 min-w-0 flex-1">
-                    <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
-                      {thread.name || "Direct Chat"}
-                      <span className="float-right text-[12px] text-gray-500 font-normal">
-                        {humanTime(thread.last_message_time)}
-                      </span>
-                    </h5>
-                    <p className="text-[13px] text-[#6b7280] truncate">
-                      {thread.last_message || " "}
-                    </p>
-                  </div>
-                </div>
-              </button>
+            {filteredThreads.map((t) => (
+              <ThreadRow key={`thread-${t.id}`} thread={t} />
             ))}
 
             {filteredUsers.map((user) => (
@@ -105,45 +200,21 @@ export default function ThreadList({
                     <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
                       {user.full_name || user.name}
                     </h5>
-                    <p className="text-[13px] text-[#6b7280] truncate">{user.employee_code}</p>
+                    <p className="text-[13px] text-[#6b7280] truncate">
+                      {user.employee_code}
+                      {user.branch_id != null && (
+                        <span className="ml-2 text-[11px] text-gray-500">
+                          · B{String(user.branch_id)}
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </div>
               </button>
             ))}
           </>
         ) : (
-          threads.map((thread) => (
-            <button
-              key={thread.id}
-              onClick={() => onSelectThread(thread)}
-              className={clsx(
-                "w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80",
-                selectedId === thread.id && "bg-gray-100"
-              )}
-            >
-              <div className="flex">
-                <div className="w-[44px] pt-1">
-                  <Avatar name={thread.name} id={String(thread.id)} size="lg" />
-                </div>
-                <div className="pl-4 min-w-0 flex-1">
-                  <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
-                    {thread.name || "Direct Chat"}
-                    <span className="float-right text-[12px] text-gray-500 font-normal">
-                      {humanTime(thread.last_message_time)}
-                    </span>
-                  </h5>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[13px] text-[#6b7280] truncate">{thread.last_message || " "}</p>
-                    {!!thread.unread_count && (
-                      <span className="ml-2 bg-teal-600 text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
-                        {thread.unread_count}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </button>
-          ))
+          (threads || []).map((t) => <ThreadRow key={t.id} thread={t} />)
         )}
       </div>
     </div>

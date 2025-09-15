@@ -279,13 +279,17 @@ export default function OldLeadsTable() {
       align: "left",
       render: (lead) =>
         lead.email ? (
-          <a>
-            {lead.email}
-          </a>
+          <span
+            className="inline-block max-w-[180px] md:max-w-[240px] truncate align-middle"
+            title={lead.email}                     // <-- hover shows full email
+          >
+            {shortEmail(lead.email)}
+          </span>
         ) : (
           <span className="text-gray-400">—</span>
         ),
     },
+
     {
       header: "Response",
       render: (lead) => {
@@ -448,6 +452,17 @@ export default function OldLeadsTable() {
   // });
 
   const filteredLeads = leads; // backend already applied filters
+
+  // Shows "local@….." if email is long; keeps full value for title/hover
+  const shortEmail = (email) => {
+    const raw = String(email || "").trim();
+    if (!raw) return "";
+    if (raw.length <= 28) return raw;
+    const at = raw.indexOf("@");
+    if (at === -1) return raw.slice(0, 18) + "…..";
+    const local = raw.slice(0, at);
+    return `${local}@…..`;
+  };
 
   return (
     <div className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200

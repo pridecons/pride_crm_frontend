@@ -190,13 +190,30 @@ export default function OldLeadsTable() {
     }
   };
 
-  const handleUpdateName = async (lead) => {
-    try {
-      await axiosInstance.put(`/leads/${lead.id}`, lead);
-      toast.success("Lead updated successfully!");
+  const handleUpdateName = async (lead, nameRaw) => {
+    const name = (nameRaw || "").trim();
+
+    // add-only: if empty, or if name already existed, just exit
+    if (!name) {
       setEditId(null);
+      return;
+    }
+    if ((lead.full_name || "").trim()) {   // already had a name -> do nothing
+      setEditId(null);
+      return;
+    }
+
+    try {
+      await axiosInstance.put(`/leads/${lead.id}`, { ...lead, full_name: name });
+      // update UI immediately
+      setLeads((prev) =>
+        prev.map((l) => (l.id === lead.id ? { ...l, full_name: name } : l))
+      );
+      toast.success("Lead updated successfully!");
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Update failed!" });
+      ErrorHandling({ error, defaultError: "Update failed!" });
+    } finally {
+      setEditId(null);
     }
   };
 
@@ -256,23 +273,38 @@ export default function OldLeadsTable() {
   const columns = [
     {
       header: "Client Name",
-      render: (lead) =>
-        editId === lead.id ? (
+      render: (lead) => {
+        const hasName = (lead.full_name || "").trim() !== "";
+        return editId === lead.id ? (
           <input
+            key={`edit-${lead.id}`}
             type="text"
-            value={lead.full_name}
-            onChange={(e) =>
-              setLeads((prev) =>
-                prev.map((l) => (l.id === lead.id ? { ...l, full_name: e.target.value } : l))
-              )
-            }
-            onBlur={() => handleUpdateName(lead)}
+            autoFocus
+            defaultValue={lead.full_name || ""}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur(); // save on Enter
+            }}
+            onBlur={(e) => handleUpdateName(lead, e.currentTarget.value)} // <-- pass typed value
             className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
           />
+        ) : hasName ? (
+          // already has a name -> not clickable, no API
+          <span className="truncate text-gray-900" title={lead.full_name}>
+            {lead.full_name}
+          </span>
         ) : (
-          <span className="truncate">{Show(lead.full_name)}</span>
-        ),
+          // empty -> add-only affordance (click to start)
+          <span
+            onClick={() => setEditId(lead.id)}
+            className="truncate cursor-pointer text-gray-400 italic"
+            title="Click to add name"
+          >
+            — Click to add name
+          </span>
+        );
+      },
     },
+
     { header: "Mobile", render: (lead) => Show(lead.mobile) },
     {
       header: "Email",

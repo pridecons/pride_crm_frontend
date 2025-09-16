@@ -5,41 +5,59 @@ import Cookies from 'js-cookie'
 import { jwtDecode } from 'jwt-decode'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, User, Lock } from 'lucide-react'
-import { authAxiosInstance } from '@/api/Axios'  // Import authAxiosInstance
+import { authAxiosInstance } from '@/api/Axios'  // keeps your axios instance
 import { ErrorHandling } from '@/helper/ErrorHandling'
 
-// Map numeric role_id → canonical key
-const ROLE_ID_TO_KEY = {
-  '1': 'SUPERADMIN',
-  '2': 'BRANCH_MANAGER',
-  '3': 'HR',
-  '4': 'SALES_MANAGER',
-  '5': 'TL',
-  '6': 'SBA',
-  '7': 'BA',
-  '8': 'BA',             // your API shows BA id=8
-  '9': 'RESEARCHER',
-  '10': 'COMPLIANCE_OFFICER',
-  '11': 'TESTPROFILE',
-}
+/* -------------------------------- Role Helpers ------------------------------- */
 
-// Normalize any role-like string to a canonical key
+// Canonicalize any role-like string to UPPER_SNAKE_CASE
 function canonRole(s) {
   if (!s) return ''
-  let x = String(s).trim().toUpperCase()
-  // common variants
-  x = x.replace(/\s+/g, '_') // "BRANCH MANAGER" -> "BRANCH_MANAGER"
+  let x = String(s).trim().toUpperCase().replace(/\s+/g, '_')
   if (x === 'SUPER_ADMINISTRATOR') x = 'SUPERADMIN'
   return x
 }
 
-// Extract best-effort role from token + user_info
-function getEffectiveRole({ accessToken, userInfo }) {
-  // try from JWT first
+// Build { [id]: CANONICAL_NAME } from API list
+function buildRoleMap(list) {
+  const out = {}
+  ;(Array.isArray(list) ? list : []).forEach((r) => {
+    const id = r?.id != null ? String(r.id) : ''
+    const key = canonRole(r?.name)
+    if (id && key) out[id] = key
+  })
+  return out
+}
+
+// Load role map (tries API, then falls back to localStorage cache)
+async function fetchRoleMap(token) {
+  try {
+    const res = await authAxiosInstance.get('/profile-role/', {
+      params: { skip: 0, limit: 100, order_by: 'hierarchy_level' },
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    const map = buildRoleMap(res?.data)
+    if (Object.keys(map).length) {
+      localStorage.setItem('roleMap', JSON.stringify(map))
+      return map
+    }
+  } catch {
+    // ignore and fall back to cache
+  }
+  try {
+    const cached = JSON.parse(localStorage.getItem('roleMap') || '{}')
+    if (cached && typeof cached === 'object') return cached
+  } catch {}
+  return {}
+}
+
+// Extract best-effort role from token + user_info using dynamic id→name map
+function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
   try {
     if (accessToken) {
       const d = jwtDecode(accessToken) || {}
-      // many possible locations
+
+      // Prefer explicit role names in token
       const jwtRole =
         d.role_name ||
         d.role ||
@@ -50,19 +68,19 @@ function getEffectiveRole({ accessToken, userInfo }) {
       const r1 = canonRole(jwtRole)
       if (r1) return r1
 
-      // fallback via id present in token
+      // Else, map by id from token
       const jwtRoleId =
         d.role_id ?? d.user?.role_id ?? d.profile_role?.id ?? null
       if (jwtRoleId != null) {
-        const r2 = ROLE_ID_TO_KEY[String(jwtRoleId)]
-        if (r2) return r2
+        const mapped = roleMap[String(jwtRoleId)]
+        if (mapped) return mapped
       }
     }
   } catch {
-    // ignore decode errors, fallback to user_info
+    // ignore decode errors
   }
 
-  // fallback to user_info object
+  // Fallback to user_info object
   if (userInfo) {
     const uiRole =
       userInfo.role_name ||
@@ -80,12 +98,14 @@ function getEffectiveRole({ accessToken, userInfo }) {
       userInfo.profile_role?.id ??
       null
     if (uiRoleId != null) {
-      const r4 = ROLE_ID_TO_KEY[String(uiRoleId)]
-      if (r4) return r4
+      const mapped = roleMap[String(uiRoleId)]
+      if (mapped) return mapped
     }
   }
   return ''
 }
+
+/* -------------------------------- Component -------------------------------- */
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -135,9 +155,10 @@ export default function LoginPage() {
       })
 
       let payload = null
-      try { payload = res.data } catch { }
+      try { payload = res.data } catch {}
 
-      if (!res.status === 200) {
+      // Axios throws on non-2xx by default, but keep this to preserve your behavior
+      if (res.status !== 200) {
         const apiDetail = payload?.detail || payload?.message || `HTTP ${res.status}`
         let msg = 'Invalid username or password'
         if (typeof apiDetail === 'string') {
@@ -162,11 +183,15 @@ export default function LoginPage() {
       if (refresh_token) Cookies.set('refresh_token', refresh_token, { expires: 7 })
       if (user_info) Cookies.set('user_info', JSON.stringify(user_info), { expires: 7 })
 
-      const effRole = getEffectiveRole({ accessToken: access_token, userInfo: user_info }) // keep if you use it elsewhere
+      // Fetch dynamic roles, compute effective role, and store for downstream use
+      const roleMap = await fetchRoleMap(access_token)
+      const effRole = getEffectiveRole({ accessToken: access_token, userInfo: user_info, roleMap })
+      if (effRole) Cookies.set('role_key', effRole, { expires: 7 })
+
       toast.success('Login successful')
       router.push('/dashboard')
     } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Network error. Please check your connection." });
+      ErrorHandling({ error: err, defaultError: "Network error. Please check your connection." })
     } finally {
       setSubmitting(false)
     }
@@ -174,7 +199,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2  px-0 bg-gradient-to-br from-sky-500 via-gray-200 to-sky-600 w-full">
-      
       {/* Left image side */}
       <div className="hidden md:flex items-center justify-center">
         <img

@@ -10,6 +10,111 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
+/* ---------- dynamic role helpers (API + cache) ---------- */
+const canonRole = (s) => {
+  if (!s) return "";
+  let x = String(s).trim().toUpperCase().replace(/\s+/g, "_");
+  if (x === "SUPER_ADMINISTRATOR") x = "SUPERADMIN";
+  return x;
+};
+
+function buildRoleMap(list) {
+  const out = {};
+  (Array.isArray(list) ? list : []).forEach((r) => {
+    const id = r?.id != null ? String(r.id) : "";
+    const key = canonRole(r?.name);
+    if (id && key) out[id] = key;
+  });
+  return out;
+}
+
+async function loadRoleMap() {
+  try {
+    const cached = JSON.parse(localStorage.getItem("roleMap") || "{}");
+    if (cached && typeof cached === "object" && Object.keys(cached).length) {
+      return cached;
+    }
+  } catch {}
+
+  try {
+    const res = await axiosInstance.get("/profile-role/", {
+      params: { skip: 0, limit: 100, order_by: "hierarchy_level" },
+    });
+    const map = buildRoleMap(res?.data);
+    if (Object.keys(map).length) localStorage.setItem("roleMap", JSON.stringify(map));
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
+  try {
+    if (accessToken) {
+      const d = jwtDecode(accessToken) || {};
+      const jwtRole =
+        d.role_name || d.role || d.profile_role?.name || d.user?.role_name || d.user?.role || "";
+      const r1 = canonRole(jwtRole);
+      if (r1) return r1;
+
+      const jwtRoleId = d.role_id ?? d.user?.role_id ?? d.profile_role?.id ?? null;
+      if (jwtRoleId != null) {
+        const mapped = roleMap[String(jwtRoleId)];
+        if (mapped) return mapped;
+      }
+    }
+  } catch {}
+
+  if (userInfo) {
+    const uiRole =
+      userInfo.role_name ||
+      userInfo.role ||
+      userInfo.profile_role?.name ||
+      userInfo.user?.role_name ||
+      userInfo.user?.role ||
+      "";
+    const r3 = canonRole(uiRole);
+    if (r3) return r3;
+
+    const uiRoleId =
+      userInfo.role_id ?? userInfo.user?.role_id ?? userInfo.profile_role?.id ?? null;
+    if (uiRoleId != null) {
+      const mapped = roleMap[String(uiRoleId)];
+      if (mapped) return mapped;
+    }
+  }
+  return "";
+}
+
+function useRoleKey() {
+  const [roleKey, setRoleKey] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const ck = Cookies.get("role_key");
+        if (ck) {
+          if (alive) setRoleKey(canonRole(ck));
+          return;
+        }
+
+        const roleMap = await loadRoleMap();
+        const token = Cookies.get("access_token");
+        const uiRaw = Cookies.get("user_info");
+        const userInfo = uiRaw ? JSON.parse(uiRaw) : null;
+        const computed = getEffectiveRole({ accessToken: token, userInfo, roleMap });
+        if (alive) setRoleKey(computed);
+      } catch {
+        if (alive) setRoleKey("");
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  return roleKey;
+}
+
 const canon = (s) => String(s || "").toUpperCase().trim();
 
 // ✨ add this helper near the top
@@ -17,31 +122,23 @@ const inr = (n) =>
   n == null || n === ""
     ? "—"
     : new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 0,
-      }).format(Number(n || 0));
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(Number(n || 0));
 
 function useRoleBranch() {
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
-  const { hasPermission } = usePermissions();
+  const roleKey = useRoleKey(); // ← dynamic canonical key (e.g., SUPERADMIN)
 
   useEffect(() => {
     try {
       const uiRaw = Cookies.get("user_info");
-      let r = null;
       let b = null;
 
       if (uiRaw) {
         const ui = JSON.parse(uiRaw);
-        r =
-          ui?.role_name ||
-          ui?.role ||
-          ui?.user?.role_name ||
-          ui?.user?.role ||
-          ui?.profile_role?.name ||
-          null;
         b =
           ui?.branch_id ??
           ui?.user?.branch_id ??
@@ -52,25 +149,20 @@ function useRoleBranch() {
         const token = Cookies.get("access_token");
         if (token) {
           const p = jwtDecode(token);
-          r = p?.role_name || p?.role || null;
           b = p?.branch_id ?? p?.user?.branch_id ?? null;
         }
       }
 
-      const rCanon = canon(r).replace(/\s+/g, " ");
-      const roleFixed =
-        rCanon === "SUPER ADMINISTRATOR" ? "SUPERADMIN" : rCanon;
-
-      setRole(roleFixed || null);
+      setRole(roleKey || null);                  // store canonical key in state if needed elsewhere
       setBranchId(b != null ? String(b) : null);
     } catch (e) {
       console.error("role/branch decode failed", e);
     }
-  }, []);
+  }, [roleKey]);
 
-  const isSuperAdmin = role === "SUPERADMIN";
+  const isSuperAdmin = roleKey === "SUPERADMIN";
 
-  return { role, branchId, isSuperAdmin };
+  return { role: roleKey, branchId, isSuperAdmin };
 }
 
 export default function UserTable({
@@ -79,6 +171,7 @@ export default function UserTable({
   onEdit,
   onDetails,
   refreshUsers,
+  codeToName = {},
 }) {
   const { isSuperAdmin, branchId } = useRoleBranch();
 
@@ -113,17 +206,18 @@ export default function UserTable({
   const nextPage = () => goTo(page + 1);
 
   const getRoleColorClass = (roleName) => {
-    const roleColors = {
-      SUPERADMIN: "text-blue-800",
-      BRANCH_MANAGER: "text-red-700",
-      SALES_MANAGER: "text-green-800",
-      HR: "text-pink-800",
-      TL: "text-yellow-800",
-      SBA: "text-indigo-800",
-      BA: "text-gray-800",
-    };
-    return roleColors[roleName] || "bg-gray-100 text-gray-700 border border-gray-200";
+  const key = canonRole(roleName); // normalize to SUPERADMIN / BRANCH_MANAGER / ...
+  const roleColors = {
+    SUPERADMIN: "text-blue-800",
+    BRANCH_MANAGER: "text-red-700",
+    SALES_MANAGER: "text-green-800",
+    HR: "text-pink-800",
+    TL: "text-yellow-800",
+    SBA: "text-indigo-800",
+    BA: "text-gray-800",
   };
+  return roleColors[key] || "bg-gray-100 text-gray-700 border border-gray-200";
+};
 
   const handleDelete = async (employeeCode) => {
     if (!confirm(`Are you sure you want to deactivate user ${employeeCode}?`)) return;
@@ -139,13 +233,27 @@ export default function UserTable({
 
   // NEW: derive senior label from possible fields
   const getSeniorLabel = (u) => {
-    return (
+    // If API already gives a nested profile with name, prefer it.
+    const byObject =
       u?.senior_profile?.name ||
       u?.reporting_profile?.name ||
       u?.senior_profile_name ||
-      u?.reporting_profile_name ||
-      (u?.senior_profile_id != null ? String(u.senior_profile_id) : "—")
-    );
+      u?.reporting_profile_name;
+
+    if (byObject) return byObject;
+
+    // Otherwise, many rows only have an employee_code in senior_profile_id.
+    const code =
+      u?.senior_profile_id ||
+      u?.reporting_profile_id ||
+      u?.senior_employee_code ||
+      null;
+
+    if (!code) return "—";
+
+    // Look up name via the code→name map we built from /users
+    const name = codeToName[String(code)];
+    return name || "—";
   };
 
   return (
@@ -221,11 +329,10 @@ export default function UserTable({
 
                       <td className="px-5 py-4">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            u.is_active
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${u.is_active
                               ? "bg-green-100 text-green-700 border border-green-200"
                               : "bg-red-100 text-red-700 border border-red-200"
-                          }`}
+                            }`}
                         >
                           {u.is_active ? "Active" : "Inactive"}
                         </span>
@@ -289,11 +396,10 @@ export default function UserTable({
           <button
             onClick={prevPage}
             disabled={page === 1}
-            className={`px-3 h-9 rounded-lg border ${
-              page === 1
+            className={`px-3 h-9 rounded-lg border ${page === 1
                 ? "text-gray-400 border-gray-200 cursor-not-allowed bg-white"
                 : "text-gray-700 border-gray-300 hover:bg-gray-100"
-            }`}
+              }`}
             aria-label="Previous page"
           >
             Prev
@@ -320,11 +426,10 @@ export default function UserTable({
                 <button
                   key={item}
                   onClick={() => goTo(item)}
-                  className={`min-w-9 h-9 px-3 rounded-lg border ${
-                    item === page
+                  className={`min-w-9 h-9 px-3 rounded-lg border ${item === page
                       ? "bg-blue-600 text-white border-blue-600"
                       : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
+                    }`}
                   aria-current={item === page ? "page" : undefined}
                 >
                   {item}
@@ -335,11 +440,10 @@ export default function UserTable({
           <button
             onClick={nextPage}
             disabled={page === totalPages}
-            className={`px-3 h-9 rounded-lg border ${
-              page === totalPages
+            className={`px-3 h-9 rounded-lg border ${page === totalPages
                 ? "text-gray-400 border-gray-200 cursor-not-allowed bg-white"
                 : "text-gray-700 border-gray-300 hover:bg-gray-100"
-            }`}
+              }`}
             aria-label="Next page"
           >
             Next
@@ -356,4 +460,5 @@ UserTable.propTypes = {
   onEdit: PropTypes.func,
   onDetails: PropTypes.func,
   refreshUsers: PropTypes.func,
+  codeToName: PropTypes.object,
 };

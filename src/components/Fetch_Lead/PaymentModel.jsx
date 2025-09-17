@@ -636,7 +636,7 @@ const CreatePaymentLink = ({
   );
 };
 
-const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
+function ServiceCard({ selectService = {}, setSelectService = () => {} }) {
   const [service_plan, setService_plan] = useState([]);
 
   useEffect(() => {
@@ -658,12 +658,7 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
 
   return (
     <div
-      className="w-full flex flex-row gap-6 mt-8 overflow-x-auto pb-2 z-50"
-      style={{
-        msOverflowStyle: "none",
-        scrollbarWidth: "none",
-        WebkitScrollbar: { display: "none" },
-      }}
+      className="scroll-container w-full flex flex-row gap-6 mt-8 pb-2 z-50"
     >
       {Array.isArray(service_plan) &&
         service_plan?.map((service) => (
@@ -733,6 +728,7 @@ const ServiceCard = ({ selectService = {}, setSelectService = () => {} }) => {
     </div>
   );
 };
+
 
 const QRCodeSection = ({ orderId }) => {
   const [qrData, setQrData] = useState(null);

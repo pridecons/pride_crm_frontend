@@ -2,32 +2,15 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { clsx, fileKindIcon, toLocal } from "./utils";
-import { axiosInstance, BASE_URL } from "@/api/Axios";
-
-/* -------------------------------- helpers -------------------------------- */
-
-// Resolve any relative URL against the *origin* of your API base, not the API path.
-function getApiOrigin() {
-  // Prefer axios baseURL → origin; else fall back to BASE_URL → origin; else window origin
-  const base =
-    (axiosInstance && axiosInstance.defaults && axiosInstance.defaults.baseURL) ||
-    BASE_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "");
-  try {
-    return new URL(base, typeof window !== "undefined" ? window.location.origin : "http://localhost").origin;
-  } catch {
-    return typeof window !== "undefined" ? window.location.origin : "";
-  }
-}
-const API_ORIGIN = getApiOrigin();
+import { axiosInstance, BASE_URL_full } from "@/api/Axios";
 
 const toAbs = (u = "") => {
   if (!u) return "";
   if (/^(data:|blob:|https?:\/\/)/i.test(u)) return u; // already absolute
   if (u.startsWith("//")) return `${typeof window !== "undefined" ? window.location.protocol : "https:"}${u}`;
-  if (u.startsWith("/")) return `${API_ORIGIN}${u}`; // root-relative → origin + path
+  if (u.startsWith("/")) return `${BASE_URL_full}${u}`; // root-relative → origin + path
   // bare relative path → origin + "/" + path
-  return `${API_ORIGIN}/${u}`;
+  return `${BASE_URL_full}/${u}`;
 };
 
 // Try to load <img> anonymously first; if it fails (auth/CORS), fetch as blob with axiosInstance.
@@ -140,7 +123,7 @@ function Tick({ state }) {
 export function AttachmentGrid({ atts = [], onOpen }) {
   if (!atts.length) return null;
   return (
-    <div className="mt-2 grid grid-cols-2 gap-2">
+    <div className=" ">
       {atts.map((a) => {
         const isImg = (a.mime_type || "").startsWith("image/");
         const handleOpen = (e) => {
@@ -159,9 +142,10 @@ export function AttachmentGrid({ atts = [], onOpen }) {
             {isImg ? (
               <SecureImage
                 src={thumb}
-                alt={a.filename}
-                className="w-full h-36 object-cover max-w-full"
+                alt={a.filename || "Attachment"}
+                className="w-full h-36 object-cover"
               />
+
             ) : (
               <div className="h-36 flex items-center justify-center text-4xl">
                 {fileKindIcon(a.mime_type, a.filename)}
@@ -224,6 +208,7 @@ export function MessageBubble({ mine, msg, showHeader, showAvatar }) {
           </div>
         </div>
       </div>
+
     </div>
   );
 }

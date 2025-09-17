@@ -483,7 +483,6 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
       {/* solid white header like CoreUI; subtle divider */}
       <div className="h-full bg-white border-b border-gray-200">
         <div className="h-full px-4 lg:px-4 flex items-center justify-between relative">
-
           {/* Left cluster: menu + (mobile-only) logo */}
           <div className="flex items-center gap-3">
             {/* Hamburger — toggles mobile sidebar */}
@@ -525,8 +524,8 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                   type="text"
                   placeholder="Search lead by name, phone, or email…"
                   className={`w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl transition bg-gray-50
- outline-none ring-0 focus:outline-none focus:ring-0 focus:shadow-none
- hover:shadow-md ${open ? 'invisible pointer-events-none' :
+                      outline-none ring-0 focus:outline-none focus:ring-0 focus:shadow-none
+                      hover:shadow-md ${open ? 'invisible pointer-events-none' :
                       'focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white'}`}
                   value={query}
                   onChange={(e) => { setQuery(e.target.value) }}
@@ -590,14 +589,14 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
             {/* Chat icon with unread bubble */}
-            <button
+            {hasPermission("chat_page") && <button
               type="button"
               onClick={() => router.push('/chatting')}
-              className="group relative p-2 rounded-xl text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
+              className="group relative pr-2 rounded-xl text-gray-500 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
               aria-label="Open chat"
               title="Chat"
             >
-              <MessageCircle size={20} className="transition-transform group-hover:scale-105" />
+              <MessageCircle size={18} className="transition-transform group-hover:scale-105" />
               {chatUnread > 0 && (
                 <span
                   className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center z-10"
@@ -605,7 +604,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                   {chatUnread > 99 ? '99+' : chatUnread}
                 </span>
               )}
-            </button>
+            </button>}
 
             {/* Clock */}
             <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">

@@ -10,6 +10,29 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import { createPortal } from "react-dom";
 
+// NEW: treat only real values as meaningful (anything empty/only punctuation/NA is NOT)
+const isMeaningful = (val) => {
+  if (val == null) return false;
+  const s = String(val).trim();
+  if (!s) return false;
+
+  // reject all-punctuation (commas, quotes, dashes, dots, slashes, etc.)
+  const noPunct = s.replace(/[,'".\-_/\\|:;(){}\[\]@#$%^&*]+/g, "").replace(/\s+/g, "");
+  if (!noPunct) return false;
+
+  // common "unknown" tokens
+  const BAD = new Set(["NA", "N/A", "NOT AVAILABLE", "NULL", "NONE", "UNAVAILABLE", "UNKNOWN"]);
+  if (BAD.has(s.toUpperCase())) return false;
+
+  // extremely short after removing punctuation often means junk like ",,,"
+  if (s.replace(/[, ]+/g, "").length < 3) return false;
+
+  return true;
+};
+
+// NEW: if value is not meaningful, write empty string instead of junk
+const cleanedOrEmpty = (val) => (isMeaningful(val) ? String(val) : "");
+
 const SELECT_NO_CARET_STYLE = {
   appearance: "none",
   WebkitAppearance: "none",
@@ -185,7 +208,36 @@ export default function UserModal({
   const seniorInputRef = useRef(null);
   const [seniorPopup, setSeniorPopup] = useState({ top: 0, left: 0, width: 0 });
 
-const [branchManager, setBranchManager] = useState(null);
+  const [branchManager, setBranchManager] = useState(null);
+
+  // ADD: track which fields are locked by PAN & remember last locked set while editing PAN
+  const [panLocked, setPanLocked] = useState({
+    name: false,          // Full Name
+    father_name: false,
+    date_of_birth: false,
+    aadhaar: false,
+    address: false,
+    city: false,
+    state: false,
+    pincode: false,
+  });
+  const prevPanLockedRef = useRef(null);   // remembers which fields were PAN-filled before you clicked "Edit PAN"
+  const panInputRef = useRef(null);        // optional: focus PAN after Edit
+
+  // ADD: map PAN API result to lock flags (only lock when value is present)
+  const computePanLocks = (r) => {
+    const addr = r?.user_address || {};
+    return {
+      name: isMeaningful(r?.user_full_name),
+      father_name: isMeaningful(r?.user_father_name),
+      date_of_birth: isMeaningful(r?.user_dob),
+      aadhaar: isMeaningful(r?.masked_aadhaar),
+      address: isMeaningful(addr?.full),
+      city: isMeaningful(addr?.city),
+      state: isMeaningful(addr?.state),
+      pincode: isMeaningful(addr?.zip),
+    };
+  };
 
   const updateSeniorPopupPos = () => {
     const el = seniorInputRef.current;
@@ -198,8 +250,8 @@ const [branchManager, setBranchManager] = useState(null);
   const selectSenior = (u) => {
     setFormData((p) => ({ ...p, senior_profile_id: u.employee_code }));
     setSeniorQuery(
-   `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
- );
+      `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
+    );
     setShowSeniorList(false);
   };
 
@@ -266,15 +318,15 @@ const [branchManager, setBranchManager] = useState(null);
     return map;
   }, [profiles]);
 
-// ✅ Always give Branch Manager a proper roleLabel; otherwise map via profileById
-const labeledSeniors = useMemo(() => {
-  return seniorOptions.map((u) => ({
-    ...u,
-    roleLabel: u.__isBranchManager
-      ? "Branch Manager"
-      : (profileById[String(u.role_id)]?.name || ""),
-  }));
-}, [seniorOptions, profileById]);
+  // ✅ Always give Branch Manager a proper roleLabel; otherwise map via profileById
+  const labeledSeniors = useMemo(() => {
+    return seniorOptions.map((u) => ({
+      ...u,
+      roleLabel: u.__isBranchManager
+        ? "Branch Manager"
+        : (profileById[String(u.role_id)]?.name || ""),
+    }));
+  }, [seniorOptions, profileById]);
 
 
   const filteredSeniors = useMemo(() => {
@@ -295,11 +347,11 @@ const labeledSeniors = useMemo(() => {
     const u = labeledSeniors.find(
       (x) => String(x.employee_code) === String(formData.senior_profile_id)
     );
-     if (u) {
-   setSeniorQuery(
-     `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
-   );
- }
+    if (u) {
+      setSeniorQuery(
+        `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
+      );
+    }
   }, [formData.senior_profile_id, labeledSeniors]);
   useEffect(() => {
     if (!showSeniorList) return;
@@ -393,29 +445,29 @@ const labeledSeniors = useMemo(() => {
     setFormData((p) => ({ ...p, branch_id: selectedBranchId }));
   }, [selectedBranchId]);
 
-useEffect(() => {
-  setBranchManager(null);
-  if (!selectedBranchId) return;
+  useEffect(() => {
+    setBranchManager(null);
+    if (!selectedBranchId) return;
 
-  (async () => {
-    try {
-      // If your path is different, adjust (e.g., `/api/v1/branches/${id}/details`)
-      const res = await axiosInstance.get(`/branches/${selectedBranchId}/details`);
-      const mgrRaw =
-        res?.data?.manager ||
-        res?.data?.branch_manager ||
-        res?.data?.manager_user ||
-        null;
+    (async () => {
+      try {
+        // If your path is different, adjust (e.g., `/api/v1/branches/${id}/details`)
+        const res = await axiosInstance.get(`/branches/${selectedBranchId}/details`);
+        const mgrRaw =
+          res?.data?.manager ||
+          res?.data?.branch_manager ||
+          res?.data?.manager_user ||
+          null;
 
-      const mgr = normalizeManagerUser(mgrRaw);
-      setBranchManager(mgr);
-    } catch (e) {
-      // Non-blocking: if details not available, we just skip
-      // console.debug("Branch manager fetch failed", e);
-      setBranchManager(null);
-    }
-  })();
-}, [selectedBranchId]);
+        const mgr = normalizeManagerUser(mgrRaw);
+        setBranchManager(mgr);
+      } catch (e) {
+        // Non-blocking: if details not available, we just skip
+        // console.debug("Branch manager fetch failed", e);
+        setBranchManager(null);
+      }
+    })();
+  }, [selectedBranchId]);
 
   // Reset profile and permissions when department changes
   useEffect(() => {
@@ -508,15 +560,15 @@ useEffect(() => {
           });
         }
         // ⬇️ Ensure Branch Manager appears in the list for the selected branch
-      if (selectedBranchId && branchManager) {
-        const exists = cleaned.some(
-          (u) => String(u.employee_code) === String(branchManager.employee_code)
-        );
-        if (!exists) {
-          // put BM at the top
-          cleaned.unshift(branchManager);
+        if (selectedBranchId && branchManager) {
+          const exists = cleaned.some(
+            (u) => String(u.employee_code) === String(branchManager.employee_code)
+          );
+          if (!exists) {
+            // put BM at the top
+            cleaned.unshift(branchManager);
+          }
         }
-     }
 
         setSeniorOptions(cleaned);
       } catch {
@@ -619,24 +671,52 @@ useEffect(() => {
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
       );
       toast.dismiss();
-      if (res.data.success && res.data.data?.result) {
-        const r = res.data.data.result;
-        setFormData((p) => ({
-          ...p,
-          name: r.user_full_name || p.name,
-          father_name: r.user_father_name || p.father_name,
-          date_of_birth: r.user_dob || p.date_of_birth,
-          aadhaar: r.masked_aadhaar || p.aadhaar,
-          address: r.user_address?.full || p.address,
-          city: r.user_address?.city || p.city,
-          state: r.user_address?.state || p.state,
-          pincode: r.user_address?.zip || p.pincode,
-        }));
-        setIsPanVerified(true);
-        toast.success("PAN verified!");
-      } else {
-        ErrorHandling({ defaultError: "PAN verification failed" });
-      }
+
+      const ok = res?.data?.success && res?.data?.data?.result;
+      if (!ok) return ErrorHandling({ defaultError: "PAN verification failed" });
+
+      const r = res.data.data.result;
+      const addr = r?.user_address || {};
+      const nextLocks = computePanLocks(r);
+
+      // If we are re-verifying after clicking "Edit PAN",
+      // only overwrite fields that were previously PAN-filled (prevPanLockedRef.current)
+      const replaceOnlyThese = prevPanLockedRef.current;
+
+      setFormData((p) => {
+        const out = { ...p };
+
+        const maybeSet = (key, val) => {
+          const valClean = cleanedOrEmpty(val);
+          if (replaceOnlyThese) {
+            if (replaceOnlyThese[key]) out[key] = valClean !== "" ? valClean : out[key];
+          } else {
+            // first verify: only fill if currently empty AND value is meaningful
+            if ((out[key] == null || out[key] === "") && valClean !== "") {
+              out[key] = valClean;
+            }
+          }
+        };
+
+        maybeSet("name", r?.user_full_name);
+        maybeSet("father_name", r?.user_father_name);
+        maybeSet("date_of_birth", r?.user_dob);
+        maybeSet("aadhaar", r?.masked_aadhaar);
+        const addr = r?.user_address || {};
+        maybeSet("address", addr?.full);
+        maybeSet("city", addr?.city);
+        maybeSet("state", addr?.state);
+        maybeSet("pincode", addr?.zip);
+        return out;
+      });
+
+      // lock those fields which the new PAN actually provided
+      setPanLocked(nextLocks);
+
+      // reset edit PAN state
+      prevPanLockedRef.current = null;
+      setIsPanVerified(true);
+      toast.success("PAN verified!");
     } catch (err) {
       toast.dismiss();
       ErrorHandling({ error: err, defaultError: "Error verifying PAN" });
@@ -922,6 +1002,7 @@ useEffect(() => {
                   </label>
                   <div className="flex gap-2 items-center">
                     <input
+                      ref={panInputRef}
                       className="flex-1 p-3 border rounded-xl uppercase"
                       value={formData.pan}
                       onChange={(e) =>
@@ -938,7 +1019,26 @@ useEffect(() => {
                         </span>
                         <button
                           type="button"
-                          onClick={() => setIsPanVerified(false)}
+                          onClick={() => {
+                            // remember which fields were PAN-filled before unlocking them
+                            prevPanLockedRef.current = panLocked;
+                            setIsPanVerified(false);
+
+                            // unlock everything for editing while PAN is being changed
+                            setPanLocked({
+                              name: false,
+                              father_name: false,
+                              date_of_birth: false,
+                              aadhaar: false,
+                              address: false,
+                              city: false,
+                              state: false,
+                              pincode: false,
+                            });
+
+                            // optional: focus the PAN input
+                            setTimeout(() => panInputRef.current?.focus(), 0);
+                          }}
                           className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-600 flex items-center"
                           title="Edit PAN"
                         >
@@ -977,7 +1077,7 @@ useEffect(() => {
                       setFormData({ ...formData, name: e.target.value })
                     }
                     required
-                    disabled={isPanVerified}
+                    disabled={panLocked.name}
                   />
                 </div>
 
@@ -1033,7 +1133,7 @@ useEffect(() => {
                         father_name: e.target.value,
                       })
                     }
-                    disabled={isPanVerified}
+                    disabled={panLocked.father_name}
                   />
                 </div>
 
@@ -1112,7 +1212,7 @@ useEffect(() => {
                         .slice(0, 12);
                       setFormData({ ...formData, aadhaar: clean });
                     }}
-                    disabled={isPanVerified}
+                    disabled={panLocked.aadhaar}
                   />
                 </div>
 
@@ -1164,38 +1264,38 @@ useEffect(() => {
                       style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
                     >
                       {filteredSeniors.map((u, idx) => {
-  const isBM = !!u.__isBranchManager;
-  return (
-    <button
-      type="button"
-      key={u.employee_code}
-      onMouseDown={(e) => { e.preventDefault(); selectSenior(u); }}
-      className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === seniorIndex ? "bg-gray-100" : ""}`}
-    >
-      <div className="flex items-center gap-2">
-        <div className="font-medium">
-          {u.name} ({u.employee_code})
-        </div>
-        {isBM && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-            Branch Manager
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-gray-500">
-        {u.roleLabel || (isBM ? "Branch Manager" : "")}
-      </div>
-    </button>
-  );
-})}
+                        const isBM = !!u.__isBranchManager;
+                        return (
+                          <button
+                            type="button"
+                            key={u.employee_code}
+                            onMouseDown={(e) => { e.preventDefault(); selectSenior(u); }}
+                            className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === seniorIndex ? "bg-gray-100" : ""}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium">
+                                {u.name} ({u.employee_code})
+                              </div>
+                              {isBM && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                  Branch Manager
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {u.roleLabel || (isBM ? "Branch Manager" : "")}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>,
                     document.body
                   )}
 
                   <p className="mt-1 text-xs text-gray-500">
                     {selectedBranchId
-    ? "Start typing to search users in this branch. The Branch Manager is included."
-   : "No branch selected: searching within SuperAdmin users."}
+                      ? "Start typing to search users in this branch. The Branch Manager is included."
+                      : "No branch selected: searching within SuperAdmin users."}
                   </p>
 
                 </div>
@@ -1272,6 +1372,7 @@ useEffect(() => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+
                   <input
                     ref={stateInputRef}
                     className="p-3 border rounded-xl w-full bg-white"
@@ -1371,22 +1472,14 @@ useEffect(() => {
                   </label>
                   <DatePicker
                     selected={dmyToDate(formData.date_of_birth)}
-                    onChange={(date) =>
-                      setFormData((p) => ({
-                        ...p,
-                        date_of_birth: dateToDMY(date),
-                      }))
-                    }
+                    onChange={(date) => setFormData((p) => ({ ...p, date_of_birth: dateToDMY(date) }))}
                     dateFormat="dd-MM-yyyy"
                     placeholderText="DD-MM-YYYY"
-                    className={`${INPUT_CLS} ${isPanVerified ? "opacity-80 pointer-events-none bg-gray-50" : ""
-                      }`}
+                    className={`${INPUT_CLS} ${panLocked.date_of_birth ? "opacity-80 pointer-events-none bg-gray-50" : ""}`}
                     isClearable
                     showPopperArrow={false}
-                    disabled={isPanVerified}
-                    title={
-                      isPanVerified ? "DOB is locked after PAN verification" : undefined
-                    }
+                    disabled={panLocked.date_of_birth}
+                    title={panLocked.date_of_birth ? "DOB is locked from PAN" : undefined}
                   />
                 </div>
               </div>

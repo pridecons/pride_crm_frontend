@@ -152,6 +152,11 @@ export default function OldLeadsTable() {
       console.error("Error fetching responses:", error);
     }
   };
+  const activeFilters =
+    (responseFilterId ? 1 : 0) +
+    (fromDate ? 1 : 0) +
+    (toDate ? 1 : 0) +
+    (searchQuery ? 1 : 0);
 
   const fetchSources = async () => {
     try {
@@ -572,6 +577,7 @@ export default function OldLeadsTable() {
                 </span>
               )}
             </button>
+
           ) : null}
         </div>
       </div>

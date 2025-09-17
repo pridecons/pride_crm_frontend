@@ -42,6 +42,19 @@ const toISOorUndefined = (ddmmyyyy) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+function normalizeManagerUser(m) {
+  if (!m) return null;
+  return {
+    // match /users response shape as much as possible
+    employee_code: m.employee_code ?? m.code ?? m.emp_code ?? "",
+    name: m.name ?? m.full_name ?? m.employee_name ?? "Branch Manager",
+    role_id: m.role_id ?? m.profile_role_id ?? m.roleId ?? "",
+    // anything else coming from your backend stays on the object
+    ...m,
+    __isBranchManager: true, // flag for UI badge
+  };
+}
+
 // --- Role helpers copied/adapted from UserFilters ---
 function toRoleKey(v) {
   const canon = String(v || "").toUpperCase().trim().replace(/\s+/g, " ");
@@ -71,7 +84,7 @@ function getRoleKeyFromEverywhere(currentUser) {
         null;
       if (cookieRole) return toRoleKey(cookieRole);
     }
-  } catch {}
+  } catch { }
 
   // 3) Try access_token fallback (same as UserFilters)
   try {
@@ -81,7 +94,7 @@ function getRoleKeyFromEverywhere(currentUser) {
       const tRole = p?.role_name || p?.role || null;
       if (tRole) return toRoleKey(tRole);
     }
-  } catch {}
+  } catch { }
 
   return ""; // unknown
 }
@@ -94,12 +107,12 @@ export default function UserModal({
   onSuccess,
 }) {
   const isEdit = mode === "edit";
-const { currentUser } = usePermissions();
- const currentRoleKey = getRoleKeyFromEverywhere(currentUser);
- const isSuperAdmin = currentRoleKey === "SUPERADMIN";
- // password gate
- const canEditPassword = isSuperAdmin;           // edit mode only
- const showPasswordField = !isEdit || canEditPassword;
+  const { currentUser } = usePermissions();
+  const currentRoleKey = getRoleKeyFromEverywhere(currentUser);
+  const isSuperAdmin = currentRoleKey === "SUPERADMIN";
+  // password gate
+  const canEditPassword = isSuperAdmin;           // edit mode only
+  const showPasswordField = !isEdit || canEditPassword;
 
   const passwordRegex =
     /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
@@ -172,6 +185,8 @@ const { currentUser } = usePermissions();
   const seniorInputRef = useRef(null);
   const [seniorPopup, setSeniorPopup] = useState({ top: 0, left: 0, width: 0 });
 
+const [branchManager, setBranchManager] = useState(null);
+
   const updateSeniorPopupPos = () => {
     const el = seniorInputRef.current;
     if (!el) return;
@@ -182,7 +197,9 @@ const { currentUser } = usePermissions();
 
   const selectSenior = (u) => {
     setFormData((p) => ({ ...p, senior_profile_id: u.employee_code }));
-    setSeniorQuery(`${u.name} (${u.employee_code}) — ${u.roleLabel}`);
+    setSeniorQuery(
+   `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
+ );
     setShowSeniorList(false);
   };
 
@@ -249,12 +266,16 @@ const { currentUser } = usePermissions();
     return map;
   }, [profiles]);
 
-  const labeledSeniors = useMemo(() => {
-    return seniorOptions.map((u) => ({
-      ...u,
-      roleLabel: profileById[String(u.role_id)]?.name || `Role ${u.role_id}`,
-    }));
-  }, [seniorOptions, profileById]);
+// ✅ Always give Branch Manager a proper roleLabel; otherwise map via profileById
+const labeledSeniors = useMemo(() => {
+  return seniorOptions.map((u) => ({
+    ...u,
+    roleLabel: u.__isBranchManager
+      ? "Branch Manager"
+      : (profileById[String(u.role_id)]?.name || ""),
+  }));
+}, [seniorOptions, profileById]);
+
 
   const filteredSeniors = useMemo(() => {
     const q = seniorQuery.trim().toLowerCase();
@@ -274,7 +295,11 @@ const { currentUser } = usePermissions();
     const u = labeledSeniors.find(
       (x) => String(x.employee_code) === String(formData.senior_profile_id)
     );
-    if (u) setSeniorQuery(`${u.name} (${u.employee_code}) — ${u.roleLabel}`);
+     if (u) {
+   setSeniorQuery(
+     `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
+   );
+ }
   }, [formData.senior_profile_id, labeledSeniors]);
   useEffect(() => {
     if (!showSeniorList) return;
@@ -308,7 +333,7 @@ const { currentUser } = usePermissions();
         // branch preselect rules
         if (isEdit && user?.branch_id) {
           setSelectedBranchId(String(user.branch_id));
-       } else if (!isSuperAdmin) {
+        } else if (!isSuperAdmin) {
           const eff =
             currentUser?.branch_id ??
             (() => {
@@ -367,6 +392,30 @@ const { currentUser } = usePermissions();
     if (!selectedBranchId) return;
     setFormData((p) => ({ ...p, branch_id: selectedBranchId }));
   }, [selectedBranchId]);
+
+useEffect(() => {
+  setBranchManager(null);
+  if (!selectedBranchId) return;
+
+  (async () => {
+    try {
+      // If your path is different, adjust (e.g., `/api/v1/branches/${id}/details`)
+      const res = await axiosInstance.get(`/branches/${selectedBranchId}/details`);
+      const mgrRaw =
+        res?.data?.manager ||
+        res?.data?.branch_manager ||
+        res?.data?.manager_user ||
+        null;
+
+      const mgr = normalizeManagerUser(mgrRaw);
+      setBranchManager(mgr);
+    } catch (e) {
+      // Non-blocking: if details not available, we just skip
+      // console.debug("Branch manager fetch failed", e);
+      setBranchManager(null);
+    }
+  })();
+}, [selectedBranchId]);
 
   // Reset profile and permissions when department changes
   useEffect(() => {
@@ -458,6 +507,16 @@ const { currentUser } = usePermissions();
             return roleName.toString().toUpperCase().replace(/\s+/g, "_") === "SUPERADMIN";
           });
         }
+        // ⬇️ Ensure Branch Manager appears in the list for the selected branch
+      if (selectedBranchId && branchManager) {
+        const exists = cleaned.some(
+          (u) => String(u.employee_code) === String(branchManager.employee_code)
+        );
+        if (!exists) {
+          // put BM at the top
+          cleaned.unshift(branchManager);
+        }
+     }
 
         setSeniorOptions(cleaned);
       } catch {
@@ -466,7 +525,7 @@ const { currentUser } = usePermissions();
     };
 
     fetchSeniors();
-  }, [isOpen, selectedBranchId, isEdit, user?.employee_code, profileById]);
+  }, [isOpen, selectedBranchId, isEdit, user?.employee_code, profileById, branchManager]);
 
   // Initialize / reset form values on open or edit
   useEffect(() => {
@@ -606,9 +665,9 @@ const { currentUser } = usePermissions();
       : "";
   const passwordError =
     showPasswordField &&
-    formData.password.length > 0 &&
-    !passwordRegex.test(formData.password)
-     ? "Password must be ≥6 chars with a number & special char"
+      formData.password.length > 0 &&
+      !passwordRegex.test(formData.password)
+      ? "Password must be ≥6 chars with a number & special char"
       : "";
 
   // -------- Submit ----------
@@ -645,27 +704,27 @@ const { currentUser } = usePermissions();
     if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number))
       return ErrorHandling({ defaultError: "Phone must be 10 digits" });
 
- // ----- Password validation -----
-// Create: always require & validate
-if (!isEdit) {
-  if (!passwordRegex.test(formData.password)) {
-    return ErrorHandling({
-      defaultError: "Password must be ≥6 chars, include a number & special char",
-    });
-  }
-}
+    // ----- Password validation -----
+    // Create: always require & validate
+    if (!isEdit) {
+      if (!passwordRegex.test(formData.password)) {
+        return ErrorHandling({
+          defaultError: "Password must be ≥6 chars, include a number & special char",
+        });
+      }
+    }
 
-// Edit: Only SuperAdmin may change password
-if (isEdit && formData.password) {
-  if (!canEditPassword) {
-    return ErrorHandling({ defaultError: "Only SuperAdmin can change passwords." });
-  }
-  if (!passwordRegex.test(formData.password)) {
-    return ErrorHandling({
-      defaultError: "Password must be ≥6 chars, include a number & special char",
-    });
-  }
-}
+    // Edit: Only SuperAdmin may change password
+    if (isEdit && formData.password) {
+      if (!canEditPassword) {
+        return ErrorHandling({ defaultError: "Only SuperAdmin can change passwords." });
+      }
+      if (!passwordRegex.test(formData.password)) {
+        return ErrorHandling({
+          defaultError: "Password must be ≥6 chars, include a number & special char",
+        });
+      }
+    }
 
     // Build payload
     const payload = {
@@ -714,15 +773,15 @@ if (isEdit && formData.password) {
     toast.loading(isEdit ? "Updating…" : "Adding user…");
     try {
       let res;
-if (isEdit) {
-  if (canEditPassword && formData.password) {
-    payload.password = formData.password;
-  }
-  res = await axiosInstance.put(`/users/${user.employee_code}`, payload);
-} else {
-  payload.password = formData.password; // create
-  res = await axiosInstance.post("/users/", payload);
-}
+      if (isEdit) {
+        if (canEditPassword && formData.password) {
+          payload.password = formData.password;
+        }
+        res = await axiosInstance.put(`/users/${user.employee_code}`, payload);
+      } else {
+        payload.password = formData.password; // create
+        res = await axiosInstance.post("/users/", payload);
+      }
 
       toast.dismiss();
       toast.success(isEdit ? "Updated!" : "Added!");
@@ -979,51 +1038,51 @@ if (isEdit) {
                 </div>
 
                 {/* Password (Create) / Reset Password (Edit, SuperAdmin only) */}
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    {isEdit ? "Reset Password" : "Password *"}
-  </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {isEdit ? "Reset Password" : "Password *"}
+                  </label>
 
-  {isEdit && !canEditPassword ? (
-    <div className="text-xs text-gray-500 p-3 border rounded-xl bg-gray-50">
-      Only <span className="font-semibold">SuperAdmin</span> can change user passwords.
-    </div>
-  ) : (
-    <>
-      {isEdit && (
-        <p className="text-xs text-gray-500 mb-1">
-          Leave blank to keep existing password.
-        </p>
-      )}
-      {passwordError && (
-        <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
-          {passwordError}
-        </div>
-      )}
-      <div className="relative">
-        <input
-          className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
-          type={showPwd ? "text" : "password"}
-          value={formData.password ?? ""}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          autoComplete="new-password"
-          required={!isEdit}  // create required; edit optional
-          placeholder={isEdit ? "Enter new password" : "Create a password"}
-          aria-invalid={!!passwordError}
-          aria-describedby={passwordError ? "pwd-error" : undefined}
-        />
-        <button
-          type="button"
-          onClick={() => setShowPwd((v) => !v)}
-          className="absolute inset-y-0 right-3 flex items-center"
-          aria-label={showPwd ? "Hide password" : "Show password"}
-        >
-          {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
-        </button>
-      </div>
-    </>
-  )}
-</div>
+                  {isEdit && !canEditPassword ? (
+                    <div className="text-xs text-gray-500 p-3 border rounded-xl bg-gray-50">
+                      Only <span className="font-semibold">SuperAdmin</span> can change user passwords.
+                    </div>
+                  ) : (
+                    <>
+                      {isEdit && (
+                        <p className="text-xs text-gray-500 mb-1">
+                          Leave blank to keep existing password.
+                        </p>
+                      )}
+                      {passwordError && (
+                        <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
+                          {passwordError}
+                        </div>
+                      )}
+                      <div className="relative">
+                        <input
+                          className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
+                          type={showPwd ? "text" : "password"}
+                          value={formData.password ?? ""}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          autoComplete="new-password"
+                          required={!isEdit}  // create required; edit optional
+                          placeholder={isEdit ? "Enter new password" : "Create a password"}
+                          aria-invalid={!!passwordError}
+                          aria-describedby={passwordError ? "pwd-error" : undefined}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPwd((v) => !v)}
+                          className="absolute inset-y-0 right-3 flex items-center"
+                          aria-label={showPwd ? "Hide password" : "Show password"}
+                        >
+                          {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Right column */}
@@ -1104,25 +1163,39 @@ if (isEdit) {
                       className="absolute t-0 z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
                       style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
                     >
-                      {filteredSeniors.map((u, idx) => (
-                        <button
-                          type="button"
-                          key={u.employee_code}
-                          onMouseDown={(e) => { e.preventDefault(); selectSenior(u); }}
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === seniorIndex ? "bg-gray-100" : ""}`}
-                        >
-                          <div className="font-medium">{u.name} ({u.employee_code})</div>
-                          <div className="text-xs text-gray-500">{u.roleLabel}</div>
-                        </button>
-                      ))}
+                      {filteredSeniors.map((u, idx) => {
+  const isBM = !!u.__isBranchManager;
+  return (
+    <button
+      type="button"
+      key={u.employee_code}
+      onMouseDown={(e) => { e.preventDefault(); selectSenior(u); }}
+      className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === seniorIndex ? "bg-gray-100" : ""}`}
+    >
+      <div className="flex items-center gap-2">
+        <div className="font-medium">
+          {u.name} ({u.employee_code})
+        </div>
+        {isBM && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+            Branch Manager
+          </span>
+        )}
+      </div>
+      <div className="text-xs text-gray-500">
+        {u.roleLabel || (isBM ? "Branch Manager" : "")}
+      </div>
+    </button>
+  );
+})}
                     </div>,
                     document.body
                   )}
 
                   <p className="mt-1 text-xs text-gray-500">
                     {selectedBranchId
-                      ? "Start typing to search users in this branch."
-                      : "No branch selected: searching within SuperAdmin users."}
+    ? "Start typing to search users in this branch. The Branch Manager is included."
+   : "No branch selected: searching within SuperAdmin users."}
                   </p>
 
                 </div>

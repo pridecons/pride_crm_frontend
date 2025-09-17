@@ -144,23 +144,23 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   }, []);
 
 
-/** ✅ auth bootstrap: set axios auth + extract user for header */
-useEffect(() => {
-  // ensure auth header before first call
-  const token = Cookies.get('access_token');
-  if (token) {
-    axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
+  /** ✅ auth bootstrap: set axios auth + extract user for header */
+  useEffect(() => {
+    // ensure auth header before first call
+    const token = Cookies.get('access_token');
+    if (token) {
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
 
-  // ⬅️ initialize header user (reads cookie and/or JWT)
-  const u = getUserFromCookies();
-  if (u) setUser(u);
+    // ⬅️ initialize header user (reads cookie and/or JWT)
+    const u = getUserFromCookies();
+    if (u) setUser(u);
 
-  if (!CHAT_UNREAD_VIA_HTTP) return;   // nothing below runs when false
-  fetchChatUnread();
-  const id = setInterval(fetchChatUnread, 8000);
-  return () => clearInterval(id);
-}, [fetchChatUnread]);
+    if (!CHAT_UNREAD_VIA_HTTP) return;   // nothing below runs when false
+    fetchChatUnread();
+    const id = setInterval(fetchChatUnread, 8000);
+    return () => clearInterval(id);
+  }, [fetchChatUnread]);
 
   const loadLookupsIfNeeded = useCallback(async () => {
     if (lookupsLoadedRef.current) return;
@@ -310,9 +310,9 @@ useEffect(() => {
     }
 
     if (!CHAT_UNREAD_VIA_HTTP) return;   // ⬅️ stop here
-  fetchChatUnread();
-  const id = setInterval(fetchChatUnread, 8000);
-  return () => clearInterval(id);
+    fetchChatUnread();
+    const id = setInterval(fetchChatUnread, 8000);
+    return () => clearInterval(id);
   }, [fetchChatUnread]);
 
 
@@ -586,23 +586,21 @@ useEffect(() => {
           {/* -------- /Global Search -------- */}
 
           {/* Right cluster */}
-          <div className="flex items-center ">
+          <div className="flex items-center gap-1">
             <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
             {/* Chat icon with unread bubble */}
             <button
               type="button"
               onClick={() => router.push('/chatting')}
-              className="relative pr-4 rounded-lg hover:bg-gray-100 text-gray-700"
+              className="group relative p-2 rounded-xl text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
               aria-label="Open chat"
               title="Chat"
             >
-              <MessageCircle size={20} />
+              <MessageCircle size={20} className="transition-transform group-hover:scale-105" />
               {chatUnread > 0 && (
                 <span
-                  className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3
-                 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white
-                 text-[10px] leading-[18px] text-center z-10"
+                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center z-10"
                 >
                   {chatUnread > 99 ? '99+' : chatUnread}
                 </span>

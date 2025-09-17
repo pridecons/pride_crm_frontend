@@ -20,6 +20,28 @@ import NewChatModal from "@/components/chatting/NewChatModal";
 import Composer from "@/components/chatting/Composer";
 import ParticipantsModal from "@/components/chatting/ParticipantsModal";
 
+// ===== Chat Group API helpers =====
+async function createGroup({ name, participant_codes, branch_id }) {
+  const { data } = await axiosInstance.post("/chat/group/create", {
+    name,
+    participant_codes,
+    ...(branch_id ? { branch_id } : {}),
+  });
+  return data;
+}
+async function renameGroup(groupId, name) {
+  const { data } = await axiosInstance.patch(`/chat/group/${groupId}/edit`, { name });
+  return data;
+}
+async function addGroupParticipants(groupId, employeeCodes) {
+  const { data } = await axiosInstance.post(`/chat/${groupId}/participants/add`, employeeCodes);
+  return data;
+}
+async function removeGroupParticipants(groupId, employeeCodes) {
+  const { data } = await axiosInstance.post(`/chat/${groupId}/participants/remove`, employeeCodes);
+  return data;
+}
+
 export default function WhatsAppChatPage() {
   const { openDoc, DocViewerPortal } = useDocViewer({
     defaultTitle: "Attachment",
@@ -255,6 +277,57 @@ useEffect(() => {
       })();
     }
   }, [currentUser, selected?.id, selectedId]);
+
+// merge fresh thread into state
+const mergeThread = useCallback((fresh) => {
+  if (!fresh?.id) return;
+  setThreads((prev) =>
+    prev.some((t) => t.id === fresh.id)
+      ? prev.map((t) => (t.id === fresh.id ? { ...t, ...fresh } : t))
+      : [fresh, ...prev]
+  );
+  setSelected((prev) => (prev?.id === fresh.id ? { ...prev, ...fresh } : prev));
+}, []);
+
+const [participantOpsBusy, setParticipantOpsBusy] = useState(false);
+
+const handleRenameGroup = useCallback(async (newName) => {
+  if (!selected?.id || selected?.type !== "GROUP") return;
+  try {
+    const t = await renameGroup(selected.id, newName);
+    mergeThread(t);
+  } catch (e) { console.error("rename group error", e); }
+}, [selected?.id, selected?.type, mergeThread]);
+
+const handleAddParticipants = useCallback(async (codes) => {
+  if (!selected?.id || selected?.type !== "GROUP" || !codes?.length) return;
+  setParticipantOpsBusy(true);
+  try {
+    const res = await addGroupParticipants(selected.id, codes);
+    if (res?.id) {
+      mergeThread(res);
+    } else {
+      const { data: t } = await axiosInstance.get(`/chat/threads/${selected.id}`);
+      if (t?.id) mergeThread(t);
+    }
+  } catch (e) { console.error("add participants error", e); }
+  finally { setParticipantOpsBusy(false); }
+}, [selected?.id, selected?.type, mergeThread]);
+
+const handleRemoveParticipants = useCallback(async (codes) => {
+  if (!selected?.id || selected?.type !== "GROUP" || !codes?.length) return;
+  setParticipantOpsBusy(true);
+  try {
+    const res = await removeGroupParticipants(selected.id, codes);
+    if (res?.id) {
+      mergeThread(res);
+    } else {
+      const { data: t } = await axiosInstance.get(`/chat/threads/${selected.id}`);
+      if (t?.id) mergeThread(t);
+    }
+  } catch (e) { console.error("remove participants error", e); }
+  finally { setParticipantOpsBusy(false); }
+}, [selected?.id, selected?.type, mergeThread]);
 
   const fallbackTick = useCallback(async () => {
     try {
@@ -503,30 +576,31 @@ useEffect(() => {
       </div>
 
       <ParticipantsModal
-        open={showParticipants && selected?.type === "GROUP"}
-        onClose={() => setShowParticipants(false)}
-        participants={Array.isArray(selected?.participants) ? selected.participants : []}
-      />
+  open={showParticipants && selected?.type === "GROUP"}
+  onClose={() => setShowParticipants(false)}
+  participants={Array.isArray(selected?.participants) ? selected.participants : []}
+  allUsers={users}
+  busy={participantOpsBusy}
+  onAdd={(codes) => handleAddParticipants(codes)}
+  onRemove={(codes) => handleRemoveParticipants(codes)}
+  onRename={(newName) => handleRenameGroup(newName)}
+  groupName={selected?.name || ""}
+/>
 
       <NewChatModal
-        isOpen={showNewChat}
-        onClose={() => setShowNewChat(false)}
-        users={users}
-        onCreateGroup={async (name, usersArr) => {
-          try {
-            const participant_codes = usersArr.map((u) => u.employee_code);
-            const { data: t } = await axiosInstance.post("/chat/group/create", {
-              name,
-              participant_codes,
-            });
-            setThreads((prev) => [t, ...prev]);
-            setSelected(t);
-            setMessages([]);
-          } catch (e) {
-            console.error("create group error", e);
-          }
-        }}
-      />
+  isOpen={showNewChat}
+  onClose={() => setShowNewChat(false)}
+  users={users}
+  onCreateGroup={async (name, usersArr, branchIdOptional) => {
+    try {
+      const participant_codes = usersArr.map((u) => u.employee_code);
+      const t = await createGroup({ name, participant_codes, branch_id: branchIdOptional });
+      setThreads((prev) => [t, ...prev]);
+      setSelected(t);
+      setMessages([]);
+    } catch (e) { console.error("create group error", e); }
+  }}
+/>
       {DocViewerPortal}
     </div>
   );

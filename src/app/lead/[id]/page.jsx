@@ -42,20 +42,7 @@ import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUti
 import DocumentViewer from "@/components/DocumentViewer";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
-// ---- role helpers -----------------------------------------------------------
-const ROLE_ID_TO_KEY = {
-  "1": "SUPERADMIN",
-  "2": "BRANCH_MANAGER",
-  "3": "HR",
-  "4": "SALES_MANAGER",
-  "5": "TL",
-  "6": "SBA",
-  "7": "BA",
-  "8": "BA",
-  "9": "RESEARCHER",
-  "10": "COMPLIANCE_OFFICER",
-  "11": "TESTPROFILE",
-};
+
 
 const canonRole = (s) => {
   if (!s) return "";
@@ -64,6 +51,91 @@ const canonRole = (s) => {
   if (x === "SUPER_ADMINISTRATOR") x = "SUPERADMIN";
   return x;
 };
+
+// Build { [id]: CANONICAL_ROLE_NAME } from API list
+function buildRoleMap(list) {
+  const out = {};
+  (Array.isArray(list) ? list : []).forEach((r) => {
+    const id = r?.id != null ? String(r.id) : "";
+    const key = canonRole(r?.name);
+    if (id && key) out[id] = key;
+  });
+  return out;
+}
+
+// Load role map: prefer localStorage cache; if missing, hit API once
+async function loadRoleMap() {
+  try {
+    const cached = JSON.parse(localStorage.getItem("roleMap") || "{}");
+    if (cached && typeof cached === "object" && Object.keys(cached).length) {
+      return cached;
+    }
+  } catch {}
+
+  // axiosInstance usually already injects Authorization
+  try {
+    const res = await axiosInstance.get("/profile-role/", {
+      params: { skip: 0, limit: 100, order_by: "hierarchy_level" },
+    });
+    const map = buildRoleMap(res?.data);
+    if (Object.keys(map).length) localStorage.setItem("roleMap", JSON.stringify(map));
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+// Compute effective role using names (preferred) or id→name from roleMap
+function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
+  // 1) Try role name from JWT
+  try {
+    if (accessToken) {
+      const d = jwtDecode(accessToken) || {};
+      const jwtRole =
+        d.role_name ||
+        d.role ||
+        d.profile_role?.name ||
+        d.user?.role_name ||
+        d.user?.role ||
+        "";
+      const r1 = canonRole(jwtRole);
+      if (r1) return r1;
+
+      // 2) Try role id from JWT → map
+      const jwtRoleId =
+        d.role_id ?? d.user?.role_id ?? d.profile_role?.id ?? null;
+      if (jwtRoleId != null) {
+        const mapped = roleMap[String(jwtRoleId)];
+        if (mapped) return mapped;
+      }
+    }
+  } catch {}
+
+  // 3) Fallback to user_info (name first, then id→map)
+  if (userInfo) {
+    const uiRole =
+      userInfo.role_name ||
+      userInfo.role ||
+      userInfo.profile_role?.name ||
+      userInfo.user?.role_name ||
+      userInfo.user?.role ||
+      "";
+    const r3 = canonRole(uiRole);
+    if (r3) return r3;
+
+    const uiRoleId =
+      userInfo.role_id ??
+      userInfo.user?.role_id ??
+      userInfo.profile_role?.id ??
+      null;
+    if (uiRoleId != null) {
+      const mapped = roleMap[String(uiRoleId)];
+      if (mapped) return mapped;
+    }
+  }
+
+  return "";
+}
 
 // --- add near top (helpers) ---
 const normalizePhoneIN = (raw) => {
@@ -91,65 +163,42 @@ const normalizePhoneIN = (raw) => {
   return s;
 };
 
-function useIsSuperAdmin() {
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+function useRoleKey() {
+  const [roleKey, setRoleKey] = useState("");
 
   useEffect(() => {
-    try {
-      // Try cookie user_info first
-      const uiRaw = Cookies.get("user_info");
-      let roleKey = "";
-
-      if (uiRaw) {
-        const ui = JSON.parse(uiRaw);
-        const r =
-          ui?.role_name ||
-          ui?.role ||
-          ui?.profile_role?.name ||
-          ui?.user?.role_name ||
-          ui?.user?.role ||
-          null;
-        roleKey = canonRole(r);
-
-        if (!roleKey) {
-          const rid =
-            ui?.role_id ?? ui?.user?.role_id ?? ui?.profile_role?.id ?? null;
-          if (rid != null) {
-            roleKey = ROLE_ID_TO_KEY[String(rid)] || "";
-          }
+    let alive = true;
+    (async () => {
+      try {
+        // 1) Fast path: cookie set by LoginPage
+        const ck = Cookies.get("role_key");
+        if (ck) {
+          if (alive) setRoleKey(canonRole(ck));
+          return;
         }
-      }
 
-      // Fallback to JWT if needed
-      if (!roleKey) {
+        // 2) Build from cookies + dynamic role map
+        const roleMap = await loadRoleMap();
         const token = Cookies.get("access_token");
-        if (token) {
-          const d = jwtDecode(token) || {};
-          const rTok =
-            d?.role_name ||
-            d?.role ||
-            d?.profile_role?.name ||
-            d?.user?.role_name ||
-            d?.user?.role ||
-            null;
-          roleKey = canonRole(rTok);
-
-          if (!roleKey) {
-            const rid =
-              d?.role_id ?? d?.user?.role_id ?? d?.profile_role?.id ?? null;
-            if (rid != null) roleKey = ROLE_ID_TO_KEY[String(rid)] || "";
-          }
-        }
+        const uiRaw = Cookies.get("user_info");
+        const userInfo = uiRaw ? JSON.parse(uiRaw) : null;
+        const computed = getEffectiveRole({ accessToken: token, userInfo, roleMap });
+        if (alive) setRoleKey(computed);
+      } catch {
+        if (alive) setRoleKey("");
       }
-
-      setIsSuperAdmin(roleKey === "SUPERADMIN");
-    } catch {
-      setIsSuperAdmin(false);
-    }
+    })();
+    return () => { alive = false; };
   }, []);
 
-  return isSuperAdmin;
+  return roleKey;
 }
+
+function useIsSuperAdmin() {
+  const roleKey = useRoleKey();
+  return roleKey === "SUPERADMIN";
+}
+
 
 const Lead = () => {
   const { id } = useParams();

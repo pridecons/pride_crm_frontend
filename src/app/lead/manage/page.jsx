@@ -24,22 +24,118 @@ import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
 
 /* ---------- helpers ---------- */
-const normalizeRole = (r) => {
-  if (!r) return null;
-  const up = String(r).toUpperCase().trim();
-  const map = {
-    "1": "SUPERADMIN",
-    "2": "BRANCH MANAGER",
-    "SUPERADMIN": "SUPERADMIN",
-    "BRANCH_MANAGER": "BRANCH MANAGER",
-    "BRANCH MANAGER": "BRANCH MANAGER",
-    "HR": "HR",
-    "SALES_MANAGER": "SALES MANAGER",
-    "SALES MANAGER": "SALES MANAGER",
-    "TL": "TL",
-  };
-  return map[up] || up;
+/* ---------- dynamic role helpers (API + cache) ---------- */
+const canonRole = (s) => {
+  if (!s) return "";
+  let x = String(s).trim().toUpperCase().replace(/\s+/g, "_");
+  if (x === "SUPER_ADMINISTRATOR") x = "SUPERADMIN";
+  return x;
 };
+
+function buildRoleMap(list) {
+  const out = {};
+  (Array.isArray(list) ? list : []).forEach((r) => {
+    const id = r?.id != null ? String(r.id) : "";
+    const key = canonRole(r?.name);
+    if (id && key) out[id] = key;
+  });
+  return out;
+}
+
+async function loadRoleMap() {
+  // 1) cache first
+  try {
+    const cached = JSON.parse(localStorage.getItem("roleMap") || "{}");
+    if (cached && typeof cached === "object" && Object.keys(cached).length) {
+      return cached;
+    }
+  } catch {}
+
+  // 2) API fallback (axiosInstance already carries auth)
+  try {
+    const res = await axiosInstance.get("/profile-role/", {
+      params: { skip: 0, limit: 100, order_by: "hierarchy_level" },
+    });
+    const map = buildRoleMap(res?.data);
+    if (Object.keys(map).length) localStorage.setItem("roleMap", JSON.stringify(map));
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
+  // prefer explicit names
+  try {
+    if (accessToken) {
+      const d = jwtDecode(accessToken) || {};
+      const jwtRole =
+        d.role_name || d.role || d.profile_role?.name || d.user?.role_name || d.user?.role || "";
+      const r1 = canonRole(jwtRole);
+      if (r1) return r1;
+
+      const jwtRoleId = d.role_id ?? d.user?.role_id ?? d.profile_role?.id ?? null;
+      if (jwtRoleId != null) {
+        const mapped = roleMap[String(jwtRoleId)];
+        if (mapped) return mapped;
+      }
+    }
+  } catch {}
+
+  if (userInfo) {
+    const uiRole =
+      userInfo.role_name ||
+      userInfo.role ||
+      userInfo.profile_role?.name ||
+      userInfo.user?.role_name ||
+      userInfo.user?.role ||
+      "";
+    const r3 = canonRole(uiRole);
+    if (r3) return r3;
+
+    const uiRoleId =
+      userInfo.role_id ?? userInfo.user?.role_id ?? userInfo.profile_role?.id ?? null;
+    if (uiRoleId != null) {
+      const mapped = roleMap[String(uiRoleId)];
+      if (mapped) return mapped;
+    }
+  }
+  return "";
+}
+
+// human display ("BRANCH_MANAGER" → "BRANCH MANAGER")
+const displayRole = (key) => (key === "BRANCH_MANAGER" ? "BRANCH MANAGER" : key || null);
+
+// Hook that returns the canonical role key
+function useRoleKey() {
+  const [roleKey, setRoleKey] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        // fast path: cookie set by login page, if you stored it
+        const ck = Cookies.get("role_key");
+        if (ck) {
+          if (alive) setRoleKey(canonRole(ck));
+          return;
+        }
+
+        const roleMap = await loadRoleMap();
+        const token = Cookies.get("access_token");
+        const uiRaw = Cookies.get("user_info");
+        const userInfo = uiRaw ? JSON.parse(uiRaw) : null;
+        const computed = getEffectiveRole({ accessToken: token, userInfo, roleMap });
+        if (alive) setRoleKey(computed);
+      } catch {
+        if (alive) setRoleKey("");
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  return roleKey;
+}
 
 const LeadManage = () => {
   const router = useRouter();
@@ -72,12 +168,13 @@ const LeadManage = () => {
 
   // Role / branch (use role_name!)
   const [role, setRole] = useState(null);          // normalized role_name
+  const roleKey = useRoleKey();
   const [branchId, setBranchId] = useState(null);  // string
   const [ready, setReady] = useState(false);       // when role/branch is resolved
 
-  const isSuperAdmin = role === "SUPERADMIN";
+  const isSuperAdmin = roleKey === "SUPERADMIN";
   const ALLOWED_ROLES_FOR_CARDS = new Set(["SUPERADMIN", "BRANCH MANAGER"]);
-  const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(role);
+  const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(roleKey);
 
   // Story & Comments modals
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
@@ -85,46 +182,45 @@ const LeadManage = () => {
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [commentLeadId, setCommentLeadId] = useState(null);
 
-  /* ---------- read role_name + branch once ---------- */
-  useEffect(() => {
-    try {
-      let r = null;
-      let b = null;
-
-      const ui = Cookies.get("user_info");
-      if (ui) {
-        const parsed = JSON.parse(ui);
-        r = parsed?.role_name ?? parsed?.user?.role_name ?? null; // ✅ role_name
-        b =
-          parsed?.branch_id ??
-          parsed?.user?.branch_id ??
-          parsed?.branch?.id ??
-          null;
-      } else {
-        const token = Cookies.get("access_token");
-        if (token) {
-          const payload = jwtDecode(token);
-          r = payload?.role_name ?? payload?.user?.role_name ?? null; // ✅ role_name
-          b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
-        }
+/* ---------- read role + branch once (uses dynamic roleKey) ---------- */
+useEffect(() => {
+  try {
+    // branch from cookies/JWT (same as before)
+    let b = null;
+    const ui = Cookies.get("user_info");
+    if (ui) {
+      const parsed = JSON.parse(ui);
+      b =
+        parsed?.branch_id ??
+        parsed?.user?.branch_id ??
+        parsed?.branch?.id ??
+        null;
+    } else {
+      const token = Cookies.get("access_token");
+      if (token) {
+        const payload = jwtDecode(token);
+        b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
       }
-
-      const normRole = normalizeRole(r);
-      setRole(normRole);
-      const bid = b ? String(b) : null;
-      setBranchId(bid);
-
-      if (normRole !== "SUPERADMIN" && bid) {
-  setBranchFilter(String(bid)); // 🟢 force string
-} else {
-  setBranchFilter("All");
-}
-    } catch (e) {
-      console.error("Failed to read user info from cookies/JWT", e);
-    } finally {
-      setReady(true);
     }
-  }, []);
+
+    const bid = b ? String(b) : null;
+    setBranchId(bid);
+
+    // role -> store a display value if you show it in UI
+    setRole(displayRole(roleKey));
+
+    // lock branch filter for non-superadmins
+    if (roleKey !== "SUPERADMIN" && bid) {
+      setBranchFilter(String(bid)); // force string
+    } else {
+      setBranchFilter("All");
+    }
+  } catch (e) {
+    console.error("Failed to read user info from cookies/JWT", e);
+  } finally {
+    setReady(true);
+  }
+}, [roleKey]);
 
   /* ---------- load dropdown lists ---------- */
 useEffect(() => {

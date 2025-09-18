@@ -32,6 +32,18 @@ import {
 } from 'lucide-react';
 
 /* ----------------------------- Helpers ----------------------------- */
+
+const DAY_OPTIONS = [
+  { value: 1, label: 'Today' },
+  { value: 7, label: 'Last 7 days' },
+  { value: 15, label: 'Last 15 days' },
+  { value: 30, label: 'Last 30 days' },
+  { value: 60, label: 'Last 60 days' },
+  { value: 90, label: 'Last 90 days' },
+  { value: 180, label: 'Last 180 days' },
+  { value: 365, label: 'Last 365 days' },
+];
+
 function getFirstName(nameLike, usernameLike) {
   const name = (nameLike || '').trim();
   if (name) return name.split(/\s+/)[0];
@@ -236,7 +248,7 @@ export default function Dashboard() {
       if (!m[key]) m[key] = [];
       m[key].push(u);
       return m;
-    }, /** @type {Record<string, any[]>} */ ({}));
+    }, /** @type {Record<string, any[]>} */({}));
 
     const teamSet = new Set([myCode]);
     const queue = [myCode];
@@ -363,7 +375,7 @@ export default function Dashboard() {
               {getGreeting()}, {firstName}!
             </h1>
             <p className="text-gray-600 mt-0.5 text-sm">
-              Here's your performance overview for the last {appliedFilters.days} days
+              Here’s your performance overview for {appliedFilters.days === 1 ? 'today' : `the last ${appliedFilters.days} days`}
             </p>
           </div>
         )}
@@ -605,9 +617,9 @@ export default function Dashboard() {
                     value={draftFilters.days}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
                   >
-                    {[7, 15, 30, 60, 90, 180, 365].map((d) => (
-                      <option key={d} value={d}>
-                        Last {d} days
+                    {DAY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
@@ -640,7 +652,7 @@ export default function Dashboard() {
             {/* Table */}
             <div className="max-h-[480px] overflow-y-auto pr-1 relative">
               <SimpleTable
-                cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue']}
+                cols={['Employee', 'Role', 'Leads', 'Converted', 'FT', 'Revenue']}
                 rows={pageRowsRaw.map((u) => [
                   <span className="font-medium text-gray-800" key={`${u.employee_code}-name`}>
                     {u.employee_name} <span className="text-gray-400">({u.employee_code})</span>
@@ -653,6 +665,9 @@ export default function Dashboard() {
                   </span>,
                   <span className="text-blue-600" key={`${u.employee_code}-conv`}>
                     {num(u.converted_leads)}
+                  </span>,
+                  <span className="text-indigo-600" key={`${u.employee_code}-ft`}>
+                    {num(u.FT ?? u.ft ?? 0)}
                   </span>,
                   <span className="text-red-600 font-medium" key={`${u.employee_code}-rev`}>
                     {inr(u.total_revenue)}
@@ -673,11 +688,10 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => setEmpPage((p) => Math.max(1, p - 1))}
                   disabled={empPage === 1}
-                  className={`h-9 px-3 rounded-md text-sm font-medium border ${
-                    empPage === 1
+                  className={`h-9 px-3 rounded-md text-sm font-medium border ${empPage === 1
                       ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   Previous
                 </button>
@@ -690,11 +704,10 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => setEmpPage((p) => Math.min(totalEmpPages, p + 1))}
                   disabled={empPage === totalEmpPages}
-                  className={`h-9 px-3 rounded-md text-sm font-medium border ${
-                    empPage === totalEmpPages
+                  className={`h-9 px-3 rounded-md text-sm font-medium border ${empPage === totalEmpPages
                       ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   Next
                 </button>
@@ -741,12 +754,13 @@ export default function Dashboard() {
                     value={draftFilters.days}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
                   >
-                    {[7, 15, 30, 60, 90, 180, 365].map((d) => (
-                      <option key={d} value={d}>
-                        Last {d} days
+                    {DAY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
+
                 </Field>
 
                 <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="From Date" />}>

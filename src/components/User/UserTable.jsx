@@ -7,7 +7,6 @@ import { jwtDecode } from "jwt-decode";
 import { User, Phone, Mail, Edit, Trash2, Eye } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /* ---------- dynamic role helpers (API + cache) ---------- */
@@ -34,7 +33,7 @@ async function loadRoleMap() {
     if (cached && typeof cached === "object" && Object.keys(cached).length) {
       return cached;
     }
-  } catch {}
+  } catch { }
 
   try {
     const res = await axiosInstance.get("/profile-role/", {
@@ -63,7 +62,7 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
         if (mapped) return mapped;
       }
     }
-  } catch {}
+  } catch { }
 
   if (userInfo) {
     const uiRole =
@@ -115,9 +114,7 @@ function useRoleKey() {
   return roleKey;
 }
 
-const canon = (s) => String(s || "").toUpperCase().trim();
-
-// ✨ add this helper near the top
+// Currency formatter (INR)
 const inr = (n) =>
   n == null || n === ""
     ? "—"
@@ -125,26 +122,19 @@ const inr = (n) =>
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
-    }).format(Number(n || 0));
+    }).format(Number(n));
 
 function useRoleBranch() {
-  const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
-  const roleKey = useRoleKey(); // ← dynamic canonical key (e.g., SUPERADMIN)
+  const roleKey = useRoleKey();
 
   useEffect(() => {
     try {
       const uiRaw = Cookies.get("user_info");
       let b = null;
-
       if (uiRaw) {
         const ui = JSON.parse(uiRaw);
-        b =
-          ui?.branch_id ??
-          ui?.user?.branch_id ??
-          ui?.branch?.id ??
-          ui?.user?.branch?.id ??
-          null;
+        b = ui?.branch_id ?? ui?.user?.branch_id ?? ui?.branch?.id ?? ui?.user?.branch?.id ?? null;
       } else {
         const token = Cookies.get("access_token");
         if (token) {
@@ -152,17 +142,13 @@ function useRoleBranch() {
           b = p?.branch_id ?? p?.user?.branch_id ?? null;
         }
       }
-
-      setRole(roleKey || null);                  // store canonical key in state if needed elsewhere
       setBranchId(b != null ? String(b) : null);
     } catch (e) {
       console.error("role/branch decode failed", e);
     }
   }, [roleKey]);
 
-  const isSuperAdmin = roleKey === "SUPERADMIN";
-
-  return { role: roleKey, branchId, isSuperAdmin };
+  return { role: roleKey, branchId, isSuperAdmin: roleKey === "SUPERADMIN" };
 }
 
 export default function UserTable({
@@ -171,53 +157,37 @@ export default function UserTable({
   onEdit,
   onDetails,
   refreshUsers,
-  codeToName = {},
+  pagination,   // { page, totalPages, total, limit }
+  onPrev,
+  onNext,
+  goToPage,
+  loading,
 }) {
   const { isSuperAdmin, branchId } = useRoleBranch();
 
-  // ---- visible users (branch filtered for non-superadmin) ----
-  const visibleUsers = useMemo(() => {
-    if (isSuperAdmin) return users;
-    if (!branchId) return users;
-    return users.filter((u) => String(u.branch_id) === String(branchId));
-  }, [users, isSuperAdmin, branchId]);
-
-  // ---- pagination (20 per page) ----
-  const PAGE_SIZE = 20;
-  const [page, setPage] = useState(1);
-
-  const total = visibleUsers.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const startIdx = (page - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, total);
-  const pagedUsers = useMemo(
-    () => visibleUsers.slice(startIdx, endIdx),
-    [visibleUsers, startIdx, endIdx]
-  );
-
-  // clamp page if data size shrinks/expands
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-    if (page < 1) setPage(1);
-  }, [page, totalPages]);
-
-  const goTo = (p) => setPage((prev) => Math.min(Math.max(1, p), totalPages));
-  const prevPage = () => goTo(page - 1);
-  const nextPage = () => goTo(page + 1);
-
+  const p = pagination || {};
+  const page = Number(p.page || 1);
+  const limit = Number(p.limit || users.length || 1);
+  const skip  = Number(p.skip  || (page - 1) * limit);
+  const reportedTotal = Number.isFinite(p.total) ? Number(p.total) : NaN;
+  const effectiveTotal = reportedTotal > 0 ? reportedTotal : users.length;
+const totalPages = Number(p.totalPages || p.pages || Math.max(1, Math.ceil(effectiveTotal / (limit || 1))));
+  const startIdx = effectiveTotal ? skip : 0;  
+  const endIdx   = effectiveTotal ? Math.min(skip + users.length, effectiveTotal) : 0;
+  // show the right end using how many rows we actually have on this
   const getRoleColorClass = (roleName) => {
-  const key = canonRole(roleName); // normalize to SUPERADMIN / BRANCH_MANAGER / ...
-  const roleColors = {
-    SUPERADMIN: "text-blue-800",
-    BRANCH_MANAGER: "text-red-700",
-    SALES_MANAGER: "text-green-800",
-    HR: "text-pink-800",
-    TL: "text-yellow-800",
-    SBA: "text-indigo-800",
-    BA: "text-gray-800",
+    const key = canonRole(roleName); // normalize to SUPERADMIN / BRANCH_MANAGER / ...
+    const roleColors = {
+      SUPERADMIN: "text-blue-800",
+      BRANCH_MANAGER: "text-red-700",
+      SALES_MANAGER: "text-green-800",
+      HR: "text-pink-800",
+      TL: "text-yellow-800",
+      SBA: "text-indigo-800",
+      BA: "text-gray-800",
+    };
+    return roleColors[key] || "bg-gray-100 text-gray-700 border border-gray-200";
   };
-  return roleColors[key] || "bg-gray-100 text-gray-700 border border-gray-200";
-};
 
   const handleDelete = async (employeeCode) => {
     if (!confirm(`Are you sure you want to deactivate user ${employeeCode}?`)) return;
@@ -231,30 +201,6 @@ export default function UserTable({
     }
   };
 
-  // NEW: derive senior label from possible fields
-  const getSeniorLabel = (u) => {
-    // If API already gives a nested profile with name, prefer it.
-    const byObject =
-      u?.senior_profile?.name ||
-      u?.reporting_profile?.name ||
-      u?.senior_profile_name ||
-      u?.reporting_profile_name;
-
-    if (byObject) return byObject;
-
-    // Otherwise, many rows only have an employee_code in senior_profile_id.
-    const code =
-      u?.senior_profile_id ||
-      u?.reporting_profile_id ||
-      u?.senior_employee_code ||
-      null;
-
-    if (!code) return "—";
-
-    // Look up name via the code→name map we built from /users
-    const name = codeToName[String(code)];
-    return name || "—";
-  };
 
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-200">
@@ -278,8 +224,10 @@ export default function UserTable({
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {pagedUsers.length > 0 ? (
-                pagedUsers.map((u, idx) => {
+              {loading ? (
+                <tr><td colSpan="10" className="px-5 py-8 text-center text-gray-500">Loading…</td></tr>
+              ) : users.length > 0 ? (
+                users.map((u, idx) => {
                   // Prefer profile_role.name → fallback to role → fallback to role_id
                   const roleName =
                     u.profile_role?.name ||
@@ -308,7 +256,13 @@ export default function UserTable({
                         </span>
                       </td>
 
-                      <td className="px-5 py-4 truncate">{getSeniorLabel(u)}</td>
+                      <td className="px-5 py-4 truncate">
+                        {u?.senior_profile_name
+                          || u?.reporting_profile_name
+                          || u?.senior_profile?.name
+                          || u?.reporting_profile?.name
+                          || "—"}
+                      </td>
                       <td className="px-5 py-4 truncate">{inr(u.target)}</td>
 
                       <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
@@ -330,8 +284,8 @@ export default function UserTable({
                       <td className="px-5 py-4">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-semibold ${u.is_active
-                              ? "bg-green-100 text-green-700 border border-green-200"
-                              : "bg-red-100 text-red-700 border border-red-200"
+                            ? "bg-green-100 text-green-700 border border-green-200"
+                            : "bg-red-100 text-red-700 border border-red-200"
                             }`}
                         >
                           {u.is_active ? "Active" : "Inactive"}
@@ -387,18 +341,18 @@ export default function UserTable({
       {/* Footer: results summary + pagination */}
       <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 text-sm text-gray-700 flex items-center justify-between flex-wrap gap-3">
         <div>
-          {total > 0
-            ? `Showing ${startIdx + 1}–${endIdx} of ${total} users`
+          {effectiveTotal > 0
+            ? `Showing ${users.length ? startIdx + 1 : 0}–${endIdx} of ${effectiveTotal} users`
             : "Showing 0 users"}
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={prevPage}
+            onClick={onPrev}
             disabled={page === 1}
             className={`px-3 h-9 rounded-lg border ${page === 1
-                ? "text-gray-400 border-gray-200 cursor-not-allowed bg-white"
-                : "text-gray-700 border-gray-300 hover:bg-gray-100"
+              ? "text-gray-400 border-gray-200 cursor-not-allowed bg-white"
+              : "text-gray-700 border-gray-300 hover:bg-gray-100"
               }`}
             aria-label="Previous page"
           >
@@ -407,42 +361,30 @@ export default function UserTable({
 
           {/* Compact numeric pages (show up to 5 around current) */}
           {Array.from({ length: totalPages }).map((_, i) => i + 1)
-            .filter((p) => {
-              // Keep first & last; window of 2 around current
-              return p === 1 || p === totalPages || Math.abs(p - page) <= 2;
-            })
-            .reduce((acc, p, idx, arr) => {
-              // insert ellipses when gaps
-              if (idx > 0 && p - arr[idx - 1] > 1) acc.push("ellipsis");
-              acc.push(p);
-              return acc;
-            }, [])
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+            .reduce((acc, p, idx, arr) => { if (idx > 0 && p - arr[idx - 1] > 1) acc.push("…"); acc.push(p); return acc; }, [])
             .map((item, idx) =>
-              item === "ellipsis" ? (
-                <span key={`e-${idx}`} className="px-1 text-gray-400">
-                  …
-                </span>
+              item === "…" ? (
+                <span key={`e-${idx}`} className="px-1 text-gray-400">…</span>
               ) : (
-                <button
-                  key={item}
-                  onClick={() => goTo(item)}
-                  className={`min-w-9 h-9 px-3 rounded-lg border ${item === page
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
+                <button key={item} onClick={() => goToPage(item)} className={`min-w-9 h-9 px-3 rounded-lg border ${item === page
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                  }`}
                   aria-current={item === page ? "page" : undefined}
                 >
                   {item}
                 </button>
               )
-            )}
+            )
+          }
 
           <button
-            onClick={nextPage}
+            onClick={onNext}
             disabled={page === totalPages}
             className={`px-3 h-9 rounded-lg border ${page === totalPages
-                ? "text-gray-400 border-gray-200 cursor-not-allowed bg-white"
-                : "text-gray-700 border-gray-300 hover:bg-gray-100"
+              ? "text-gray-400 border-gray-200 cursor-not-allowed bg-white"
+              : "text-gray-700 border-gray-300 hover:bg-gray-100"
               }`}
             aria-label="Next page"
           >
@@ -460,5 +402,4 @@ UserTable.propTypes = {
   onEdit: PropTypes.func,
   onDetails: PropTypes.func,
   refreshUsers: PropTypes.func,
-  codeToName: PropTypes.object,
 };

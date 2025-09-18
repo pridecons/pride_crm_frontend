@@ -147,7 +147,7 @@ export default function UserModal({
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [selectedProfileId, setSelectedProfileId] = useState("");
-
+  const { hasPermission } = usePermissions();
   // Senior (users) options
   const [seniorOptions, setSeniorOptions] = useState([]);
 
@@ -1138,51 +1138,54 @@ export default function UserModal({
                 </div>
 
                 {/* Password (Create) / Reset Password (Edit, SuperAdmin only) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {isEdit ? "Reset Password" : "Password *"}
-                  </label>
+                {hasPermission("user_reset_password") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {isEdit ? "Reset Password" : "Password *"}
+                    </label>
 
-                  {isEdit && !canEditPassword ? (
-                    <div className="text-xs text-gray-500 p-3 border rounded-xl bg-gray-50">
-                      Only <span className="font-semibold">SuperAdmin</span> can change user passwords.
-                    </div>
-                  ) : (
-                    <>
-                      {isEdit && (
-                        <p className="text-xs text-gray-500 mb-1">
-                          Leave blank to keep existing password.
-                        </p>
-                      )}
-                      {passwordError && (
-                        <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
-                          {passwordError}
-                        </div>
-                      )}
-                      <div className="relative">
-                        <input
-                          className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
-                          type={showPwd ? "text" : "password"}
-                          value={formData.password ?? ""}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          autoComplete="new-password"
-                          required={!isEdit}  // create required; edit optional
-                          placeholder={isEdit ? "Enter new password" : "Create a password"}
-                          aria-invalid={!!passwordError}
-                          aria-describedby={passwordError ? "pwd-error" : undefined}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPwd((v) => !v)}
-                          className="absolute inset-y-0 right-3 flex items-center"
-                          aria-label={showPwd ? "Hide password" : "Show password"}
-                        >
-                          {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
-                        </button>
+                    {isEdit && !canEditPassword ? (
+                      <div className="text-xs text-gray-500 p-3 border rounded-xl bg-gray-50">
+                        Only <span className="font-semibold">SuperAdmin</span> can change user passwords.
                       </div>
-                    </>
-                  )}
-                </div>
+                    ) : (
+                      <>
+                        {isEdit && (
+                          <p className="text-xs text-gray-500 mb-1">
+                            Leave blank to keep existing password.
+                          </p>
+                        )}
+                        {passwordError && (
+                          <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
+                            {passwordError}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <input
+                            className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
+                            type={showPwd ? "text" : "password"}
+                            value={formData.password ?? ""}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            autoComplete="new-password"
+                            required={!isEdit}  // create required; edit optional
+                            placeholder={isEdit ? "Enter new password" : "Create a password"}
+                            aria-invalid={!!passwordError}
+                            aria-describedby={passwordError ? "pwd-error" : undefined}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPwd((v) => !v)}
+                            className="absolute inset-y-0 right-3 flex items-center"
+                            aria-label={showPwd ? "Hide password" : "Show password"}
+                          >
+                            {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
               </div>
 
               {/* Right column */}

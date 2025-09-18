@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Cookies from "js-cookie";
-import { axiosInstance, BASE_URL } from "@/api/Axios";
+import { axiosInstance, BASE_URL_full } from "@/api/Axios";
 import { useDocViewer } from "@/helper/useDocViewer";
 
 // chat modules
@@ -46,7 +46,7 @@ export default function WhatsAppChatPage() {
   const { openDoc, DocViewerPortal } = useDocViewer({
     defaultTitle: "Attachment",
     canDownload: true,
-    baseUrl: BASE_URL,
+    baseUrl: BASE_URL_full,
   });
   const currentUser = useEmployeeCode();
 

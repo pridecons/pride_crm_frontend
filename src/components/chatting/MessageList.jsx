@@ -164,20 +164,20 @@ export default function MessageList({
       {/* image preview overlay */}
       {imgPreview && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center pt-16"
           onClick={() => setImgPreview(null)}
         >
           <img
             src={imgPreview.src}
             alt={imgPreview.title}
-            className="max-w-[92vw] max-h-[88vh] rounded-lg shadow-2xl"
+            className="max-w-[70vw] max-h-[75vh] rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
           <button
-            className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 px-3 py-1.5 rounded-lg text-sm shadow"
+            className="absolute top-20 right-65  hover:bg-blue-500 text-white px-3 py-1.5 rounded text-sm shadow"
             onClick={() => setImgPreview(null)}
           >
-            Close
+            x
           </button>
         </div>
       )}

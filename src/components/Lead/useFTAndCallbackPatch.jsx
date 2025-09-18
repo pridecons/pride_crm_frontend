@@ -4,6 +4,12 @@ import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
+const toDMY = (ymd) => (ymd ? ymd.split("-").reverse().join("-") : "");
+const normalizeServiceType = (s) => {
+  const v = String(s || "").trim().toUpperCase();
+  return v === "SMS" ? "SMS" : "CALL"; // only allow known values
+};
+
 export function useFTAndCallbackPatch({ responses, onPatched }) {
   // Modals + state
   const [showFTModal, setShowFTModal] = useState(false);
@@ -19,8 +25,7 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
   const prevResponseRef = useRef(null);
 
   const findIdByName = useCallback(
-    (name) =>
-      responses.find((r) => r.name?.toLowerCase() === name)?.id,
+    (name) => responses.find((r) => r.name?.toLowerCase() === name)?.id,
     [responses]
   );
 
@@ -40,22 +45,28 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
   };
 
   // ---- Save handlers (patch + close) ----
-  const saveFT = async () => {
+  // Accept extras from the FT modal: { segment, ft_service_type }
+  const saveFT = async (extras = {}) => {
     if (!ftFromDate || !ftToDate) {
       ErrorHandling({ defaultError: "Both dates required" });
       return;
     }
     try {
-      await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+      const payload = {
         lead_response_id: findIdByName("ft"),
-        // input is YYYY-MM-DD; API expects DD-MM-YYYY
-        ft_from_date: ftFromDate.split("-").reverse().join("-"),
-        ft_to_date: ftToDate.split("-").reverse().join("-"),
-      });
+        ft_from_date: toDMY(ftFromDate), // YYYY-MM-DD -> DD-MM-YYYY
+        ft_to_date: toDMY(ftToDate),
+      };
+
+      if (extras.segment) payload.segment = extras.segment; // "Cash" or ["Cash"] (backend accepts either)
+      if (extras.ft_service_type)
+        payload.ft_service_type = normalizeServiceType(extras.ft_service_type);
+
+      await axiosInstance.patch(`/leads/${ftLead.id}/response`, payload);
       toast.success("FT response and dates saved!");
       onPatched?.();
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to save FT response" });
+      ErrorHandling({ error, defaultError: "Failed to save FT response" });
     } finally {
       setShowFTModal(false);
       prevResponseRef.current = null;
@@ -71,12 +82,14 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
     try {
       await axiosInstance.patch(`/leads/${callBackLead.id}/response`, {
         lead_response_id: cbId,
+        // NOTE: If you notice a 1-day drift in stored date, switch to DD-MM-YYYY like FT:
+        // call_back_date: toDMY(callBackDate),
         call_back_date: new Date(callBackDate).toISOString(),
       });
       toast.success("Call Back response and date saved!");
       onPatched?.();
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to save Call Back response" });
+      ErrorHandling({ error, defaultError: "Failed to save Call Back response" });
     } finally {
       setShowCallBackModal(false);
       prevResponseRef.current = null;
@@ -120,7 +133,7 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
     showFTModal,
     setShowFTModal,
     ftLead,
-    setFTLead,            // <-- exposed for your inline prefill
+    setFTLead,
     ftFromDate,
     setFTFromDate,
     ftToDate,
@@ -130,13 +143,13 @@ export function useFTAndCallbackPatch({ responses, onPatched }) {
     showCallBackModal,
     setShowCallBackModal,
     callBackLead,
-    setCallBackLead,      // <-- exposed
+    setCallBackLead,
     callBackDate,
     setCallBackDate,
 
     // Actions
     handleResponseChange,
-    saveFT,
+    saveFT,        // now accepts extras: { segment, ft_service_type }
     saveCallBack,
     cancelFT,
     cancelCallBack,

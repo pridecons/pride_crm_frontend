@@ -98,7 +98,7 @@ export default function SMSTemplatesSimplePage() {
     } catch (error) {
       setMsg(
         "Save failed: " +
-          (error?.response?.data?.message || error?.message || String(error))
+        (error?.response?.data?.message || error?.message || String(error))
       );
     }
   };
@@ -112,7 +112,7 @@ export default function SMSTemplatesSimplePage() {
     } catch (error) {
       setMsg(
         "Delete failed: " +
-          (error?.response?.data?.message || error?.message || String(error))
+        (error?.response?.data?.message || error?.message || String(error))
       );
     }
   };
@@ -155,11 +155,10 @@ export default function SMSTemplatesSimplePage() {
         {/* Alert */}
         {msg && (
           <div
-            className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg font-semibold ${
-              msg.toLowerCase().includes("fail")
+            className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg font-semibold ${msg.toLowerCase().includes("fail")
                 ? "bg-red-50 border-2 border-red-400 text-red-600"
                 : "bg-sky-50 border-2 border-sky-300 text-sky-800"
-            }`}
+              }`}
           >
             <svg
               width="24"
@@ -252,9 +251,10 @@ export default function SMSTemplatesSimplePage() {
                 </thead>
                 <tbody>
                   {templates.map((tpl) => {
-                    const roles = (tpl.allowedRoles || []).filter(
-                      (r) => r !== "SUPERADMIN"
-                    );
+                    const roles = (tpl.allowed_roles || []).filter(
+                      (r) => r !== "SUPERADMIN")
+                    ;
+                    
                     return (
                       <tr key={tpl.id} className="odd:bg-white even:bg-gray-50">
                         <td className="px-5 py-4">
@@ -270,23 +270,23 @@ export default function SMSTemplatesSimplePage() {
                         </td>
                         <td className="px-5 py-4">
                           <code className="bg-gray-100 px-2 py-1 rounded text-[13px] text-gray-700">
-                            {tpl.dltTemplateId}
+                            {tpl.dlt_template_id
+}
                           </code>
                         </td>
                         <td className="px-5 py-4">
                           <span
-                            className={`inline-block text-xs font-semibold px-3 py-1 rounded ${
-                              (tpl.messageType || "").toUpperCase() ===
-                              "TRANSACTIONAL"
+                            className={`inline-block text-xs font-semibold px-3 py-1 rounded ${(tpl.message_type || "").toUpperCase() ===
+                                "TRANSACTIONAL"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-yellow-100 text-yellow-800"
-                            }`}
+                              }`}
                           >
-                            {(tpl.messageType || "").toUpperCase()}
+                            {(tpl.message_type || "").toUpperCase()}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-gray-500 text-[13px]">
-                          {(tpl.sourceAddress || []).join(", ")}
+                          {(tpl.source_address || []).join(", ")}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-wrap gap-1 max-w-[180px]">
@@ -346,19 +346,19 @@ export default function SMSTemplatesSimplePage() {
           initialForm={
             editingTemplate
               ? {
-                  title: editingTemplate.title || "",
-                  template: editingTemplate.template || "",
-                  dltTemplateId: editingTemplate.dltTemplateId || "",
-                  messageType: (
-                    editingTemplate.messageType || "TRANSACTIONAL"
-                  ).toUpperCase(),
-                  sourceAddress: (editingTemplate.sourceAddress || []).join(
-                    ", "
-                  ),
-                  allowedRoles: (editingTemplate.allowedRoles || []).filter(
-                    (r) => r !== "SUPERADMIN"
-                  ), // names
-                }
+                title: editingTemplate.title || "",
+                template: editingTemplate.template || "",
+                dltTemplateId: editingTemplate.dltTemplateId || "",
+                messageType: (
+                  editingTemplate.messageType || "TRANSACTIONAL"
+                ).toUpperCase(),
+                sourceAddress: (editingTemplate.sourceAddress || []).join(
+                  ", "
+                ),
+                allowedRoles: (editingTemplate.allowedRoles || []).filter(
+                  (r) => r !== "SUPERADMIN"
+                ), // names
+              }
               : emptyForm
           }
           onSubmit={handleModalSubmit}
@@ -413,13 +413,24 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
   }, [open]);
 
   // Close role dropdown on outside click
+  const selectedRolesString =
+    form.allowedRoles.length === 0
+      ? "Select roles"
+      : roles
+        .filter((r) => form.allowedRoles.includes(String(r.id)))
+        .map((r) => r.name)
+        .join(", ");
+
+  // ✅ Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target)) {
         setShowRoleDropdown(false);
       }
     };
-    if (showRoleDropdown) document.addEventListener("mousedown", handleClickOutside);
+    if (showRoleDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showRoleDropdown]);
 
@@ -435,19 +446,23 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
   };
 
   // Roles toggle helpers
-  const toggleRole = (roleName) => {
+  const toggleRole = (id) => {
     setForm((prev) => ({
       ...prev,
-      allowedRoles: prev.allowedRoles.includes(roleName)
-        ? prev.allowedRoles.filter((r) => r !== roleName)
-        : [...prev.allowedRoles, roleName],
+      allowedRoles: prev.allowedRoles.includes(id)
+        ? prev.allowedRoles.filter((r) => r !== id)
+        : [...prev.allowedRoles, id],
     }));
   };
-  const selectAllRoles = () => {
-    setForm((p) => ({
-      ...p,
-      allowedRoles: p.allowedRoles.length === roles.length ? [] : [...roles],
-    }));
+  const selectAllRoles = (e) => {
+    if (e.target.checked) {
+      setForm((prev) => ({
+        ...prev,
+        allowedRoles: roles.map((r) => String(r.id)), // सिर्फ IDs
+      }));
+    } else {
+      setForm((prev) => ({ ...prev, allowedRoles: [] }));
+    }
   };
 
   // ---- Builder helpers ----
@@ -459,9 +474,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
     // How many dropdowns we need:
     const tokenCount = Math.max(0, parts.length - 1);
 
-    // Try to infer previous selections from already compiled {xxx} if user pasted compiled template
-    // e.g., "CASH:BUY {stock_name} TARGET {targets} STOP LOSS {stop_loss}"
-    // We'll check each gap for a "{...}" immediately at start of the next part.
+    
     const inferredSelections = [];
     for (let i = 0; i < tokenCount; i++) {
       // Default to first item if no inference
@@ -519,8 +532,8 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
 
   if (!open) return null;
 
-  const selectedRolesString =
-    form.allowedRoles?.length ? form.allowedRoles.join(", ") : "Select roles";
+  // const selectedRolesString =
+  //   form.allowedRoles?.length ? form.allowedRoles.join(", ") : "Select roles";
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1100] flex items-center justify-center p-5">
@@ -611,7 +624,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
               <div className="flex-1">
                 <label className="block">
                   <span className="block font-semibold text-gray-700 text-base mb-2">Source Address</span>
-                <input
+                  <input
                     type="text"
                     name="sourceAddress"
                     value={form.sourceAddress}
@@ -646,9 +659,8 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                 <span className="block font-semibold text-gray-700 text-base mb-2">Allowed Roles</span>
                 <div ref={roleDropdownRef} className="relative mt-2">
                   <div
-                    className={`w-full p-3.5 border-2 rounded-xl bg-white cursor-pointer flex items-center justify-between min-h-[48px] transition ${
-                      showRoleDropdown ? "border-indigo-500 ring-2 ring-indigo-100" : "border-gray-200"
-                    }`}
+                    className={`w-full p-3.5 border-2 rounded-xl bg-white cursor-pointer flex items-center justify-between min-h-[48px] transition ${showRoleDropdown ? "border-indigo-500 ring-2 ring-indigo-100" : "border-gray-200"
+                      }`}
                     onClick={() => setShowRoleDropdown((s) => !s)}
                   >
                     <span className={`text-[15px] ${form.allowedRoles.length ? "text-gray-700" : "text-gray-400"}`}>
@@ -761,11 +773,10 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
               <button
                 type="submit"
                 disabled={saving}
-                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl text-white transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg ${
-                  editing
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl text-white transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg ${editing
                     ? "bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
                     : "bg-gradient-to-br from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
-                } ${saving ? "opacity-70 cursor-not-allowed" : ""}`}
+                  } ${saving ? "opacity-70 cursor-not-allowed" : ""}`}
               >
                 {editing ? "Update Template" : "Create Template"}
               </button>

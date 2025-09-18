@@ -2,8 +2,12 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 
 /* ---------------------------------- Consts --------------------------------- */
+const normalizeRole = (s) => String(s || "").replace(/\s+/g, "_").toUpperCase();
+const ENDPOINT_USERS = "users"; // GET ?skip=0&limit=1000&active_only=false
 const ENDPOINT_ALL = "vbc-reports/call-logs";
 const ENDPOINT_EMP = "vbc-reports/call-logs/employee";
 const fmt = (n) => (typeof n === "number" ? n.toLocaleString() : n ? String(n) : "0");
@@ -70,6 +74,198 @@ export default function VbcCallLogsDashboard() {
   const [empError, setEmpError] = useState(null);
   const [empData, setEmpData] = useState(null);
   const [order, setOrder] = useState("desc"); // "asc" | "desc"
+
+  // ===== Users for autocomplete (team-only) =====
+const [users, setUsers] = useState([]);
+const [usersLoading, setUsersLoading] = useState(false);
+const [usersError, setUsersError] = useState(null);
+const [userSearch, setUserSearch] = useState("");
+const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  /* ------------------------- Identify logged-in user ------------------------ */
+  const userCode = useMemo(() => {
+    try {
+      const at = Cookies.get("access_token");
+      if (at) {
+        const payload = jwtDecode(at);
+        const sub = payload?.sub || payload?.employee_code;
+        if (sub) return String(sub).trim();
+      }
+    } catch (_) {}
+    try {
+      const raw = Cookies.get("user_info");
+      if (raw) {
+        const info = JSON.parse(raw);
+        const ec = info?.employee_code || info?.code;
+        if (ec) return String(ec).trim();
+      }
+    } catch (_) {}
+    return "UNKNOWN_USER";
+  }, []);
+  // Fallback role/branch from cookies/token while users are still loading
+const cookieUserMeta = useMemo(() => {
+  try {
+    const raw = Cookies.get("user_info");
+    if (raw) {
+      const info = JSON.parse(raw);
+      return {
+        branch_id: info?.branch_id ?? null,
+        role_name: normalizeRole(info?.profile_role?.name || info?.role_name),
+      };
+    }
+  } catch (_) {}
+  try {
+    const at = Cookies.get("access_token");
+    if (at) {
+      const payload = jwtDecode(at);
+      return {
+        branch_id: payload?.branch_id ?? null,
+        role_name: normalizeRole(payload?.role_name),
+      };
+    }
+  } catch (_) {}
+  return { branch_id: null, role_name: "" };
+}, []);
+const currentUser = useMemo(
+  () => (Array.isArray(users) ? users.find(u => u?.employee_code === userCode) : null),
+  [users, userCode]
+);
+
+const roleName = useMemo(
+  () => normalizeRole(currentUser?.profile_role?.name || cookieUserMeta.role_name),
+  [currentUser, cookieUserMeta]
+);
+
+const viewerBranchId = useMemo(
+  () => currentUser?.branch_id ?? cookieUserMeta.branch_id ?? null,
+  [currentUser, cookieUserMeta]
+);
+
+useEffect(() => {
+  const onDocClick = (e) => setUserMenuOpen(false);
+  if (userMenuOpen) document.addEventListener("click", onDocClick);
+  return () => document.removeEventListener("click", onDocClick);
+}, [userMenuOpen]);
+
+
+const fetchUsers = async () => {
+  setUsersLoading(true);
+  setUsersError(null);
+  try {
+    const res = await axiosInstance.get(ENDPOINT_USERS, {
+      params: { skip: 0, limit: 1000, active_only: false },
+    });
+    setUsers(Array.isArray(res?.data?.data) ? res.data.data : []);
+  } catch (e) {
+    const msg =
+      e?.response?.data?.detail ||
+      e?.response?.data?.message ||
+      e?.message ||
+      "Failed to fetch users";
+    setUsersError(typeof msg === "string" ? msg : JSON.stringify(msg));
+  } finally {
+    setUsersLoading(false);
+  }
+};
+
+// load once (or you can also trigger only when tab === 'employee')
+useEffect(() => { fetchUsers(); }, []);
+
+// team-only list (include self). If SUPERADMIN, show all.
+// SUPERADMIN: all users (all branches)
+// BRANCH_MANAGER: everyone in their branch
+// Others: self + direct reports (senior_profile_id === viewer's code)
+const teamMembers = useMemo(() => {
+  const all = Array.isArray(users) ? users : [];
+  if (!userCode || userCode === "UNKNOWN_USER") return [];
+
+  if (roleName === "SUPERADMIN") {
+    return all;
+  }
+
+  if (roleName === "BRANCH_MANAGER" && viewerBranchId != null) {
+    return all.filter(u => u?.branch_id === viewerBranchId);
+  }
+
+  return all.filter(
+    u => u?.employee_code === userCode || u?.senior_profile_id === userCode
+  );
+}, [users, userCode, roleName, viewerBranchId]);
+
+const suggestions = useMemo(() => {
+  const base = teamMembers;
+  const needle = userSearch.trim().toLowerCase();
+  if (!needle) return base.slice(0, 8);
+
+  const s = (v) => String(v ?? "").toLowerCase();
+
+  return base
+    .filter(u =>
+      s(u.name).includes(needle) ||
+      s(u.employee_code).includes(needle) ||
+      s(u.vbc_extension_id).includes(needle) ||
+      s(u.email).includes(needle) ||
+      s(u.phone_number).includes(needle)
+    )
+    .slice(0, 8);
+}, [teamMembers, userSearch]);
+
+const selectEmp = (u) => {
+  setEmpCode(u.employee_code);
+  setUserSearch(
+    `${u.name || u.employee_code} (${u.employee_code}${u.vbc_extension_id ? ` • Ext ${u.vbc_extension_id}` : ""})`
+  );
+  setUserMenuOpen(false);
+};
+
+  const LS_KEY = useMemo(() => `vbcIngestDisabledUntil:${userCode}`, [userCode]);
+
+  /* ---------------------------- Ingest modal state -------------------------- */
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const [ingestDisabledUntil, setIngestDisabledUntil] = useState(null);
+  const [ingestCountdown, setIngestCountdown] = useState("");
+
+  // load per-user cooldown
+  useEffect(() => {
+    const saved = typeof window !== "undefined" && localStorage.getItem(LS_KEY);
+    if (saved) setIngestDisabledUntil(Number(saved));
+    else setIngestDisabledUntil(null);
+  }, [LS_KEY]);
+
+  // live countdown
+  useEffect(() => {
+    let t;
+    const tick = () => {
+      if (!ingestDisabledUntil) {
+        setIngestCountdown("");
+        return;
+      }
+      const remain = ingestDisabledUntil - Date.now();
+      if (remain <= 0) {
+        setIngestDisabledUntil(null);
+        localStorage.removeItem(LS_KEY);
+        setIngestCountdown("");
+        return;
+      }
+      const sec = Math.ceil(remain / 1000);
+      const mm = Math.floor(sec / 60);
+      const ss = sec % 60;
+      setIngestCountdown(`${mm}m ${String(ss).padStart(2, "0")}s`);
+    };
+    tick();
+    t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [ingestDisabledUntil, LS_KEY]);
+
+  const isIngestDisabled = Boolean(ingestDisabledUntil && ingestDisabledUntil > Date.now());
+
+  const handleIngestSuccess = () => {
+    const until = Date.now() + 30 * 60 * 1000; // 30 mins
+    setIngestDisabledUntil(until);
+    localStorage.setItem(LS_KEY, String(until));
+    setIngestOpen(false);
+    if (tab === "all") fetchAll();
+  };
 
   /* ---------------------------- Data: All (Team/Self) ---------------------------- */
   const fetchAll = async () => {
@@ -144,9 +340,9 @@ export default function VbcCallLogsDashboard() {
 
   useEffect(() => {
     if (tab === "employee" && empCode) {
-      fetchEmployee();
+      fetchEmployee({ employee_code: empCode });
     }
-  }, [tab, order]);
+  }, [tab, order, empCode]);
 
   const statsEmp = empData?.stats || {
     total: 0,
@@ -184,7 +380,7 @@ export default function VbcCallLogsDashboard() {
         {tab === "all" && (
           <>
             {/* Header */}
-            <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6">
+            <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 relative z-[60] isolate">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -212,9 +408,20 @@ export default function VbcCallLogsDashboard() {
                     onChange={(e) => setView(e.target.value)}
                     className="h-11 rounded-xl border-slate-200 px-4 text-sm shadow-sm bg-white/90 backdrop-blur hover:border-blue-300 transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="self">Self View</option>
-                    <option value="team">Team View</option>
+                    <option value="self">Self</option>
+                    <option value="team">Team</option>
                   </select>
+
+                  {/* Ingest Button with per-user cooldown */}
+                  <button
+                    onClick={() => setIngestOpen(true)}
+                    disabled={isIngestDisabled}
+                    className="h-11 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 text-sm font-medium disabled:opacity-50 hover:shadow-lg transition-all duration-200 hover:scale-105"
+                    title="Queue ingestion of today's VBC reports"
+                  >
+                    {isIngestDisabled ? `Fetch Logs (wait ${ingestCountdown})` : "Fetch today's Logs"}
+                  </button>
+
                   <button
                     onClick={fetchAll}
                     disabled={loading}
@@ -350,7 +557,7 @@ export default function VbcCallLogsDashboard() {
         {tab === "employee" && (
           <>
             {/* Header */}
-            <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6">
+            <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 relative z-[60] isolate">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -364,42 +571,85 @@ export default function VbcCallLogsDashboard() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <input
-                    value={empCode}
-                    onChange={(e) => setEmpCode(e.target.value)}
-                    placeholder="Enter employee code"
-                    className="h-11 rounded-xl border-slate-200 px-4 text-sm shadow-sm hover:border-blue-300 transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <button
-                    onClick={() => fetchEmployee()}
-                    disabled={empLoading || !empCode}
-                    className="h-11 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 text-sm font-medium disabled:opacity-50 hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  >
-                    {empLoading ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                        Loading
-                      </span>
-                    ) : "Load"}
-                  </button>
+                 <div className="relative z-[100]">
+  <input
+    value={userSearch}
+    onChange={(e) => { setUserSearch(e.target.value); setUserMenuOpen(true); }}
+    onFocus={() => setUserMenuOpen(true)}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" && suggestions.length === 1) {
+        selectEmp(suggestions[0]);
+        e.preventDefault();
+      }
+    }}
+    placeholder="Search team member (name / code / ext / email / phone)"
+    className="h-11 w-[280px] rounded-xl border-slate-200 px-10 pr-10 text-sm shadow-sm hover:border-blue-300 transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  />
+  {/* search icon */}
+  <svg className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+  {/* clear */}
+  {userSearch && (
+    <button
+      onClick={() => { setUserSearch(""); setEmpCode(""); setUserMenuOpen(true); }}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+      title="Clear"
+      type="button"
+    >
+      ×
+    </button>
+  )}
+
+  {/* dropdown */}
+  {userMenuOpen && (
+    <div
+className="absolute z-[120] mt-1 w-[360px] max-h-72 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl"
+      onMouseDown={(e) => e.preventDefault()} // keep focus while clicking
+    >
+      {usersLoading && (
+        <div className="px-3 py-2 text-sm text-slate-500">Loading team…</div>
+      )}
+      {usersError && (
+        <div className="px-3 py-2 text-sm text-red-600">Failed to load users</div>
+      )}
+      {!usersLoading && !usersError && suggestions.length === 0 && (
+        <div className="px-3 py-2 text-sm text-slate-500">No matches</div>
+      )}
+      {!usersLoading && !usersError && suggestions.map((u) => (
+        <button
+          key={u.employee_code}
+          onClick={() => selectEmp(u)}
+          className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors"
+          type="button"
+        >
+          <div className="text-sm font-medium text-slate-900">
+            {u.name || "—"} <span className="text-slate-500">({u.employee_code})</span>
+          </div>
+          <div className="text-xs text-slate-600">
+            {u.email || "—"} {u.vbc_extension_id ? `• Ext ${u.vbc_extension_id}` : ""} {u.phone_number ? `• ${u.phone_number}` : ""}
+          </div>
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+                  
                 </div>
               </div>
             </div>
 
             {/* Summary (Employee) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
-              <Metric title="Total" value={fmt(statsEmp.total)} color="blue" icon="📞" />
-              <Metric title="Inbound" value={fmt(statsEmp.inbound)} color="green" icon="📥" />
-              <Metric title="Outbound" value={fmt(statsEmp.outbound)} color="purple" icon="📤" />
-              <Metric title="Answered" value={fmt(statsEmp.answered)} color="emerald" icon="✅" />
-              <Metric title="Missed" value={fmt(statsEmp.missed)} color="red" icon="❌" />
-              <Metric title="Attempted" value={fmt(statsEmp.attempted)} color="orange" icon="🔄" />
-              <Metric title="Blocked" value={fmt(statsEmp.blocked)} color="gray" icon="🚫" />
-              <Metric title="Voicemail" value={fmt(statsEmp.voicemail)} color="indigo" icon="📨" />
-              <Metric title="Duration" value={fmtDur(statsEmp.duration_seconds)} color="cyan" icon="⏱️" />
+              <Metric title="Total" value={fmt(statsEmp.total)} color="blue" />
+              <Metric title="Inbound" value={fmt(statsEmp.inbound)} color="green" />
+              <Metric title="Outbound" value={fmt(statsEmp.outbound)} color="purple"  />
+              <Metric title="Answered" value={fmt(statsEmp.answered)} color="emerald"  />
+              <Metric title="Missed" value={fmt(statsEmp.missed)} color="red" />
+              <Metric title="Attempted" value={fmt(statsEmp.attempted)} color="orange"  />
+              <Metric title="Blocked" value={fmt(statsEmp.blocked)} color="gray"  />
+              <Metric title="Voicemail" value={fmt(statsEmp.voicemail)} color="indigo" />
+              <Metric title="Duration" value={fmtDur(statsEmp.duration_seconds)} color="cyan" />
             </div>
 
             {empError && (
@@ -524,6 +774,13 @@ export default function VbcCallLogsDashboard() {
             </div>
           </>
         )}
+
+        {/* --------- Mount the Ingest Modal (available on any tab) ---------- */}
+        <IngestModal
+          open={ingestOpen}
+          onClose={() => setIngestOpen(false)}
+          onSuccess={handleIngestSuccess}
+        />
       </div>
     </div>
   );
@@ -588,5 +845,135 @@ function TdRight({ children, className = "", title }) {
     <td className={`px-4 py-3 text-right tabular-nums text-sm ${className}`} title={title}>
       {children}
     </td>
+  );
+}
+
+/* ------------------------------- Ingest Modal ------------------------------- */
+function IngestModal({ open, onClose, onSuccess }) {
+  const [pageSize, setPageSize] = useState(5000);
+  const [submitting, setSubmitting] = useState(false);
+  const [resp, setResp] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      setError(null);
+      setResp(null);
+      setPageSize(5000);
+    }
+  }, [open]);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError(null);
+    setResp(null);
+    try {
+      const res = await axiosInstance.post(
+        "vbc-reports/ingest",
+        "", // empty body
+        { params: { page_size: Number(pageSize) || 5000, auth_employee_code: "ADMIN001" } }
+      );
+      setResp(res?.data);
+      if (res?.data?.queued) onSuccess?.(res.data);
+    } catch (e) {
+      const msg =
+        e?.response?.data?.detail ||
+        e?.response?.data?.message ||
+        e?.message ||
+        "Failed to ingest";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100]">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl">
+          <div className="p-6 border-b border-slate-100">
+            <h2 className="text-xl font-bold text-slate-900">Ingest Today’s VBC Reports</h2>
+            <p className="text-slate-600 text-sm mt-1">This queues ingestion for today’s window (00:00–23:59 IST).</p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">Page Size</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={pageSize}
+                  onChange={(e) => setPageSize(e.target.value)}
+                  className="mt-1 w-full h-10 rounded-lg border border-slate-200 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="text-xs text-slate-500">Default 5000</span>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">Auth Employee Code</span>
+                <div className="mt-1 relative">
+                  <input
+                    value="ADMIN001"
+                    readOnly
+                    disabled
+                    className="w-full h-10 rounded-lg border border-slate-200 px-3 text-sm bg-slate-50 text-slate-600 cursor-not-allowed"
+                    title="Locked to ADMIN001"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">locked</span>
+                </div>
+              </label>
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            )}
+
+            {resp && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                <div className="font-semibold">Queued: {String(resp?.queued)}</div>
+                <div className="mt-1">
+                  <span className="text-slate-700">Window:</span>{" "}
+                  <span className="font-mono">{resp?.window_used?.start_gte}</span> →{" "}
+                  <span className="font-mono">{resp?.window_used?.start_lte}</span>
+                </div>
+                <div className="mt-1">Page Size: {resp?.page_size}</div>
+                <div className="mt-1">Note: {resp?.note}</div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 border-t border-slate-100 flex items-center justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="h-10 px-5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
+              Close
+            </button>
+            <button
+              onClick={submit}
+              disabled={submitting}
+              className="h-10 px-5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium disabled:opacity-50 hover:shadow-md"
+            >
+              {submitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Queuing…
+                </span>
+              ) : (
+                "Queue Ingest"
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

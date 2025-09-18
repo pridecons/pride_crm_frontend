@@ -3,6 +3,12 @@ import React, { useMemo, useState, useEffect } from "react";
 import { axiosInstance } from "@/api/Axios";
 
 // ---- Helpers ----
+// put near your helpers
+function normalizeServiceType(s) {
+  const v = String(s || "").trim().toUpperCase();
+  return v === "SMS" ? "SMS" : "CALL"; // only allow known values
+}
+
 // --- Add below your toDMY() helper ---
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -61,8 +67,8 @@ export default function FTModal({
   setToDate,
   serviceType,
   setServiceType,
-  serviceTypeOptions = ["Call", "SMS"],
-  defaultServiceType = "call",
+  serviceTypeOptions = ["CALL", "SMS"],
+  defaultServiceType = "CALL",
   loading = false,
 }) {
   if (!open) return null;
@@ -175,7 +181,7 @@ export default function FTModal({
       ft_from_date: toDMY(fromVal),
       ft_to_date: toDMY(toVal),
       segment: selectedSegmentLabel,          // ✅ send label as-is from API
-      ft_service_type: (svcVal || "").toLowerCase(),
+      ft_service_type: normalizeServiceType(svcVal),
     };
 
     setFromDate?.(fromVal);
@@ -218,9 +224,10 @@ export default function FTModal({
             <select
               className="w-full border px-3 py-2 rounded"
               value={serviceType ?? localServiceType}
-              onChange={(e) =>
-                setServiceType ? setServiceType(e.target.value) : setLocalServiceType(e.target.value)
-              }
+              onChange={(e) => {
+                const v = e.target.value;
+                setServiceType ? setServiceType(v) : setLocalServiceType(v);
+              }}
               disabled={loading}
             >
               {serviceTypeOptions.map((opt) => (

@@ -70,7 +70,7 @@ async function loadRoleMap() {
     if (cached && typeof cached === "object" && Object.keys(cached).length) {
       return cached;
     }
-  } catch {}
+  } catch { }
 
   // axiosInstance usually already injects Authorization
   try {
@@ -109,7 +109,7 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
         if (mapped) return mapped;
       }
     }
-  } catch {}
+  } catch { }
 
   // 3) Fallback to user_info (name first, then id→map)
   if (userInfo) {
@@ -250,6 +250,8 @@ const Lead = () => {
   const [docOpen, setDocOpen] = useState(false);
   const [docUrl, setDocUrl] = useState("");
   const [docTitle, setDocTitle] = useState("");
+
+  const [ftServiceType, setFTServiceType] = useState("CALL");
 
   const openDocViewer = (url, title = "Invoice") => {
     if (!url) return ErrorHandling({ defaultError: "Document URL not available" });
@@ -501,7 +503,7 @@ const Lead = () => {
       toast.success("Lead updated successfully!");
       setError(null);
     } catch (err) {
-      console.error("err : ",err)
+      console.error("err : ", err)
       setError(err);
       ErrorHandling({ error: err, defaultError: "Error updating lead" });
     } finally {
@@ -572,6 +574,7 @@ const Lead = () => {
       : "";
     setFTFromDate(ymdFrom);
     setFTToDate(ymdTo);
+    setFTServiceType(currentLead?.ft_service_type || "CALL");
     setPendingPrevResponseId(currentLead?.lead_response_id ?? null);
     setShowFTModal(true);
   };
@@ -597,6 +600,7 @@ const Lead = () => {
     if (responseName === "ft") {
       setFTFromDate("");
       setFTToDate("");
+      setFTServiceType(lead?.ft_service_type || "CALL");
       setPendingPrevResponseId(lead?.lead_response_id ?? null);
       setShowFTModal(true);
       setEditFormData((p) => ({
@@ -961,29 +965,18 @@ const Lead = () => {
           onClose={() => {
             setShowFTModal(false);
             if (pendingPrevResponseId != null) {
-              setEditFormData((p) => ({
-                ...p,
-                lead_response_id: pendingPrevResponseId,
-              }));
+              setEditFormData((p) => ({ ...p, lead_response_id: pendingPrevResponseId }));
             }
           }}
-          onSave={async () => {
+          onSave={async (payload) => {
             try {
-              if (!ftFromDate || !ftToDate)
-                return ErrorHandling({ defaultError: "Both dates required" });
-              const ftResp = leadResponses.find(
-                (r) =>
-                  (r.label || r.name || "").toLowerCase() === "ft"
-              );
+              const ftResp = leadResponses.find((r) => (r.label || r.name || "").toLowerCase() === "ft");
               const ftResponseId = ftResp?.value ?? ftResp?.id;
-              if (!ftResponseId) throw new Error("FT response not found");
-
               await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
                 lead_response_id: ftResponseId,
-                ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                ft_to_date: ftToDate.split("-").reverse().join("-"),
+                ...payload, // <- includes ft_service_type + segment
               });
-              toast.success("FT response and dates saved!");
+              toast.success("FT response saved!");
               setShowFTModal(false);
               setPendingPrevResponseId(null);
               await fetchCurrentLead();
@@ -995,6 +988,9 @@ const Lead = () => {
           toDate={ftToDate}
           setFromDate={setFTFromDate}
           setToDate={setFTToDate}
+          serviceType={ftServiceType}             // <- pass through
+          setServiceType={setFTServiceType}
+          serviceTypeOptions={["Call", "SMS"]}
         />
 
         <CallBackModal

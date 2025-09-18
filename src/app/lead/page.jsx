@@ -58,6 +58,8 @@ export default function NewLeadsTable() {
     total_count: null,
   });
 
+  const [ftServiceType, setFTServiceType] = useState("CALL");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -221,6 +223,7 @@ export default function NewLeadsTable() {
       setFTLead(lead);
       setFTFromDate("");
       setFTToDate("");
+      setFTServiceType(lead.ft_service_type || "CALL");
       setShowFTModal(true);
       return;
     }
@@ -433,26 +436,18 @@ export default function NewLeadsTable() {
       <FTModal
         open={showFTModal}
         onClose={() => setShowFTModal(false)}
-        onSave={async () => {
-          if (!ftFromDate || !ftToDate) return ErrorHandling({ defaultError: "Both dates required" });
+        onSave={async (payload) => {
           try {
             const ftId = responses.find((r) => r.name.toLowerCase() === "ft")?.id;
             await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
               lead_response_id: ftId,
-              ft_from_date: ftFromDate.split("-").reverse().join("-"),
-              ft_to_date: ftToDate.split("-").reverse().join("-"),
+              ...payload, // <- includes ft_from_date, ft_to_date, segment, ft_service_type
             });
-            toast.success("FT response and dates saved!");
+            toast.success("FT response saved!");
+            // optional: reflect in table immediately
             setLeads((prev) =>
               prev.map((l) =>
-                l.id === ftLead.id
-                  ? {
-                    ...l,
-                    lead_response_id: ftId,
-                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                    ft_to_date: ftToDate.split("-").reverse().join("-"),
-                  }
-                  : l
+                l.id === ftLead.id ? { ...l, lead_response_id: ftId, ...payload } : l
               )
             );
             setShowFTModal(false);
@@ -464,7 +459,11 @@ export default function NewLeadsTable() {
         toDate={ftToDate}
         setFromDate={setFTFromDate}
         setToDate={setFTToDate}
+        serviceType={ftServiceType}              // <- pass through
+        setServiceType={setFTServiceType}
+        serviceTypeOptions={["CALL", "SMS"]}
       />
+
 
       <CallBackModal
         open={showCallBackModal}

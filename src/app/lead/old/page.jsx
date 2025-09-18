@@ -65,6 +65,8 @@ export default function OldLeadsTable() {
   const [searchQuery, setSearchQuery] = useState("");
   const [applied, setApplied] = useState(false);
 
+const [ftServiceType, setFTServiceType] = useState("Call");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -255,6 +257,7 @@ export default function OldLeadsTable() {
       setFTLead(lead);
       setFTFromDate(lead.ft_from_date?.split("-").reverse().join("-") || "");
       setFTToDate(lead.ft_to_date?.split("-").reverse().join("-") || "");
+      setFTServiceType(lead.ft_service_type || "CALL"); 
       setShowFTModal(true);
       return;
     }
@@ -616,40 +619,32 @@ export default function OldLeadsTable() {
 
       {/* FT Modal */}
       <FTModal
-        open={showFTModal}
-        onClose={() => setShowFTModal(false)}
-        onSave={async () => {
-          if (!ftFromDate || !ftToDate) return ErrorHandling({ defaultError: "Both dates required" });
-          try {
-            const ftId = responses.find((r) => r.name.toLowerCase() === "ft")?.id;
-            await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
-              lead_response_id: ftId,
-              ft_from_date: ftFromDate.split("-").reverse().join("-"),
-              ft_to_date: ftToDate.split("-").reverse().join("-"),
-            });
-            toast.success("FT response and dates saved!");
-            setLeads((prev) =>
-              prev.map((l) =>
-                l.id === ftLead.id
-                  ? {
-                    ...l,
-                    lead_response_id: ftId,
-                    ft_from_date: ftFromDate.split("-").reverse().join("-"),
-                    ft_to_date: ftToDate.split("-").reverse().join("-"),
-                  }
-                  : l
-              )
-            );
-            setShowFTModal(false);
-          } catch (err) {
-            ErrorHandling({ error: err, defaultError: "Failed to save FT response" });
-          }
-        }}
-        fromDate={ftFromDate}
-        toDate={ftToDate}
-        setFromDate={setFTFromDate}
-        setToDate={setFTToDate}
-      />
+  open={showFTModal}
+  onClose={() => setShowFTModal(false)}
+  onSave={async (payload) => {
+    try {
+      const ftId = responses.find((r) => r.name.toLowerCase() === "ft")?.id;
+      await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
+        lead_response_id: ftId,
+        ...payload, // <- includes ft_service_type + segment
+      });
+      toast.success("FT response saved!");
+      setLeads((prev) =>
+        prev.map((l) => (l.id === ftLead.id ? { ...l, lead_response_id: ftId, ...payload } : l))
+      );
+      setShowFTModal(false);
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Failed to save FT response" });
+    }
+  }}
+  fromDate={ftFromDate}
+  toDate={ftToDate}
+  setFromDate={setFTFromDate}
+  setToDate={setFTToDate}
+  serviceType={ftServiceType}
+  setServiceType={setFTServiceType}
+  serviceTypeOptions={["CALL", "SMS"]}
+/>
 
       {/* CALLBACK Modal — IST-safe */}
       <CallBackModal

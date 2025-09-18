@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
 import { axiosInstance } from '@/api/Axios';
-
+import {
+  PhoneCall,
+  PhoneIncoming,
+  PhoneMissed,
+  Clock3,
+  PhoneOff 
+} from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 import {
@@ -472,8 +478,37 @@ export default function Dashboard() {
               <Card title="Running FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} color="indigo" />
             </div>
 
+            <SectionHeader title="Call Analytics" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card
+                title="Total Calls"
+                value={num(data?.cards?.calls?.total)}
+                icon={<PhoneCall className="h-5 w-5" />}
+                color="indigo"
+              />
+              <Card
+                title="Answered Calls"
+                value={num(data?.cards?.calls?.answered)}
+                icon={<PhoneIncoming className="h-5 w-5" />}
+                color="emerald"
+              />
+              <Card
+                title="Missed Calls"
+                value={num(data?.cards?.calls?.missed)}
+                icon={<PhoneOff className="h-5 w-5" />}
+                color="red"
+              />
+              <Card
+                title="Avg Duration"
+                value={data?.cards?.calls?.duration_hms || "00:00:00"}
+                icon={<clock className="h-5 w-5" />}
+                color="purple"
+              />
+            </div>
+
             <SectionHeader title="Leads Analytics" />
-            <LeadsPiePanel data={data} />
+              <LeadsPiePanel data={data} />
+          
           </>
         )}
 
@@ -689,8 +724,8 @@ export default function Dashboard() {
                   onClick={() => setEmpPage((p) => Math.max(1, p - 1))}
                   disabled={empPage === 1}
                   className={`h-9 px-3 rounded-md text-sm font-medium border ${empPage === 1
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                 >
                   Previous
@@ -705,8 +740,8 @@ export default function Dashboard() {
                   onClick={() => setEmpPage((p) => Math.min(totalEmpPages, p + 1))}
                   disabled={empPage === totalEmpPages}
                   className={`h-9 px-3 rounded-md text-sm font-medium border ${empPage === totalEmpPages
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                 >
                   Next

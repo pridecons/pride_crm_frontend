@@ -31,6 +31,9 @@ import {
 export default function BulkUploadPage() {
   const router = useRouter();
 
+  // mode: "file" | "paste"
+  const [mode, setMode] = useState("file");
+
   // state
   const [branches, setBranches] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
@@ -39,6 +42,9 @@ export default function BulkUploadPage() {
 
   // file state
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // paste state
+  const [pasteText, setPasteText] = useState("");
 
   // auth-derived
   const [role, setRole] = useState(null);
@@ -52,6 +58,27 @@ export default function BulkUploadPage() {
     () => branches.find((b) => String(b.id) === String(branchId)),
     [branches, branchId]
   );
+
+  // --- helpers for paste mode ---
+  const normalizeMobiles = (text) => {
+    const tokens = String(text || "").split(/[,\s;|/]+/g);
+    const out = [];
+    const seen = new Set();
+    for (const t of tokens) {
+      if (!t) continue;
+      const digits = t.replace(/\D/g, "");
+      if (digits.length >= 10) {
+        const last10 = digits.slice(-10); // keep last 10 (Indian format)
+        if (!seen.has(last10)) {
+          seen.add(last10);
+          out.push(last10);
+        }
+      }
+    }
+    return out;
+  };
+
+  const pastedMobiles = useMemo(() => normalizeMobiles(pasteText), [pasteText]);
 
   // read user_info + fetch branches & lead sources
   useEffect(() => {
@@ -125,30 +152,86 @@ export default function BulkUploadPage() {
   useEffect(() => {
     if (!isSuperAdmin && branchId) setSelectedBranchId(branchId);
   }, [isSuperAdmin, branchId]);
+
   const visibleSources = useMemo(() => {
     if (!selectedBranchId) return leadSources;
 
     // Accept either `source.branch_id` or `source.branches: [{id}]`
-    return leadSources.filter((s) =>
-      String(s?.branch_id) === String(selectedBranchId) ||
-      (Array.isArray(s?.branches) &&
-        s.branches.some((b) => String(b?.id) === String(selectedBranchId)))
+    return leadSources.filter(
+      (s) =>
+        String(s?.branch_id) === String(selectedBranchId) ||
+        (Array.isArray(s?.branches) &&
+          s.branches.some((b) => String(b?.id) === String(selectedBranchId)))
     );
   }, [leadSources, selectedBranchId]);
 
-  // submit CSV
+  // submit (handles both modes)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
+
+    // Build a fresh FormData to keep full control
+    const formEl = e.target;
+    const fd = new FormData();
+
+    // required config fields
+    const branch_id = formEl.branch_id?.value || "";
+    const lead_source_id = formEl.lead_source_id?.value || "";
+    if (!branch_id) return alert("Please select a branch.");
+    if (!lead_source_id) return alert("Please select a lead source.");
+
+    fd.append("branch_id", branch_id);
+    fd.append("lead_source_id", lead_source_id);
+
+    if (mode === "file") {
+      // from actual input
+      const file = formEl.upload_file?.files?.[0] || null;
+      if (!file) return alert("Please choose a CSV/XLSX file.");
+      fd.append("upload_file", file);
+
+      // column mapping (optional)
+      const mapFields = [
+        "name_column",
+        "mobile_column",
+        "email_column",
+        "address_column",
+        "city_column",
+        "segment_column",
+        "occupation_column",
+        "investment_column",
+      ];
+      for (const key of mapFields) {
+        const val = formEl[key]?.value?.trim();
+        if (val) fd.append(key, val);
+      }
+    } else {
+      // mode === "paste"
+      const mobiles = pastedMobiles;
+      if (!mobiles.length) return alert("Please paste at least one valid mobile number.");
+
+      // build a CSV with a single "mobile" column
+      // no header needed unless your backend expects it; we'll keep it simple: just values
+      const csvContent = mobiles.map((m) => m).join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv" });
+
+      // attach as a file so backend path stays the same
+      fd.append("upload_file", blob, "pasted_mobiles.csv");
+
+      // force mobile column to 0 as requested
+      fd.append("mobile_column", "0");
+      // no other mappings are needed; server should ignore missing ones
+    }
+
     try {
       setUploading(true);
-      const { data } = await axiosInstance.post("/bulk-leads/upload", formData, {
+      const { data } = await axiosInstance.post("/bulk-leads/upload", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadResult(data);
+      if (mode === "paste") setPasteText("");
+      if (mode === "file") setSelectedFile(null);
     } catch (error) {
       console.error("Upload failed", error);
-      alert("Failed to upload CSV");
+      alert("Failed to upload");
     } finally {
       setUploading(false);
     }
@@ -216,69 +299,127 @@ export default function BulkUploadPage() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Upload Form */}
         <div className="flex-1 bg-white rounded-2xl shadow p-6 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* File */}
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <FolderOpen className="text-blue-600 w-5 h-5" />
-                Select File
-              </h2>
-
-              <label
-                className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition
-      ${selectedFile ? "border-green-400 bg-green-50 text-green-700" : "border-red-400 bg-red-50 text-red-600"}`}
+          {/* Tabs */}
+          <div className="mb-5 flex w-full">
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setMode("file")}
+                className={`px-4 py-2 text-sm font-medium ${mode === "file"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
               >
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  {selectedFile ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      {selectedFile.name}
-                    </>
-                  ) : (
-                    <>
-                      <CircleX className="w-4 h-4" />
-                      No file chosen
-                    </>
-                  )}
-                </span>
-                <input
-                  type="file"
-                  name="upload_file"
-                  accept=".csv,.xlsx"
-                  required
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="hidden"
+                File Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("paste")}
+                className={`px-4 py-2 text-sm font-medium border-l border-gray-200 ${mode === "paste"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+              >
+                Paste Upload
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* File or Paste */}
+            {mode === "file" ? (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <FolderOpen className="text-blue-600 w-5 h-5" />
+                  Select File
+                </h2>
+
+                <label
+                  className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition
+      ${selectedFile
+                      ? "border-green-400 bg-green-50 text-green-700"
+                      : "border-red-400 bg-red-50 text-red-600"
+                    }`}
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    {selectedFile ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        {selectedFile.name}
+                      </>
+                    ) : (
+                      <>
+                        <CircleX className="w-4 h-4" />
+                        No file chosen
+                      </>
+                    )}
+                  </span>
+                  <input
+                    type="file"
+                    name="upload_file"
+                    accept=".csv,.xlsx"
+                    required={mode === "file"}
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              </section>
+            ) : (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <Phone className="text-blue-600 w-5 h-5" />
+                  Paste Mobiles
+                </h2>
+                <textarea
+                  name="pasted_mobiles"
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  placeholder={`Examples:
+0919876543210
+091 98765 43210
+091 98765-43210
+91 98765 43210, 919876543210
++91 98765 43210, 91234-56789
+(91) 98989 89898 97979 79797
+`}
+                  rows={8}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                  required={mode === "paste"}
                 />
-              </label>
-            </section>
+                <div className="text-sm text-gray-700">
+                  Detected:{" "}
+                  <span className="font-semibold">{pastedMobiles.length}</span> mobile
+                  {pastedMobiles.length === 1 ? "" : "s"}
+                </div>
+              </section>
+            )}
 
-
-            {/* Column Mapping */}
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <LinkIcon className="text-blue-600 w-5 h-5" />
-                Column Mapping
-              </h2>
-              <p className="text-sm text-gray-600">
-                Enter column numbers for each field
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {columnFields.map(({ name, label, Icon }) => (
-                  <div key={name} className="space-y-1">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <Icon className="w-4 h-4" />
-                      {label}
-                    </label>
-                    <input
-                      type="number"
-                      name={name}
-                      placeholder="Column #"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
+            {/* Column Mapping (file mode only) */}
+            {mode === "file" && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <LinkIcon className="text-blue-600 w-5 h-5" />
+                  Column Mapping
+                </h2>
+                <p className="text-sm text-gray-600">Enter column numbers for each field</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {columnFields.map(({ name, label, Icon }) => (
+                    <div key={name} className="space-y-1">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </label>
+                      <input
+                        type="number"
+                        name={name}
+                        placeholder="Column #"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Configuration */}
             <section className="space-y-3">
@@ -303,9 +444,13 @@ export default function BulkUploadPage() {
                       value={selectedBranchId || ""}
                       onChange={(e) => setSelectedBranchId(e.target.value)}
                     >
-                      <option value="" disabled>Choose a branch…</option>
+                      <option value="" disabled>
+                        Choose a branch…
+                      </option>
                       {branches.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
                       ))}
                     </select>
                   ) : (
@@ -335,7 +480,9 @@ export default function BulkUploadPage() {
                       {selectedBranchId ? "Choose a source…" : "Pick a branch first…"}
                     </option>
                     {visibleSources.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -375,7 +522,7 @@ export default function BulkUploadPage() {
               ) : (
                 <>
                   <ArrowDownToLine className="w-5 h-5" />
-                  Upload CSV
+                  {mode === "file" ? "Upload CSV" : "Upload Pasted Mobiles"}
                 </>
               )}
             </button>
@@ -393,7 +540,7 @@ export default function BulkUploadPage() {
             <div className="text-center text-gray-500 mt-12">
               <Database className="mx-auto mb-4 w-16 h-16 text-gray-300" />
               <p className="font-medium">No upload results yet</p>
-              <p className="text-sm">Submit a CSV to see the summary here</p>
+              <p className="text-sm">Submit a file or paste mobiles to see the summary here</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -447,7 +594,7 @@ export default function BulkUploadPage() {
                     className="mt-4 w-full flex items-center justify-center gap-2 bg-yellow-400 text-yellow-900 py-2 rounded-lg hover:bg-yellow-500 transition"
                   >
                     <ArrowDownToLine className="w-5 h-5" />
-                    Download Errors CSV
+                    Download Errors file
                   </button>
                 </div>
               )}

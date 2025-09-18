@@ -73,6 +73,14 @@ export default function UsersListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [codeToName, setCodeToName] = useState({});
 
+  // server-side pagination + loading
+  const [page, setPage] = useState(1);     // 1-based
+  const [limit, setLimit] = useState(10);  // page size to ask backend
+  const [total, setTotal] = useState(0);   // backend total
+  const [skip, setSkip]   = useState(0);   // NEW
+const [pages, setPages] = useState(1);  
+  const [loading, setLoading] = useState(false);
+
   const openAdd = () => {
     setModalUser(null);
     setModalMode("add");
@@ -96,8 +104,9 @@ export default function UsersListPage() {
 
     const load = async () => {
       try {
-        const [usersRes, branchesRes, rolesRes] = await Promise.all([
-          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+        // BEFORE: const [usersRes, branchesRes, rolesRes] = await Promise.all([...])
+
+        const [branchesRes, rolesRes] = await Promise.all([
           axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
           axiosInstance.get("/profile-role/?skip=0&limit=200&order_by=hierarchy_level"),
         ]);
@@ -118,10 +127,8 @@ export default function UsersListPage() {
         });
         setRoleMap(rmap);
 
-        // Users (normalize with role map)
-        const rawUsers = Array.isArray(usersRes.data?.data) ? usersRes.data.data : [];
-        setUsers(normalizeUsers(rawUsers, rmap));
-        setCodeToName(makeCodeToName(rawUsers));
+
+
       } catch (err) {
         console.error("Failed initial load:", err);
         ErrorHandling({ error: err, defaultError: "Failed to load users or metadata." });
@@ -131,6 +138,82 @@ export default function UsersListPage() {
     load();
   }, []);
 
+  const fetchUsers = async ({
+    page: p = page,
+    roleId = selectedRole,
+    branch = selectedBranch,
+    q = searchQuery,
+  } = {}) => {
+    setLoading(true);
+    try {
+      const params = {
+        skip: (p - 1) * limit,
+        limit,
+        active_only: false,
+      };
+      if (roleId && roleId !== "All") params.role_id = Number(roleId);;
+      if (branch && branch !== "All") params.branch_id = Number(branch);
+      if (q && q.trim()) params.search = q.trim();
+      console.log("[users] fetch", params);
+      const res = await axiosInstance.get("/users/", { params });
+
+      // accept either {data, total, limit} or bare array fallback
+      const list =
+        Array.isArray(res?.data?.data) ? res.data.data :
+          (Array.isArray(res?.data) ? res.data : []);
+
+      setUsers(normalizeUsers(list, roleMap));
+      setCodeToName(makeCodeToName(list));
+
+      // try multiple shapes, then fall back to headers or list length
+      // NEW: use API pagination block
+ const pg = res?.data?.pagination || {};
+ const apiTotal = Number(pg.total) || 0;
+ const apiSkip  = Number(pg.skip)  || 0;
+ const apiLimit = Number(pg.limit) || limit;
+ const apiPages = Number(pg.pages) || Math.max(1, Math.ceil(apiTotal / (apiLimit || 1)));
+ const apiPage  = apiLimit ? Math.floor(apiSkip / apiLimit) + 1 : 1;
+
+ setTotal(apiTotal || list.length);
+ setSkip(apiSkip);
+ setLimit(apiLimit);
+ setPages(apiPages);
+ setPage(apiPage);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+      ErrorHandling({ error: err, defaultError: "Failed to load users." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // first load when roleMap is ready
+  useEffect(() => {
+    if (!Object.keys(roleMap).length) return;
+    fetchUsers({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleMap]);
+
+  // role/branch change → reset to page 1
+  useEffect(() => {
+    setPage(1);
+    fetchUsers({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRole, selectedBranch]);
+
+  // page change
+  useEffect(() => {
+    fetchUsers({ page });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  // search (debounced) → page 1
+  useEffect(() => {
+    const t = setTimeout(() => fetchUsers({ page: 1 }), 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   // If roles arrive later/changed, refresh users' readable role labels
   useEffect(() => {
     if (!Object.keys(roleMap).length || !Array.isArray(users) || users.length === 0) return;
@@ -138,17 +221,7 @@ export default function UsersListPage() {
     setUsers((prev) => normalizeUsers(prev, roleMap));
   }, [roleMap]);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await axiosInstance.get("/users/?skip=0&limit=100&active_only=false");
-      const list = Array.isArray(res.data?.data) ? res.data.data : [];
-      setUsers(normalizeUsers(list, roleMap));
-      setCodeToName(makeCodeToName(list));
-    } catch (err) {
-      console.error("Failed to fetch users:", err);
-      ErrorHandling({ error: err, defaultError: "Failed to refresh users." });
-    }
-  };
+
 
   const handleDelete = async (employee_code) => {
     if (!confirm(`Are you sure you want to delete user ${employee_code}?`)) return;
@@ -162,28 +235,15 @@ export default function UsersListPage() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    // compare by ROLE ID (kept as-is)
-    const userRoleId = String(u?.profile_role?.id ?? u?.role_id ?? "");
-    const roleMatch = selectedRole === "All" || userRoleId === String(selectedRole);
 
-    const branchMatch =
-      selectedBranch === "All" || String(u.branch_id) === String(selectedBranch);
-
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return roleMatch && branchMatch;
-
-    const searchMatch =
-      u.name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      u.phone_number?.includes(q) ||
-      u.employee_code?.toLowerCase().includes(q);
-
-    return roleMatch && branchMatch && !!searchMatch;
-  });
 
   const canAdd = hasPermission("user_add_user");
   const canBulk = hasPermission("user_bulk_upload") || hasPermission("user_add_user"); // fallback
+
+  const totalPages = pages || Math.max(1, Math.ceil((total || 0) / limit));
+  const goToPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+  const prevPage = () => goToPage(page - 1);
+  const nextPage = () => goToPage(page + 1);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
@@ -235,12 +295,17 @@ export default function UsersListPage() {
 
         {/* Table */}
         <UserTable
-          users={filteredUsers}
+          users={users}
           branchMap={branchMap}
           onEdit={openEdit}
           onDelete={handleDelete}
           onDetails={(u) => setDetailsUser(u)}
-          refreshUsers={fetchUsers}
+          refreshUsers={() => fetchUsers({ page })}
+          pagination={{ page, totalPages, total, limit, skip }}   // NEW: skip
+          onPrev={prevPage}
+          onNext={nextPage}
+          goToPage={goToPage}
+          loading={loading}
           codeToName={codeToName}
         />
 

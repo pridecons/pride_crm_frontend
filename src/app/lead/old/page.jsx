@@ -90,33 +90,54 @@ export default function OldLeadsTable() {
   const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
     setLoading(true);
     try {
+      // when date is applied, we’ll fetch a large page and filter locally
+      const dateApplied = !!((customFrom && customFrom.trim()) || (customTo && customTo.trim()));
       const params = {
-        skip: (page - 1) * limit,
-        limit,
+        skip: dateApplied ? 0 : (page - 1) * limit,
+        limit: dateApplied ? 1000 : limit, // fetch more so client-side filter has data
       };
 
-      // Only add date params if they exist - let backend handle single dates
-      if (customFrom && customFrom.trim() !== "") {
-        params.fromdate = customFrom;
-      }
-      if (customTo && customTo.trim() !== "") {
-        params.todate = customTo;
-      }
+      // Do NOT send fromdate/todate to backend — it filters on created_at.
+     // We'll filter on response_changed_at below.
       if (searchQuery && searchQuery.trim() !== "") {
         params.search = searchQuery;
-      }
+     }
       if (responseFilterId !== null && responseFilterId !== undefined) {
         params.response_id = responseFilterId;
       }
 
       const { data } = await axiosInstance.get("/old-leads/my-assigned", { params });
 
-      setLeads(data.assigned_old_leads || []);
-      const serverTotal = data.count ?? data.total ?? 0;
-      setTotal(serverTotal);
-      // if current page is now out of range (after filter/date change), pull it back
-      const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
-      if (page > maxPages) setPage(maxPages);
+      const all = data.assigned_old_leads || [];
+
+      if (!dateApplied) {
+        // normal server-paged flow
+        setLeads(all);
+        const serverTotal = data.count ?? data.total ?? 0;
+        setTotal(serverTotal);
+        const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
+        if (page > maxPages) setPage(maxPages);
+      } else {
+        // 🔎 client-side filter by response_changed_at (day precision, inclusive range)
+        const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
+        const f = (customFrom || "").trim();
+        const t = (customTo || "").trim();
+        const inRange = (d) => {
+          if (!f && !t) return true;
+          if (f && !t) return d === f;      // single-day
+          if (!f && t) return d === t;      // single-day (to only)
+          return d >= f && d <= t;          // inclusive range
+        };
+        const filtered = all.filter((l) => inRange(day(l.response_changed_at)));
+
+        // local paginate the filtered result
+        const start = (page - 1) * limit;
+        const end = start + limit;
+        setLeads(filtered.slice(start, end));
+        setTotal(filtered.length);
+        const maxPages = Math.max(1, Math.ceil(filtered.length / limit));
+        if (page > maxPages) setPage(maxPages);
+      }
     } catch (error) {
       ErrorHandling({ error: error, defaultError: "Failed to load leads" });
     } finally {
@@ -533,9 +554,8 @@ export default function OldLeadsTable() {
           {/* Divider */}
           <span className="hidden sm:block h-6 w-px bg-gray-200" />
 
-          {/* Date range */}
+          {/* Response changed date range (response_changed_at) */}
           <div className="flex items-center gap-2">
-            <Calendar size={16} className="text-gray-500" />
             <label className="text-xs font-medium text-gray-500">From</label>
             <input
               type="date"

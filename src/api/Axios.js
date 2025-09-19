@@ -5,7 +5,6 @@ export const BASE_URL = `${process.env.NEXT_PUBLIC_URL}/api/v1`;
 export const BASE_URL_full = `${process.env.NEXT_PUBLIC_URL}/api/v1`;
 export const WS_BASE_URL_full=`${process.env.NEXT_PUBLIC_WS_URL}/api/v1`
 
-
 export const authAxiosInstance = axios.create({
   baseURL: BASE_URL_full,
   headers: {

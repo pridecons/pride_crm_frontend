@@ -1,20 +1,9 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-// export const BASE_URL = "https://crm.24x7techelp.com";
-// export const BASE_URL_full = "https://crm.24x7techelp.com/api/v1";
-// export const WS_BASE_URL_full="wss://crm.24x7techelp.com/api/v1"
-
-// export const BASE_URL = "http://127.0.0.1:8000/api/v1";
-// export const BASE_URL_full = "http://127.0.0.1:8000/api/v1";
-// export const WS_BASE_URL_full="ws://127.0.0.1:8000/api/v1"
-
-export const BASE_URL = "/api/v1";
-export const BASE_URL_full = "/api/v1";
-export const WS_BASE_URL_full="/api/v1"
-
-// export const BASE_URL = "http://192.168.1.7:8004";
-// export const BASE_URL_full = "http://192.168.1.7:8004/api/v1";
+export const BASE_URL = `${process.env.NEXT_PUBLIC_URL}/api/v1`;
+export const BASE_URL_full = `${process.env.NEXT_PUBLIC_URL}/api/v1`;
+export const WS_BASE_URL_full=`${process.env.NEXT_PUBLIC_WS_URL}/api/v1`
 
 
 export const authAxiosInstance = axios.create({

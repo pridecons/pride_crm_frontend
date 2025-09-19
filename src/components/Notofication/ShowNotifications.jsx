@@ -1,428 +1,16 @@
-// "use client";
-
-// import { useEffect, useRef, useState } from "react";
-// import { Bell, X, BellOff } from "lucide-react";
-// import toast from "react-hot-toast";
-// import { WS_BASE_URL_full } from "@/api/Axios";
-// import { useRouter } from "next/navigation";
-
-// const TOAST_MIN_GAP_MS = 2000; // minimum time between toasts
-// const MAX_ACTIVE_TOASTS = 3; // max toasts visible at once
-// const MAX_MESSAGES_BUFFER = 200; // cap stored notifications
-// const SOUND_PREF_KEY = "notifications_sound_enabled";
-
-// export default function ShowNotifications({ setIsConnect, employee_code }) {
-//   const router = useRouter();
-
-//   const [showNotifications, setShowNotifications] = useState(false);
-//   const [messages, setMessages] = useState([]);
-//   const [soundEnabled, setSoundEnabled] = useState(true);
-
-//   const retryCountRef = useRef(0);
-//   const reconnectTimerRef = useRef(null);
-//   const allowReconnectRef = useRef(true); // block reconnects during intentional teardown
-//   const socketRef = useRef(null);
-//   const wrapperRef = useRef(null);
-
-//   const audioUrl = "/notification.mp3";
-//   const audioRef = useRef(null);
-//   const userInteractedRef = useRef(false);
-
-//   const lastToastAtRef = useRef(0);
-//   const activeToastIdsRef = useRef([]);
-
-//   // keep a ref in sync so we can read the latest value inside WS handlers
-//   const showNotificationsRef = useRef(false);
-//   useEffect(() => {
-//     showNotificationsRef.current = showNotifications;
-//   }, [showNotifications]);
-
-//   // Initialize sound preference & audio element
-//   useEffect(() => {
-//     if (typeof window === "undefined") return;
-
-//     const stored = localStorage.getItem(SOUND_PREF_KEY);
-//     if (stored === "0") setSoundEnabled(false);
-
-//     const el = new Audio(audioUrl);
-//     el.preload = "auto";
-//     el.volume = 1.0;
-//     audioRef.current = el;
-
-//     const markInteraction = () => {
-//       userInteractedRef.current = true;
-//       if (audioRef.current) {
-//         audioRef.current
-//           .play()
-//           .then(() => {
-//             audioRef.current.pause();
-//             audioRef.current.currentTime = 0;
-//           })
-//           .catch(() => {});
-//       }
-//       window.removeEventListener("click", markInteraction);
-//       window.removeEventListener("keydown", markInteraction);
-//       window.removeEventListener("touchstart", markInteraction);
-//     };
-//     window.addEventListener("click", markInteraction);
-//     window.addEventListener("keydown", markInteraction);
-//     window.addEventListener("touchstart", markInteraction);
-
-//     return () => {
-//       window.removeEventListener("click", markInteraction);
-//       window.removeEventListener("keydown", markInteraction);
-//       window.removeEventListener("touchstart", markInteraction);
-//     };
-//   }, []);
-
-//   // Persist sound preference
-//   useEffect(() => {
-//     if (typeof window === "undefined") return;
-//     localStorage.setItem(SOUND_PREF_KEY, soundEnabled ? "1" : "0");
-//   }, [soundEnabled]);
-
-//   // Sound helper
-//   const playSound = () => {
-//     if (!soundEnabled) return;
-//     const el = audioRef.current;
-//     if (!el) return;
-//     try {
-//       el.pause();
-//       el.currentTime = 0;
-//       const p = el.play();
-//       if (p && typeof p.then === "function") {
-//         p.catch(() => {
-//           // likely blocked until first interaction; the markInteraction handler warms it up
-//         });
-//       }
-//     } catch (err) {
-//       console.error("Failed to play notification sound:", err);
-//     }
-//   };
-
-//   // WebSocket connect: only when employee_code changes or on first mount
-//   useEffect(() => {
-//     if (!employee_code) return;
-
-//     const isSocketAlive = (ws) =>
-//       ws &&
-//       (ws.readyState === WebSocket.OPEN ||
-//         ws.readyState === WebSocket.CONNECTING);
-
-//     const connect = () => {
-//       // Guard: if socket is already open or connecting, do not create a new one
-//       if (isSocketAlive(socketRef.current)) return;
-
-//       const socket = new WebSocket(
-//         `${WS_BASE_URL_full}/api/v1/ws/notification/${employee_code}`
-//       );
-//       socketRef.current = socket;
-
-//       socket.onopen = () => {
-//         setIsConnect?.(true);
-//         retryCountRef.current = 0;
-//         if (reconnectTimerRef.current) {
-//           clearTimeout(reconnectTimerRef.current);
-//           reconnectTimerRef.current = null;
-//         }
-//       };
-
-//       socket.onmessage = (event) => {
-//         let data;
-//         try {
-//           data = JSON.parse(event.data);
-//         } catch {
-//           return; // ignore malformed payloads
-//         }
-
-//         if (["connection_confirmed", "ping", "pong"].includes(data?.type))
-//           return;
-
-//         const messageWithTime = { ...data, received_at: new Date() };
-
-//         // push to list (with buffer cap)
-//         setMessages((prev) => {
-//           const next = [...prev, messageWithTime];
-//           if (next.length > MAX_MESSAGES_BUFFER)
-//             next.splice(0, next.length - MAX_MESSAGES_BUFFER);
-//           return next;
-//         });
-
-//         // If panel is open, don't spam toasts
-//         if (showNotificationsRef.current) return;
-
-//         // Throttle toasts
-//         const now = Date.now();
-//         if (now - lastToastAtRef.current < TOAST_MIN_GAP_MS) return;
-//         lastToastAtRef.current = now;
-
-//         // Sound only when toast will show
-//         playSound();
-
-//         // Limit visible toasts
-//         if (activeToastIdsRef.current.length >= MAX_ACTIVE_TOASTS) {
-//           const oldId = activeToastIdsRef.current.shift();
-//           toast.dismiss(oldId);
-//         }
-
-//         const id = toast.custom(
-//           (t) => (
-//             <div
-//               className={`${
-//                 t.visible ? "animate-enter" : "animate-leave"
-//               } max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
-//             >
-//               <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 w-full">
-//                 <div className="bg-blue-100 rounded-full p-2">
-//                   <Bell size={16} className="text-blue-600" />
-//                 </div>
-//                 <div className="flex-1 w-full">
-//                   <p className="text-sm font-medium text-gray-900">
-//                     {data?.title}
-//                   </p>
-//                   <p
-//                     className="text-xs text-gray-500"
-//                     dangerouslySetInnerHTML={{ __html: data?.message || "" }}
-//                   />
-//                   <p className="text-[10px] text-right text-gray-400 mt-1">
-//                     {(() => {
-//                       const date = new Date(messageWithTime.received_at);
-//                       let hours = date.getHours();
-//                       const minutes = String(date.getMinutes()).padStart(
-//                         2,
-//                         "0"
-//                       );
-//                       const ampm = hours >= 12 ? "PM" : "AM";
-//                       hours = hours % 12 || 12;
-//                       return `${hours}:${minutes} ${ampm}`;
-//                     })()}
-//                   </p>
-//                 </div>
-//                 {data?.lead_id && (
-//                   <button
-//                     onClick={() => router.push(`/lead/${data?.lead_id}`)}
-//                     className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-//                   >
-//                     View
-//                   </button>
-//                 )}
-//               </div>
-//             </div>
-//           ),
-//           {
-//             position: "bottom-right",
-//             duration: 1000,
-//           }
-//         );
-
-//         activeToastIdsRef.current.push(id);
-//       };
-
-//       socket.onerror = () => {
-//         // let onclose decide reconnect so throttling works properly
-//         try {
-//           socket.close();
-//         } catch {}
-//       };
-
-//       socket.onclose = () => {
-//         setIsConnect?.(false);
-//         if (!allowReconnectRef.current) return; // intentional teardown
-//         if (retryCountRef.current >= 10) return;
-//         retryCountRef.current += 1;
-//         const base = Math.min(30000, 1000 * 2 ** retryCountRef.current);
-//         const jitter = Math.floor(Math.random() * 500);
-//         reconnectTimerRef.current = setTimeout(connect, base + jitter);
-//       };
-//     };
-
-//     connect();
-
-//     return () => {
-//       // Intentional teardown: block auto-reconnect and close socket
-//       allowReconnectRef.current = false;
-//       try {
-//         socketRef.current?.close();
-//       } catch {}
-//       if (reconnectTimerRef.current) {
-//         clearTimeout(reconnectTimerRef.current);
-//         reconnectTimerRef.current = null;
-//       }
-//       // Dismiss any remaining toasts
-//       activeToastIdsRef.current.forEach((id) => toast.dismiss(id));
-//       activeToastIdsRef.current = [];
-//       // Re-enable reconnect for the next mount/employee change
-//       setTimeout(() => {
-//         allowReconnectRef.current = true;
-//       }, 0);
-//     };
-//     // 🔑 only depend on employee_code so it won't reconnect on UI toggles
-//   }, [employee_code, setIsConnect]);
-
-//   // Click-outside to close the panel
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-//         setShowNotifications(false);
-//       }
-//     };
-//     document.addEventListener("mousedown", handleClickOutside);
-//     return () => document.removeEventListener("mousedown", handleClickOutside);
-//   }, []);
-
-//   return (
-//     <div className="relative" ref={wrapperRef}>
-//       <button
-//         onClick={() => setShowNotifications((s) => !s)}
-//         className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
-//         title="Notifications"
-//       >
-//         <Bell size={20} />
-//         {messages.length > 0 && (
-//           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow animate-bounce">
-//             {messages.length}
-//           </span>
-//         )}
-//       </button>
-
-//       {showNotifications && (
-//         <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
-//           <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
-//             <div className="flex items-center justify-between">
-//               <h3 className="font-semibold text-gray-900">Notifications</h3>
-//               <div className="flex items-center space-x-2">
-//                 {/* Sound toggle */}
-//                 <button
-//                   onClick={() => setSoundEnabled((s) => !s)}
-//                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition ${
-//                     soundEnabled
-//                       ? "bg-green-50 text-green-700 border-green-200"
-//                       : "bg-gray-50 text-gray-600 border-gray-200"
-//                   }`}
-//                   title={
-//                     soundEnabled ? "Mute notifications" : "Unmute notifications"
-//                   }
-//                 >
-//                   {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
-//                   {soundEnabled ? "Sound On" : "Sound Off"}
-//                 </button>
-
-//                 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-//                   {messages?.length}
-//                 </span>
-
-//                 {messages.length > 0 && (
-//                   <button
-//                     onClick={() => setMessages([])}
-//                     className="text-xs text-blue-600 hover:underline hover:text-blue-800"
-//                   >
-//                     Clear All
-//                   </button>
-//                 )}
-//               </div>
-//             </div>
-//           </div>
-
-//           <div className="p-4 max-h-60 overflow-y-auto space-y-3">
-//             {messages?.length > 0 ? (
-//               messages?.map((val, index) => (
-//                 <div
-//                   key={`${val?.received_at?.toString?.() || "msg"}-${index}`}
-//                   className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
-//                 >
-//                   {/* Top row: bell + title + actions */}
-//                   <div className="flex items-start gap-3">
-//                     <div className="shrink-0 rounded-full bg-blue-50 p-2">
-//                       <Bell size={16} className="text-blue-600" />
-//                     </div>
-
-//                     <div className="min-w-0 flex-1">
-//                       <div className="flex items-start justify-between gap-3">
-//                         <p className="text-sm font-semibold text-gray-900 truncate">
-//                           {val?.title || "Notification"}
-//                         </p>
-
-//                         <div className="flex items-center gap-2 shrink-0">
-//                           {val?.lead_id && (
-//                             <button
-//                               onClick={() =>
-//                                 router.push(`/lead/${val.lead_id}`)
-//                               }
-//                               className="inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
-//                               title="Open lead"
-//                             >
-//                               View
-//                             </button>
-//                           )}
-
-//                           <button
-//                             onClick={() =>
-//                               setMessages((prev) => {
-//                                 const next = [...prev];
-//                                 next.splice(index, 1);
-//                                 return next;
-//                               })
-//                             }
-//                             className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50 transition"
-//                             title="Dismiss"
-//                           >
-//                             <X size={14} />
-//                           </button>
-//                         </div>
-//                       </div>
-
-//                       {/* Message body */}
-//                       <p
-//                         className="mt-1 text-xs text-gray-600 break-words"
-//                         dangerouslySetInnerHTML={{ __html: val?.message || "" }}
-//                       />
-
-//                       {/* Time */}
-//                       {val?.received_at && (
-//                         <p className="mt-1 text-[10px] text-gray-400 text-right">
-//                           {new Date(val.received_at).toLocaleTimeString()}
-//                         </p>
-//                       )}
-//                     </div>
-//                   </div>
-//                 </div>
-//               ))
-//             ) : (
-//               <div className="flex items-center justify-center">
-//                 <div className="w-full rounded-xl border border-dashed border-gray-200 bg-white/60 p-6 text-center">
-//                   <div className="mx-auto mb-3 inline-flex items-center justify-center rounded-full bg-gray-100 p-3">
-//                     <BellOff className="h-6 w-6 text-gray-400" />
-//                   </div>
-//                   <p className="text-sm font-semibold text-gray-700">
-//                     No notifications
-//                   </p>
-//                   <p className="mt-1 text-xs text-gray-500">
-//                     You’re all caught up. New alerts will appear here.
-//                   </p>
-//                 </div>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, X, BellOff } from "lucide-react";
+import { Bell, X, BellOff, FileText, RefreshCcw, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
-import { WS_BASE_URL_full } from "@/api/Axios";
+import { axiosInstance, WS_BASE_URL_full } from "@/api/Axios";
 import { useRouter } from "next/navigation";
 
 /* -------------------------- Config -------------------------- */
 const TOAST_MIN_GAP_MS = 2000;
 const MAX_ACTIVE_TOASTS = 3;
 const MAX_MESSAGES_BUFFER = 200;
-const MAX_WS_RETRIES_BEFORE_FALLBACK = 3;  // after this, we switch to SSE/polling
+const MAX_WS_RETRIES_BEFORE_FALLBACK = 3; // after this, we switch to SSE/polling
 const POLL_INTERVAL_MS = 5000;
 
 const SOUND_PREF_KEY = "notifications_sound_enabled";
@@ -440,58 +28,45 @@ function httpBaseFromWsBase(wsBase = "") {
   if (/^ws:\/\//i.test(wsBase)) return wsBase.replace(/^ws:/i, "http:");
   return wsBase;
 }
-function wsBaseFromHttpBase(httpBase = "") {
-  if (/^https:\/\//i.test(httpBase)) return httpBase.replace(/^https:/i, "wss:");
-  if (/^http:\/\//i.test(httpBase)) return httpBase.replace(/^http:/i, "ws:");
-  return httpBase;
-}
-
-/** Build a robust WS URL from a base (http/https or ws/wss) and a path. */
 function buildWsUrl(base, path) {
   try {
-    // If base already ws(s), use it directly.
     if (isWsLike(base)) {
       const u = new URL(base);
       return `${u.protocol}//${u.host}${path}`;
     }
-    // If base http(s), convert to ws(s) with same host:port.
     if (isHttpLike(base)) {
       const u = new URL(base);
       const scheme = u.protocol === "https:" ? "wss:" : "ws:";
       return `${scheme}//${u.host}${path}`;
     }
-    // Fallback to current location
     const here = new URL(window.location.href);
     const scheme = here.protocol === "https:" ? "wss:" : "ws:";
     return `${scheme}//${here.host}${path}`;
   } catch {
-    // Very old browsers: best effort
-    const isHttps = (typeof location !== "undefined") && location.protocol === "https:";
+    const isHttps = typeof location !== "undefined" && location.protocol === "https:";
     const scheme = isHttps ? "wss:" : "ws:";
-    const host = (typeof location !== "undefined") ? location.host : "";
+    const host = typeof location !== "undefined" ? location.host : "";
     return `${scheme}//${host}${path}`;
   }
 }
-
-/** Build an HTTP URL (for SSE/polling) from the same base. */
-function buildHttpUrl(base, pathWithQuery = "") {
+function buildHttpRoot(base) {
   try {
     if (isHttpLike(base)) {
       const u = new URL(base);
-      return `${u.protocol}//${u.host}${pathWithQuery}`;
+      return `${u.protocol}//${u.host}`;
     }
     if (isWsLike(base)) {
       const httpBase = httpBaseFromWsBase(base);
       const u = new URL(httpBase);
-      return `${u.protocol}//${u.host}${pathWithQuery}`;
+      return `${u.protocol}//${u.host}`;
     }
     const here = new URL(window.location.href);
-    return `${here.protocol}//${here.host}${pathWithQuery}`;
+    return `${here.protocol}//${here.host}`;
   } catch {
-    const isHttps = (typeof location !== "undefined") && location.protocol === "https:";
+    const isHttps = typeof location !== "undefined" && location.protocol === "https:";
     const scheme = isHttps ? "https:" : "http:";
-    const host = (typeof location !== "undefined") ? location.host : "";
-    return `${scheme}//${host}${pathWithQuery}`;
+    const host = typeof location !== "undefined" ? location.host : "";
+    return `${scheme}//${host}`;
   }
 }
 
@@ -509,6 +84,15 @@ function formatTime(dateLike) {
   }
 }
 
+function formatDateTime(dt) {
+  try {
+    const d = new Date(dt);
+    return d.toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
 /* ============================================================= */
 
 export default function ShowNotifications({ setIsConnect, employee_code }) {
@@ -517,6 +101,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [messages, setMessages] = useState([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // WS “rational” push: keep the last one + an unread flag for the badge
+  const [lastRational, setLastRational] = useState(null); // {id,timestamp,type,title,message}
+  const [rationalUnread, setRationalUnread] = useState(false);
 
   const retryCountRef = useRef(0);
   const reconnectTimerRef = useRef(null);
@@ -531,12 +119,14 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
   const activeToastIdsRef = useRef([]);
 
   const showNotificationsRef = useRef(false);
-  useEffect(() => { showNotificationsRef.current = showNotifications; }, [showNotifications]);
+  useEffect(() => {
+    showNotificationsRef.current = showNotifications;
+  }, [showNotifications]);
 
   // Fallback refs
   const sseRef = useRef(null);
   const pollTimerRef = useRef(null);
-  const lastSeenServerTsRef = useRef(0); // server-provided ts (epoch ms or iso) for pull delta
+  const lastSeenServerTsRef = useRef(0); // server ts for pull delta
 
   /* ---------- Init sound pref + audio ---------- */
   useEffect(() => {
@@ -550,7 +140,9 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       el.preload = "auto";
       el.volume = 1.0;
       audioRef.current = el;
-    } catch { audioRef.current = null; }
+    } catch {
+      audioRef.current = null;
+    }
 
     function markInteraction() {
       userInteractedRef.current = true;
@@ -559,7 +151,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
         try {
           const p = a.play();
           if (p?.then) {
-            p.then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+            p.then(() => {
+              a.pause();
+              a.currentTime = 0;
+            }).catch(() => {});
           }
         } catch {}
       }
@@ -579,7 +174,9 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try { window.localStorage?.setItem(SOUND_PREF_KEY, soundEnabled ? "1" : "0"); } catch {}
+    try {
+      window.localStorage?.setItem(SOUND_PREF_KEY, soundEnabled ? "1" : "0");
+    } catch {}
   }, [soundEnabled]);
 
   function playSound() {
@@ -602,24 +199,26 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       message: obj.message,
       lead_id: obj.lead_id,
       type: obj.type,
-      // prefer server ts if present for de-dup (polling)
       received_at: obj.ts ? new Date(obj.ts) : new Date(),
     };
 
-    // keep last seen server timestamp if provided
     if (obj.ts) {
       const tsNum = typeof obj.ts === "number" ? obj.ts : Date.parse(obj.ts);
-      if (!Number.isNaN(tsNum)) lastSeenServerTsRef.current = Math.max(lastSeenServerTsRef.current, tsNum);
+      if (!Number.isNaN(tsNum))
+        lastSeenServerTsRef.current = Math.max(
+          lastSeenServerTsRef.current,
+          tsNum
+        );
     }
 
     setMessages((prev) => {
       const next = prev ? prev.slice() : [];
       next.push(messageWithTime);
-      if (next.length > MAX_MESSAGES_BUFFER) next.splice(0, next.length - MAX_MESSAGES_BUFFER);
+      if (next.length > MAX_MESSAGES_BUFFER)
+        next.splice(0, next.length - MAX_MESSAGES_BUFFER);
       return next;
     });
 
-    // suppress toast when panel is open
     if (showNotificationsRef.current) return;
 
     const now = Date.now();
@@ -636,15 +235,19 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
     const id = toast.custom(
       (t) => (
         <div
-          className={(t?.visible ? "animate-enter" : "animate-leave") +
-            " max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5"}
+          className={
+            (t?.visible ? "animate-enter" : "animate-leave") +
+            " max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5"
+          }
         >
           <div className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border border-blue-100 w-full">
             <div className="bg-blue-100 rounded-full p-2">
               <Bell size={16} className="text-blue-600" />
             </div>
             <div className="flex-1 w-full">
-              <p className="text-sm font-medium text-gray-900">{obj.title || ""}</p>
+              <p className="text-sm font-medium text-gray-900">
+                {obj.title || ""}
+              </p>
               <p
                 className="text-xs text-gray-500"
                 dangerouslySetInnerHTML={{ __html: obj.message || "" }}
@@ -671,38 +274,56 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
 
   /* ---------------- Fallbacks ---------------- */
   function stopSSE() {
-    try { sseRef.current?.close?.(); } catch {}
+    try {
+      sseRef.current?.close?.();
+    } catch {}
     sseRef.current = null;
   }
   function stopPolling() {
-    if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null; }
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
   }
   function startSSE() {
-    stopSSE(); stopPolling();
+    stopSSE();
+    stopPolling();
     if (!("EventSource" in window)) return startPolling();
 
-    const httpUrl = buildHttpUrl(WS_BASE_URL_full,
-      `/sse/notification/${encodeURIComponent(String(employee_code))}?after=${encodeURIComponent(String(lastSeenServerTsRef.current))}`
-    );
+    const root = buildHttpRoot(WS_BASE_URL_full);
+    const httpUrl = `${root}/sse/notification/${encodeURIComponent(
+      String(employee_code)
+    )}?after=${encodeURIComponent(String(lastSeenServerTsRef.current))}`;
+
     try {
       const es = new EventSource(httpUrl, { withCredentials: true });
       sseRef.current = es;
       es.onmessage = (e) => {
-        try { handleIncoming(JSON.parse(e.data)); } catch {}
+        try {
+          handleIncoming(JSON.parse(e.data));
+        } catch {}
       };
-      es.onerror = () => { stopSSE(); startPolling(); };
-    } catch { startPolling(); }
+      es.onerror = () => {
+        stopSSE();
+        startPolling();
+      };
+    } catch {
+      startPolling();
+    }
   }
   function startPolling() {
     stopPolling();
-    const httpBase = buildHttpUrl(WS_BASE_URL_full, "/"); // get protocol+host
-    // strip trailing slash for concatenation clarity
-    const root = httpBase.replace(/\/+$/, "");
-    const url = `${root}/api/notifications/pull?employee_code=${encodeURIComponent(String(employee_code))}&after=${encodeURIComponent(String(lastSeenServerTsRef.current))}`;
+    const root = buildHttpRoot(WS_BASE_URL_full);
+    const url = `${root}/api/notifications/pull?employee_code=${encodeURIComponent(
+      String(employee_code)
+    )}&after=${encodeURIComponent(String(lastSeenServerTsRef.current))}`;
 
     async function pollOnce() {
       try {
-        const res = await fetch(url, { cache: "no-store", credentials: "include" });
+        const res = await fetch(url, {
+          cache: "no-store",
+          credentials: "include",
+        });
         if (!res.ok) return;
         const arr = await res.json();
         if (Array.isArray(arr)) {
@@ -721,78 +342,130 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
     if (typeof window === "undefined") return;
 
     function isSocketAlive(ws) {
-      return ws && (ws.readyState === window.WebSocket.OPEN || ws.readyState === window.WebSocket.CONNECTING);
+      return (
+        ws &&
+        (ws.readyState === window.WebSocket.OPEN ||
+          ws.readyState === window.WebSocket.CONNECTING)
+      );
     }
 
     function connectWS() {
-      if (typeof window.WebSocket === "undefined") { startSSE(); return; }
+      if (typeof window.WebSocket === "undefined") {
+        startSSE();
+        return;
+      }
       if (isSocketAlive(socketRef.current)) return;
 
       const path = `/api/v1/ws/notification/${String(employee_code)}`;
       const url = buildWsUrl(WS_BASE_URL_full, path);
 
       let socket;
-      try { socket = new window.WebSocket(url); }
-      catch { return startSSE(); }
+      try {
+        socket = new window.WebSocket(url);
+      } catch {
+        return startSSE();
+      }
 
       socketRef.current = socket;
 
       socket.onopen = () => {
         setIsConnect?.(true);
         retryCountRef.current = 0;
-        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
-        // on successful WS open, stop any fallbacks
-        stopSSE(); stopPolling();
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
+        }
+        stopSSE();
+        stopPolling();
       };
 
       socket.onmessage = (event) => {
         let data;
-        try { data = JSON.parse(event.data); } catch { return; }
-        // ignore heartbeats
-        if (data?.type === "connection_confirmed" || data?.type === "ping" || data?.type === "pong") return;
-        handleIncoming(data);
+        try {
+          data = JSON.parse(event.data);
+          // console.log("WS:", data);
+        } catch {
+          return;
+        }
+        if (
+          data?.type === "connection_confirmed" ||
+          data?.type === "ping" ||
+          data?.type === "pong"
+        ){
+          return;
+        } else if (data?.type === "rational") {
+          // Keep for modal + show NEW badge until user opens modal
+          setLastRational({
+            id: data.id || `ws-${Date.now()}`,
+            timestamp: data.timestamp || new Date().toISOString(),
+            type: data.type,
+            title: data.title || "Recommendation",
+            message: data.message || "",
+          });
+          setRationalUnread(true);
+        } else {
+          handleIncoming(data);
+        }
       };
 
-      socket.onerror = () => { try { socket.close(); } catch {} };
+      socket.onerror = () => {
+        try {
+          socket.close();
+        } catch {}
+      };
 
       socket.onclose = () => {
         setIsConnect?.(false);
-        // after a few failed tries, give up to fallbacks
-        if (retryCountRef.current >= MAX_WS_RETRIES_BEFORE_FALLBACK) { startSSE(); return; }
+        if (retryCountRef.current >= MAX_WS_RETRIES_BEFORE_FALLBACK) {
+          startSSE();
+          return;
+        }
         if (!allowReconnectRef.current) return;
         retryCountRef.current += 1;
         const base = Math.min(30000, 1000 * Math.pow(2, retryCountRef.current));
         const jitter = Math.floor(Math.random() * 500);
         reconnectTimerRef.current = setTimeout(connectWS, base + jitter);
       };
-    } 
+    }
 
     connectWS();
 
     return () => {
       allowReconnectRef.current = false;
-      try { socketRef.current?.close(); } catch {}
-      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
-      stopSSE(); stopPolling();
-      // dismiss all toasts
-      for (let i = 0; i < activeToastIdsRef.current.length; i++) toast.dismiss(activeToastIdsRef.current[i]);
+      try {
+        socketRef.current?.close();
+      } catch {}
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      stopSSE();
+      stopPolling();
+      for (let i = 0; i < activeToastIdsRef.current.length; i++)
+        toast.dismiss(activeToastIdsRef.current[i]);
       activeToastIdsRef.current = [];
-      setTimeout(() => { allowReconnectRef.current = true; }, 0);
+      setTimeout(() => {
+        allowReconnectRef.current = true;
+      }, 0);
     };
   }, [employee_code, setIsConnect]);
 
   /* ---------------- Click-outside to close panel ---------------- */
   useEffect(() => {
     function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setShowNotifications(false);
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target))
+        setShowNotifications(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ---------------- UI ---------------- */
+  /* ---------------- Rationals modal control ---------------- */
+  const [showRationalModal, setShowRationalModal] = useState(false);
+
   return (
     <div className="relative" ref={wrapperRef}>
+      {/* notifications bell */}
       <button
         onClick={() => setShowNotifications((s) => !s)}
         className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
@@ -806,6 +479,21 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
         ) : null}
       </button>
 
+      {/* rationals button */}
+      <button
+        onClick={() => setShowRationalModal(true)}
+        className="ml-2 relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
+        title="Rationals"
+      >
+        <FileText size={20} />
+        {rationalUnread ? (
+          <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full shadow">
+            1
+          </span>
+        ) : null}
+      </button>
+
+      {/* Notifications dropdown */}
       {showNotifications ? (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-200 animate-in slide-in-from-top-2">
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100 rounded-t-2xl">
@@ -816,7 +504,9 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                   onClick={() => setSoundEnabled((s) => !s)}
                   className={
                     "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs border transition " +
-                    (soundEnabled ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-600 border-gray-200")
+                    (soundEnabled
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : "bg-gray-50 text-gray-600 border-gray-200")
                   }
                   title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
                 >
@@ -829,7 +519,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                 </span>
 
                 {messages?.length > 0 ? (
-                  <button onClick={() => setMessages([])} className="text-xs text-blue-600 hover:underline hover:text-blue-800">
+                  <button
+                    onClick={() => setMessages([])}
+                    className="text-xs text-blue-600 hover:underline hover:text-blue-800"
+                  >
                     Clear All
                   </button>
                 ) : null}
@@ -846,7 +539,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                 const ts = val?.received_at || null;
 
                 return (
-                  <div key={(ts ? String(ts) : "msg") + "-" + String(index)} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div
+                    key={(ts ? String(ts) : "msg") + "-" + String(index)}
+                    className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="shrink-0 rounded-full bg-blue-50 p-2">
                         <Bell size={16} className="text-blue-600" />
@@ -854,7 +550,9 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {title}
+                          </p>
 
                           <div className="flex items-center gap-2 shrink-0">
                             {leadId ? (
@@ -883,8 +581,15 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                           </div>
                         </div>
 
-                        <p className="mt-1 text-xs text-gray-600 break-words" dangerouslySetInnerHTML={{ __html: msgHtml }} />
-                        {ts ? <p className="mt-1 text-[10px] text-gray-400 text-right">{formatTime(ts)}</p> : null}
+                        <p
+                          className="mt-1 text-xs text-gray-600 break-words"
+                          dangerouslySetInnerHTML={{ __html: msgHtml }}
+                        />
+                        {ts ? (
+                          <p className="mt-1 text-[10px] text-gray-400 text-right">
+                            {formatTime(ts)}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -897,14 +602,264 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
                     <BellOff className="h-6 w-6 text-gray-400" />
                   </div>
                   <p className="text-sm font-semibold text-gray-700">No notifications</p>
-                  <p className="mt-1 text-xs text-gray-500">You’re all caught up. New alerts will appear here.</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    You’re all caught up. New alerts will appear here.
+                  </p>
                 </div>
               </div>
             )}
           </div>
         </div>
       ) : null}
+
+      {/* Rationals modal */}
+      <RationalModal
+        open={showRationalModal}
+        onClose={() => setShowRationalModal(false)}
+        wsRational={lastRational}
+        rationalUnread={rationalUnread}
+        onSeenRational={() => setRationalUnread(false)}
+      />
     </div>
   );
 }
 
+/* =============================================================
+   Rational modal (fetches /recommendations and shows list)
+   ============================================================= */
+
+function Badge({ children, tone = "gray" }) {
+  const tones = {
+    gray: "bg-gray-100 text-gray-700 border-gray-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
+    green: "bg-green-50 text-green-700 border-green-200",
+    red: "bg-red-50 text-red-700 border-red-200",
+    purple: "bg-purple-50 text-purple-700 border-purple-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium border ${tones[tone] || tones.gray}`}>
+      {children}
+    </span>
+  );
+}
+
+function RationalModal({ open, onClose, wsRational, rationalUnread, onSeenRational }) {
+  const wrapperRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [list, setList] = useState([]);
+  const [errorText, setErrorText] = useState("");
+
+  // close on ESC
+  useEffect(() => {
+    function onEsc(e) {
+      if (e.key === "Escape") onClose?.();
+    }
+    if (open) document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, [open, onClose]);
+
+  // click outside to close
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (!open) return;
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) onClose?.();
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open, onClose]);
+
+  async function fetchData() {
+    setLoading(true);
+    setErrorText("");
+    try {
+      const res = await axiosInstance.get("/recommendations/?limit=100&offset=0");
+      setList(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      setErrorText("Failed to load rationals");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // fetch on open (and whenever a new ws rational arrives while open, we still refresh)
+  useEffect(() => {
+    if (open) fetchData();
+  }, [open, wsRational]);
+
+  // mark unread as seen when modal opens
+  useEffect(() => {
+    if (open && rationalUnread) onSeenRational?.();
+  }, [open, rationalUnread, onSeenRational]);
+
+  const root = buildHttpRoot(WS_BASE_URL_full);
+  if (!open) return null;
+
+  // synthesize a top “NEW” card from wsRational (still show even if it’s no longer unread)
+  const wsItem = wsRational
+    ? {
+        id: "ws-" + (wsRational.id || wsRational.timestamp || Date.now()),
+        stock_name: wsRational.title || "Recommendation",
+        rational: wsRational.message || "",
+        status: "NEW",
+        recommendation_type: ["LIVE"],
+        entry_price: null,
+        stop_loss: null,
+        targets: null,
+        targets2: null,
+        targets3: null,
+        user_id: "system",
+        created_at: wsRational.timestamp || new Date().toISOString(),
+        pdf: null,
+        __is_ws: true,
+      }
+    : null;
+
+  const combinedList = wsItem ? [wsItem, ...list] : list;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+      <div
+        ref={wrapperRef}
+        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-blue-600" />
+            <h3 className="font-semibold text-gray-900">Rationals</h3>
+            <Badge tone="blue">{String(combinedList.length)}</Badge>
+            {wsItem && rationalUnread ? <Badge tone="amber">NEW</Badge> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchData}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-gray-300 hover:bg-gray-50"
+              title="Refresh"
+            >
+              <RefreshCcw size={14} />
+              Refresh
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100"
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 max-h-[70vh] overflow-y-auto">
+          {loading ? (
+            <div className="py-12 text-center text-sm text-gray-500">Loading…</div>
+          ) : errorText ? (
+            <div className="py-12 text-center text-sm text-red-600">{errorText}</div>
+          ) : combinedList.length === 0 ? (
+            <div className="py-12 text-center text-sm text-gray-500">
+              No rationals available.
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {combinedList.map((r) => {
+                const types = Array.isArray(r?.recommendation_type) ? r.recommendation_type : [];
+                const pdfEndpoint = `${root}/recommendations/${encodeURIComponent(String(r.id))}/pdf`;
+
+                // tone by status
+                const status = r?.status || "";
+                let statusTone = "gray";
+                if (String(status).toUpperCase().includes("TARGET")) statusTone = "green";
+                else if (String(status).toUpperCase().includes("STOP")) statusTone = "red";
+                else if (String(status).toUpperCase().includes("OPEN")) statusTone = "blue";
+                if (r.__is_ws) statusTone = "amber";
+
+                return (
+                  <li
+                    key={r.id}
+                    className={
+                      "border rounded-xl p-3 shadow-sm " +
+                      (r.__is_ws ? "bg-amber-50 border-amber-200" : "bg-white")
+                    }
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {r.stock_name || "—"}
+                          </p>
+                          {types.map((t, i) => (
+                            <Badge key={i} tone="purple">{t}</Badge>
+                          ))}
+                          <Badge tone={statusTone}>{status || "—"}</Badge>
+                          {r.__is_ws ? <Badge tone="amber">NEW</Badge> : null}
+                        </div>
+
+                        <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[12px] text-gray-600">
+                          <p>
+                            <span className="text-gray-500">Entry:</span>{" "}
+                            <span className="font-medium">{r.entry_price ?? "—"}</span>
+                          </p>
+                          <p>
+                            <span className="text-gray-500">SL:</span>{" "}
+                            <span className="font-medium">{r.stop_loss ?? "—"}</span>
+                          </p>
+                          <p>
+                            <span className="text-gray-500">T1:</span>{" "}
+                            <span className="font-medium">{r.targets ?? "—"}</span>
+                          </p>
+                          <p>
+                            <span className="text-gray-500">T2:</span>{" "}
+                            <span className="font-medium">{r.targets2 ?? "—"}</span>
+                          </p>
+                          <p>
+                            <span className="text-gray-500">T3:</span>{" "}
+                            <span className="font-medium">{r.targets3 ?? "—"}</span>
+                          </p>
+                          <p className="col-span-2 sm:col-span-1">
+                            <span className="text-gray-500">By:</span>{" "}
+                            <span className="font-medium">{r.user_id || "—"}</span>
+                          </p>
+                          <p className="col-span-2 sm:col-span-1">
+                            <span className="text-gray-500">At:</span>{" "}
+                            <span className="font-medium">
+                              {r.created_at ? formatDateTime(r.created_at) : "—"}
+                            </span>
+                          </p>
+                        </div>
+
+                        {r.rational ? (
+                          <div className="mt-2 text-xs text-gray-700 whitespace-pre-wrap">
+                            {r.rational}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="shrink-0 flex flex-col items-end gap-2">
+                        <a
+                          href={r.__is_ws ? undefined : pdfEndpoint}
+                          target={r.__is_ws ? undefined : "_blank"}
+                          rel={r.__is_ws ? undefined : "noopener noreferrer"}
+                          className={
+                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs " +
+                            (!r.__is_ws && r?.pdf
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-100 text-gray-500 cursor-pointer hover:bg-gray-200")
+                          }
+                          title={r?.pdf && !r.__is_ws ? "Open PDF" : "No PDF available"}
+                        >
+                          <ExternalLink size={14} />
+                          PDF
+                        </a>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

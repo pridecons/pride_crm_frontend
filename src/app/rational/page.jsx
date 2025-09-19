@@ -266,7 +266,7 @@ const handleSubmit = async (e) => {
         recommendation_type: recommendation_type, // array of strings
         message: message,
         templateId: templateId,
-        sent_on_msg: sent_on_msg
+        sent_on_msg: sent_on_msg || {}
       };
 
       await axiosInstance.put(`${API_URL}${editId}/`, payload, {
@@ -301,7 +301,7 @@ const handleSubmit = async (e) => {
       fd.append('status',     status || 'OPEN');
       fd.append('message',     message || '');
       fd.append('templateId',  templateId || '');
-      fd.append('sent_on_msg',  sent_on_msg || {});
+      fd.append("sent_on_msg", JSON.stringify(sent_on_msg || {}))
 
       // repeat key for FastAPI List[str]
       recommendation_type.filter(Boolean).forEach(rt => fd.append('recommendation_type', rt));

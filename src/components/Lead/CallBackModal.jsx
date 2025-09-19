@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useMemo } from "react";
 
 export default function CallBackModal({
   open,
@@ -10,6 +10,26 @@ export default function CallBackModal({
   loading = false,
 }) {
   const inputRef = useRef(null);
+
+  // ⬇️ Minimum allowed = TODAY 00:00 (local time).
+  // If you want "no past time today" instead, use minNow below.
+  const minToday = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0); // today midnight local
+    const tzo = d.getTimezoneOffset();
+    const localISO = new Date(d.getTime() - tzo * 60000)
+      .toISOString()
+      .slice(0, 16); // 'YYYY-MM-DDTHH:mm'
+    return localISO;
+  }, []);
+
+  // 🔄 Alternative (block past minutes too):
+  // const minToday = useMemo(() => {
+  //   const d = new Date();
+  //   d.setSeconds(0, 0); // round seconds
+  //   const tzo = d.getTimezoneOffset();
+  //   return new Date(d.getTime() - tzo * 60000).toISOString().slice(0, 16);
+  // }, []);
 
   const handleDone = useCallback(() => {
     inputRef.current?.blur(); // hides native picker
@@ -41,8 +61,13 @@ export default function CallBackModal({
             ref={inputRef}
             type="datetime-local"
             value={dateValue || ""}
-step="60"
-            onChange={(e) => setDateValue(e.target.value)}
+            step="60"
+            min={minToday}
+            onChange={(e) => {
+              const v = e.target.value;
+              // Clamp to min if user types an earlier date
+              setDateValue(v && v < minToday ? minToday : v);
+            }}
             className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
           />
         </div>
@@ -59,7 +84,7 @@ step="60"
           <button
             onClick={onSave}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            disabled={loading}
+            disabled={loading || (dateValue && dateValue < minToday)}
           >
             {loading ? "Saving..." : "Save"}
           </button>

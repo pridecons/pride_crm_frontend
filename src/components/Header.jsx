@@ -326,7 +326,12 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
   function getResponseName(lead, respMapLocal = null) {
     const map = respMapLocal ?? respMap;
-    return lead?.lead_response_name || map?.[lead?.lead_response_id] || 'No Response';
+    return (
+      lead?.lead_response_name ||
+      lead?.lead_response?.name ||
+      (lead?.lead_response_id != null ? map?.[lead.lead_response_id] : "") ||
+      "No Response"
+    );
   }
 
   const fetchSuggestions = useCallback(async (q) => {
@@ -358,31 +363,58 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           : (Array.isArray(data) ? data : (data?.items || data?.results || []));
       const activateRaw = Array.isArray(data?.activate_leads) ? data.activate_leads : [];
 
-      // Normalizers
-      const normalize = (l, assigned = false) => ({
-        id: l?.id ?? l?.lead_id ?? l?._id,
-        full_name: l?.full_name ?? l?.name ?? [l?.first_name, l?.last_name].filter(Boolean).join(" "),
-        mobile: l?.mobile ?? l?.phone ?? l?.contact_no ?? "",
-        email: l?.email ?? l?.mail ?? "",
-        lead_response_id: l?.lead_response_id ?? l?.response_id ?? null,
-        lead_response_name: l?.lead_response_name ?? l?.response_name ?? l?.response ?? "",
-        source_id: l?.source_id ?? l?.lead_source_id ?? null,
-        source_name: l?.source_name ?? "",
-        branch_id: l?.branch_id ?? null,
-        is_masked: !!l?.is_masked,
-        __assigned: !!assigned,
-        __clickable: !!assigned && !!(l?.id ?? l?.lead_id ?? l?._id),
-      });
+      // keep this inside fetchSuggestions so it can close over `user`
+      const normalize = (l, assigned = false) => {
+        const response_id =
+          l?.lead_response_id ??
+          l?.response_id ??
+          l?.lead_response?.id ?? null;
 
-      // activate_leads usually come masked / without id
+        const response_name =
+          l?.lead_response_name ??
+          l?.response_name ??
+          l?.lead_response?.name ?? "";
+
+        // ✅ no mixing of ?? and ||; final fallback uses only ??
+        const assigned_name = (
+          l?.assigned_user?.name ??
+          l?.assigned_to_user?.name ??           // sometimes nested
+          l?.assigned_to_user_name ??
+          l?.assigned_user_name ??
+          l?.assigned_to_name ??
+          (typeof l?.assigned_to === "string" ? l.assigned_to : undefined)
+        ) ?? (assigned ? (user?.name ?? "You") : "");
+
+        return {
+          id: l?.id ?? l?.lead_id ?? l?._id,
+          full_name:
+            l?.full_name ?? l?.name ?? [l?.first_name, l?.last_name].filter(Boolean).join(" "),
+          mobile: l?.mobile ?? l?.phone ?? l?.contact_no ?? "",
+          email: l?.email ?? l?.mail ?? "",
+          lead_response_id: response_id,
+          lead_response_name: response_name,
+          source_id: l?.source_id ?? l?.lead_source_id ?? null,
+          source_name: l?.source_name ?? l?.lead_source_name ?? "",
+          branch_id: l?.branch_id ?? null,
+          assigned_to_name: assigned_name,
+          is_masked: !!l?.is_masked,
+          __assigned: !!assigned,
+          __clickable: !!assigned && !!(l?.id ?? l?.lead_id ?? l?._id),
+          created_at: l?.created_at ?? null,
+        };
+      };
+
       const normalizeActivate = (l) =>
         normalize(
           {
             ...l,
-            // create a stable synthetic id so list rendering stays happy
-            id: l?.id ?? l?.lead_id ?? l?._id ?? `act:${l?.mobile || l?.email || Math.random().toString(36).slice(2)}`,
+            id:
+              l?.id ??
+              l?.lead_id ??
+              l?._id ??
+              `act:${l?.mobile || l?.email || Math.random().toString(36).slice(2)}`,
           },
-          /* assigned */ false
+    /* assigned */ false
         );
 
       const assigned = (assignedRaw || []).map((x) => normalize(x, true)).filter(x => x?.id != null);
@@ -414,7 +446,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     } finally {
       setLoading(false);
     }
-  }, [respOptions, respMap]);
+  }, [respOptions, respMap, user]);
 
   useEffect(() => {
     if (!open) return;
@@ -810,7 +842,7 @@ function SearchOverlay({
                 {/* Group items */}
                 {open && (
                   <ul className="divide-y divide-gray-100">
-                    {items.map((lead) => {
+                    {items.map((lead, index) => {
                       const active = visibleLeads[highlight]?.id === lead.id;
                       const rName = lead.lead_response_name || respMap[lead.lead_response_id] || 'No Response';
                       const bName = branchMap[lead.branch_id] || lead.branch_name || '—';
@@ -819,13 +851,14 @@ function SearchOverlay({
                         lead.source_name ||
                         lead.lead_source_name ||
                         '—';
+                      const aName = lead.assigned_to_name || (lead.__assigned ? 'You' : '—');
                       const title = lead.full_name || lead.name || lead.client_name || 'Unnamed';
                       const phone = lead.phone || lead.mobile || lead.mobile_no || lead.contact_no || '';
                       const email = lead.email || lead.email_id || '';
 
                       return (
                         <li
-                          key={lead.id}
+                          key={index}
                           onMouseEnter={() => {
                             const idx = visibleLeads.findIndex(v => v.id === lead.id);
                             if (idx >= 0) setHighlight(idx);
@@ -855,11 +888,9 @@ function SearchOverlay({
                                 <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                   Source: {sName}
                                 </span>
-                                {!lead.__assigned && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-600" title="Not assigned to you">
-                                    <Lock size={12} /> View only
-                                  </span>
-                                )}
+                                <span className="px-1.5 py-0.5 rounded-full border border-violet-200 bg-violet-50 text-violet-700">
+                                  Assigned: {aName}
+                                </span>
                                 {lead.created_at && (
                                   <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                     {new Date(lead.created_at).toLocaleDateString('en-IN', {

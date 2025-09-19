@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
 import { axiosInstance } from '@/api/Axios';
 import {
   PhoneCall,
   PhoneIncoming,
-  PhoneMissed,
   Clock3,
-  PhoneOff 
+  PhoneOff
 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -27,10 +26,6 @@ import {
   Briefcase,
   AlertTriangle,
   LineChart,
-  ClipboardList,
-  Zap,
-  Flame,
-  Sparkles,
   IndianRupee,
   CalendarCheck,
   Target,
@@ -201,6 +196,7 @@ export default function Dashboard() {
   const [profiles, setProfiles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [usersList, setUsers] = useState([]);
+  const [responses, setResponses] = useState([]);
 
   const [optLoading, setOptLoading] = useState(false);
   const [optError, setOptError] = useState('');
@@ -212,11 +208,12 @@ export default function Dashboard() {
       try {
         setOptLoading(true);
         setOptError('');
-        const [profRes, deptRes, usersRes, branchesRes] = await Promise.all([
+        const [profRes, deptRes, usersRes, branchesRes, respRes] = await Promise.all([
           axiosInstance.get('/profile-role', { params: { skip: 0, limit: 50, order_by: 'hierarchy_level' } }),
           axiosInstance.get('/departments', { params: { skip: 0, limit: 50, order_by: 'name' } }),
           axiosInstance.get('/users', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/branches', { params: { skip: 0, limit: 100, active_only: false } }),
+          axiosInstance.get('/lead-config/responses/', { params: { skip: 0, limit: 100 } }),
         ]);
         setProfiles((profRes.data || []).map((p) => ({ id: p.id, name: p.name, lvl: p.hierarchy_level })));
         setDepartments((deptRes.data || []).map((d) => ({ id: d.id, name: d.name })));
@@ -231,6 +228,7 @@ export default function Dashboard() {
         }));
         setUsers(ulist);
         setBranches((branchesRes.data || []).map((b) => ({ id: b.id, name: b.name })));
+        setResponses((respRes.data || []).map(r => ({ id: r.id, name: r.name })));
       } catch (e) {
         setOptError(e?.response?.data?.detail || e?.message || 'Failed to load filter options');
       } finally {
@@ -283,6 +281,17 @@ export default function Dashboard() {
   const [errMsg, setErrMsg] = useState('');
   const [data, setData] = useState(null);
   const [employeesTable, setEmployeesTable] = useState([]);
+
+  // Accordion state for Employee table
+  const [expandedEmp, setExpandedEmp] = useState(() => new Set());
+  const toggleEmp = (code) => {
+    setExpandedEmp(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
 
   // Pagination for users table
   const EMP_PAGE_SIZE = 10;
@@ -370,6 +379,30 @@ export default function Dashboard() {
   const startIdx = (empPage - 1) * EMP_PAGE_SIZE;
   const endIdx = Math.min(startIdx + EMP_PAGE_SIZE, totalEmp);
   const pageRowsRaw = (employeesTable || []).slice(startIdx, endIdx);
+
+  // Dynamic response column names (e.g., "FT", "BUSY", "CALL BACK", ...)
+  const responseNames = useMemo(
+    () => (responses || []).map((r) => r.name),
+    [responses]
+  );
+
+  // Keep only FT & CALL BACK in the table; rest go to accordion
+  const PRIMARY_RESP = ['FT', 'CALL BACK'];
+  const primarySet = useMemo(
+    () => new Set(PRIMARY_RESP.map((s) => s.toUpperCase())),
+    []
+  );
+  const otherResponses = useMemo(
+    () => (responseNames || []).filter((n) => !primarySet.has(String(n).toUpperCase())),
+    [responseNames, primarySet]
+  );
+
+  // Build dynamic cols/rows for Employee Performance (unconditional -> stable hook order)
+  const empPerfCols = useMemo(
+    () => ['Employee', 'Role', 'Leads', 'Converted', 'FT', 'CALL BACK', 'Revenue'],
+    []
+  );
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -501,14 +534,14 @@ export default function Dashboard() {
               <Card
                 title="Avg Duration"
                 value={data?.cards?.calls?.duration_hms || "00:00:00"}
-                icon={<clock className="h-5 w-5" />}
+                icon={<Clock3 className="h-5 w-5" />}
                 color="purple"
               />
             </div>
 
             <SectionHeader title="Leads Analytics" />
-              <LeadsPiePanel data={data} />
-          
+            <LeadsPiePanel data={data} />
+
           </>
         )}
 
@@ -531,7 +564,7 @@ export default function Dashboard() {
                         {num(b.paid_count)}
                       </span>,
                       <span
-                        className={`font-semibold ${b.conversion_rate >= 50 ? 'text-green-600' : 'text-red-600'}`}
+                        className={`font-semibold ${Number(b.conversion_rate) >= 50 ? 'text-green-600' : 'text-red-600'}`}
                         key={`${b.branch_code}-rate`}
                       >
                         {b.conversion_rate ?? 0}%
@@ -685,32 +718,17 @@ export default function Dashboard() {
             </div>
 
             {/* Table */}
-            <div className="max-h-[480px] overflow-y-auto pr-1 relative">
-              <SimpleTable
-                cols={['Employee', 'Role', 'Leads', 'Converted', 'FT', 'Revenue']}
-                rows={pageRowsRaw.map((u) => [
-                  <span className="font-medium text-gray-800" key={`${u.employee_code}-name`}>
-                    {u.employee_name} <span className="text-gray-400">({u.employee_code})</span>
-                  </span>,
-                  <span className="text-gray-600" key={`${u.employee_code}-role`}>
-                    {u.role_name || u.role_id}
-                  </span>,
-                  <span className="text-[#33FFCC]" key={`${u.employee_code}-leads`}>
-                    {num(u.total_leads)}
-                  </span>,
-                  <span className="text-blue-600" key={`${u.employee_code}-conv`}>
-                    {num(u.converted_leads)}
-                  </span>,
-                  <span className="text-indigo-600" key={`${u.employee_code}-ft`}>
-                    {num(u.FT ?? u.ft ?? 0)}
-                  </span>,
-                  <span className="text-red-600 font-medium" key={`${u.employee_code}-rev`}>
-                    {inr(u.total_revenue)}
-                  </span>,
-                ])}
-                className="w-full border border-gray-200 rounded-2xl shadow-sm bg-white"
+            <div className="max-h-[480px] overflow-y-auto overflow-x-auto pr-1 relative">
+              <EmployeeTableAccordion
+                cols={empPerfCols}
+                rows={pageRowsRaw}
+                otherResponses={otherResponses}
+                expanded={expandedEmp}
+                onToggle={toggleEmp}
               />
             </div>
+
+
 
             {/* Pagination */}
             <div className="mt-3 flex items-center justify-between px-3">
@@ -1216,6 +1234,98 @@ function LeadsPiePanel({ data }) {
       {renderPie('Lead Age Composition', ageData, COLORS_AGE)}
       {renderPie('Outcome Breakdown', outcomeData, COLORS_OUT)}
       {renderPie('Period Distribution', periodData, COLORS_PER)}
+    </div>
+  );
+}
+
+
+function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], expanded, onToggle }) {
+  return (
+    <div className="overflow-x-auto w-full border border-gray-200 rounded-2xl shadow-sm bg-white">
+      <table className="min-w-full text-sm">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-white/90 backdrop-blur border-b border-gray-200">
+            {cols.map((c) => (
+              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody>
+          {(rows || []).length === 0 ? (
+            <tr>
+              <td className="px-3 py-8 text-gray-400 text-center" colSpan={cols.length}>
+                <div className="flex flex-col items-center gap-2">
+                  <BarChart3 className="h-6 w-6" />
+                  <span>No data available</span>
+                </div>
+              </td>
+            </tr>
+          ) : (
+            rows.map((u) => {
+              const map = u?.all_lead || {};
+              const code = u.employee_code;
+              const isOpen = expanded?.has?.(code);
+
+              return (
+                <React.Fragment key={code}>
+                  {/* Main row (click employee name to toggle) */}
+                  <tr
+                    className="border-b border-gray-100 hover:bg-blue-50/50 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isOpen}
+                    aria-controls={`emp-acc-${code}`}
+                    onClick={() => onToggle(code)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onToggle(code);
+                      }
+                    }}
+                  >
+                    <td className="px-3 py-2.5">
+                      <span className="font-medium text-gray-800 inline-flex items-center gap-2">
+                        {u.employee_name} <span className="text-gray-400">({code})</span>
+                      </span>
+                    </td>
+
+                    <td className="px-3 py-2.5 text-gray-600">{u.role_name || u.role_id}</td>
+                    <td className="px-3 py-2.5 text-[#33FFCC]">{num(u.total_leads)}</td>
+                    <td className="px-3 py-2.5 text-blue-600">{num(u.converted_leads)}</td>
+                    <td className="px-3 py-2.5 text-indigo-600">{num(map?.['FT'] ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-purple-700">{num(map?.['CALL BACK'] ?? 0)}</td>
+                    <td className="px-3 py-2.5 text-red-600 font-medium">{inr(u.total_revenue)}</td>
+                  </tr>
+
+                  {/* Expanded row */}
+                  {isOpen && (
+                    <tr className="bg-gray-50 border-b border-gray-100" id={`emp-acc-${code}`}>
+                      <td className="px-3 py-3" colSpan={cols.length}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {otherResponses.map((name) => (
+                            <div
+                              key={`${code}-${name}`}
+                              className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-gray-200"
+                            >
+                              <span className="text-xs text-gray-600">{name}</span>
+                              <span className="text-sm font-semibold text-gray-800">
+                                {num(map?.[name] ?? 0)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

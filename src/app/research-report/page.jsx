@@ -165,12 +165,33 @@ export default function NewResearchReportPage() {
   const [notes, setNotes] = useState("");
   const [tags, setTags] = useState("");
 
-  const [ipo, setIpo] = useState([]);
-  const [board, setBoard] = useState([]);
-  const [corpActs, setCorpActs] = useState([]);
-  const [results, setResults] = useState([]);
-  const [topGainers, setTopGainers] = useState([]);
-  const [topLosers, setTopLosers] = useState([]);
+  const [ipo, setIpo] = useState([
+  { company: "", lot_size: null, price_range: "", open_date: "", close_date: "", category: "" },
+  { company: "", lot_size: null, price_range: "", open_date: "", close_date: "", category: "" },
+]);
+
+  const [board, setBoard] = useState([
+  { company: "", date: "", agenda: "" },
+  { company: "", date: "", agenda: "" },
+]);
+
+  const [corpActs, setCorpActs] = useState([
+  { company: "", action: "", ex_date: "", details: "" },
+  { company: "", action: "", ex_date: "", details: "" },
+]);
+
+  const [results, setResults] = useState([
+    { company: "", date: "", type: "", ltp: null, change: null },
+    { company: "", date: "", type: "", ltp: null, change: null },
+  ]);
+  const [topGainers, setTopGainers] = useState([
+    { symbol: "", cmp: null, price_change: null, change_pct: null },
+    { symbol: "", cmp: null, price_change: null, change_pct: null },
+  ]);
+  const [topLosers, setTopLosers] = useState([
+    { symbol: "", cmp: null, price_change: null, change_pct: null },
+    { symbol: "", cmp: null, price_change: null, change_pct: null },
+  ]);
   const [fiiDii, setFiiDii] = useState({
     date: "",
     // UI keeps cash/debt; we will map -> buy/sell at submit

@@ -168,14 +168,17 @@ body {
 .border-white { border-color: var(--color-white) !important; }
 
 /* Remove modern CSS features for Chrome 109 compatibility */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.scrollbar-hide-x {
+  overflow-x: auto;       /* horizontal scroll */
+  overflow-y: hidden;     /* disable vertical scroll */
+  -ms-overflow-style: none;  /* IE/Edge */
+  scrollbar-width: none;      /* Firefox */
 }
 
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.scrollbar-hide-x::-webkit-scrollbar {
+  height: 0px;  /* hide horizontal scrollbar in Chrome/Safari */
 }
+
 
 button {
   cursor: pointer;
@@ -233,4 +236,12 @@ button {
 .scroll-container::-webkit-scrollbar-thumb {
   background-color: #60a5fa;
   border-radius: 9999px;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
 }

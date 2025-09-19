@@ -122,13 +122,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       title=""
       contentClassName="w-[56rem] max-w-3xl"
       actions={[
-        <button
-          key="close"
-          onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
-        >
-          Close
-        </button>,
+      
       ]}
     >
       <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -157,7 +151,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
 
         <div className="p-5 bg-white space-y-4">
           {hasPermission?.("lead_recording_upload") && (
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <div className="rounded-xl border border-gray-200 p-2 bg-gray-50">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm text-gray-700">
                   Upload a new audio file (max 3MB). Supported: <code>.mp3, .wav, .m4a</code>

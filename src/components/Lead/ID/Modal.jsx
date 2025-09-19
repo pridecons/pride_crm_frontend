@@ -6,8 +6,8 @@ export const Modal = ({ isOpen, onClose, title, children, actions, contentClassN
 
   return (
     <div className="fixed inset-0 bg-transparent backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`bg-white rounded-lg p-6 shadow-xl ${contentClassName}`}>
-        <div className="flex justify-between items-center mb-4">
+      <div className={`bg-white rounded-lg  shadow-xl ${contentClassName}`}>
+        <div className="flex justify-between items-center ">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
@@ -16,7 +16,7 @@ export const Modal = ({ isOpen, onClose, title, children, actions, contentClassN
             <X size={20} />
           </button>
         </div>
-        <div className="mb-6">{children}</div>
+        <div>{children}</div>
         <div className="flex gap-2 justify-end">{actions}</div>
       </div>
     </div>

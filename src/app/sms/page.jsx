@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { usePermissions } from "@/context/PermissionsContext";
+import { Pencil, Trash2 } from "lucide-react";
 
 const emptyForm = {
   title: "",
@@ -118,13 +119,13 @@ export default function SMSTemplatesSimplePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-700 py-10 px-5">
+    <div className="min-h-screen py-10 px-5">
       <div className="max-w-screen-xl mx-auto font-sans">
         {/* Header */}
         <div className="bg-white/95 backdrop-blur-lg rounded-2xl px-10 py-4 mb-8 shadow-lg border border-white/20">
           <div className="flex flex-wrap justify-between items-center gap-5">
             <div>
-              <h1 className="text-5xl font-extrabold mb-3 bg-gradient-to-br from-indigo-500 to-purple-700 bg-clip-text text-transparent tracking-tight">
+              <h1 className="text-5xl font-extrabold mb-3 bg-blue-600 bg-clip-text text-transparent tracking-tight">
                 SMS Templates
               </h1>
               <p className="m-0 text-lg font-medium text-gray-500">
@@ -134,7 +135,7 @@ export default function SMSTemplatesSimplePage() {
             {hasPermission("sms_add") && (
               <button
                 onClick={openForCreate}
-                className="px-3 py-2 bg-gradient-to-br from-indigo-500 to-purple-700 text-white rounded-xl shadow-lg flex items-center gap-2 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                className="px-3 py-2 bg-blue-600  text-white rounded-xl shadow-lg flex items-center gap-2 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <svg
                   width="20"
@@ -156,8 +157,8 @@ export default function SMSTemplatesSimplePage() {
         {msg && (
           <div
             className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg font-semibold ${msg.toLowerCase().includes("fail")
-                ? "bg-red-50 border-2 border-red-400 text-red-600"
-                : "bg-sky-50 border-2 border-sky-300 text-sky-800"
+              ? "bg-red-50 border-2 border-red-400 text-red-600"
+              : "bg-sky-50 border-2 border-sky-300 text-sky-800"
               }`}
           >
             <svg
@@ -182,7 +183,7 @@ export default function SMSTemplatesSimplePage() {
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-lg border border-white/20">
           {loading ? (
             <div className="flex flex-col items-center gap-5 py-20 px-10 text-center">
-              <div className="w-16 h-16 border-8 border-gray-200 border-t-8 border-t-indigo-500 rounded-full animate-spin"></div>
+              <div className="w-16 h-16 border-8 border-gray-200 border-t-8 border-t-blue-500 rounded-full animate-spin"></div>
               <p className="m-0 text-lg font-medium text-gray-500">
                 Loading templates...
               </p>
@@ -210,7 +211,7 @@ export default function SMSTemplatesSimplePage() {
                 </p>
                 {hasPermission("sms_add") && (
                   <button
-                    className="px-6 py-3 bg-gradient-to-br from-indigo-500 to-purple-700 text-white rounded-lg font-semibold text-sm transition-transform duration-300 hover:scale-[1.02]"
+                    className="px-6 py-3 bg-gradient-to-br from-indigo-200 to-blue-700 text-white rounded-lg font-semibold text-sm transition-transform duration-300 hover:scale-[1.02]"
                     onClick={openForCreate}
                   >
                     Create First Template
@@ -253,12 +254,12 @@ export default function SMSTemplatesSimplePage() {
                   {templates.map((tpl) => {
                     const roles = (tpl.allowed_roles || []).filter(
                       (r) => r !== "SUPERADMIN")
-                    ;
-                    
+                      ;
+
                     return (
                       <tr key={tpl.id} className="odd:bg-white even:bg-gray-50">
                         <td className="px-5 py-4">
-                          <span className="inline-block bg-gradient-to-br from-indigo-500 to-purple-700 text-white px-3 py-1 rounded-full text-xs font-bold">
+                          <span className="inline-block text-blue-600  font-bold">
                             #{tpl.id}
                           </span>
                         </td>
@@ -271,15 +272,15 @@ export default function SMSTemplatesSimplePage() {
                         <td className="px-5 py-4">
                           <code className="bg-gray-100 px-2 py-1 rounded text-[13px] text-gray-700">
                             {tpl.dlt_template_id
-}
+                            }
                           </code>
                         </td>
                         <td className="px-5 py-4">
                           <span
                             className={`inline-block text-xs font-semibold px-3 py-1 rounded ${(tpl.message_type || "").toUpperCase() ===
-                                "TRANSACTIONAL"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-yellow-100 text-yellow-800"
+                              "TRANSACTIONAL"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-yellow-100 text-yellow-800"
                               }`}
                           >
                             {(tpl.message_type || "").toUpperCase()}
@@ -310,17 +311,17 @@ export default function SMSTemplatesSimplePage() {
                             {hasPermission("sms_edit") && (
                               <button
                                 onClick={() => openForEdit(tpl)}
-                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition"
+                                title="Edit"
                               >
-                                Edit
+                                <Pencil className="w-4 h-4 text-blue-500 hover:text-blue-600" />
                               </button>
                             )}
                             {hasPermission("sms_delete") && (
                               <button
                                 onClick={() => handleDelete(tpl.id)}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
                               >
-                                Delete
+                                <Trash2 className="w-4 h-4 text-red-500 hover:text-red-600" />
+
                               </button>
                             )}
                           </div>
@@ -474,7 +475,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
     // How many dropdowns we need:
     const tokenCount = Math.max(0, parts.length - 1);
 
-    
+
     const inferredSelections = [];
     for (let i = 0; i < tokenCount; i++) {
       // Default to first item if no inference
@@ -546,7 +547,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
         </style>
 
         {/* Header */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-700 rounded-t-2xl px-10 py-8 relative">
+        <div className="bg-blue-600 rounded-t-2xl px-10 py-8 relative">
           <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-2 tracking-tight">
             {editing ? "Edit Template" : "Create New Template"}
           </h2>
@@ -774,8 +775,8 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                 type="submit"
                 disabled={saving}
                 className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl text-white transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg ${editing
-                    ? "bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
-                    : "bg-gradient-to-br from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
+                  ? "bg-blue-600 hover:from-purple-600 hover:to-purple-700"
+                  : "bg-blue-600 hover:from-indigo-600 hover:to-purple-600"
                   } ${saving ? "opacity-70 cursor-not-allowed" : ""}`}
               >
                 {editing ? "Update Template" : "Create Template"}

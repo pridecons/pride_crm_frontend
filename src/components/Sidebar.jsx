@@ -156,7 +156,9 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
           { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page", activeMatch: "exact" },
           { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page", activeMatch: "exact" },
           { href: "/client", icon: Users, label: "Client", access: "client_page" },
-          {
+        ],
+      },
+        {
             title: "MANAGEMENT", section: "management", icon: SlidersHorizontal,
             items: [
               { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "prefix" },
@@ -167,8 +169,6 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
               { href: "/lead/manage/analytics", icon: BarChart3, label: "Lead Analytics", access: "lead_analytics_page", activeMatch: "exact" },
             ],
           },
-        ],
-      },
       {
         title: "CONFIGURATION", section: "configuration", icon: Settings,
         items: [

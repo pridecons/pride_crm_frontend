@@ -54,7 +54,7 @@ export default function PaymentModal({
     <div className="fixed inset-0 bg-transparent backdrop-blur-sm bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 px-6">
+        <div className="bg-blue-600 text-white p-2 px-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold">Payment Dashboard</h2>
@@ -589,7 +589,7 @@ const CreatePaymentLink = ({
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {loading ? "⏳ Creating..." : "💰 Generate Payment Link"}
             </button>

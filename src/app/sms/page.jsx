@@ -344,21 +344,37 @@ export default function SMSTemplatesSimplePage() {
             setModalOpen(false);
             setEditingTemplate(null);
           }}
+          // initialForm={
+          //   editingTemplate
+          //     ? {
+          //       title: editingTemplate.title || "",
+          //       template: editingTemplate.template || "",
+          //       dltTemplateId: editingTemplate.dltTemplateId || "",
+          //       messageType: (
+          //         editingTemplate.messageType || "TRANSACTIONAL"
+          //       ).toUpperCase(),
+          //       sourceAddress: (editingTemplate.sourceAddress || []).join(
+          //         ", "
+          //       ),
+          //       allowedRoles: (editingTemplate.allowedRoles || []).filter(
+          //         (r) => r !== "SUPERADMIN"
+          //       ), // names
+          //     }
+          //     : emptyForm
+          // }
           initialForm={
             editingTemplate
               ? {
                 title: editingTemplate.title || "",
                 template: editingTemplate.template || "",
-                dltTemplateId: editingTemplate.dltTemplateId || "",
+                dltTemplateId: editingTemplate.dlt_template_id || "",
                 messageType: (
-                  editingTemplate.messageType || "TRANSACTIONAL"
+                  editingTemplate.message_type || "TRANSACTIONAL"
                 ).toUpperCase(),
-                sourceAddress: (editingTemplate.sourceAddress || []).join(
-                  ", "
-                ),
-                allowedRoles: (editingTemplate.allowedRoles || []).filter(
+                sourceAddress: (editingTemplate.source_address || []).join(", "),
+                allowedRoles: (editingTemplate.allowed_roles || []).filter(
                   (r) => r !== "SUPERADMIN"
-                ), // names
+                ), // ids/names depending on your API
               }
               : emptyForm
           }

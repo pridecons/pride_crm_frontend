@@ -58,7 +58,7 @@ export default function SMSModalWithLogs({
 
   const handleSend = async () => {
     if (!canSend) {
-       ErrorHandling({defaultError: "Template & phone are required"});
+      ErrorHandling({ defaultError: "Template & phone are required" });
       return;
     }
     try {
@@ -77,7 +77,7 @@ export default function SMSModalWithLogs({
       setFilters((prev) => ({ ...prev, phone: payload.phone_number, offset: 0 }));
       await fetchLogs({ ...filters, phone: payload.phone_number, offset: 0 });
     } catch (err) {
-       ErrorHandling({ error: err, defaultError: "Failed to send SMS"});
+      ErrorHandling({ error: err, defaultError: "Failed to send SMS" });
     } finally {
       setSending(false);
     }
@@ -106,7 +106,7 @@ export default function SMSModalWithLogs({
       setLogs(data.logs || []);
       setTotal(data.total || 0);
     } catch (err) {
-       ErrorHandling({ error: err, defaultError: "Failed to load SMS logs"});
+      ErrorHandling({ error: err, defaultError: "Failed to load SMS logs" });
     } finally {
       setLoadingLogs(false);
     }
@@ -143,7 +143,7 @@ export default function SMSModalWithLogs({
       toast.success("Re-sent");
       fetchLogs();
     } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Failed to resend"});
+      ErrorHandling({ error: err, defaultError: "Failed to resend" });
     }
   };
 
@@ -151,21 +151,19 @@ export default function SMSModalWithLogs({
     <div className="flex items-center gap-2">
       <button
         onClick={() => setTab("send")}
-        className={`px-3 py-1 rounded-full text-sm border ${
-          tab === "send"
+        className={`px-3 py-1 rounded-full text-sm border ${tab === "send"
             ? "bg-white text-blue-700 border-white"
             : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
-        }`}
+          }`}
       >
         Send
       </button>
       <button
         onClick={() => setTab("logs")}
-        className={`px-3 py-1 rounded-full text-sm border ${
-          tab === "logs"
+        className={`px-3 py-1 rounded-full text-sm border ${tab === "logs"
             ? "bg-white text-blue-700 border-white"
             : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
-        }`}
+          }`}
       >
         Logs
       </button>
@@ -175,32 +173,32 @@ export default function SMSModalWithLogs({
   const actions =
     tab === "send"
       ? [
-          <button
-            key="close"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Close
-          </button>,
-          <button
-            key="send"
-            onClick={handleSend}
-            disabled={!canSend}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Send size={16} />
-            {sending ? "Sending..." : "Send SMS"}
-          </button>,
-        ]
+        <button
+          key="close"
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
+        >
+          Close
+        </button>,
+        <button
+          key="send"
+          onClick={handleSend}
+          disabled={!canSend}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          <Send size={16} />
+          {sending ? "Sending..." : "Send SMS"}
+        </button>,
+      ]
       : [
-          <button
-            key="close"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Close
-          </button>,
-        ];
+        <button
+          key="close"
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
+        >
+          Close
+        </button>,
+      ];
 
   return (
     <Modal
@@ -212,9 +210,9 @@ export default function SMSModalWithLogs({
     >
       <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
+        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4 sticky top-0 bg-white z-10">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 ">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
                 <MessageSquare size={18} />
               </span>
@@ -310,8 +308,8 @@ export default function SMSModalWithLogs({
           {tab === "logs" && (
             <div className="space-y-4">
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-                <div className="md:col-span-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                {/* <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-1">User ID</label>
                   <input
                     value={filters.user_id}
@@ -319,8 +317,8 @@ export default function SMSModalWithLogs({
                     className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     placeholder="e.g., Admin001"
                   />
-                </div>
-                <div className="md:col-span-1">
+                </div>  */}
+                {/* <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-1">Template ID</label>
                   <input
                     type="number"
@@ -331,8 +329,8 @@ export default function SMSModalWithLogs({
                     className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     placeholder="e.g., 1"
                   />
-                </div>
-                <div className="md:col-span-1">
+                </div> */}
+                {/* <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-1">Phone</label>
                   <input
                     value={filters.phone}
@@ -340,7 +338,7 @@ export default function SMSModalWithLogs({
                     className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     placeholder="e.g., 8225852720"
                   />
-                </div>
+                </div> */}
                 <div className="md:col-span-1">
                   <label className="block text-sm font-medium mb-1">Start Date</label>
                   <input
@@ -387,7 +385,7 @@ export default function SMSModalWithLogs({
                     className="px-3 py-2 bg-gray-200 rounded-xl hover:bg-gray-300"
                     title="Reset"
                   >
-                    <ListFilter size={16} />
+                    Reset
                   </button>
                 </div>
               </div>
@@ -427,17 +425,20 @@ export default function SMSModalWithLogs({
                             <td className="p-2">{row.template_title} (#{row.template_id})</td>
                             <td className="p-2">{row.recipient_phone_number}</td>
                             <td className="p-2">
-                              <pre className="whitespace-pre-wrap break-words">{row.body}</pre>
+                              <pre className="whitespace-pre-wrap break-words">
+                                {row.body?.split(" ").slice(0, 2).join(" ") + (row.body?.split(" ").length > 2 ? "..." : "")}
+                              </pre>
                             </td>
+
                             <td className="p-2">{fmtDateTime(row.sent_at)}</td>
                             <td className="p-2">{row.user_id}</td>
                             <td className="p-2">
                               <button
                                 onClick={() => handleResend(row)}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-indigo-600 rounded-lg "
                                 title="Resend same SMS"
                               >
-                                <RefreshCcw size={14} /> Resend
+                                <RefreshCcw size={16} />
                               </button>
                             </td>
                           </tr>

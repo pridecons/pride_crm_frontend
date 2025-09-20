@@ -1149,25 +1149,25 @@ export default function ClientsPage() {
           </h3>
         </div>
         <div className="space-y-2 text-sm">
-          <div className="flex">
-            <span className="text-gray-500 w-24">Email:</span>
-            <span className="text-gray-700 truncate">{client.email || "—"}</span>
+          <div className="justify-between flex">
+            <span className="text-gray-500 w-20">Email:</span>
+            <span className="text-gray-700 pr-4 truncate">{client.email || "—"}</span>
           </div>
           <div className="flex">
-            <span className="text-gray-500 w-24">Mobile:</span>
+            <span className="text-gray-500 w-20">Mobile:</span>
             <span className="text-gray-700">{client.mobile || "—"}</span>
           </div>
           <div className="flex">
-            <span className="text-gray-500 w-24">City:</span>
+            <span className="text-gray-500 w-20">City:</span>
             <span className="text-gray-700">{client.city || "—"}</span>
           </div>
           <div className="flex">
-            <span className="text-gray-500 w-24">Branch:</span>
+            <span className="text-gray-500 w-20">Branch:</span>
             <span className="text-gray-700">{client.branch_name || "—"}</span>
           </div>
           {/* Assigned To */}
           <div className="flex">
-            <span className="text-gray-500 w-24">Assigned:</span>
+            <span className="text-gray-500 w-28">Assigned:</span>
             <span className="text-gray-700">
               {client?.assigned_employee
                 ? `${client.assigned_employee.name || "—"} (${roleFromId(
@@ -1178,7 +1178,7 @@ export default function ClientsPage() {
           </div>
 
           <div className="flex">
-            <span className="text-gray-500 w-24">KYC:</span>
+            <span className="text-gray-500 w-20">KYC:</span>
             <span
               className={`text-sm font-medium ${client.kyc_status ? "text-green-600" : "text-red-600"
                 }`}

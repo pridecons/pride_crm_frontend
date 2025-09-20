@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { axiosInstance } from "@/api/Axios";
 
 // ---- Helpers ----
-// put near your helpers
+
 function normalizeServiceType(s) {
   const v = String(s || "").trim().toUpperCase();
   return v === "SMS" ? "SMS" : "CALL"; // only allow known values

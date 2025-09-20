@@ -369,63 +369,91 @@ const [ftServiceType, setFTServiceType] = useState("Call");
         };
 
         if (respName === "ft") {
-          return (
-            <div className="flex flex-col gap-1 text-xs text-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>From:</strong> {lead.ft_from_date || "N/A"}{" "}
-                  <strong>To:</strong> {lead.ft_to_date || "N/A"}
-                </div>
-                <button className="text-blue-600 hover:underline text-[11px] ml-3" onClick={editFT}>
-                  Edit
-                </button>
-              </div>
-              <select
-                className="mt-2 w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                value={lead.lead_response_id || ""}
-                onChange={(e) => handleResponseChange(lead, e.target.value)}
-              >
-                <option value="">Select Response</option>
-                {responses.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-              <div className={`italic ${isFTOver(lead.ft_to_date) ? "text-red-600" : "text-green-600"}`}>
-                {isFTOver(lead.ft_to_date) ? "FT Over" : lead.comment || "FT assigned"}
-              </div>
-            </div>
-          );
-        }
+  return (
+    <div className="flex flex-col gap-2 text-xs text-gray-700">
+      {/* top row: dates + Edit aligned */}
+      <div className="inline-flex items-center gap-2 min-w-0">
+        <span className="shrink-0 text-[11px] text-gray-600">From:</span>
+        <span className="truncate font-medium text-gray-900">
+          {lead.ft_from_date || "N/A"}
+        </span>
+
+        <span className="shrink-0 text-[11px] text-gray-600 ml-3">To:</span>
+        <span className="truncate font-medium text-gray-900">
+          {lead.ft_to_date || "N/A"}
+        </span>
+
+        <button
+          onClick={editFT}
+          title="Edit FT"
+          className="ml-auto inline-flex h-7 px-2 items-center rounded border border-blue-300 text-[11px] text-blue-600 hover:bg-blue-50"
+        >
+          Edit
+        </button>
+      </div>
+
+      {/* response dropdown */}
+      <select
+        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+        value={lead.lead_response_id || ""}
+        onChange={(e) => handleResponseChange(lead, e.target.value)}
+      >
+        <option value="">Select Response</option>
+        {responses.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.name}
+          </option>
+        ))}
+      </select>
+
+      {/* status line */}
+      <div className={`italic ${isFTOver(lead.ft_to_date) ? "text-red-600" : "text-green-600"}`}>
+        {isFTOver(lead.ft_to_date) ? "FT Over" : lead.comment || "FT assigned"}
+      </div>
+    </div>
+  );
+}
 
         if (respName === "call back" || respName === "callback") {
-          return (
-            <div className="flex flex-col gap-1 text-xs text-gray-700">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">
-                  <strong>Call Back Date:</strong>{" "}
-                  {lead.call_back_date ? toIST(lead.call_back_date) : "N/A"}
-                </span>
-                <button className="text-blue-600 hover:underline text-[11px]" onClick={editCB}>
-                  Edit
-                </button>
-              </div>
-              <select
-                className="mt-2 w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                value={lead.lead_response_id || ""}
-                onChange={(e) => handleResponseChange(lead, e.target.value)}
-              >
-                <option value="">Select Response</option>
-                {responses.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          );
-        }
+  return (
+    <div className="flex flex-col gap-2 text-xs text-gray-700">
+      {/* top row */}
+      <div className="inline-flex items-center gap-2 min-w-0">
+        <span className="shrink-0 text-[11px] text-gray-600">Date & Time:</span>
+
+        <time
+          className="truncate font-medium text-gray-900"
+          title={lead.call_back_date ? toIST(lead.call_back_date) : "N/A"}
+        >
+          {lead.call_back_date ? toIST(lead.call_back_date) : "N/A"}
+        </time>
+
+        <button
+          onClick={editCB}
+          className="ml-auto inline-flex h-7 px-2 items-center rounded border border-blue-300 text-[11px] text-blue-600 hover:bg-blue-50"
+          title="Edit callback"
+        >
+          Edit
+        </button>
+      </div>
+
+      {/* response dropdown */}
+      <select
+        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+        value={lead.lead_response_id || ""}
+        onChange={(e) => handleResponseChange(lead, e.target.value)}
+      >
+        <option value="">Select Response</option>
+        {responses.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 
         return (
           <select

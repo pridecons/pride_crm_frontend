@@ -277,7 +277,7 @@ export default function NewLeadsTable() {
         header: "Response",
         render: (lead) => (
           <select
-            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-400"
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
             value={lead.lead_response_id || ""}
             onChange={(e) => handleResponseChange(lead, e.target.value)}
           >

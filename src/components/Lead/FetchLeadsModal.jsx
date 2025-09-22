@@ -69,7 +69,7 @@ export default function FetchLeadsModal({ open, onClose, onFetched }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       {/* Make the card a column layout; only BODY scrolls */}
-      <div className="w-full max-w-4xl max-h-[75vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-3xl max-h-[75vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
         {/* Header (sticky) */}
         <div className="sticky top-0 z-20 flex items-center justify-between bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
           <div className="flex items-center gap-3">

@@ -342,7 +342,7 @@ export default function OldLeadsTable() {
               if (e.key === "Enter") e.currentTarget.blur(); // save on Enter
             }}
             onBlur={(e) => handleUpdateName(lead, e.currentTarget.value)} // <-- pass typed value
-            className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
+            className="w-full px-2 py-1 border border-gray-300 rounded  focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
           />
         ) : hasName ? (
           // already has a name -> not clickable, no API
@@ -653,7 +653,7 @@ export default function OldLeadsTable() {
                 setResponseFilterId(newResponseId);
                 setPage(1);
               }}
-              className={INPUT_PILL + " pr-8"}
+              className={INPUT_PILL + " pr-8 focus:outline-none"}
             >
               <option value="">All Responses</option>
               {responses.map((r) => (
@@ -669,7 +669,7 @@ export default function OldLeadsTable() {
 
           {/* Response changed date range (response_changed_at) */}
           <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-gray-500">From</label>
+            <label className="text-xs font-medium text-gray-500 ">From</label>
             <input
               type="date"
               value={fromDate}
@@ -677,7 +677,7 @@ export default function OldLeadsTable() {
                 setFromDate(e.target.value);
                 setApplied(false);
               }}
-              className={INPUT_PILL}
+              className={INPUT_PILL + " focus:outline-none"}
             />
             <label className="text-xs font-medium text-gray-500">To</label>
             <input
@@ -687,7 +687,7 @@ export default function OldLeadsTable() {
                 setToDate(e.target.value);
                 setApplied(false);
               }}
-              className={INPUT_PILL}
+              className={INPUT_PILL + " focus:outline-none"}
             />
           </div>
 

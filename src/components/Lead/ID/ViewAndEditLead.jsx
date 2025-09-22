@@ -169,7 +169,7 @@ function StateAutocomplete({
           onFocus={() => !disabled && setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          className="w-full py-2 px-3 border mt-1 border-gray-300 rounded-lg"
         />
         {busy && <MiniLoader />}
       </div>
@@ -181,20 +181,20 @@ function StateAutocomplete({
         >
           {error ? (
             <div className="px-3 py-2 text-sm text-red-600">{error}</div>
-) : listNow.length ? (
-  listNow.map((item, idx) => (
-    <button
-      key={`${item.state_name}-${item.code ?? "x"}`}
-      type="button"
-      onClick={() => onSelect(item)}
-      onMouseEnter={() => setHoverIdx(idx)}
-      className={`w-full text-left px-3 py-2 text-sm ${idx === hoverIdx ? "bg-indigo-50" : "bg-white"} hover:bg-indigo-50`}
-    >
-      {item.state_name}
-      {/* code hidden */}
-    </button>
-  ))
-) : (
+          ) : listNow.length ? (
+            listNow.map((item, idx) => (
+              <button
+                key={`${item.state_name}-${item.code ?? "x"}`}
+                type="button"
+                onClick={() => onSelect(item)}
+                onMouseEnter={() => setHoverIdx(idx)}
+                className={`w-full text-left px-3 py-2 text-sm ${idx === hoverIdx ? "bg-indigo-50" : "bg-white"} hover:bg-indigo-50`}
+              >
+                {item.state_name}
+                {/* code hidden */}
+              </button>
+            ))
+          ) : (
 
             <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
           )}
@@ -224,30 +224,30 @@ export const ViewAndEditLead = ({
   const [panVerifiedData, setPanVerifiedData] = useState(null);
   const [selectedResponse, setSelectedResponse] = useState(editFormData.lead_response_id || "");
 
-// ---- States (for autocomplete) ----
-const [stateList, setStateList] = useState([]);         // [{state_name, code}, ...]
-const [stateLoading, setStateLoading] = useState(false);
-const [stateError, setStateError] = useState(null);
+  // ---- States (for autocomplete) ----
+  const [stateList, setStateList] = useState([]);         // [{state_name, code}, ...]
+  const [stateLoading, setStateLoading] = useState(false);
+  const [stateError, setStateError] = useState(null);
 
-useEffect(() => {
-  let cancel = false;
-  (async () => {
-    setStateLoading(true);
-    setStateError(null);
-    try {
-      // uses your axiosInstance baseURL (same as other endpoints)
-      const res = await axiosInstance.get("/state/");
-      const items = Array.isArray(res?.data?.states) ? res.data.states : [];
-      if (!cancel) setStateList(items);
-    } catch (err) {
-      if (!cancel) setStateError("Failed to load states");
-      ErrorHandling?.({ error: err });
-    } finally {
-      if (!cancel) setStateLoading(false);
-    }
-  })();
-  return () => { cancel = true; };
-}, []);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      setStateLoading(true);
+      setStateError(null);
+      try {
+        // uses your axiosInstance baseURL (same as other endpoints)
+        const res = await axiosInstance.get("/state/");
+        const items = Array.isArray(res?.data?.states) ? res.data.states : [];
+        if (!cancel) setStateList(items);
+      } catch (err) {
+        if (!cancel) setStateError("Failed to load states");
+        ErrorHandling?.({ error: err });
+      } finally {
+        if (!cancel) setStateLoading(false);
+      }
+    })();
+    return () => { cancel = true; };
+  }, []);
 
   // NEW: track which fields were populated by PAN and should be locked
   const [panLocked, setPanLocked] = useState({
@@ -473,6 +473,7 @@ useEffect(() => {
     { name: "occupation", label: "Occupation", icon: Briefcase, placeholder: "Enter occupation" },
     {
       name: "experience",
+      className: "w-full py-3",
       label: "Experience",
       icon: Briefcase,
       type: "select",
@@ -686,69 +687,69 @@ useEffect(() => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {addressFields.map((f) => {
-  if (f.name === "address") {
-    return (
-      <div key={f.name} className="md:col-span-4">
-        <InputField
-          {...f}
-          value={editFormData.address}
-          isEditMode={!isLocked("address")}
-          onInputChange={handleInputChange}
-        />
-      </div>
-    );
-  }
+            if (f.name === "address") {
+              return (
+                <div key={f.name} className="md:col-span-4">
+                  <InputField
+                    {...f}
+                    value={editFormData.address}
+                    isEditMode={!isLocked("address")}
+                    onInputChange={handleInputChange}
+                  />
+                </div>
+              );
+            }
 
-  if (f.name === "state") {
-    // If locked or view-mode -> keep your normal read-only input
-    if (isLocked("state")) {
-      return (
-        <InputField
-          key="state"
-          {...f}
-          value={editFormData.state}
-          isEditMode={false}
-          onInputChange={handleInputChange}
-        />
-      );
-    }
+            if (f.name === "state") {
+              // If locked or view-mode -> keep your normal read-only input
+              if (isLocked("state")) {
+                return (
+                  <InputField
+                    key="state"
+                    {...f}
+                    value={editFormData.state}
+                    isEditMode={false}
+                    onInputChange={handleInputChange}
+                  />
+                );
+              }
 
-    // Editable -> show autocomplete
-    return (
-      <div key="state">
-        <StateAutocomplete
-  value={editFormData.state || ""}
-  disabled={false}
-  busy={stateLoading}
-  list={stateList}          // <-- pass list
-  error={stateError}        // <-- pass error
-  onPick={(picked) => {
-    if (!picked) {
-      setEditFormData((p) => ({ ...p, state: "", state_code: null }));
-      return;
-    }
-    setEditFormData((p) => ({
-      ...p,
-      state: picked.state_name || "",
-      state_code: picked.code ?? null,
-    }));
-  }}
-/>
-      </div>
-    );
-  }
+              // Editable -> show autocomplete
+              return (
+                <div key="state">
+                  <StateAutocomplete
+                    value={editFormData.state || ""}
+                    disabled={false}
+                    busy={stateLoading}
+                    list={stateList}          // <-- pass list
+                    error={stateError}        // <-- pass error
+                    onPick={(picked) => {
+                      if (!picked) {
+                        setEditFormData((p) => ({ ...p, state: "", state_code: null }));
+                        return;
+                      }
+                      setEditFormData((p) => ({
+                        ...p,
+                        state: picked.state_name || "",
+                        state_code: picked.code ?? null,
+                      }));
+                    }}
+                  />
+                </div>
+              );
+            }
 
-  // default for other address fields
-  return (
-    <InputField
-      key={f.name}
-      {...f}
-      value={editFormData[f.name]}
-      isEditMode={!isLocked(f.name)}
-      onInputChange={handleInputChange}
-    />
-  );
-})}
+            // default for other address fields
+            return (
+              <InputField
+                key={f.name}
+                {...f}
+                value={editFormData[f.name]}
+                isEditMode={!isLocked(f.name)}
+                onInputChange={handleInputChange}
+              />
+            );
+          })}
 
         </div>
       </section>
@@ -793,7 +794,7 @@ useEffect(() => {
                       }
                     />
                   ) : (
-                    <div className="px-3 py-2 bg-gray-50 rounded">
+                    <div className="px-3 py-2 bg-gray-50 rounded border border-gray-200 ">
                       {editFormData.segment?.length
                         ? editFormData.segment.join(", ")
                         : "—"}

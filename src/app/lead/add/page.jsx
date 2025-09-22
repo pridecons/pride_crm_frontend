@@ -484,7 +484,7 @@ const handleEditPan = () => {
           </Field>
 
           <Field label="Lead Response">
-            <select name="lead_response_id" value={formData.lead_response_id} onChange={handleChange} className={baseSelect} required>
+            <select name="lead_response_id focus:outline-none " value={formData.lead_response_id} onChange={handleChange} className={baseSelect} required>
               <option value="">Select Response</option>
               {leadResponses.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>

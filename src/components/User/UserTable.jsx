@@ -165,6 +165,10 @@ export default function UserTable({
 }) {
   const { isSuperAdmin, branchId } = useRoleBranch();
 
+  // Show Branch column only for SUPERADMIN
+const showBranchCol = isSuperAdmin;
+const COLS = showBranchCol ? 10 : 9; // total columns for colSpan
+
   const p = pagination || {};
   const page = Number(p.page || 1);
   const limit = Number(p.limit || users.length || 1);
@@ -215,7 +219,9 @@ const totalPages = Number(p.totalPages || p.pages || Math.max(1, Math.ceil(effec
                 <th className="w-40 px-5 py-4 text-left font-semibold">Role</th>
                 <th className="w-48 px-5 py-4 text-left font-semibold">Reporting</th>
                 <th className="w-48 px-5 py-4 text-left font-semibold">Target</th>
-                <th className="w-40 px-5 py-4 text-left font-semibold">Branch</th>
+               {showBranchCol && (
+  <th className="w-40 px-5 py-4 text-left font-semibold">Branch</th>
+)}
                 <th className="w-44 px-5 py-4 text-left font-semibold">Phone</th>
                 <th className="w-64 px-5 py-4 text-left font-semibold">Email</th>
                 <th className="w-28 px-5 py-4 text-left font-semibold">Status</th>
@@ -225,7 +231,7 @@ const totalPages = Number(p.totalPages || p.pages || Math.max(1, Math.ceil(effec
 
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan="10" className="px-5 py-8 text-center text-gray-500">Loading…</td></tr>
+                <tr><td colSpan={COLS} className="px-5 py-8 text-center text-gray-500">Loading…</td></tr>
               ) : users.length > 0 ? (
                 users.map((u, idx) => {
                   // Prefer profile_role.name → fallback to role → fallback to role_id
@@ -265,7 +271,9 @@ const totalPages = Number(p.totalPages || p.pages || Math.max(1, Math.ceil(effec
                       </td>
                       <td className="px-5 py-4 truncate">{inr(u.target)}</td>
 
-                      <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
+                      {showBranchCol && (
+  <td className="px-5 py-4 truncate">{branchMap[u.branch_id] || "—"}</td>
+)}
 
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2 text-gray-700">
@@ -328,9 +336,7 @@ const totalPages = Number(p.totalPages || p.pages || Math.max(1, Math.ceil(effec
                 })
               ) : (
                 <tr>
-                  <td colSpan="10" className="px-5 py-8 text-center text-gray-500">
-                    No users found.
-                  </td>
+<td colSpan={COLS} className="px-5 py-8 text-center text-gray-500">No users found.</td>
                 </tr>
               )}
             </tbody>

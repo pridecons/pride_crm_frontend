@@ -399,7 +399,7 @@ export default function Dashboard() {
 
   // Build dynamic cols/rows for Employee Performance (unconditional -> stable hook order)
   const empPerfCols = useMemo(
-    () => ['Employee', 'Role', 'Leads', 'Converted', 'FT', 'CALL BACK', 'Revenue'],
+    () => ['Employee', 'Role', 'Leads', 'Clients', 'FT', 'CALL BACK', 'Revenue'],
     []
   );
 
@@ -602,7 +602,7 @@ export default function Dashboard() {
               >
                 <div className="max-h-72 overflow-y-auto pr-1">
                   <SimpleTable
-                    cols={['Employee', 'Role', 'Leads', 'Converted', 'Revenue', 'Target', 'Achieved', 'Conv %']}
+                    cols={['Employee', 'Role', 'Leads', 'Clients', 'Revenue', 'Target', 'Achieved', 'Conv %']}
                     rows={(data?.top?.employees || []).map((e) => [
                       <span className="font-medium text-gray-800" key={`${e.employee_code}-name`}>
                         {e.employee_name} <span className="text-gray-400">({e.employee_code})</span>

@@ -106,12 +106,16 @@ export default function UserFilters({
     [branches]
   );
 
-  // Non-superadmins: lock to own branch
-  useEffect(() => {
-    if (!isSuperAdmin && branchId && selectedBranch !== String(branchId)) {
-      setSelectedBranch(String(branchId));
+// Non-superadmins: hard-lock to own branch (coerce "All"/empty too)
+useEffect(() => {
+  if (!isSuperAdmin && branchId) {
+    const must = String(branchId);
+    if (String(selectedBranch || "") !== must) {
+      setSelectedBranch(must);
     }
-  }, [isSuperAdmin, branchId, selectedBranch, setSelectedBranch]);
+  }
+}, [isSuperAdmin, branchId, selectedBranch, setSelectedBranch]);
+
 
   return (
     <div className="bg-white  shadow-lg p-2 mb-8 border border-gray-100 flex flex-col lg:flex-row justify-between gap-4">
@@ -143,31 +147,21 @@ export default function UserFilters({
           </select>
         )}
 
-        {/* Branch filter: ONLY SUPERADMIN */}
-        {isSuperAdmin && hasPermission("user_all_branches") ? (
-          <select
-            value={selectedBranch}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            className="border rounded-xl px-4 py-3"
-          >
-            <option value="All">All Branches</option>
-            {normalizedBranches.map((b, i) => (
-              <option key={branchKey(b.raw, i)} value={b.id}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          branchId && (
-            <span className="px-3 py-2 text-sm rounded-xl bg-gray-100 border border-gray-200">
-              Branch:{" "}
-              {
-                normalizedBranches.find((b) => String(b.id) === String(branchId))
-                  ?.label || branchId
-              }
-            </span>
-          )
-        )}
+{/* Branch filter: ONLY SUPERADMIN sees the dropdown */}
+{isSuperAdmin && hasPermission("user_all_branches") && (
+  <select
+    value={selectedBranch}
+    onChange={(e) => setSelectedBranch(e.target.value)}
+    className="border rounded-xl px-4 py-3"
+  >
+    <option value="All">All Branches</option>
+    {normalizedBranches.map((b, i) => (
+      <option key={branchKey(b.raw, i)} value={b.id}>
+        {b.label}
+      </option>
+    ))}
+  </select>
+)}
       </div>
     </div>
   );

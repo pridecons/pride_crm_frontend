@@ -83,14 +83,27 @@ export default function FTModal({
   // Add this with your other state hooks
   const [dateError, setDateError] = useState("");
 
-  // Prefill dates
-  useEffect(() => {
-    setLocalFrom(toInputYMD(fromDate || ""));
-  }, [fromDate]);
+  // ⬇️ Local "today" (YYYY-MM-DD) for input[type=date]
+const todayYMD = useMemo(() => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}, []);
 
-  useEffect(() => {
-    setLocalTo(toInputYMD(toDate || ""));
-  }, [toDate]);
+// Prefill dates (clamped to today+)
+useEffect(() => {
+  const v = toInputYMD(fromDate || "");
+  if (!v) return setLocalFrom("");
+  setLocalFrom(parseYMD(v) < parseYMD(todayYMD) ? todayYMD : v);
+}, [fromDate, todayYMD]);
+
+useEffect(() => {
+  const v = toInputYMD(toDate || "");
+  if (!v) return setLocalTo("");
+  setLocalTo(parseYMD(v) < parseYMD(todayYMD) ? todayYMD : v);
+}, [toDate, todayYMD]);
 
   // Fetch segments when modal opens
   useEffect(() => {
@@ -240,37 +253,66 @@ export default function FTModal({
           <div>
             <label className="block text-sm font-medium mb-1">From Date</label>
             <input
-              type="date"
-              value={localFrom}
-              onChange={(e) => {
-                const val = e.target.value;
+  type="date"
+  value={localFrom}
+  onChange={(e) => {
+    let val = e.target.value;
 
+    // block past
+    if (val && parseYMD(val) < parseYMD(todayYMD)) val = todayYMD;
 
-                setLocalFrom(val);
+    // keep 5-day window if "to" is chosen
+    if (localTo) {
+      const maxFrom = addDays(localTo, -4);
+      if (parseYMD(val) > parseYMD(maxFrom)) val = maxFrom;
+    }
 
-                setFromDate?.(val);
-              }}
-              className="w-full border px-3 py-2 rounded"
-              disabled={loading}
-              // Optional: if you want to limit how far back From can go based on To
-              max={localTo ? addDays(localTo, -4) : undefined}
-            />
+    setLocalFrom(val);
+    setFromDate?.(val);
+
+    // also auto-clamp To if it fell behind
+    if (localTo && parseYMD(localTo) < parseYMD(val)) {
+      const newTo = val; // minimum is same day
+      setLocalTo(newTo);
+      setToDate?.(newTo);
+    }
+  }}
+  className="w-full border px-3 py-2 rounded"
+  disabled={loading}
+  min={todayYMD}
+  max={localTo ? addDays(localTo, -4) : undefined}
+/>
           </div>
 
           {/* To Date */}
           <div>
             <label className="block text-sm font-medium mb-1">To Date</label>
             <input
-              type="date"
-              value={localTo}
-              onChange={(e) => {
-                const val = e.target.value;
-                setLocalTo(val);
-                setToDate?.(val);
-              }}
-              className="w-full border px-3 py-2 rounded"
-              disabled={loading}
-            />
+  type="date"
+  value={localTo}
+  onChange={(e) => {
+    let val = e.target.value;
+
+    // min To = max(today, From)
+    const minTo = localFrom && parseYMD(localFrom) > parseYMD(todayYMD)
+      ? localFrom
+      : todayYMD;
+
+    if (val && parseYMD(val) < parseYMD(minTo)) val = minTo;
+
+    if (localFrom) {
+      const maxTo = addDays(localFrom, 4); // inclusive 5 days
+      if (parseYMD(val) > parseYMD(maxTo)) val = maxTo;
+    }
+
+    setLocalTo(val);
+    setToDate?.(val);
+  }}
+  className="w-full border px-3 py-2 rounded"
+  disabled={loading}
+  min={localFrom || todayYMD}
+  max={localFrom ? addDays(localFrom, 4) : undefined}
+/>
             <div className="text-xs mt-1">
               <span className="text-gray-500">Max range: 5 days (inclusive)</span>
               {dateError ? (

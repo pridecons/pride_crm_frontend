@@ -15,6 +15,34 @@ import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /** ---------- helpers ---------- */
 
+function useViewerIsSuperAdmin() {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  useEffect(() => {
+    try {
+      const uiRaw = Cookies.get("user_info");
+      let role = "";
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        role =
+          ui?.role_name || ui?.role ||
+          ui?.user?.role_name || ui?.user?.role ||
+          ui?.profile_role?.name || "";
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const p = jwtDecode(token) || {};
+          role = p?.role_name || p?.role || p?.profile_role?.name || p?.user?.role || "";
+        }
+      }
+      const key = String(role || "").trim().toUpperCase().replace(/\s+/g, "_");
+      setIsSuperAdmin(key === "SUPERADMIN" || key === "SUPER_ADMINISTRATOR");
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
+  return isSuperAdmin;
+}
+
 const CHAT_UNREAD_VIA_HTTP = false; // ⬅️ OFF = never call /chat/threads automatically
 
 function toPrettyRole(r = '') {
@@ -29,47 +57,39 @@ function toPrettyRole(r = '') {
     .join(' ');
 }
 
-/** Safely extract name & role_name from cookie/JWT */
+/** Safely extract name & role from cookie ONLY (no JWT, no prettifying) */
 function getUserFromCookies() {
   try {
     const raw = Cookies.get('user_info');
-    const accessToken = Cookies.get('access_token');
     const parsed = raw ? JSON.parse(raw) : {};
 
-    // Name fallbacks
+    // direct values from cookie payloads we’ve seen in your app
     const name =
-      parsed?.name ||
-      parsed?.user?.name ||
-      parsed?.user_info?.name ||
+      parsed?.name ??
+      parsed?.user?.name ??
+      parsed?.user_info?.name ??
       'User';
 
-    // Role name fallbacks (prefer explicit role_name in cookie)
-    let role_name =
-      parsed?.role_name ||
-      parsed?.user?.role_name ||
-      parsed?.role ||                    // sometimes cookie stores "role" but it's already a label
-      parsed?.user?.role ||
+    // ← show exactly what cookie has (e.g., "BA")
+    const role_label =
+      parsed?.role ??
+      parsed?.role_name ??
+      parsed?.user?.role ??
+      parsed?.user?.role_name ??
+      parsed?.user_info?.role ??
+      parsed?.user_info?.role_name ??
       '';
-
-    // If still missing, peek into token (role/role_name)
-    if (!role_name && accessToken) {
-      const d = jwtDecode(accessToken);
-      role_name = d?.role_name || d?.role || '';
-    }
 
     const employee_code =
-      parsed?.employee_code ||
-      parsed?.user?.employee_code ||
-      parsed?.user_info?.employee_code ||
+      parsed?.employee_code ??
+      parsed?.user?.employee_code ??
+      parsed?.user_info?.employee_code ??
       '';
-
-    const rolePretty = toPrettyRole(role_name);
 
     return {
       ...parsed,
       name,
-      role_name,          // canonical (e.g., SUPERADMIN / BRANCH_MANAGER)
-      role_pretty: rolePretty, // pretty (e.g., Superadmin / Branch Manager)
+      role_label,       // <- use this in UI
       employee_code,
     };
   } catch {
@@ -119,6 +139,8 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const lookupsLoadedRef = useRef(false);
 
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const viewerIsSuperAdmin = useViewerIsSuperAdmin();
 
   // ---- Chat unread bubble ----
   const [chatUnread, setChatUnread] = useState(0);
@@ -375,15 +397,30 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           l?.response_name ??
           l?.lead_response?.name ?? "";
 
-        // ✅ no mixing of ?? and ||; final fallback uses only ??
-        const assigned_name = (
-          l?.assigned_user?.name ??
-          l?.assigned_to_user?.name ??           // sometimes nested
+       // --- NEW: prefer the structured object; keep fallbacks for older shapes
+        const au = l?.assigned_user || null;
+        const assigned_code =
+          au?.employee_code ??
+          l?.assigned_to_user ??
+          l?.assigned_to ??
+          l?.assigned_user_code ??
+          "";
+        const assigned_name =
+          au?.name ??
           l?.assigned_to_user_name ??
           l?.assigned_user_name ??
-          l?.assigned_to_name ??
-          (typeof l?.assigned_to === "string" ? l.assigned_to : undefined)
-        ) ?? (assigned ? (user?.name ?? "You") : "");
+          (typeof l?.assigned_to === "string" ? l.assigned_to : undefined) ??
+          (assigned ? (user?.name ?? "You") : "");
+        const assigned_role =
+          au?.role ??
+          l?.assigned_to_user_role ??
+          l?.assigned_user_role ??
+          "";
+
+        // Am I the assignee?
+        const isMine =
+          (assigned_code && user?.employee_code && assigned_code === user.employee_code) ||
+          (assigned && !!l?.id); // keep old behavior as fallback
 
         return {
           id: l?.id ?? l?.lead_id ?? l?._id,
@@ -397,10 +434,14 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           source_name: l?.source_name ?? l?.lead_source_name ?? "",
           branch_id: l?.branch_id ?? null,
           assigned_to_name: assigned_name,
+          assigned_to_code: assigned_code,
+          assigned_to_role: assigned_role,
+          assigned_user: au || undefined,
           is_masked: !!l?.is_masked,
-          __assigned: !!assigned,
+          __assigned: !!isMine,
           __clickable: !!assigned && !!(l?.id ?? l?.lead_id ?? l?._id),
           created_at: l?.created_at ?? null,
+          response_changed_at: l?.response_changed_at ?? null,
         };
       };
 
@@ -609,6 +650,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                     branchMap={branchMap}
                     sourceMap={sourceMap}
                     onEnterNoPick={handleEnterNoPick}
+                    showBranch={viewerIsSuperAdmin}
                   />
                 )}
               </div>
@@ -666,7 +708,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
-                  <p className="text-xs text-gray-500">{user?.role_pretty || "Role"}</p>
+                  <p className="text-xs text-gray-500">{user?.role_label || "Role"}</p>
                 </div>
               </button>
 
@@ -717,6 +759,7 @@ function SearchOverlay({
   handleSelect, respMap, branchMap, sourceMap,
   onEnterNoPick,
   overlayRef,
+  showBranch,
 }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -851,7 +894,11 @@ function SearchOverlay({
                         lead.source_name ||
                         lead.lead_source_name ||
                         '—';
-                      const aName = lead.assigned_to_name || (lead.__assigned ? 'You' : '—');
+                      const aName =
+                        lead.assigned_to_name ||
+                        (lead.__assigned ? 'You' : '—');
+                      const aCode = lead.assigned_to_code || '';
+                      const aRole = lead.assigned_to_role || '';
                       const title = lead.full_name || lead.name || lead.client_name || 'Unnamed';
                       const phone = lead.phone || lead.mobile || lead.mobile_no || lead.contact_no || '';
                       const email = lead.email || lead.email_id || '';
@@ -882,15 +929,24 @@ function SearchOverlay({
                                 <span className="px-1.5 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                                   {rName}
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
-                                  Branch: {bName}
-                                </span>
+                                {showBranch && (
+  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+    Branch: {bName}
+  </span>
+)}
                                 <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                   Source: {sName}
                                 </span>
                                 <span className="px-1.5 py-0.5 rounded-full border border-violet-200 bg-violet-50 text-violet-700">
                                   Assigned: {aName}
+                                  {aCode ? ` (${aCode})` : ''}
+                                  {aRole ? ` • ${aRole}` : ''}
                                 </span>
+                                {lead.response_changed_at && (
+                                  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                    Resp @ {new Date(lead.response_changed_at).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
                                 {lead.created_at && (
                                   <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                     {new Date(lead.created_at).toLocaleDateString('en-IN', {

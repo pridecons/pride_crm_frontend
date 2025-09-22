@@ -35,7 +35,7 @@ export default function LeadResponsesPage() {
       setResponses(data);
     } catch (err) {
       console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to load responsess"});
+      ErrorHandling({ error: err, defaultError: "Failed to load responsess" });
     }
   };
 
@@ -78,7 +78,7 @@ export default function LeadResponsesPage() {
       await fetchResponses();
     } catch (err) {
       console.error(err);
-      ErrorHandling({ error: err, defaultError: "Save failed!"});
+      ErrorHandling({ error: err, defaultError: "Save failed!" });
 
     } finally {
       setIsSubmitting(false);
@@ -93,7 +93,7 @@ export default function LeadResponsesPage() {
       await fetchResponses();
     } catch (err) {
       console.error(err);
-      ErrorHandling({ error: err, defaultError: "Delete failed!"});
+      ErrorHandling({ error: err, defaultError: "Delete failed!" });
     }
   };
 
@@ -192,8 +192,8 @@ export default function LeadResponsesPage() {
                     ? "Updating..."
                     : "Creating..."
                   : editingId
-                  ? "Update Response"
-                  : "Create Response"}
+                    ? "Update Response"
+                    : "Create Response"}
               </button>
             </div>
           </form>
@@ -216,44 +216,57 @@ export default function LeadResponsesPage() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm leading-tight">
+          {/* set fixed, narrow columns to avoid huge gaps */}
+          <colgroup>
+            <col className="w-20" />        {/* ID */}
+            <col />                         {/* Name (stretches) */}
+            <col className="w-28" />        {/* Actions */}
+          </colgroup>
+
           <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
-                ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
-                Name
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">
-                Actions
-              </th>
+            <tr className="text-xs uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2 text-left">ID</th>
+              <th className="px-3 py-2 text-center">Name</th>
+              <th className="px-3 py-2 text-center">Actions</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-gray-100">
             {filtered.map((resp) => (
-              <tr key={resp.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">#{resp.id}</td>
-                <td className="px-6 py-4">{resp.name}</td>
-                <td className="px-6 py-4 text-center">
-                  <button
-                    onClick={() => handleEditClick(resp)}
-                    className="p-2 hover:bg-blue-50 rounded"
-                  >
-                    <Edit className="w-4 h-4 text-blue-600" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(resp.id)}
-                    className="p-2 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  </button>
+              <tr key={resp.id} className="hover:bg-gray-50 align-middle">
+                <td className="px-3 py-2 text-gray-700 whitespace-nowrap">#{resp.id}</td>
+
+                {/* NAME centered (no left/right gap) */}
+                <td className="px-3 py-2 text-center text-gray-900 whitespace-nowrap">
+                  {resp.name}
+                </td>
+
+                {/* compact actions — no extra padding */}
+                <td className="px-2 py-1">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => handleEditClick(resp)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-indigo-50"
+                      title="Edit"
+                    >
+                      <Edit className="h-4 w-4 text-indigo-600" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(resp.id)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-red-50"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
+
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={3} className="px-3 py-8 text-center text-gray-500">
                   No responses found.
                 </td>
               </tr>

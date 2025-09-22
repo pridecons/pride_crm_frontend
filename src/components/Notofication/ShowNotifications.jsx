@@ -795,7 +795,12 @@ function RationalModal({ open, onClose, wsRational, rationalUnread, onSeenRation
                           {r.__is_ws ? <Badge tone="amber">NEW</Badge> : null}
                         </div>
 
-                        <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[12px] text-gray-600">
+                        {r.rational ? (
+                          <div className="mt-2 text-xs text-gray-700 whitespace-pre-wrap">
+                            {r.rational}
+                          </div>
+                        ) : 
+                                                <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[12px] text-gray-600">
                           <p>
                             <span className="text-gray-500">Entry:</span>{" "}
                             <span className="font-medium">{r.entry_price ?? "—"}</span>
@@ -827,30 +832,7 @@ function RationalModal({ open, onClose, wsRational, rationalUnread, onSeenRation
                             </span>
                           </p>
                         </div>
-
-                        {r.rational ? (
-                          <div className="mt-2 text-xs text-gray-700 whitespace-pre-wrap">
-                            {r.rational}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className="shrink-0 flex flex-col items-end gap-2">
-                        <a
-                          href={r.__is_ws ? undefined : pdfEndpoint}
-                          target={r.__is_ws ? undefined : "_blank"}
-                          rel={r.__is_ws ? undefined : "noopener noreferrer"}
-                          className={
-                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs " +
-                            (!r.__is_ws && r?.pdf
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-gray-100 text-gray-500 cursor-pointer hover:bg-gray-200")
-                          }
-                          title={r?.pdf && !r.__is_ws ? "Open PDF" : "No PDF available"}
-                        >
-                          <ExternalLink size={14} />
-                          PDF
-                        </a>
+                        }
                       </div>
                     </div>
                   </li>

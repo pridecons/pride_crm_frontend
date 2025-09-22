@@ -14,8 +14,8 @@ function RationalModal({
   handleSubmit,
   imageError,
   setImageError,
-  openDropdown,         // (now unused but kept for compatibility)
-  setOpenDropdown,      // (now unused but kept for compatibility)
+  openDropdown, // (now unused but kept for compatibility)
+  setOpenDropdown, // (now unused but kept for compatibility)
 }) {
   if (!isModalOpen) return null;
 
@@ -29,6 +29,9 @@ function RationalModal({
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [planTypeOptions, setPlanTypeOptions] = useState([]);
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+  const [activePlanType, setActivePlanType] = useState("");
 
   // local error bag
   const [errors, setErrors] = useState({});
@@ -50,8 +53,28 @@ function RationalModal({
         if (alive) setTemplatesLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
+
+  useEffect(() => {
+    fetchPlanTypeOptions();
+  }, []);
+
+  const fetchPlanTypeOptions = async () => {
+    try {
+      const res = await axiosInstance.get("/services/plan-types");
+      const types = res.data || [];
+
+      setPlanTypeOptions(types);
+    } catch (error) {
+      ErrorHandling({
+        error: error,
+        defaultError: "Failed to fetch plan types",
+      });
+    }
+  };
 
   // --- Load Recommendation Types --------------------------------------------
   useEffect(() => {
@@ -60,7 +83,9 @@ function RationalModal({
       setRecTypesLoading(true);
       setRecTypesError("");
       try {
-        const res = await axiosInstance.get("/profile-role/recommendation-type");
+        const res = await axiosInstance.get(
+          "/profile-role/recommendation-type"
+        );
         const items = Array.isArray(res?.data) ? res.data : [];
         if (alive) setRecTypes(items);
       } catch (err) {
@@ -70,7 +95,9 @@ function RationalModal({
         if (alive) setRecTypesLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // --- Template selection ----------------------------------------------------
@@ -97,7 +124,8 @@ function RationalModal({
       ?.replace("{stop_loss}", formData.stop_loss ?? "")
       ?.replace(
         "{targets}",
-        `${formData.targets ?? ""}${formData.targets2 ? `-${formData.targets2}` : ""
+        `${formData.targets ?? ""}${
+          formData.targets2 ? `-${formData.targets2}` : ""
         }${formData.targets3 ? `-${formData.targets3}` : ""}`
       );
 
@@ -117,18 +145,23 @@ function RationalModal({
   const isNonEmpty = (v) => String(v ?? "").trim().length > 0;
   const hasImage =
     !!formData.graph &&
-    ((formData.graph instanceof File) ||
+    (formData.graph instanceof File ||
       (typeof formData.graph === "string" && formData.graph.trim() !== ""));
 
   const validate = () => {
     const e = {};
 
-    if (!isNonEmpty(formData.stock_name)) e.stock_name = "Stock Name is required.";
-    if (!isNonEmpty(formData.entry_price)) e.entry_price = "Entry Price is required.";
+    if (!isNonEmpty(formData.stock_name))
+      e.stock_name = "Stock Name is required.";
+    if (!isNonEmpty(formData.entry_price))
+      e.entry_price = "Entry Price is required.";
     if (!isNonEmpty(formData.stop_loss)) e.stop_loss = "Stop Loss is required.";
     if (!isNonEmpty(formData.targets)) e.targets = "Target 1 is required.";
 
-    if (!Array.isArray(formData.recommendation_type) || formData.recommendation_type.length === 0) {
+    if (
+      !Array.isArray(formData.recommendation_type) ||
+      formData.recommendation_type.length === 0
+    ) {
       e.recommendation_type = "Select at least one Recommendation Type.";
     }
 
@@ -194,9 +227,15 @@ function RationalModal({
           {editId ? "Edit Rational" : "Create Rational"}
         </h2>
 
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form
+          onSubmit={onSubmit}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
           {/* Stock fields */}
-          <div className="flex flex-col" data-error={errors.stock_name ? "true" : "false"}>
+          <div
+            className="flex flex-col"
+            data-error={errors.stock_name ? "true" : "false"}
+          >
             <label className="mb-1 text-gray-700 text-sm">
               Stock Name <span className="text-red-500">*</span>
             </label>
@@ -206,15 +245,23 @@ function RationalModal({
               value={formData.stock_name ?? ""}
               onChange={(e) => {
                 handleChange(e);
-                if (errors.stock_name) setErrors((p) => ({ ...p, stock_name: undefined }));
+                if (errors.stock_name)
+                  setErrors((p) => ({ ...p, stock_name: undefined }));
               }}
-              className={`p-3 border rounded ${errors.stock_name ? errorCls : ""}`}
+              className={`p-3 border rounded ${
+                errors.stock_name ? errorCls : ""
+              }`}
               disabled={isEditMode}
             />
-            {errors.stock_name && <div className={helpCls}>{errors.stock_name}</div>}
+            {errors.stock_name && (
+              <div className={helpCls}>{errors.stock_name}</div>
+            )}
           </div>
 
-          <div className="flex flex-col" data-error={errors.entry_price ? "true" : "false"}>
+          <div
+            className="flex flex-col"
+            data-error={errors.entry_price ? "true" : "false"}
+          >
             <label className="mb-1 text-gray-700 text-sm">
               Entry Price <span className="text-red-500">*</span>
             </label>
@@ -224,15 +271,23 @@ function RationalModal({
               value={formData.entry_price ?? ""}
               onChange={(e) => {
                 handleChange(e);
-                if (errors.entry_price) setErrors((p) => ({ ...p, entry_price: undefined }));
+                if (errors.entry_price)
+                  setErrors((p) => ({ ...p, entry_price: undefined }));
               }}
-              className={`p-3 border rounded ${errors.entry_price ? errorCls : ""}`}
+              className={`p-3 border rounded ${
+                errors.entry_price ? errorCls : ""
+              }`}
               disabled={isEditMode}
             />
-            {errors.entry_price && <div className={helpCls}>{errors.entry_price}</div>}
+            {errors.entry_price && (
+              <div className={helpCls}>{errors.entry_price}</div>
+            )}
           </div>
 
-          <div className="flex flex-col" data-error={errors.stop_loss ? "true" : "false"}>
+          <div
+            className="flex flex-col"
+            data-error={errors.stop_loss ? "true" : "false"}
+          >
             <label className="mb-1 text-gray-700 text-sm">
               Stop Loss <span className="text-red-500">*</span>
             </label>
@@ -242,15 +297,23 @@ function RationalModal({
               value={formData.stop_loss ?? ""}
               onChange={(e) => {
                 handleChange(e);
-                if (errors.stop_loss) setErrors((p) => ({ ...p, stop_loss: undefined }));
+                if (errors.stop_loss)
+                  setErrors((p) => ({ ...p, stop_loss: undefined }));
               }}
-              className={`p-3 border rounded ${errors.stop_loss ? errorCls : ""}`}
+              className={`p-3 border rounded ${
+                errors.stop_loss ? errorCls : ""
+              }`}
               disabled={isEditMode}
             />
-            {errors.stop_loss && <div className={helpCls}>{errors.stop_loss}</div>}
+            {errors.stop_loss && (
+              <div className={helpCls}>{errors.stop_loss}</div>
+            )}
           </div>
 
-          <div className="flex flex-col" data-error={errors.targets ? "true" : "false"}>
+          <div
+            className="flex flex-col"
+            data-error={errors.targets ? "true" : "false"}
+          >
             <label className="mb-1 text-gray-700 text-sm">
               Targets 1 <span className="text-red-500">*</span>
             </label>
@@ -260,9 +323,12 @@ function RationalModal({
               value={formData.targets ?? ""}
               onChange={(e) => {
                 handleChange(e);
-                if (errors.targets) setErrors((p) => ({ ...p, targets: undefined }));
+                if (errors.targets)
+                  setErrors((p) => ({ ...p, targets: undefined }));
               }}
-              className={`p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.targets ? errorCls : ""}`}
+              className={`p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.targets ? errorCls : ""
+              }`}
               disabled={isEditMode}
             />
             {errors.targets && <div className={helpCls}>{errors.targets}</div>}
@@ -311,10 +377,15 @@ function RationalModal({
               <div className="text-sm text-gray-500">No types found</div>
             ) : (
               <div
-                className={`grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 border rounded ${errors.recommendation_type ? errorCls : ""} ${isEditMode ? "bg-gray-50 pointer-events-none opacity-80" : ""}`}
+                className={`grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 border rounded ${
+                  errors.recommendation_type ? errorCls : ""
+                } ${
+                  isEditMode ? "bg-gray-50 pointer-events-none opacity-80" : ""
+                }`}
               >
                 {recTypes.map((option) => {
-                  const checked = formData.recommendation_type?.includes(option);
+                  const checked =
+                    formData.recommendation_type?.includes(option);
                   return (
                     <label
                       key={option}
@@ -338,12 +409,70 @@ function RationalModal({
             )}
           </div>
 
+          {/* Plan Type */}
+          <div className="relative md:col-span-1">
+            <label className="block mb-2 font-medium text-gray-700">
+              Plan Type <span className="text-red-500">*</span>
+            </label>
+            <button
+              type="button"
+              className="w-full text-left bg-white border p-4 rounded-xl focus:outline-none flex justify-between items-center"
+              onClick={() => setShowPlanDropdown((v) => !v)}
+            >
+              <span>
+                {formData.planType ? formData.planType : "Select Plan Type"}
+              </span>
+              <svg
+                className={`w-4 h-4 ml-2 transition-transform ${
+                  showPlanDropdown ? "rotate-180" : ""
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            {showPlanDropdown && (
+              <div className="absolute z-20 bg-white border rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
+                {planTypeOptions.map((type) => (
+                  <label
+                    key={type}
+                    className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="planType"
+                      checked={formData.planType === type}
+                      onChange={() =>
+                        setFormData((prev) => ({ ...prev, planType: type }))
+                      }
+                      className="form-radio mr-2 accent-indigo-600"
+                    />
+                    <span>{type}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Send On (SMS/WhatsApp/Email) */}
-          <div className="md:col-span-2">
-            <label className="mb-1 text-gray-700 text-sm font-medium">Send On</label>
-            <div className="flex flex-wrap gap-4 p-3 border rounded">
+          <div className="md:col-span-1">
+            <label className="block mb-2 font-medium text-gray-700">
+              Send On <span className="text-red-500">*</span>
+            </label>
+            <div className="flex flex-wrap gap-4 p-4 border rounded-xl justify-between items-center">
               {["SMS", "whatsapp", "Email"].map((ch) => (
-                <label key={ch} className="flex items-center gap-2 text-sm cursor-pointer">
+                <label
+                  key={ch}
+                  className="flex items-center gap-2 text-sm cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     className="w-4 h-4"
@@ -357,7 +486,10 @@ function RationalModal({
           </div>
 
           {/* SMS Template (required in create) */}
-          <div className="col-span-2" data-error={errors.smsTemplate ? "true" : "false"}>
+          <div
+            className="col-span-2"
+            data-error={errors.smsTemplate ? "true" : "false"}
+          >
             <div className="flex flex-col md:col-span-2 relative">
               <label className="mb-1 text-gray-700 text-sm font-medium">
                 SMS Template <span className="text-red-500">*</span>
@@ -366,11 +498,17 @@ function RationalModal({
               <select
                 onChange={handleSelect}
                 value={selectedTemplateId ?? ""}
-                className={`p-3 border rounded-lg bg-white cursor-pointer border-black transition-all duration-200 ${errors.smsTemplate ? errorCls : ""}`}
+                className={`p-3 border rounded-lg bg-white cursor-pointer border-black transition-all duration-200 ${
+                  errors.smsTemplate ? errorCls : ""
+                }`}
                 disabled={templatesLoading || !!templatesError}
               >
                 <option value="" disabled>
-                  {templatesLoading ? "Loading..." : templatesError ? "Failed to load" : "Select a template"}
+                  {templatesLoading
+                    ? "Loading..."
+                    : templatesError
+                    ? "Failed to load"
+                    : "Select a template"}
                 </option>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
@@ -378,17 +516,24 @@ function RationalModal({
                   </option>
                 ))}
               </select>
-              {errors.smsTemplate && <div className={helpCls}>{errors.smsTemplate}</div>}
+              {errors.smsTemplate && (
+                <div className={helpCls}>{errors.smsTemplate}</div>
+              )}
 
               {formData.message && (
                 <>
-                  <label className="mt-4 mb-1 text-gray-700 text-sm font-medium">SMS Body</label>
+                  <label className="mt-4 mb-1 text-gray-700 text-sm font-medium">
+                    SMS Body
+                  </label>
                   <textarea
                     readOnly
                     className="p-3 border border-gray-300 rounded-lg bg-gray-50 w-full h-32 text-sm text-gray-800"
                     value={formData.message}
                     onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, message: e.target.value || "" }))
+                      setFormData((prev) => ({
+                        ...prev,
+                        message: e.target.value || "",
+                      }))
                     }
                   />
                 </>
@@ -419,7 +564,10 @@ function RationalModal({
           )}
 
           {/* Rational + Image (image required only in create mode) */}
-          <div className="flex flex-col md:col-span-2 relative" data-error={errors.graph ? "true" : "false"}>
+          <div
+            className="flex flex-col md:col-span-2 relative"
+            data-error={errors.graph ? "true" : "false"}
+          >
             <label className="mb-1 text-gray-700 text-sm">Rational</label>
             <textarea
               name="rational"
@@ -474,7 +622,9 @@ function RationalModal({
                     />
                     <button
                       type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, graph: null }))}
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, graph: null }))
+                      }
                       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
                       title="Remove Image"
                     >
@@ -496,18 +646,18 @@ function RationalModal({
           </div>
         </form>
         <style jsx>{`
-  /* Hide arrows in WebKit browsers (Chrome, Edge, Safari, Opera) */
-  .rational-modal input[type="number"]::-webkit-outer-spin-button,
-  .rational-modal input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-  /* Hide arrows in Firefox (and modern browsers) */
-  .rational-modal input[type="number"] {
-    -moz-appearance: textfield;
-    appearance: textfield;
-  }
-`}</style>
+          /* Hide arrows in WebKit browsers (Chrome, Edge, Safari, Opera) */
+          .rational-modal input[type="number"]::-webkit-outer-spin-button,
+          .rational-modal input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+          /* Hide arrows in Firefox (and modern browsers) */
+          .rational-modal input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+          }
+        `}</style>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import StoryModal from "@/components/Lead/StoryModal";
 import CommentModal from "@/components/Lead/CommentModal";
 import CallBackModal from "@/components/Lead/CallBackModal";
 import FTModal from "@/components/Lead/FTModal";
-import { Pencil, BookOpenText, MessageCircle, Download, Info } from "lucide-react";
+import { Pencil, BookOpenText, MessageCircle, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "react-hot-toast";
@@ -13,14 +13,7 @@ import LeadsDataTable from "@/components/Lead/LeadsTable";
 import { formatCallbackForAPI, isoToDatetimeLocal } from "@/utils/dateUtils";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import CallButton from "@/components/Lead/CallButton";
-
-// put near the top of the file
-const Show = (v) =>
-  v == null || String(v).trim() === "" ? (
-    <span className="text-gray-800">—</span>
-  ) : (
-    String(v)
-  );
+import FetchLeadsModal from "@/components/Lead/FetchLeadsModal";
 
 export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
@@ -28,7 +21,7 @@ export default function NewLeadsTable() {
   const [sources, setSources] = useState([]);
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(50);
+  const limit = 50;
 
   const [editId, setEditId] = useState(null);
   const [userId, setUserId] = useState(null);
@@ -59,6 +52,8 @@ export default function NewLeadsTable() {
   });
 
   const [ftServiceType, setFTServiceType] = useState("CALL");
+
+  const [showFetchModal, setShowFetchModal] = useState(false);
 
   const router = useRouter();
 
@@ -117,31 +112,6 @@ export default function NewLeadsTable() {
     if (at === -1) return raw.slice(0, 18) + "…..";
     const local = raw.slice(0, at);
     return `${local}@…..`;
-  };
-
-  // 2) POST /leads/fetch (only when clicking button), then refresh assignments
-  const handleFetchLeads = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.post("/leads/fetch");
-
-      // Friendly messaging
-      if (data.fetched_count === 0 && /active assignments/i.test(data?.message || "")) {
-        ErrorHandling({
-          defaultError:
-            "No leads available at the moment. Complete active assignments before fetching new ones.",
-        });
-      } else {
-        toast.success(`${data.fetched_count ?? 0} new leads fetched`);
-      }
-
-      // 3) Refresh current assignments after fetching
-      await fetchLeads();
-    } catch (error) {
-      ErrorHandling({ error, defaultError: "Failed to fetch new leads!" });
-    } finally {
-      setLoading(false);
-    }
   };
 
   const fetchResponses = async () => {
@@ -392,11 +362,11 @@ export default function NewLeadsTable() {
       {/* Assignment status bar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end mb-4">
         <button
-          onClick={handleFetchLeads}
+          onClick={() => setShowFetchModal(true)}   // ⬅️ open modal instead
           disabled={loading}
           className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg shadow transition
-     ${loading ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}
-   `}
+      ${loading ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}
+    `}
           title={
             assignmentMeta.can_fetch_new
               ? "Fetch new leads"
@@ -464,6 +434,16 @@ export default function NewLeadsTable() {
         serviceTypeOptions={["CALL", "SMS"]}
       />
 
+      <FetchLeadsModal
+        open={showFetchModal}
+        onClose={() => setShowFetchModal(false)}
+        onFetched={async (result) => {
+          // result.message / result.fetched_count / result.leads / result.usage
+          // Re-load assignments so new leads appear in your table
+          await fetchLeads();
+          setShowFetchModal(false);
+        }}
+      />
 
       <CallBackModal
         open={showCallBackModal}

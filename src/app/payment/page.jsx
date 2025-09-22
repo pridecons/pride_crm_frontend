@@ -8,6 +8,9 @@ import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
 
+// --- Pagination helpers (based on endpoint's limit/offset/total) ---
+
+
 const invoiceChipBase =
   "inline-flex items-center gap-1.5 min-w-[92px] h-7 px-3 rounded-full text-xs font-bold tracking-wide select-none whitespace-nowrap";
 
@@ -103,6 +106,30 @@ export default function PaymentHistoryPage() {
 
   // View scope for non-managers
   const [myView, setMyView] = useState("self");
+
+  // Pagination derived values (use state inside component)
+  const page = Math.floor(offset / (limit || 1)) + 1;
+  const pageCount = Math.max(1, Math.ceil((total || 0) / (limit || 1)));
+
+  const goToPage = React.useCallback(
+    (n) => {
+      const target = Math.min(Math.max(1, n), pageCount);
+      setOffset((target - 1) * limit);
+    },
+    [limit, pageCount]
+  );
+
+  const pageRange = React.useCallback(
+    (center, count = 5) => {
+      if (pageCount <= count) return Array.from({ length: pageCount }, (_, i) => i + 1);
+      const half = Math.floor(count / 2);
+      let start = Math.max(1, center - half);
+      let end = Math.min(pageCount, start + count - 1);
+      if (end - start + 1 < count) start = Math.max(1, end - count + 1);
+      return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+    },
+    [pageCount]
+  );
 
   // Debounce global client query
   useEffect(() => {
@@ -717,6 +744,24 @@ export default function PaymentHistoryPage() {
         <div className="text-gray-500 text-center py-10">No records found.</div>
       )}
 
+      {/* Page size */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-gray-600">Payments per page:</span>
+        <select
+          className="px-2 py-1"
+          value={limit}
+          onChange={(e) => {
+            const v = Number(e.target.value) || DEFAULT_LIMIT;
+            setLimit(v);
+            setOffset(0); // jump to first page on size change
+          }}
+        >
+          {[25, 50, 100, 200].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </div>
+
       {!loading && !error && payments.length > 0 && (
         <div className="relative max-h-[70vh] overflow-auto rounded-lg shadow">
           <table className="min-w-full bg-white text-sm">
@@ -728,11 +773,11 @@ export default function PaymentHistoryPage() {
                   "Phone",
                   "Amount",
                   "Status",
-                  "Date",
+                  "Date (MM/DD/YYYY)",
                   "Send Invoice",
                   "Invoice",
                 ].map((h) => (
-                  <th key={h} className={`${thBase} py-2 px-3 font-semibold`}>
+                  <th key={h} className={`${thBase} py-2 px-3 font-semibold text-center`}>
                     {h}
                   </th>
                 ))}
@@ -746,44 +791,42 @@ export default function PaymentHistoryPage() {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => setOpenRowId(openRowId === p.id ? null : p.id)}
                   >
-                    <td className="py-2 px-3">{show(p.name)}</td>
-                    <td className="py-2 px-3">{show(p.email)}</td>
-                    <td className="py-2 px-3">{show(p.phone_number)}</td>
-                    <td className="py-2 px-3 font-semibold">{showINR(p.paid_amount)}</td>
+                    <td className="py-2 px-3 text-center">{show(p.name)}</td>
+                    <td className="py-2 px-3 text-center">{show(p.email)}</td>
+                    <td className="py-2 px-3 text-center">{show(p.phone_number)}</td>
+                    <td className="py-2 px-3 font-semibold text-center">{showINR(p.paid_amount)}</td>
                     <td className="py-2 px-3">
-                      <span
-                        className={`${badgeBase} ${p.status === "PAID"
-                          ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow"
-                          : p.status === "ACTIVE" || p.status === "PENDING"
-                            ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow"
-                            : "bg-gradient-to-br from-gray-400 to-gray-600 text-white"
-                          }`}
-                      >
-                        {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
-                      </span>
+                      <div className="flex justify-center">
+                        <span
+                          className={`${badgeBase} ${p.status === "PAID"
+                            ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow"
+                            : p.status === "ACTIVE" || p.status === "PENDING"
+                              ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow"
+                              : "bg-gradient-to-br from-gray-400 to-gray-600 text-white"
+                            }`}
+                        >
+                          {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
+                        </span>
+                      </div>
                     </td>
-                    <td className="py-2 px-3">{showDateTime(p.created_at)}</td>
+                    <td className="py-2 px-3 text-center">{showDateTime(p.created_at)}</td>
                     <td className="py-2 px-3">
-                      {p.is_send_invoice ? (
-                        <span
-                          className={`${invoiceChipBase}
-        text-green-500`}
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Done
-                        </span>
-                      ) : (
-                        <span
-                          className={`${invoiceChipBase}
-        text-amber-500`}
-                        >
-                          <Clock className="w-4 h-4" />
-                          Pending
-                        </span>
-                      )}
+                      <div className="flex justify-center">
+                        {p.is_send_invoice ? (
+                          <span className={`${invoiceChipBase} text-green-500`}>
+                            <CheckCircle className="w-4 h-4" />
+                            Done
+                          </span>
+                        ) : (
+                          <span className={`${invoiceChipBase} text-amber-500`}>
+                            <Clock className="w-4 h-4" />
+                            Pending
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 px-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         {p.is_send_invoice ? (
                           <button
                             onClick={(e) => {
@@ -889,24 +932,88 @@ export default function PaymentHistoryPage() {
           />
 
           {/* Pagination */}
-          <div className="flex justify-between items-center py-4 px-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-4 px-2">
+            {/* Left: range + page info */}
             <span className="text-gray-600">
-              Showing {total === 0 ? 0 : offset + 1}-{offset + payments.length} of {total}
+              Showing {total === 0 ? 0 : offset + 1}
+              {"-"}
+              {Math.min(offset + payments.length, total)} of {total}
+              {"  "}
+              <span className="text-gray-500">
+                (Page {page} of {pageCount})
+              </span>
             </span>
-            <div className="flex items-center gap-2">
+
+            {/* Right: controls */}
+            <div className="flex items-center gap-1">
+              {/* First */}
               <button
-                onClick={() => setOffset(Math.max(0, offset - limit))}
-                disabled={offset === 0}
+                onClick={() => goToPage(1)}
+                disabled={page <= 1}
+                className="px-2 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+                title="First"
+              >
+                «
+              </button>
+              {/* Prev */}
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={page <= 1}
                 className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
               >
                 Prev
               </button>
+
+              {/* Numbered window */}
+              {page > 3 && pageCount > 5 && (
+                <button
+                  onClick={() => goToPage(1)}
+                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  1
+                </button>
+              )}
+              {page > 4 && pageCount > 6 && <span className="px-2 text-gray-500">…</span>}
+
+              {pageRange(page, 5).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => goToPage(n)}
+                  className={`px-3 py-1 rounded ${n === page
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                >
+                  {n}
+                </button>
+              ))}
+
+              {page < pageCount - 3 && pageCount > 6 && <span className="px-2 text-gray-500">…</span>}
+              {page < pageCount - 2 && pageCount > 5 && (
+                <button
+                  onClick={() => goToPage(pageCount)}
+                  className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  {pageCount}
+                </button>
+              )}
+
+              {/* Next */}
               <button
-                onClick={() => setOffset(offset + limit)}
-                disabled={offset + limit >= total}
+                onClick={() => goToPage(page + 1)}
+                disabled={page >= pageCount}
                 className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
               >
                 Next
+              </button>
+              {/* Last */}
+              <button
+                onClick={() => goToPage(pageCount)}
+                disabled={page >= pageCount}
+                className="px-2 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+                title="Last"
+              >
+                »
               </button>
             </div>
           </div>

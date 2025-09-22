@@ -9,6 +9,7 @@ import { axiosInstance } from "@/api/Axios";
 import {
   ArrowDownToLine,
   Database,
+  Upload,
   FolderOpen,
   Link as LinkIcon,
   Settings2,
@@ -428,15 +429,14 @@ export default function BulkUploadPage() {
                 Configuration
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 ${isSuperAdmin ? "md:grid-cols-2" : "md:grid-cols-1"} gap-4`}>
                 {/* Branch (dropdown only for SUPERADMIN) */}
-                <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Building2 className="w-4 h-4" />
-                    Select Branch
-                  </label>
-
-                  {isSuperAdmin ? (
+                {isSuperAdmin ? (
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <Building2 className="w-4 h-4" />
+                      Select Branch
+                    </label>
                     <select
                       name="branch_id"
                       required
@@ -444,27 +444,19 @@ export default function BulkUploadPage() {
                       value={selectedBranchId || ""}
                       onChange={(e) => setSelectedBranchId(e.target.value)}
                     >
-                      <option value="" disabled>
-                        Choose a branch…
-                      </option>
+                      <option value="" disabled>Choose a branch…</option>
                       {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
+                        <option key={b.id} value={b.id}>{b.name}</option>
                       ))}
                     </select>
-                  ) : (
-                    <>
-                      <input type="hidden" name="branch_id" value={branchId ?? ""} />
-                      <div className="px-3 py-2 rounded-lg border bg-gray-50 text-gray-700">
-                        {myBranch?.name || "Your Branch"}
-                      </div>
-                    </>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  // hidden but still submitted; selectedBranchId is already set to user's branch in effects
+                  <input type="hidden" name="branch_id" value={branchId ?? ""} />
+                )}
 
                 {/* Lead source dropdown */}
-                <div className="space-y-1">
+                <div className="space-y-1 w-fit">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                     <Tag className="w-4 h-4" />
                     Select Lead Source
@@ -521,7 +513,7 @@ export default function BulkUploadPage() {
                 </>
               ) : (
                 <>
-                  <ArrowDownToLine className="w-5 h-5" />
+                  <Upload className="w-5 h-5" />
                   {mode === "file" ? "Upload CSV" : "Upload Pasted Mobiles"}
                 </>
               )}

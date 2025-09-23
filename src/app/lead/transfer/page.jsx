@@ -35,6 +35,13 @@ export default function SourceToolsPage() {
   const [clearResponse, setClearResponse] = useState(true);
   const [clearDates, setClearDates] = useState(true);
 
+  // NEW: extra clear options (transfer)
+  const [clearSmsLogs, setClearSmsLogs] = useState(false);
+  const [clearEmailLogs, setClearEmailLogs] = useState(false);
+  const [clearComments, setClearComments] = useState(false);
+  const [clearStories, setClearStories] = useState(false);
+  const [clearRecordings, setClearRecordings] = useState(false);
+
   // ===== Delete leads (in source) =====
   const [delScope, setDelScope] = useState("all");
   const [delMode, setDelMode] = useState("soft"); // soft | hard
@@ -46,11 +53,6 @@ export default function SourceToolsPage() {
   const [srcDeleteMode, setSrcDeleteMode] = useState("soft"); // soft | hard
   const [onLeads, setOnLeads] = useState("nullify"); // nullify | delete_soft | delete_hard
   const [archivePrefix, setArchivePrefix] = useState("[ARCHIVED]");
-
-  // ===== View grouped =====
-  const [filterSourceIds, setFilterSourceIds] = useState([]); // multiselect
-  const [includeDeleted, setIncludeDeleted] = useState(false);
-  const [limitPerBucket, setLimitPerBucket] = useState("");
 
   // Result / errors
   const [loading, setLoading] = useState(false);
@@ -90,6 +92,13 @@ export default function SourceToolsPage() {
       clear_assigned: clearAssigned,
       clear_response: clearResponse,
       clear_response_dates: clearDates,
+
+      // NEW: extra clear flags
+      clear_sms_logs: clearSmsLogs,
+      clear_email_logs: clearEmailLogs,
+      clear_comments: clearComments,
+      clear_stories: clearStories,
+      clear_recordings: clearRecordings,
     };
     if (scope === "by_response") p.response_ids = responseIds;
     if (scope === "lead_ids") {
@@ -108,6 +117,11 @@ export default function SourceToolsPage() {
     responseIds,
     leadIdsText,
     selectedLeadIds,
+    clearSmsLogs,
+    clearEmailLogs,
+    clearComments,
+    clearStories,
+    clearRecordings,
   ]);
 
   const deleteLeadsPayload = useMemo(() => {
@@ -179,27 +193,6 @@ export default function SourceToolsPage() {
       setResult(data);
     } catch (err) {
       setError(err?.response?.data?.detail || err.message || "Failed to delete/archive source.");
-    } finally {
-           setLoading(false);
-    }
-  }
-
-  async function doFetchGrouped(e) {
-    e?.preventDefault?.();
-    setError(""); setResult(null);
-
-    const params = new URLSearchParams();
-    filterSourceIds.forEach((id) => params.append("source_ids", id));
-    if (includeDeleted) params.set("include_deleted", "true");
-    if (limitPerBucket) params.set("limit_per_bucket", String(Number(limitPerBucket)));
-
-    setLoading(true);
-    try {
-      const url = `/source-tools/by-source${params.toString() ? `?${params.toString()}` : ""}`;
-      const { data } = await axiosInstance.get(url);
-      setResult(data);
-    } catch (err) {
-      setError(err?.response?.data?.detail || err.message || "Failed to fetch grouped data.");
     } finally {
       setLoading(false);
     }
@@ -273,29 +266,6 @@ export default function SourceToolsPage() {
     </div>
   );
 
-  const SourceMulti = ({ values, onChange }) => (
-    <div className="rounded-lg border p-2">
-      <div className="flex flex-wrap gap-2">
-        {sources.map((s) => {
-          const checked = values.includes(s.id);
-          return (
-            <label key={s.id} className="flex items-center gap-2 rounded border px-2 py-1">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => {
-                  if (e.target.checked) onChange([...values, s.id]);
-                  else onChange(values.filter((x) => x !== s.id));
-                }}
-              />
-              <span className="text-sm">{s.name} (#{s.id})</span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   // --------- Lead Multi (loads from source) ----------
   function LeadMulti({ sourceId, values, onChange, hint }) {
     const [items, setItems] = useState([]); // [{id, full_name, mobile, email}]
@@ -308,7 +278,6 @@ export default function SourceToolsPage() {
         if (!sourceId) { setItems([]); return; }
         setLoading(true);
         try {
-          // You can add params like ?q=...&limit=... if your backend supports it
           const { data } = await axiosInstance.get(`/source-tools/leads`, {
             params: { source_id: Number(sourceId), q }
           });
@@ -324,7 +293,6 @@ export default function SourceToolsPage() {
     }, [sourceId, q]);
 
     const allIds = useMemo(() => items.map((x) => x.id), [items]);
-    const allSelected = values.length > 0 && allIds.length > 0 && allIds.every(id => values.includes(id));
 
     return (
       <div className="rounded-lg border p-3">
@@ -402,7 +370,7 @@ export default function SourceToolsPage() {
       <header className="border-b bg-white">
         <div className="mx-auto max-w-6xl px-4 py-4">
           <h1 className="text-xl font-semibold">Lead Source Tools</h1>
-          <p className="text-sm text-gray-500">Operate on leads by source: transfer, delete, archive & grouped view</p>
+          <p className="text-sm text-gray-500">Operate on leads by source: transfer, delete & archive</p>
         </div>
       </header>
 
@@ -424,17 +392,14 @@ export default function SourceToolsPage() {
 
         {/* Cards */}
         <div className="rounded-xl bg-white p-6 shadow">
-          {/* Common: From Source where relevant */}
-          {activeTab !== "viewGrouped" && (
-            <Field label="Source (from)">
-              <SourceSelect value={sourceId} onChange={(v) => {
-                setSourceId(v);
-                // reset lead selections when source changes
-                setSelectedLeadIds([]);
-                setDelSelectedLeadIds([]);
-              }} placeholder="Select source to operate on" />
-            </Field>
-          )}
+          {/* Common: From Source */}
+          <Field label="Source (from)">
+            <SourceSelect value={sourceId} onChange={(v) => {
+              setSourceId(v);
+              setSelectedLeadIds([]);
+              setDelSelectedLeadIds([]);
+            }} placeholder="Select source to operate on" />
+          </Field>
 
           {/* === Tab: Transfer === */}
           {activeTab === "transfer" && (
@@ -445,7 +410,9 @@ export default function SourceToolsPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Scope</label>
-                <ScopePicker value={scope} onChange={setScope} />
+                <div className="mb-4">
+                  <ScopePicker value={scope} onChange={setScope} />
+                </div>
 
                 {scope === "by_response" && (
                   <Field label="Responses">
@@ -493,6 +460,36 @@ export default function SourceToolsPage() {
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
                   By default all three are cleared and <code>is_old_lead</code> is set to false on transfer.
+                </p>
+              </div>
+
+              {/* NEW: extra clear options */}
+              <div className="border-t pt-4 mt-4">
+                <label className="block text-sm font-medium mb-2">Also clear related data (optional)</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={clearSmsLogs} onChange={(e) => setClearSmsLogs(e.target.checked)} />
+                    <span className="text-sm">SMS logs</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={clearEmailLogs} onChange={(e) => setClearEmailLogs(e.target.checked)} />
+                    <span className="text-sm">Email logs</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={clearComments} onChange={(e) => setClearComments(e.target.checked)} />
+                    <span className="text-sm">Comments</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={clearStories} onChange={(e) => setClearStories(e.target.checked)} />
+                    <span className="text-sm">Stories</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={clearRecordings} onChange={(e) => setClearRecordings(e.target.checked)} />
+                    <span className="text-sm">Recordings</span>
+                  </label>
+                </div>
+                <p className="mt-1 text-xs text-amber-600">
+                  Use carefully: these deletions are permanent if your backend performs a hard delete.
                 </p>
               </div>
 

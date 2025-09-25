@@ -530,7 +530,7 @@ export const ViewAndEditLead = ({
                 name="lead_type"
                 value={leadType}
                 onChange={handleInputChange}
-                className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
+                className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
               >
                 <option value="INDIVIDUAL PAN">Individual PAN</option>
                 <option value="COMPANY PAN">Company PAN</option>
@@ -572,7 +572,7 @@ export const ViewAndEditLead = ({
                 name="lead_response_id"
                 value={String(editFormData.lead_response_id ?? "")}
                 onChange={(e) => handleResponseSelect(e.target.value)}
-                className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               >
                 <option value="">Select Response</option>
                 {leadResponses.map((resp) => (

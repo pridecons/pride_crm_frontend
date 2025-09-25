@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
 import { toast } from "react-hot-toast";
 import { axiosInstance } from "@/api/Axios";
-import { Loader2, Mail, List } from "lucide-react";
+import { Loader2, Mail, List, X } from "lucide-react";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const extractPlaceholders = (body = "") => {
@@ -142,8 +142,8 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
     <div className="flex items-center gap-2">
       <button
         className={`px-3 py-1 rounded-full text-sm border ${tab === "send"
-            ? "bg-white text-blue-700 border-white"
-            : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
+          ? "bg-white text-blue-700 border-white"
+          : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
           }`}
         onClick={() => setTab("send")}
         type="button"
@@ -152,8 +152,8 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
       </button>
       <button
         className={`px-3 py-1 rounded-full text-sm border ${tab === "logs"
-            ? "bg-white text-blue-700 border-white"
-            : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
+          ? "bg-white text-blue-700 border-white"
+          : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
           }`}
         onClick={() => setTab("logs")}
         type="button"
@@ -190,7 +190,7 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
         ),
       ].filter(Boolean)}
     >
-      <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="border border-none shadow-sm overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
           <div className="flex items-center justify-between gap-3">
@@ -205,7 +205,15 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
                 </p>
               </div>
             </div>
-            {TitleTabs}
+            <div className="flex items-center gap-3">
+              {TitleTabs}
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
         </div>
 

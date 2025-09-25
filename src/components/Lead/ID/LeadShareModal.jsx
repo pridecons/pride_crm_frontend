@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import { UserPlus, Info, Send, Loader2, User, Mail, Phone } from "lucide-react";
+import { UserPlus, Info, Send, Loader2, User, Mail, Phone, X } from "lucide-react";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
@@ -35,17 +35,14 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
       .finally(() => setUsersLoading(false));
   }, [isOpen]);
 
-  // Normalize to EMP code for API
   const cleanedCode = useMemo(() => {
     const raw = String(targetUserId || "").trim().toUpperCase();
     if (!raw) return "";
-    if (/^EMP\d+$/.test(raw) || /^ADMIN\d+/.test(raw)) return raw; // allow ADMIN001 too
-    // If they typed only digits, pad to 3 and prefix EMP
+    if (/^EMP\d+$/.test(raw) || /^ADMIN\d+/.test(raw)) return raw; 
     if (/^\d+$/.test(raw)) return `EMP${raw.padStart(3, "0")}`;
     return raw;
   }, [targetUserId]);
 
-  // Build suggestions based on input
   const suggestions = useMemo(() => {
     const q = String(targetUserId || "").trim().toLowerCase();
     if (!q) return [];
@@ -121,7 +118,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, listOpen, canTransfer, cleanedCode]);
 
   return (
@@ -150,15 +146,24 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
         </button>,
       ]}
     >
-      <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+           <div className="flex items-center gap-3 flex-grow">
+             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
               <UserPlus size={18} />
             </span>
             <div>
               <h3 className="text-base font-semibold leading-5">Transfer Lead</h3>
               <p className="text-xs/5 text-white/80">Assign this lead to another employee.</p>
+            </div></div>
+            <div>
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
             </div>
           </div>
         </div>
@@ -206,9 +211,8 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => selectUser(u)}
-                      className={`w-full text-left px-3 py-2 text-sm flex flex-col gap-0.5 ${
-                        idx === highlight ? "bg-blue-50" : "bg-white"
-                      } hover:bg-blue-50`}
+                      className={`w-full text-left px-3 py-2 text-sm flex flex-col gap-0.5 ${idx === highlight ? "bg-blue-50" : "bg-white"
+                        } hover:bg-blue-50`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-gray-900">
@@ -263,6 +267,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
           </div>
         </div>
       </div>
-    </Modal>
+    </Modal >
   );
 }

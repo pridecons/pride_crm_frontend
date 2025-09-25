@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import { AudioLines, RefreshCcw, Trash2, Upload, ExternalLink } from "lucide-react";
+import { AudioLines, RefreshCcw, Trash2, Upload, ExternalLink, X } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
@@ -50,7 +50,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
         // treat as empty; no toast spam
         setList([]);
       } else {
-         ErrorHandling({defaultError: "Failed to load recordings" });
+        ErrorHandling({ defaultError: "Failed to load recordings" });
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -77,7 +77,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 3 * 1024 * 1024) {
-       ErrorHandling({defaultError: "File must be under 3MB"});
+      ErrorHandling({ defaultError: "File must be under 3MB" });
       e.target.value = "";
       return;
     }
@@ -94,7 +94,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       e.target.value = "";
       await fetchRecordings();
     } catch (err) {
-       ErrorHandling({ error: err, defaultError: "Upload failed"});
+      ErrorHandling({ error: err, defaultError: "Upload failed" });
     } finally {
       setUploading(false);
     }
@@ -109,7 +109,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       toast.success("Recording deleted");
       setList((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
-       ErrorHandling({ error: err, defaultError: "Delete failed"});
+      ErrorHandling({ error: err, defaultError: "Delete failed" });
     } finally {
       setDeletingId(null);
     }
@@ -122,10 +122,10 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       title=""
       contentClassName="w-[56rem] max-w-3xl"
       actions={[
-      
+
       ]}
     >
-      <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="shadow-sm overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -137,15 +137,24 @@ export default function RecordingsModal({ open, onClose, leadId }) {
                 <p className="text-xs/5 text-white/80">Play, upload and delete recordings</p>
               </div>
             </div>
-            <button
-              onClick={fetchRecordings}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/30 bg-white/10 text-white hover:bg-white/20"
-              title="Refresh"
-            >
-              <RefreshCcw size={16} />
-              Refresh
-            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchRecordings}
+                disabled={loading}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                title="Refresh"
+              >
+                <RefreshCcw size={16} />
+                Refresh
+              </button>
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
         </div>
 

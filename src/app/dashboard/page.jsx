@@ -119,7 +119,7 @@ export default function Dashboard() {
   /* ----------------------------- Filters (from FIRST) ----------------------------- */
   // DRAFT: edited in UI (panel + inline)
   const defaultDraft = {
-    days: 30,
+    days: 1,
     fromDate: '',
     toDate: '',
     view: 'all',
@@ -155,7 +155,7 @@ export default function Dashboard() {
   // role-aware baseline for "no filters"
   const baseDefaults = useMemo(
     () => ({
-      days: 30,
+      days: 1,
       fromDate: '',
       toDate: '',
       view: isEmployee ? 'self' : 'all',
@@ -450,28 +450,46 @@ export default function Dashboard() {
         <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             {appliedFilters.fromDate && (
-              <span className="hidden md:inline-flex px-2 py-1 text-xs rounded-full bg-white/80 border border-gray-200 text-gray-700">
+              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
+                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
                 From: {appliedFilters.fromDate}
               </span>
             )}
             {appliedFilters.toDate && (
-              <span className="hidden md:inline-flex px-2 py-1 text-xs rounded-full bg-white/80 border border-gray-200 text-gray-700">
+              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
+                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
+
                 To: {appliedFilters.toDate}
               </span>
             )}
             {!!appliedFilters.employeeCode && (
-              <span className="hidden md:inline-flex px-2 py-1 text-xs rounded-full bg-white/80 border border-gray-200 text-gray-700">
+              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
+                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
+
                 Emp: {appliedFilters.employeeCode}
               </span>
             )}
+            {/* Days chip */}
+            {appliedFilters.days && (
+              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
+                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
+
+                {
+                  DAY_OPTIONS.find(opt => opt.value === appliedFilters.days)?.label
+                  || `${appliedFilters.days} days`
+                }
+              </span>
+            )}
+
             {showReset && (
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 shadow-sm hover:bg-gray-50"
+                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
+                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200"
                 title="Reset filters"
               >
-                <span className="text-sm font-medium">Reset</span>
+                <span className="font-medium">Reset</span>
               </button>
             )}
 
@@ -784,7 +802,7 @@ export default function Dashboard() {
           {/* Panel */}
           <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-white shadow-xl flex flex-col">
             {/* Header */}
-            <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="px-4 py-2.5 border-b flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="h-5 w-5 text-blue-600" />
                 <h3 className="text-base font-semibold text-gray-900">Filters</h3>
@@ -867,7 +885,7 @@ export default function Dashboard() {
                       </select>
                     </Field>
 
-                    <Field label={<LabelWithIcon icon={<Building2 className="h-4 w-4" />} text="Department" />}>
+                    {/* <Field label={<LabelWithIcon icon={<Building2 className="h-4 w-4" />} text="Department" />}>
                       <select
                         className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
                         value={draftFilters.departmentId}
@@ -880,7 +898,7 @@ export default function Dashboard() {
                           </option>
                         ))}
                       </select>
-                    </Field>
+                    </Field> */}
                   </>
                 )}
 
@@ -959,6 +977,7 @@ export default function Dashboard() {
 
             {/* Footer actions */}
             <div className="p-4 border-t flex items-center justify-between gap-2">
+
               <button
                 onClick={() => setDraftFilters(baseDefaults)}
                 className="px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
@@ -1031,7 +1050,7 @@ const colorThemes = {
 const deltaPill = (v) =>
   typeof v === 'number' ? `${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%` : null;
 
-function Card({ title, value, sub = 'Since last month', icon, color = 'blue', delta, className = '' }) {
+function Card({ title, value, sub = '', icon, color = 'blue', delta, className = '' }) {
   const theme = colorThemes[color] || colorThemes.blue;
 
   return (

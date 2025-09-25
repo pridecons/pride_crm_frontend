@@ -126,7 +126,7 @@ export default function FetchLeadsModal({ open, onClose, onFetched }) {
                       <p className="text-gray-500">Loading sources...</p>
                     </td>
                   </tr>
-                ) : sources.length === 0 ? (
+                ) : sources.filter(s => (s.fresh_leads_available ?? 0) > 0).length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
                       <Database className="mx-auto mb-3 text-gray-300" size={32} />
@@ -134,7 +134,9 @@ export default function FetchLeadsModal({ open, onClose, onFetched }) {
                     </td>
                   </tr>
                 ) : (
-                  sources.map((s) => {
+                  sources
+                  .filter(s => (s.fresh_leads_available ?? 0) > 0)
+                  .map((s) => {
                     const ok = s.can_fetch_now && (s.leads_remaining_today ?? 0) > 0;
                     const isSelected = selectedId === s.source_id;
                     return (
@@ -185,7 +187,7 @@ export default function FetchLeadsModal({ open, onClose, onFetched }) {
             </table>
           </div>
 
-          {selectedSource && (
+          {selectedSource && (selectedSource.fresh_leads_available ?? 0) > 0 && (
             <div className="mt-5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4">
               <div className="flex items-center justify-between">
                 <div>

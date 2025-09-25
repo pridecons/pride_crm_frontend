@@ -198,7 +198,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
       setSourceOptions(Array.isArray(sources) ? sources : []);
       setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
     } catch (e) {
-      console.error('Failed loading lookups', e);
+      ErrorHandling({ error: e, defaultError: "Failed loading lookups." });
     }
   }, []);
 
@@ -346,16 +346,9 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     return () => clearTimeout(id);
   }, [query, onSearch]);
 
-  function getResponseName(lead, respMapLocal = null) {
-    const map = respMapLocal ?? respMap;
-    return (
-      lead?.lead_response_name ||
-      lead?.lead_response?.name ||
-      (lead?.lead_response_id != null ? map?.[lead.lead_response_id] : "") ||
-      "No Response"
-    );
+  function getResponseName(lead) {
+    return lead?.lead_response_name || "No Response";
   }
-
   const fetchSuggestions = useCallback(async (q) => {
     const term = (q || "").trim();
     // clear on short term
@@ -385,103 +378,78 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           : (Array.isArray(data) ? data : (data?.items || data?.results || []));
       const activateRaw = Array.isArray(data?.activate_leads) ? data.activate_leads : [];
 
-      // keep this inside fetchSuggestions so it can close over `user`
-      const normalize = (l, assigned = false) => {
-        const response_id =
-          l?.lead_response_id ??
-          l?.response_id ??
-          l?.lead_response?.id ?? null;
-
-        const response_name =
-          l?.lead_response_name ??
-          l?.response_name ??
-          l?.lead_response?.name ?? "";
-
-       // --- NEW: prefer the structured object; keep fallbacks for older shapes
+      const normalize = (l) => {
         const au = l?.assigned_user || null;
-        const assigned_code =
-          au?.employee_code ??
-          l?.assigned_to_user ??
-          l?.assigned_to ??
-          l?.assigned_user_code ??
-          "";
-        const assigned_name =
-          au?.name ??
-          l?.assigned_to_user_name ??
-          l?.assigned_user_name ??
-          (typeof l?.assigned_to === "string" ? l.assigned_to : undefined) ??
-          (assigned ? (user?.name ?? "You") : "");
-        const assigned_role =
-          au?.role ??
-          l?.assigned_to_user_role ??
-          l?.assigned_user_role ??
-          "";
-
-        // Am I the assignee?
         const isMine =
-          (assigned_code && user?.employee_code && assigned_code === user.employee_code) ||
-          (assigned && !!l?.id); // keep old behavior as fallback
+          !!au?.employee_code &&
+          !!user?.employee_code &&
+          au.employee_code === user.employee_code;
+
+        const masked =
+          !!l?.is_masked ||
+          /\*/.test(String(l?.mobile || "")) ||
+          /\*/.test(String(l?.email || ""));
 
         return {
-          id: l?.id ?? l?.lead_id ?? l?._id,
-          full_name:
-            l?.full_name ?? l?.name ?? [l?.first_name, l?.last_name].filter(Boolean).join(" "),
-          mobile: l?.mobile ?? l?.phone ?? l?.contact_no ?? "",
-          email: l?.email ?? l?.mail ?? "",
-          lead_response_id: response_id,
-          lead_response_name: response_name,
-          source_id: l?.source_id ?? l?.lead_source_id ?? null,
-          source_name: l?.source_name ?? l?.lead_source_name ?? "",
+          // ids & basics
+          id: l?.id ?? null,
+          full_name: l?.full_name ?? null,
+          mobile: l?.mobile ?? "",
+          email: l?.email ?? "",
+
+          // response / source / branch (use only what API sends)
+          lead_response_id: l?.lead_response_id ?? null,
+          lead_response_name: l?.lead_response_name ?? "",
+          source_id: l?.lead_source_id ?? null,
           branch_id: l?.branch_id ?? null,
-          assigned_to_name: assigned_name,
-          assigned_to_code: assigned_code,
-          assigned_to_role: assigned_role,
-          assigned_user: au || undefined,
+
+          // assignment (use assigned_user object verbatim)
+          assigned_user: au,
+          assigned_to_code: au?.employee_code ?? "",
+          assigned_to_name: au?.name ?? "",
+          assigned_to_role: au?.role ?? "",
+
+          // flags & timestamps (as-is)
           is_masked: !!l?.is_masked,
-          __assigned: !!isMine,
-          __clickable: !!assigned && !!(l?.id ?? l?.lead_id ?? l?._id),
           created_at: l?.created_at ?? null,
           response_changed_at: l?.response_changed_at ?? null,
+
+          __masked: masked,
+          __assigned: isMine,
+
+
+          // navigation: only allow click if it's assigned to me
+          __clickable: !masked && !!l?.id,
         };
       };
 
-      const normalizeActivate = (l) =>
-        normalize(
-          {
-            ...l,
-            id:
-              l?.id ??
-              l?.lead_id ??
-              l?._id ??
-              `act:${l?.mobile || l?.email || Math.random().toString(36).slice(2)}`,
-          },
-    /* assigned */ false
-        );
+      const normalizeActivate = (l) => {
+        // ensure an id exists for UI keys; keep API values intact
+        const safeId = l?.id ?? `act:${l?.mobile || l?.email || crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+        return normalize({ ...l, id: safeId });
+      };
 
-      const assigned = (assignedRaw || []).map((x) => normalize(x, true)).filter(x => x?.id != null);
-      const others = (activateRaw || []).map(normalizeActivate);
+      // Build lists strictly from API arrays
+      const assigned = (Array.isArray(assignedRaw) ? assignedRaw : []).map(normalize).filter(x => x?.id != null);
+      const others = (Array.isArray(activateRaw) ? activateRaw : []).map(normalizeActivate);
 
+      // final suggestion list
       const list = [...assigned, ...others].slice(0, 50);
-      // Build counts
-      const countsById = {};
+
+      // Build counts (prefer exact names from API; fall back to "No Response")
       const countsByName = {};
       for (const l of list) {
-        // prefer id; fallback by name if needed
-        if (l.lead_response_id != null) {
-          countsById[l.lead_response_id] = (countsById[l.lead_response_id] || 0) + 1;
-        }
-        const rname = l.lead_response_name || (respMap?.[l.lead_response_id] ?? "No Response");
+        const rname = l?.lead_response_name || "No Response";
         countsByName[rname] = (countsByName[rname] || 0) + 1;
       }
 
-      setRespCounts(countsById);
       setResponseCounts(countsByName);
-      setSuggestions(list.slice(0, 50));
+      setSuggestions(list);
       setRespMatches(buildResponseMatches(term, respOptions));
     } catch (err) {
       // Swallow cancels; only log real errors
       const canceled = err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError';
-      if (!canceled) console.error("search error", err);
+      if (!canceled) ErrorHandling({ error: err, defaultError: "Search failed." });
       setSuggestions([]); setRespCounts({}); setResponseCounts({});
       setRespMatches(buildResponseMatches(term, respOptions));
     } finally {
@@ -515,11 +483,19 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const handleSelect = (lead) => {
     setOpen(false); setExpanded(false); setHighlight(-1);
     setQuery(lead?.full_name || '');
-    if (lead?.__assigned && lead?.id) {
+
+    if (lead?.__clickable && lead?.id) {
       router.push(`/lead/${lead.id}`);
-    } else {
-      toast?.error("This lead isn't assigned to you.");
+      return;
     }
+
+    if (lead?.__masked) {
+      ErrorHandling({ defaultError: "This Lead Is Not Assigned To You." });
+      return;
+    }
+
+    // fallback (no id, etc.)
+    ErrorHandling({ defaultError: "This item can’t be opened." });
   };
 
   const handleEnterNoPick = () => {
@@ -913,7 +889,7 @@ function SearchOverlay({
                           onClick={() => handleSelect(lead)}
                           className={[
                             "px-3 py-2 transition",
-                            lead.__assigned ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                            lead.__clickable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
                             active ? "bg-blue-50" : "hover:bg-gray-50"
                           ].join(' ')}
                         >
@@ -930,10 +906,10 @@ function SearchOverlay({
                                   {rName}
                                 </span>
                                 {showBranch && (
-  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
-    Branch: {bName}
-  </span>
-)}
+                                  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                    Branch: {bName}
+                                  </span>
+                                )}
                                 <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                   Source: {sName}
                                 </span>
@@ -1007,6 +983,7 @@ function ChangePasswordModal({ open, onClose }) {
       /[a-z]/.test(newPwd) &&
       /\d/.test(newPwd) &&
       /[^A-Za-z0-9]/.test(newPwd);
+    /[^A-Za-z0-9]/.test(newPwd);
     if (!strong) return "New password must include character, number, and special character.";
     if (newPwd === oldPwd) return "New password must be different from the old password.";
     if (newPwd !== confirmPwd) return "New password and confirm password do not match.";
@@ -1016,7 +993,7 @@ function ChangePasswordModal({ open, onClose }) {
   const submit = async (e) => {
     e?.preventDefault?.();
     const err = validate();
-    if (err) { toast.error(err); return; }
+    if (err) { ErrorHandling({ defaultError: err }); return; }
 
     setSubmitting(true);
     try {
@@ -1030,7 +1007,14 @@ function ChangePasswordModal({ open, onClose }) {
       toast.success(data?.message || "Password changed successfully.");
       onClose?.();
     } catch (error) {
-      ErrorHandling(error, toast);
+      const res = error?.response?.data;
+      //  console.log("res", res);
+      const apiMsg =
+        (typeof res === "string" ? res : (res?.detail || res?.message)) ||
+        error?.message;
+      // console.log("error", error);
+      // console.log("apimsg", apiMsg);
+      ErrorHandling({ defaultError: apiMsg || "Failed to change password." });
     } finally {
       setSubmitting(false);
     }

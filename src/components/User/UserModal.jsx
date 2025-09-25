@@ -130,12 +130,14 @@ export default function UserModal({
   onSuccess,
 }) {
   const isEdit = mode === "edit";
-  const { currentUser } = usePermissions();
+  const { currentUser, hasPermission } = usePermissions();
   const currentRoleKey = getRoleKeyFromEverywhere(currentUser);
   const isSuperAdmin = currentRoleKey === "SUPERADMIN";
+  const showBranchField = isSuperAdmin;
+
   // password gate
-  const canEditPassword = isSuperAdmin;           // edit mode only
-  const showPasswordField = !isEdit || canEditPassword;
+  const canResetPassword = hasPermission("user_reset_password");
+  const showPasswordField = !isEdit || canResetPassword;
 
   const passwordRegex =
     /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
@@ -147,7 +149,7 @@ export default function UserModal({
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [selectedProfileId, setSelectedProfileId] = useState("");
-  const { hasPermission } = usePermissions();
+
   // Senior (users) options
   const [seniorOptions, setSeniorOptions] = useState([]);
 
@@ -794,10 +796,10 @@ export default function UserModal({
       }
     }
 
-    // Edit: Only SuperAdmin may change password
+    // Edit: Only allowed if user has permission
     if (isEdit && formData.password) {
-      if (!canEditPassword) {
-        return ErrorHandling({ defaultError: "Only SuperAdmin can change passwords." });
+      if (!canResetPassword) {
+        return ErrorHandling({ defaultError: "You don’t have permission to reset passwords." });
       }
       if (!passwordRegex.test(formData.password)) {
         return ErrorHandling({
@@ -854,12 +856,13 @@ export default function UserModal({
     try {
       let res;
       if (isEdit) {
-        if (canEditPassword && formData.password) {
+        if (canResetPassword && formData.password) {
           payload.password = formData.password;
         }
         res = await axiosInstance.put(`/users/${user.employee_code}`, payload);
       } else {
-        payload.password = formData.password; // create
+        // create requires password
+        payload.password = formData.password;
         res = await axiosInstance.post("/users/", payload);
       }
 
@@ -907,32 +910,28 @@ export default function UserModal({
           <div className="p-4 sm:p-6 md:p-8 space-y-8">
             {/* === Step 1: Branch (first), then Department & Profile === */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Branch */}
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Branch {isBranchRequired ? "*" : "(optional)"}
-                </label>
-                <select
-                  className="w-full p-3 border rounded-xl bg-white appearance-none"
-                  style={SELECT_NO_CARET_STYLE}
-                  value={selectedBranchId}
-                  onChange={(e) => setSelectedBranchId(e.target.value)}
-                  required={isBranchRequired}
-                  disabled={!isSuperAdmin && !!selectedBranchId}
-                  title={
-                    currentRoleKey !== "SUPERADMIN"
-                      ? "Branch is fixed for your role"
-                      : undefined
-                  }
-                >
-                  <option value="">Select Branch</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Branch — only SUPERADMIN can see/select; others are auto-locked */}
+              {showBranchField && (
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Branch {isBranchRequired ? "*" : "(optional)"}
+                  </label>
+                  <select
+                    className="w-full p-3 border rounded-xl bg-white appearance-none"
+                    style={SELECT_NO_CARET_STYLE}
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    required={isBranchRequired}
+                  >
+                    <option value="">Select Branch</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Department */}
               <div>
@@ -947,7 +946,9 @@ export default function UserModal({
                   required
                 >
                   <option value="">
-                    {selectedBranchId ? "Select Department" : "Select Branch first"}
+                    {showBranchField
+                      ? (selectedBranchId ? "Select Department" : "Select Branch first")
+                      : "Select Department"}
                   </option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -1138,54 +1139,50 @@ export default function UserModal({
                 </div>
 
                 {/* Password (Create) / Reset Password (Edit, SuperAdmin only) */}
-                {hasPermission("user_reset_password") && (
+                {/* Password (Create) / Reset Password (Edit by permission only) */}
+                {showPasswordField && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {isEdit ? "Reset Password" : "Password *"}
                     </label>
 
-                    {isEdit && !canEditPassword ? (
-                      <div className="text-xs text-gray-500 p-3 border rounded-xl bg-gray-50">
-                        Only <span className="font-semibold">SuperAdmin</span> can change user passwords.
-                      </div>
-                    ) : (
-                      <>
-                        {isEdit && (
-                          <p className="text-xs text-gray-500 mb-1">
-                            Leave blank to keep existing password.
-                          </p>
-                        )}
-                        {passwordError && (
-                          <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
-                            {passwordError}
-                          </div>
-                        )}
-                        <div className="relative">
-                          <input
-                            className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
-                            type={showPwd ? "text" : "password"}
-                            value={formData.password ?? ""}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            autoComplete="new-password"
-                            required={!isEdit}  // create required; edit optional
-                            placeholder={isEdit ? "Enter new password" : "Create a password"}
-                            aria-invalid={!!passwordError}
-                            aria-describedby={passwordError ? "pwd-error" : undefined}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPwd((v) => !v)}
-                            className="absolute inset-y-0 right-3 flex items-center"
-                            aria-label={showPwd ? "Hide password" : "Show password"}
-                          >
-                            {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
-                          </button>
-                        </div>
-                      </>
+                    {/* When editing: field is shown only if user has permission.
+        When creating: always shown and required. */}
+                    {isEdit && (
+                      <p className="text-xs text-gray-500 mb-1">
+                        Leave blank to keep existing password.
+                      </p>
                     )}
+
+                    {passwordError && (
+                      <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
+                        {passwordError}
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <input
+                        className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
+                        type={showPwd ? "text" : "password"}
+                        value={formData.password ?? ""}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        autoComplete="new-password"
+                        required={!isEdit}  // create required; edit optional
+                        placeholder={isEdit ? "Enter new password" : "Create a password"}
+                        aria-invalid={!!passwordError}
+                        aria-describedby={passwordError ? "pwd-error" : undefined}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPwd((v) => !v)}
+                        className="absolute inset-y-0 right-3 flex items-center"
+                        aria-label={showPwd ? "Hide password" : "Show password"}
+                      >
+                        {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
+                      </button>
+                    </div>
                   </div>
                 )}
-
               </div>
 
               {/* Right column */}

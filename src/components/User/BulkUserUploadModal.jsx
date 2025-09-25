@@ -42,9 +42,9 @@ export default function BulkUserUploadModal({ isOpen, onClose, onSuccess, roles 
   };
 
   const handleValidate = async () => {
-    if (!file) return toast.error("Please choose a CSV or XLSX file.");
-    if (!roleId) return toast.error("Please select a Role.");
-    if (!branchId) return toast.error("Please select a Branch.");
+    if (!file) return ErrorHandling({ defaultError: "Please choose a CSV or XLSX file." });
+    if (!roleId) return ErrorHandling({ defaultError: "Please select a Role." });
+    if (!branchId) return ErrorHandling({ defaultError: "Please select a Branch." });
 
     setUploading(true);
     setDryRunResult(null);
@@ -68,16 +68,20 @@ export default function BulkUserUploadModal({ isOpen, onClose, onSuccess, roles 
         ));
       }
     } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Validation failed." });
+      const res = err?.response?.data;
+       const apiMsg =
+     (typeof res === "string" ? res : (res?.detail || res?.message)) ||
+     err?.message;
+      ErrorHandling({ defaultError: apiMsg || "Validation failed." });
     } finally {
       setUploading(false);
     }
   };
 
   const handleUpload = async () => {
-    if (!file) return toast.error("Please choose a CSV or XLSX file.");
-    if (!roleId) return toast.error("Please select a Role.");
-    if (!branchId) return toast.error("Please select a Branch.");
+    if (!file) return  ErrorHandling({ defaultError: "Please choose a CSV or XLSX file." });
+    if (!roleId) return ErrorHandling({ defaultError: "Please select a Role." });
+    if (!branchId) return ErrorHandling({ defaultError: "Please select a Branch." });
 
     setUploading(true);
     setFinalResult(null);
@@ -94,7 +98,11 @@ export default function BulkUserUploadModal({ isOpen, onClose, onSuccess, roles 
       toast.success(`Created ${created} user(s). ${errors ? `${errors} error(s).` : ""}`);
       onSuccess?.();
     } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Bulk upload failed." });
+      const res = err?.response?.data;
+      const apiMsg =
+      (typeof res === "string" ? res : (res?.detail || res?.message)) ||
+       err?.message;
+      ErrorHandling({ defaultError: apiMsg || "Bulk upload failed." });
     } finally {
       setUploading(false);
     }

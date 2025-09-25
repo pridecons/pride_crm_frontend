@@ -19,9 +19,8 @@ export default function LeadCommentSection({ leadId, tempComment, onCommentChang
                 setFetched(true);
                 setShowComments(true);
             } catch (err) {
-                console.error("Error fetching comments:", err);
-                toast.error("Failed to load comments");
-                ErrorHandling({ error: err, defaultError: "Failed to fetch branches" });
+                // console.error("Error fetching comments:", err);
+                ErrorHandling({ error: err, defaultError: "Failed to load comments" });
             } finally {
                 setLoading(false);
             }

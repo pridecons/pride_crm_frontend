@@ -18,7 +18,6 @@ import FetchLeadsModal from "@/components/Lead/FetchLeadsModal";
 export default function NewLeadsTable() {
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
-  const [sources, setSources] = useState([]);
 
   const [page, setPage] = useState(1);
   const limit = 50;
@@ -70,7 +69,6 @@ export default function NewLeadsTable() {
   const initLoad = async () => {
     await fetchLeads();     // ← first call: /leads/assignments/my
     fetchResponses();
-    fetchSources();
   };
 
   // GET /leads/assignments/my
@@ -122,17 +120,6 @@ export default function NewLeadsTable() {
       setResponses(data || []);
     } catch (error) {
       console.error("Error fetching responses:", error);
-    }
-  };
-
-  const fetchSources = async () => {
-    try {
-      const { data } = await axiosInstance.get("/lead-config/sources/", {
-        params: { skip: 0, limit: 100 },
-      });
-      setSources(data || []);
-    } catch (error) {
-      console.error("Error fetching sources:", error);
     }
   };
 
@@ -291,13 +278,22 @@ export default function NewLeadsTable() {
         ),
       },
       {
-        header: "Source",
-        render: (lead) => (
-          <span className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded">
-            {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
-          </span>
-        ),
-      },
+  header: "Source",
+  render: (lead) => {
+    const label =
+      (lead.lead_source_name || "").trim() ||
+      (lead.lead_source_id ? `ID ${lead.lead_source_id}` : "N/A");
+
+    return (
+      <span
+        className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded"
+        title={label}
+      >
+        {label}
+      </span>
+    );
+  },
+},
       {
         header: "Actions",
         render: (lead) => (
@@ -346,9 +342,8 @@ export default function NewLeadsTable() {
         ),
       }
     ],
-    [editId, responses, sources, router]
+    [editId, responses, router]
   );
-
 
   const filteredLeads = useMemo(() => leads.filter((l) => !l.lead_response_id), [leads]);
   const paginatedLeads = useMemo(

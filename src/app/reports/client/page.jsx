@@ -3,6 +3,150 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { Download, Filter } from "lucide-react";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+import { usePermissions } from "@/context/PermissionsContext";
+
+const DAY_OPTIONS = [0, 7, 15, 30, 45, 60, 90, 120, 180, 365];
+
+const todayLocalISO = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); // to local date
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+};
+
+function useRoleBranch() {
+  const [role, setRole] = React.useState(null);
+  const [branchId, setBranchId] = React.useState(null);
+
+  React.useEffect(() => {
+    try {
+      const uiRaw = Cookies.get("user_info");
+      let r = null;
+      let b = null;
+
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        r =
+          ui?.role_name ||
+          ui?.role ||
+          ui?.user?.role_name ||
+          ui?.user?.role ||
+          ui?.profile_role?.name ||
+          null;
+
+        b =
+          ui?.branch_id ??
+          ui?.user?.branch_id ??
+          ui?.branch?.id ??
+          ui?.user?.branch?.id ??
+          null;
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const p = jwtDecode(token);
+          r = p?.role_name || p?.role || null;
+          b = p?.branch_id ?? p?.user?.branch_id ?? null;
+        }
+      }
+
+      const canon = String(r || "").toUpperCase().trim().replace(/\s+/g, " ");
+      const fixedRole = canon === "SUPER ADMINISTRATOR" ? "SUPERADMIN" : canon;
+
+      setRole(fixedRole || null);
+      setBranchId(b != null ? String(b) : null);
+    } catch (e) {
+      console.error("role/branch decode failed", e);
+    }
+  }, []);
+
+  return { role, branchId, isSuperAdmin: role === "SUPERADMIN" };
+}
+
+function AutoComplete({
+  value,
+  onChange,
+  options,
+  placeholder = "Search...",
+  emptyText = "No matches",
+}) {
+  const [query, setQuery] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+
+  const selected = React.useMemo(
+    () => options.find((o) => String(o.value) === String(value)),
+    [options, value]
+  );
+
+  const showAdornment = false;
+  const inputValue = open ? query : selected?.label ?? "";
+
+const filtered = React.useMemo(() => {
+  const q = query.trim().toLowerCase();
+  if (!q) return options.slice(0, 50);
+  return options
+    .filter((o) => (o.search ?? o.label ?? "").toLowerCase().includes(q))
+    .slice(0, 50);
+}, [options, query]);
+
+  return (
+    <div className="relative">
+      <input
+        value={inputValue}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          setQuery("");
+          setOpen(true);
+        }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className={
+          "w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm " +
+          "hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent " +
+          (showAdornment ? "pr-44" : "") // reserve space for the subtitle
+        }
+      />
+
+      {showAdornment && (
+        <div
+          className="absolute inset-y-0 right-3 flex items-center pointer-events-none max-w-[55%]"
+          aria-hidden
+        >
+          <span className="text-[11px] text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">
+            {selected.subtitle}
+          </span>
+        </div>
+      )}
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-500">{emptyText}</div>
+          ) : (
+            filtered.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(String(o.value));
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors"
+              >
+                <div className="text-sm">{o.label}</div>
+
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ---------------------------------- Shared --------------------------------- */
 
@@ -93,9 +237,95 @@ export default function ClientsReportPage() {
   );
 }
 
+function SearchAutocomplete({ value, onChange, buildParams }) {
+  const [query, setQuery] = React.useState(value || "");
+  const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [options, setOptions] = React.useState([]);
+
+  // fetch suggestions (debounced)
+  useEffect(() => {
+    let cancelled = false;
+    if (!open) return;
+
+    const q = query.trim();
+    if (!q) { setOptions([]); return; }
+
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const params = buildParams();
+        // narrow for suggestions
+        params.skip = 0;
+        params.limit = 10;
+        params.search = q;
+        params.columns = ["client_name", "email", "mobile", "pan"]; // minimal payload
+
+        const res = await axiosInstance.get("/reports/clients", { params });
+        const rows = res.data?.rows || [];
+
+        const opts = rows.map((r, i) => {
+          const parts = [r.client_name, r.email, r.mobile, r.pan].filter(Boolean);
+          const label = parts.join(" — ");
+          return {
+            id: `${r.client_name || ""}-${r.email || ""}-${r.mobile || ""}-${r.pan || ""}-${i}`,
+            label: label || "(no name/email/mobile/PAN)",
+          };
+        });
+
+        if (!cancelled) setOptions(opts);
+      } catch {
+        if (!cancelled) setOptions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 250);
+
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query, open, buildParams]);
+
+  const show = open && (loading || options.length > 0 || query);
+
+  return (
+    <div className="relative">
+      <input
+        value={open ? query : value}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => { setQuery(value); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder="name / email / mobile / PAN / city / state / product"
+        className="w-full h-11 rounded-xl border-slate-200 pl-10 pr-4 text-sm hover:border-purple-300 transition-colors focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+      />
+
+      {/* dropdown */}
+      {show && (
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+          {loading && <div className="px-3 py-2 text-sm text-slate-500">Searching…</div>}
+          {!loading && options.length === 0 && query && (
+            <div className="px-3 py-2 text-sm text-slate-500">No matches</div>
+          )}
+          {!loading &&
+            options.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onChange(o.label); setOpen(false); }}
+                className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors"
+              >
+                <div className="text-sm">{o.label}</div>
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------ All Tab (logic from old, UI from new) ------ */
 
 function AllClientsTab() {
+    const { hasPermission } = usePermissions();
   // ---- filters/state ----
   const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
   const [toDate, setToDate] = useState(""); // YYYY-MM-DD
@@ -125,6 +355,74 @@ function AllClientsTab() {
   const [total, setTotal] = useState(0);
   const [windowInfo, setWindowInfo] = useState(null);
 
+  // --- new: options for autocomplete ---
+const [branchOptions, setBranchOptions] = useState([]);   // value = id (string)
+const [sourceOptions, setSourceOptions] = useState([]);   // value = id (string)
+const [employeeOptions, setEmployeeOptions] = useState([]); // value = employee_code (string)
+const [loadingLookups, setLoadingLookups] = useState(false);
+const { isSuperAdmin, branchId: myBranchId } = useRoleBranch();
+
+// load branches, sources, employees
+useEffect(() => {
+  let mounted = true;
+  async function loadLookups() {
+    setLoadingLookups(true);
+    try {
+      // 1) branches (no auth in your sample; axiosInstance ok either way)
+      const br = await axiosInstance.get("/branches", {
+        params: { skip: 0, limit: 100, active_only: false },
+      });
+      const _branches = (br.data || []).map(b => ({
+        value: String(b.id),
+        label: `${b.name}`,
+        subtitle: `#${b.id} • Manager: ${b.manager_id ?? "—"}`,
+      }));
+      // index by id for later subtitles
+      const branchById = new Map(_branches.map(b => [Number(b.value), b.label]));
+
+      // 2) sources (needs auth; axiosInstance already has it)
+      const src = await axiosInstance.get("/lead-config/sources/", {
+        params: { skip: 0, limit: 100 },
+      });
+      const _sources = (src.data || []).map(s => ({
+        value: String(s.id),
+        label: `${s.name} (#${s.id})`,
+        subtitle: `Branch: ${branchById.get(Number(s.branch_id)) ?? `#${s.branch_id}`}`,
+        branch_id: s.branch_id,
+      }));
+
+      // 3) users (employees)
+      const usr = await axiosInstance.get("/users/", {
+        params: { skip: 0, limit: 100, active_only: false },
+      });
+      const _employees = (usr.data?.data || []).map(u => ({
+        value: String(u.employee_code),
+        label: `${u.employee_code} — ${u.name ?? "—"}`,
+        subtitle: `${u.profile_role?.name ?? "—"} • Branch: ${u.branch_id ?? "—"}`,
+        branch_id: u.branch_id ?? null,
+      }));
+
+      if (!mounted) return;
+      setBranchOptions(_branches);
+      setSourceOptions(_sources);
+      setEmployeeOptions(_employees);
+    } catch (e) {
+      console.error("Lookup load failed", e);
+    } finally {
+      mounted && setLoadingLookups(false);
+    }
+  }
+  loadLookups();
+  return () => { mounted = false; };
+}, []);
+
+// non-superadmin: force their own branch (hide tabs)
+useEffect(() => {
+  if (!isSuperAdmin && myBranchId && !branchId) {
+    setBranchId(String(myBranchId));
+  }
+}, [isSuperAdmin, myBranchId, branchId]);
+
   const page = Math.floor(skip / limit) + 1;
   const maxPage = Math.max(1, Math.ceil(total / limit));
 
@@ -136,51 +434,66 @@ function AllClientsTab() {
   };
 
   const clearFilters = () => {
-    setFromDate("");
-    setToDate("");
-    setDays(30);
-    setFilterBy("payment_date");
+  setFromDate("");
+  setToDate("");
+  setDays(30);
+  setFilterBy("payment_date");
+  setSourceId("");
+  setResponseId("");
+  setEmployeeId("");
+  setProfileId("");
+  setDepartmentId("");
+  setMinAmount("");
+  setMaxAmount("");
+  setSearch("");
+  setView("all");
+  setColumns(DEFAULT_COLS.slice());
+  setSkip(0);
+  setLimit(50);
+
+  // key bit: branch reset depends on role
+  if (isSuperAdmin) {
     setBranchId("");
-    setSourceId("");
-    setResponseId("");
-    setEmployeeId("");
-    setProfileId("");
-    setDepartmentId("");
-    setMinAmount("");
-    setMaxAmount("");
-    setSearch("");
-    setView("all");
-    setColumns(DEFAULT_COLS.slice());
-    setSkip(0);
-    setLimit(50);
+  } else if (myBranchId) {
+    setBranchId(String(myBranchId));
+  }
+};
+
+const buildParams = () => {
+  const p = {
+    filter_by: filterBy,
+    view,
+    skip,
+    limit,
   };
 
-  const buildParams = () => {
-    const p = {
-      filter_by: filterBy,
-      view,
-      skip,
-      limit,
-    };
-    if (fromDate) p.from_date = fromDate;
-    if (toDate) p.to_date = toDate;
-    if (!fromDate && !toDate) p.days = days;
+  if (fromDate) p.from_date = fromDate;
+  if (toDate) p.to_date = toDate;
 
-    if (branchId) p.branch_id = Number(branchId);
-    if (sourceId) p.source_id = Number(sourceId);
-    if (responseId) p.response_id = Number(responseId);
-    if (employeeId) p.employee_id = employeeId;
-    if (profileId) p.profile_id = Number(profileId);
-    if (departmentId) p.department_id = Number(departmentId);
-    if (minAmount !== "") p.min_amount = Number(minAmount);
-    if (maxAmount !== "") p.max_amount = Number(maxAmount);
-    if (search) p.search = search;
+  // Only apply days/today when no explicit dates
+  if (!fromDate && !toDate) {
+    if (days === 0) {
+      const t = todayLocalISO();
+      p.from_date = t;
+      p.to_date = t;
+    } else {
+      p.days = days;
+    }
+  }
 
-    // columns (repeat param)
-    p.columns = columns;
+  if (branchId) p.branch_id = Number(branchId);
+  if (sourceId) p.source_id = Number(sourceId);
+  if (responseId) p.response_id = Number(responseId);
+  if (employeeId) p.employee_id = employeeId;
+  if (profileId) p.profile_id = Number(profileId);
+  if (departmentId) p.department_id = Number(departmentId);
+  if (minAmount !== "") p.min_amount = Number(minAmount);
+  if (maxAmount !== "") p.max_amount = Number(maxAmount);
+  if (search) p.search = search;
 
-    return p;
-  };
+  p.columns = columns;
+  return p;
+};
 
   const fetchData = async () => {
     setLoading(true);
@@ -204,15 +517,32 @@ function AllClientsTab() {
     }
   };
 
+  // when a branch is selected, narrow the lists for convenience (doesn't change params logic)
+const filteredSourceOptions = useMemo(() => {
+  if (!branchId) return sourceOptions;
+  return sourceOptions.filter(s => String(s.branch_id) === String(branchId));
+}, [sourceOptions, branchId]);
+
+const filteredEmployeeOptions = useMemo(() => {
+  if (!branchId) return employeeOptions;
+  return employeeOptions.filter(e => String(e.branch_id ?? "") === String(branchId));
+}, [employeeOptions, branchId]);
+
+const branchLabelById = useMemo(() => {
+  const m = new Map();
+  branchOptions.forEach(b => m.set(String(b.value), b.label));
+  return m;
+}, [branchOptions]);
+
+const currentBranchName =
+  branchLabelById.get(String(branchId)) ||
+  (branchId ? `Branch #${branchId}` : "All Branches");
+
   // fetch on mount + when filters change
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    fromDate,
-    toDate,
-    days,
-    filterBy,
     branchId,
     sourceId,
     responseId,
@@ -227,6 +557,15 @@ function AllClientsTab() {
     skip,
     limit,
   ]);
+
+const resetDateFilters = () => {
+   setFromDate("");
+   setToDate("");
+   setDays(30);
+   setFilterBy("payment_date");
+   setSkip(0);
+   fetchData();
+ };
 
   const exportFile = async (fmt) => {
     try {
@@ -265,6 +604,17 @@ function AllClientsTab() {
     return columns.filter((k) => COLUMN_OPTIONS.some(([key]) => key === k));
   }, [columns]);
 
+const showDateReset = useMemo(() => {
+  const defaultDays = 30;
+  const defaultFilterBy = "payment_date";
+  return Boolean(
+    fromDate ||
+    toDate ||
+    days !== defaultDays ||
+    filterBy !== defaultFilterBy
+  );
+}, [fromDate, toDate, days, filterBy]);
+
   return (
     <>
       {/* Header */}
@@ -274,7 +624,7 @@ function AllClientsTab() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
               Client Report
             </h1>
-            <p className="text-sm text-slate-600 mt-1 flex items-center gap-1">
+            {/* <p className="text-sm text-slate-600 mt-1 flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -282,9 +632,9 @@ function AllClientsTab() {
               {windowInfo
                 ? `${windowInfo.from?.replace("T", " ")} → ${windowInfo.to?.replace("T", " ")} · by ${windowInfo.dimension}`
                 : "—"}
-            </p>
+            </p> */}
           </div>
-          <div className="flex items-center gap-3">
+          {hasPermission("export_client_report") && <div className="flex items-center gap-3">
             <button
               onClick={() => exportFile("csv")}
               className="h-11 rounded-xl border-2 border-purple-200 bg-white px-5 text-sm font-medium hover:bg-purple-50 transition-colors"
@@ -303,7 +653,7 @@ function AllClientsTab() {
                 Export XLSX
               </span>
             </button>
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -313,20 +663,44 @@ function AllClientsTab() {
           <Filter size={18} strokeWidth={1.5}/>
           <span className="font-semibold text-slate-700">Filters</span>
         </div>
+{/* Branch chooser — visible only to SUPERADMIN */}
+{isSuperAdmin && (
+  <div className="bg-white/90 space-y-2">
+    <div className="text-xs font-medium text-slate-600">Branch</div>
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => { setBranchId(""); setSkip(0); }}
+        className={`px-4 py-2 rounded-xl text-sm border transition-all duration-150 ${
+          branchId === ""
+            ? "bg-indigo-600 text-white border-indigo-600 shadow"
+            : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+        }`}
+      >
+        All Branches
+      </button>
 
+      {branchOptions.map((b) => (
+        <button
+          key={`branch-tab-${b.value}`}
+          type="button"
+          onClick={() => { setBranchId(String(b.value)); setSkip(0); }}
+          className={`px-4 py-2 rounded-xl text-sm border transition-all duration-150 ${
+            String(branchId) === String(b.value)
+              ? "bg-indigo-600 text-white border-indigo-600 shadow"
+              : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+          }`}
+          title={b.subtitle}
+        >
+          {b.label}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Filter By</label>
-            <select
-              value={filterBy}
-              onChange={(e) => setFilterBy(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="payment_date">Payment Date</option>
-              <option value="registration_date">Registration Date</option>
-            </select>
-          </div>
+          
+
           <div>
             <label className="text-xs font-medium text-slate-600 mb-1 block">From Date</label>
             <input
@@ -354,101 +728,79 @@ function AllClientsTab() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Days (when no dates)</label>
-            <input
-              type="number"
-              min={1}
-              max={365}
-              value={days}
-              onChange={(e) => {
-                const v = Number(e.target.value || 30);
-                setDays(v);
-                setSkip(0);
-              }}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
+  <label className="text-xs font-medium text-slate-600 mb-1 block">Days</label>
+  <select
+    value={days}
+    onChange={(e) => {
+      const v = parseInt(e.target.value, 10);
+      setDays(Number.isNaN(v) ? 30 : v);
+      setSkip(0);
+    }}
+    className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
+      hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+  >
+    {(DAY_OPTIONS || [0, 7, 15, 30, 60, 90, 180, 365]).map((n) => (
+      <option key={n} value={n}>
+    {n === 0 ? "Today" : `Last ${n} day${n > 1 ? "s" : ""}`}
+  </option>
+    ))}
+  </select>
+</div>
+
+          {/* Date-only apply/reset */}
+<div className="flex items-center gap-3 mt-4">
+  <button
+    onClick={() => { setSkip(0); fetchData(); }}
+    className="h-8 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 text-sm font-medium hover:shadow-lg transition-all duration-200 hover:scale-105"
+  >
+    Apply
+  </button>
+
+  {showDateReset && (
+    <button
+      onClick={resetDateFilters}
+      className="h-8 rounded-xl border-2 border-purple-200 bg-white px-5 text-sm font-medium hover:bg-purple-50 transition-colors"
+    >
+      Reset
+    </button>
+  )}
+</div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Branch ID</label>
-            <input
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Source ID</label>
-            <input
-              value={sourceId}
-              onChange={(e) => setSourceId(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Response ID</label>
-            <input
-              value={responseId}
-              onChange={(e) => setResponseId(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Employee Code</label>
-            <input
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Profile ID</label>
-            <input
-              value={profileId}
-              onChange={(e) => setProfileId(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Department ID</label>
-            <input
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
+  <div>
+    <label className="text-xs font-medium text-slate-600 mb-1 block">Lead Source</label>
+    <select
+      value={sourceId}
+      onChange={(e) => { setSourceId(e.target.value); setSkip(0); }}
+      className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+    >
+      <option value="">All Sources</option>
+      {(branchId ? filteredSourceOptions : sourceOptions).map(s => (
+        <option key={`src-${s.value}`} value={s.value}>
+          {s.label}
+        </option>
+      ))}
+    </select>
+  </div>
+
+
+
+  <div>
+    <label className="text-xs font-medium text-slate-600 mb-1 block">Employee</label>
+    <AutoComplete
+      value={employeeId}
+      onChange={(val) => { setEmployeeId(val); setSkip(0); }}
+      options={filteredEmployeeOptions /* or employeeOptions */}
+      placeholder={loadingLookups ? "Loading employees..." : "Search by code/name"}
+    />
+  </div>
+
+
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Min Amount</label>
-            <input
-              type="number"
-              value={minAmount}
-              onChange={(e) => setMinAmount(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Max Amount</label>
-            <input
-              type="number"
-              value={maxAmount}
-              onChange={(e) => setMaxAmount(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
+
           <div className="lg:col-span-2">
             <label className="text-xs font-medium text-slate-600 mb-1 block">Search</label>
             <div className="relative border border-slate-300 rounded-xl">
@@ -460,15 +812,11 @@ function AllClientsTab() {
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setSkip(0);
-                }}
-                placeholder="name / email / mobile / PAN / city / state / product"
-                className="w-full h-11 rounded-xl border-slate-200 pl-10 pr-4 text-sm hover:border-purple-300 transition-colors focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
+              <SearchAutocomplete
+  value={search}
+  onChange={(val) => { setSearch(val); setSkip(0); }}
+  buildParams={buildParams}
+/>
             </div>
           </div>
           <div>
@@ -488,79 +836,9 @@ function AllClientsTab() {
             </select>
           </div>
 
-          {/* Column picker */}
-          <div className="relative">
-            <label className="text-xs font-medium text-slate-600 mb-1 block">Columns</label>
-            <button
-              type="button"
-              onClick={() => setOpenCols((o) => !o)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm
-           hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              {columns.length} selected
-            </button>
-            {openCols && (
-              <div className="absolute z-20 mt-2 w-[24rem] max-h-80 overflow-auto rounded-xl border bg-white p-4 shadow-xl">
-                <div className="flex justify-between items-center mb-3">
-                  <div className="text-sm font-medium text-slate-700">Pick columns</div>
-                  <div className="space-x-3">
-                    <button
-                      className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                      onClick={() => setColumns(COLUMN_OPTIONS.map(([k]) => k))}
-                    >
-                      Select all
-                    </button>
-                    <button
-                      className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                      onClick={() => setColumns([])}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {COLUMN_OPTIONS.map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-purple-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={columns.includes(key)}
-                        onChange={() => toggleColumn(key)}
-                        className="text-purple-600 rounded focus:ring-purple-500"
-                      />
-                      <span>{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <button
-            onClick={() => {
-              setSkip(0);
-              fetchData();
-            }}
-            className="h-11 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 text-sm font-medium hover:shadow-lg transition-all duration-200 hover:scale-105"
-          >
-            Apply Filters
-          </button>
-          <button
-            onClick={clearFilters}
-            className="h-11 rounded-xl border-2 border-purple-200 bg-white px-6 text-sm font-medium hover:bg-purple-50 transition-colors"
-          >
-            Reset All
-          </button>
-          {loading && (
-            <span className="flex items-center gap-2 text-sm text-slate-600">
-              <svg className="animate-spin h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Loading…
-            </span>
-          )}
           {err && (
             <span className="flex items-center gap-2 text-sm text-red-600">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -705,6 +983,65 @@ function LeadDetailsTab() {
   const [err, setErr] = useState(null);
   const [data, setData] = useState(null);
 
+const [leadOptions, setLeadOptions] = useState([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const { isSuperAdmin, branchId: myBranchId } = useRoleBranch();
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadLeads() {
+      setLoadingLeads(true);
+      try {
+        const res = await axiosInstance.get("/leads/", {
+          params: {
+            skip: 0,
+            limit: 100,
+            kyc_only: false,
+            view: "all",
+            // scope to user's branch automatically if not superadmin
+            ...(isSuperAdmin ? {} : { branch_id: myBranchId ? Number(myBranchId) : undefined }),
+          },
+        });
+
+// in LeadDetailsTab -> loadLeads()
+const opts = (res.data?.leads || []).map((l) => {
+  // be defensive about field names
+  const name =
+    l.full_name ||
+    l.name ||
+    l.client_name ||
+    l.director_name ||
+    l.father_name ||
+    l.kyc?.full_name ||
+    "";
+
+  const email = l.email || l.primary_email || l.client_email || "";
+  const mobile = l.mobile || l.phone || l.primary_mobile || l.client_mobile || "";
+
+  const parts = [name, email, mobile].filter(Boolean);
+  const label = parts.length ? parts.join(" — ") : mobile || email || "(no name/email/mobile)";
+
+  return {
+    value: String(l.id),
+    label,                         // shown to the user
+    search: `${name} ${email} ${mobile}`.toLowerCase(),  // used only for matching
+    // no subtitle
+  };
+});
+
+if (mounted) setLeadOptions(opts);
+
+        if (mounted) setLeadOptions(opts);
+      } catch (e) {
+        console.error("Load leads failed", e);
+      } finally {
+        mounted && setLoadingLeads(false);
+      }
+    }
+    loadLeads();
+    return () => { mounted = false; };
+  }, [isSuperAdmin, myBranchId]);
+
   const fetchLead = async () => {
     if (!leadId) {
       setErr("Enter a Lead ID");
@@ -747,17 +1084,15 @@ function LeadDetailsTab() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              <input
-                value={leadId}
-                onChange={(e) => setLeadId(e.target.value)}
-                placeholder="Enter Lead ID"
-                className="h-11 rounded-xl border-slate-200 pl-10 pr-4 text-sm shadow-sm hover:border-purple-300 transition-colors focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
+  <div className="relative min-w-[260px]">
+    <AutoComplete
+      value={leadId}
+      onChange={(val) => setLeadId(val)}
+      options={leadOptions}
+      placeholder={loadingLeads ? "Loading leads..." : "Search by name, email, or mobile"}
+      emptyText={loadingLeads ? "Loading..." : "No matches"}
+    />
+  </div>
             <button
               onClick={fetchLead}
               disabled={loading || !leadId}

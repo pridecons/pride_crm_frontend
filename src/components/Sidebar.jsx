@@ -9,8 +9,9 @@ import {
   Home, Target, History, UserPlus, Users, Building2, Building, Settings,
   FileText, Wrench, Tag, Gauge, UploadCloud, BarChart3, UserCheck, ShieldCheck,
   ClipboardList, CreditCard, Mail, MessageCircle, MessageSquare, CalendarCheck,
-  ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal,
-  PhoneCall
+  ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal, PhoneCall,
+  PlusCircle, MessagesSquare, ClipboardCheck, FileSearch, StickyNote,
+  PieChart, UserCog, MailOpen, MessageSquareText
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -158,25 +159,24 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
           { href: "/client", icon: Users, label: "Client", access: "client_page" },
         ],
       },
-        {
-            title: "MANAGEMENT", section: "management", icon: SlidersHorizontal,
-            items: [
-              { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "prefix" },
-              { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
-              { href: "/lead/manage/response", icon: MessageSquare, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
-              { href: "/lead/manage/fetch-limit", icon: Gauge, label: "Fetch Limit", access: "fetch_limit_page", activeMatch: "exact" },
-              { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
-              { href: "/lead/manage/analytics", icon: BarChart3, label: "Lead Analytics", access: "lead_analytics_page", activeMatch: "exact" },
-            ],
-          },
+      {
+        title: "MANAGEMENT", section: "management", icon: SlidersHorizontal,
+        items: [
+          { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "prefix" },
+          { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
+          { href: "/lead/manage/response", icon: MessagesSquare, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
+          { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
+          { href: "/lead/manage/analytics", icon: BarChart3, label: "Lead Analytics", access: "lead_analytics_page", activeMatch: "exact" },
+        ],
+      },
       {
         title: "CONFIGURATION", section: "configuration", icon: Settings,
         items: [
           { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
           { href: "/department", icon: Building, label: "Department", access: "department_page" },
           { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
-          { href: "/user/attendance", icon: CalendarCheck, label: "Attendance", access: "attandance_page" },
-          { href: "/plans", icon: ClipboardList, label: "Plans", access: "plane_page" },
+          // { href: "/user/attendance", icon: CalendarCheck, label: "Attendance", access: "attandance_page" },
+          { href: "/plans", icon: ClipboardCheck, label: "Plans", access: "plane_page" },
           { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
         ],
       },
@@ -184,17 +184,17 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
       {
         title: "RESEARCHER", items: [
           { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
-          { href: "/research-report", icon: FileText, label: "Research Report", access: "research_report_page" },
+          { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
         ]
       },
-      { title: "CHAT", items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
-      { title: "MAIL", items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
-      { title: "NOTICE BOARD", items: [{ href: "/notice-board", icon: ClipboardList, label: "Notice Board", access: "notice_board_page" }] },
+      { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
+      { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
+      { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
 
       {
-        title: "REPORTS", section: "reports", icon: BarChart3,
+        title: "REPORTS", section: "reports", icon: PieChart,
         items: [
-          { href: "/reports/client", icon: UserCheck, label: "Client Report", access: "reports_client_page" },
+          { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
           { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
         ],
       },
@@ -202,8 +202,8 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
       {
         title: "TEMPLATE", section: "template", icon: FileText,
         items: [
-          { href: "/email", icon: Mail, label: "Email", access: "email_page" },
-          { href: "/sms", icon: MessageCircle, label: "SMS", access: "sms_page" },
+          { href: "/email", icon: MailOpen, label: "Email", access: "email_page" },
+          { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
         ],
       },
     ],
@@ -252,7 +252,7 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
         {filteredMenu.map((section, idx) => (
           <div key={`sec-${idx}`} className="mb-3">
             {/* Section title */}
-            {!collapsed && section.title && (
+            {!collapsed && section.title && !section.section && (
               <div className="px-3 py-2">
                 <span className="text-[10px] font-semibold tracking-[0.06em] text-slate-400">
                   {section.title}
@@ -268,11 +268,11 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
                   type="button"
                   onClick={() => toggle(section.section)}
                   aria-expanded={!!expanded[section.section]}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-100 bg-slate-800/50 hover:bg-slate-800"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-100 hover:bg-slate-800/60"
                 >
                   <div className="flex items-center gap-2">
-                    <section.icon size={16} className="text-slate-300" />
-                    <span className="text-[13px]">{section.title}</span>
+
+                    <span className="text-[10px]">{section.title}</span>
                   </div>
                   {expanded[section.section] ? (
                     <ChevronDown size={16} className="text-slate-300" />
@@ -320,7 +320,8 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
               </div>
             ) : (
               // Non-collapsible section OR collapsed mini mode
-              <ul className="space-y-1">
+              <ul className={`space-y-1 ${!collapsed && section.title && !section.section ? "ml-2" : ""
+                }`}>
                 {(
                   collapsed && section.section
                     ? section.items.flatMap(it => (it.items ? it.items : it)) // flatten when collapsed

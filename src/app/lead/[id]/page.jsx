@@ -236,7 +236,6 @@ const Lead = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const [userNameMap, setUserNameMap] = useState({}); // { EMP006: "shivi", ... }
   const [branchNameMap, setBranchNameMap] = useState({}); // { 1: "Main Branch", ... }
 
   // === NewLeadsTable-style modal state ===
@@ -383,37 +382,25 @@ const Lead = () => {
 
   const fetchData = async () => {
     try {
-      const [sourcesRes, responsesRes, usersRes, branchesRes] =
-        await Promise.all([
-          apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
-          apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
-          apiCall("GET", "/users/?skip=0&limit=100&active_only=false"),
-          apiCall("GET", "/branches/?skip=0&limit=100"),
-        ]);
+      const [sourcesRes, responsesRes, branchesRes] = await Promise.all([
+        apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
+        apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
+        apiCall("GET", "/branches/?skip=0&limit=100"),
+      ]);
+
       setLeadSources(
         sourcesRes.map((src) => ({
           value: src.id,
           label: src.name,
         }))
       );
+
       setLeadResponses(
         responsesRes.map((res) => ({
           value: res.id,
           label: res.name,
         }))
       );
-      // Build user name map
-      const usersArr = Array.isArray(usersRes?.data)
-        ? usersRes.data
-        : Array.isArray(usersRes)
-          ? usersRes
-          : [];
-      const uMap = {};
-      usersArr.forEach((u) => {
-        if (u?.employee_code)
-          uMap[u.employee_code] = u?.name || u.employee_code;
-      });
-      setUserNameMap(uMap);
 
       // Build branch name map
       const rawBranches = Array.isArray(branchesRes?.data)
@@ -655,22 +642,36 @@ const Lead = () => {
                 </span>
                 <span className="font-medium text-slate-900">Assigned</span>
                 <span className="text-slate-400">•</span>
-                <span
-                  className="truncate max-w-[160px] sm:max-w-[220px]"
-                  title={
-                    userNameMap[currentLead?.assigned_to_user] ||
+
+                {(() => {
+                  const assignedName =
+                    currentLead?.assigned_user?.name ||
+                    null; // prefer name from API
+                  const assignedCode =
+                    currentLead?.assigned_user?.employee_code ||
                     currentLead?.assigned_to_user ||
-                    "—"
+                    null;
+
+                  if (!assignedName && !assignedCode) {
+                    return <span>—</span>;
                   }
-                >
-                  {userNameMap[currentLead?.assigned_to_user] || "—"}
-                  {currentLead?.assigned_to_user ? (
-                    <span className="text-slate-500">
-                      {" "}
-                      ({currentLead.assigned_to_user})
+
+                  return (
+                    <span
+                      className="truncate max-w-[160px] sm:max-w-[220px]"
+                      title={
+                        assignedName ||
+                        assignedCode ||
+                        "—"
+                      }
+                    >
+                      {assignedName || assignedCode}
+                      {assignedCode ? (
+                        <span className="text-slate-500"> ({assignedCode})</span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
+                  );
+                })()}
               </div>
 
               {/* Branch — SHOW ONLY TO SUPERADMIN */}

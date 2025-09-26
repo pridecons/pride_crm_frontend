@@ -11,7 +11,7 @@ import { ErrorHandling } from '@/helper/ErrorHandling'
 const cn = (...x) => x.filter(Boolean).join(' ')
 const baseInput = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 disabled:bg-gray-100"
 const baseSelect = baseInput
-const baseArea  = baseInput + " min-h-[88px]"
+const baseArea = baseInput + " min-h-[88px]"
 
 const Field = ({ label, children, className }) => (
   <div className={cn("space-y-1", className)}>
@@ -49,21 +49,21 @@ export default function LeadForm() {
   const [loadingPan, setLoadingPan] = useState(false)
   const [panVerified, setPanVerified] = useState(false)
   // Track only the fields populated by PAN; lock just those.
-const [panLocked, setPanLocked] = useState({
-  pan: false,
-  pan_type: false,
-  full_name: false,
-  father_name: false,
-  dob: false,
-  aadhaar: false,
-  state: false,
-  city: false,
-  district: false,
-  pincode: false,
-  address: false,
-});
+  const [panLocked, setPanLocked] = useState({
+    pan: false,
+    pan_type: false,
+    full_name: false,
+    father_name: false,
+    dob: false,
+    aadhaar: false,
+    state: false,
+    city: false,
+    district: false,
+    pincode: false,
+    address: false,
+  });
 
-const isFilled = (v) => v != null && String(v).trim() !== "";
+  const isFilled = (v) => v != null && String(v).trim() !== "";
   const [submitting, setSubmitting] = useState(false)
   const [segmentsList, setSegmentsList] = useState([])
 
@@ -103,7 +103,7 @@ const isFilled = (v) => v != null && String(v).trim() !== "";
         const b = u?.branch_id ?? u?.user?.branch_id ?? u?.branch?.id ?? null
         setBranchId(b)
       }
-    } catch {}
+    } catch { }
 
     axiosInstance.get('/lead-config/sources/?skip=0&limit=100')
       .then(r => setLeadSources(r.data || []))
@@ -156,6 +156,11 @@ const isFilled = (v) => v != null && String(v).trim() !== "";
   const handleVerifyPan = async () => {
     if (!formData.pan) return ErrorHandling({ defaultError: "Please enter a PAN number first" })
     if (!formData.pan_type) return ErrorHandling({ defaultError: "Please select PAN type before verifying" })
+
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i;
+  if (!panRegex.test(formData.pan.trim())) {
+    return ErrorHandling({ defaultError: "Invalid format for PAN number" });
+  }
     setLoadingPan(true)
     try {
       const res = await axiosInstance.post(
@@ -163,46 +168,46 @@ const isFilled = (v) => v != null && String(v).trim() !== "";
         new URLSearchParams({ pannumber: formData.pan }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       )
-if (res.data?.success && res.data.data?.result) {
-  const r = res.data.data.result;
-  if (formData.pan_type !== r.pan_type) {
-    toast(`Switching PAN type to "${r.pan_type === 'Person' ? 'Individual' : 'Company'}"`, { icon: 'ℹ️' });
-  }
+      if (res.data?.success && res.data.data?.result) {
+        const r = res.data.data.result;
+        if (formData.pan_type !== r.pan_type) {
+          toast(`Switching PAN type to "${r.pan_type === 'Person' ? 'Individual' : 'Company'}"`, { icon: 'ℹ️' });
+        }
 
-  setFormData(prev => ({
-    ...prev,
-    full_name: r.user_full_name ?? prev.full_name ?? '',
-    father_name: r.user_father_name ?? prev.father_name ?? '',
-    dob: r.user_dob || prev.dob || '',
-    aadhaar: r.masked_aadhaar ?? prev.aadhaar ?? '',
-    city: r.user_address?.city ?? prev.city ?? '',
-    state: r.user_address?.state ?? prev.state ?? '',
-    district: r.user_address?.district ?? prev.district ?? '',
-    pincode: r.user_address?.zip ?? prev.pincode ?? '',
-    address: r.user_address?.full ?? prev.address ?? '',
-    pan_type: r.pan_type,
-  }));
+        setFormData(prev => ({
+          ...prev,
+          full_name: r.user_full_name ?? prev.full_name ?? '',
+          father_name: r.user_father_name ?? prev.father_name ?? '',
+          dob: r.user_dob || prev.dob || '',
+          aadhaar: r.masked_aadhaar ?? prev.aadhaar ?? '',
+          city: r.user_address?.city ?? prev.city ?? '',
+          state: r.user_address?.state ?? prev.state ?? '',
+          district: r.user_address?.district ?? prev.district ?? '',
+          pincode: r.user_address?.zip ?? prev.pincode ?? '',
+          address: r.user_address?.full ?? prev.address ?? '',
+          pan_type: r.pan_type,
+        }));
 
-  const addr = r.user_address || {};
-  setPanLocked({
-    pan: true,               // PAN input locks after verify
-    pan_type: true,          // PAN type locks after verify
-    full_name:  isFilled(r.user_full_name),
-    father_name:isFilled(r.user_father_name),
-    dob:        isFilled(r.user_dob),
-    aadhaar:    isFilled(r.masked_aadhaar),
-    state:      isFilled(addr.state),
-    city:       isFilled(addr.city),
-    district:   isFilled(addr.district),
-    pincode:    isFilled(addr.zip),
-    address:    isFilled(addr.full),
-  });
+        const addr = r.user_address || {};
+        setPanLocked({
+          pan: true,               // PAN input locks after verify
+          pan_type: true,          // PAN type locks after verify
+          full_name: isFilled(r.user_full_name),
+          father_name: isFilled(r.user_father_name),
+          dob: isFilled(r.user_dob),
+          aadhaar: isFilled(r.masked_aadhaar),
+          state: isFilled(addr.state),
+          city: isFilled(addr.city),
+          district: isFilled(addr.district),
+          pincode: isFilled(addr.zip),
+          address: isFilled(addr.full),
+        });
 
-  setPanVerified(true);
-  toast.success('PAN verified and details autofilled!');
-} else {
-  ErrorHandling({ defaultError: "PAN verification failed" });
-}
+        setPanVerified(true);
+        toast.success('PAN verified and details autofilled!');
+      } else {
+        ErrorHandling({ defaultError: "PAN verification failed" });
+      }
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Error verifying PAN" })
     } finally {
@@ -210,14 +215,14 @@ if (res.data?.success && res.data.data?.result) {
     }
   }
 
-const handleEditPan = () => {
-  setPanVerified(false);
-  setPanLocked(prev => {
-    const allFalse = {};
-    for (const k of Object.keys(prev)) allFalse[k] = false;
-    return allFalse;
-  });
-};
+  const handleEditPan = () => {
+    setPanVerified(false);
+    setPanLocked(prev => {
+      const allFalse = {};
+      for (const k of Object.keys(prev)) allFalse[k] = false;
+      return allFalse;
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -228,11 +233,11 @@ const handleEditPan = () => {
       return ErrorHandling({ defaultError: "Please enter a valid 10-digit Mobile number." })
     }
     if (!formData.lead_response_id) {
-    return ErrorHandling({ defaultError: "Please select a Lead Response." })
-  }
-  if (!formData.lead_source_id) {
-    return ErrorHandling({ defaultError: "Please select a Lead Source." })
-  }
+      return ErrorHandling({ defaultError: "Please select a Lead Response." })
+    }
+    if (!formData.lead_source_id) {
+      return ErrorHandling({ defaultError: "Please select a Lead Source." })
+    }
 
     setSubmitting(true)
     try {
@@ -317,12 +322,12 @@ const handleEditPan = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="PAN Type">
             <select
-  name="pan_type"
-  value={formData.pan_type}
-  onChange={handleChange}
-  disabled={panLocked.pan_type}   // was panVerified
-  className={baseSelect}
->
+              name="pan_type"
+              value={formData.pan_type}
+              onChange={handleChange}
+              disabled={panLocked.pan_type}   // was panVerified
+              className={baseSelect}  
+            >
               <option value="">Select PAN Type</option>
               <option value="Person">Individual</option>
               <option value="Company">Company</option>
@@ -331,35 +336,35 @@ const handleEditPan = () => {
 
           <Field label="PAN Number">
             <div className="flex gap-2">
-  <input
-    name="pan"
-    value={formData.pan}
-    onChange={handleChange}
-    placeholder="ABCDE1234F"
-    disabled={panLocked.pan}       // was panVerified
-    maxLength={10}
-    pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
-    className={baseInput}
-  />
-  {panLocked.pan ? (                 // was panVerified ? (...)
-    <button
-      type="button"
-      onClick={handleEditPan}
-      className="rounded-lg bg-amber-500 px-3 text-white text-sm hover:bg-amber-600"
-    >
-      Edit
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={handleVerifyPan}
-      disabled={loadingPan}
-      className="rounded-lg bg-blue-700 px-3 text-white text-sm hover:bg-blue-800"
-    >
-      {loadingPan ? 'Verifying…' : 'Verify'}
-    </button>
-  )}
-</div>
+              <input
+                name="pan"
+                value={formData.pan}
+                onChange={handleChange}
+                placeholder="ABCDE1234F"
+                disabled={panLocked.pan}       // was panVerified
+                maxLength={10}
+                pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
+                className={baseInput}
+              />
+              {panLocked.pan ? (                 // was panVerified ? (...)
+                <button
+                  type="button"
+                  onClick={handleEditPan}
+                  className="rounded-lg bg-amber-500 px-3 text-white text-sm hover:bg-amber-600"
+                >
+                  Edit
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleVerifyPan}
+                  disabled={loadingPan}
+                  className="rounded-lg bg-blue-700 px-3 text-white text-sm hover:bg-blue-800"
+                >
+                  {loadingPan ? 'Verifying…' : 'Verify'}
+                </button>
+              )}
+            </div>
           </Field>
 
           <Field label="Full Name">
@@ -484,7 +489,7 @@ const handleEditPan = () => {
           </Field>
 
           <Field label="Lead Response">
-            <select name="lead_response_id" value={formData.lead_response_id} onChange={handleChange} className={baseSelect} required>
+            <select name="lead_response_id focus:outline-none " value={formData.lead_response_id} onChange={handleChange} className={baseSelect} required>
               <option value="">Select Response</option>
               {leadResponses.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>

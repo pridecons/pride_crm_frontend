@@ -15,6 +15,34 @@ import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /** ---------- helpers ---------- */
 
+function useViewerIsSuperAdmin() {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  useEffect(() => {
+    try {
+      const uiRaw = Cookies.get("user_info");
+      let role = "";
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        role =
+          ui?.role_name || ui?.role ||
+          ui?.user?.role_name || ui?.user?.role ||
+          ui?.profile_role?.name || "";
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const p = jwtDecode(token) || {};
+          role = p?.role_name || p?.role || p?.profile_role?.name || p?.user?.role || "";
+        }
+      }
+      const key = String(role || "").trim().toUpperCase().replace(/\s+/g, "_");
+      setIsSuperAdmin(key === "SUPERADMIN" || key === "SUPER_ADMINISTRATOR");
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
+  return isSuperAdmin;
+}
+
 const CHAT_UNREAD_VIA_HTTP = false; // ⬅️ OFF = never call /chat/threads automatically
 
 function toPrettyRole(r = '') {
@@ -29,47 +57,39 @@ function toPrettyRole(r = '') {
     .join(' ');
 }
 
-/** Safely extract name & role_name from cookie/JWT */
+/** Safely extract name & role from cookie ONLY (no JWT, no prettifying) */
 function getUserFromCookies() {
   try {
     const raw = Cookies.get('user_info');
-    const accessToken = Cookies.get('access_token');
     const parsed = raw ? JSON.parse(raw) : {};
 
-    // Name fallbacks
+    // direct values from cookie payloads we’ve seen in your app
     const name =
-      parsed?.name ||
-      parsed?.user?.name ||
-      parsed?.user_info?.name ||
+      parsed?.name ??
+      parsed?.user?.name ??
+      parsed?.user_info?.name ??
       'User';
 
-    // Role name fallbacks (prefer explicit role_name in cookie)
-    let role_name =
-      parsed?.role_name ||
-      parsed?.user?.role_name ||
-      parsed?.role ||                    // sometimes cookie stores "role" but it's already a label
-      parsed?.user?.role ||
+    // ← show exactly what cookie has (e.g., "BA")
+    const role_label =
+      parsed?.role ??
+      parsed?.role_name ??
+      parsed?.user?.role ??
+      parsed?.user?.role_name ??
+      parsed?.user_info?.role ??
+      parsed?.user_info?.role_name ??
       '';
-
-    // If still missing, peek into token (role/role_name)
-    if (!role_name && accessToken) {
-      const d = jwtDecode(accessToken);
-      role_name = d?.role_name || d?.role || '';
-    }
 
     const employee_code =
-      parsed?.employee_code ||
-      parsed?.user?.employee_code ||
-      parsed?.user_info?.employee_code ||
+      parsed?.employee_code ??
+      parsed?.user?.employee_code ??
+      parsed?.user_info?.employee_code ??
       '';
-
-    const rolePretty = toPrettyRole(role_name);
 
     return {
       ...parsed,
       name,
-      role_name,          // canonical (e.g., SUPERADMIN / BRANCH_MANAGER)
-      role_pretty: rolePretty, // pretty (e.g., Superadmin / Branch Manager)
+      role_label,       // <- use this in UI
       employee_code,
     };
   } catch {
@@ -119,6 +139,8 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const lookupsLoadedRef = useRef(false);
 
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const viewerIsSuperAdmin = useViewerIsSuperAdmin();
 
   // ---- Chat unread bubble ----
   const [chatUnread, setChatUnread] = useState(0);
@@ -176,7 +198,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
       setSourceOptions(Array.isArray(sources) ? sources : []);
       setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
     } catch (e) {
-      console.error('Failed loading lookups', e);
+      ErrorHandling({ error: e, defaultError: "Failed loading lookups." });
     }
   }, []);
 
@@ -324,16 +346,9 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     return () => clearTimeout(id);
   }, [query, onSearch]);
 
-  function getResponseName(lead, respMapLocal = null) {
-    const map = respMapLocal ?? respMap;
-    return (
-      lead?.lead_response_name ||
-      lead?.lead_response?.name ||
-      (lead?.lead_response_id != null ? map?.[lead.lead_response_id] : "") ||
-      "No Response"
-    );
+  function getResponseName(lead) {
+    return lead?.lead_response_name || "No Response";
   }
-
   const fetchSuggestions = useCallback(async (q) => {
     const term = (q || "").trim();
     // clear on short term
@@ -363,84 +378,78 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           : (Array.isArray(data) ? data : (data?.items || data?.results || []));
       const activateRaw = Array.isArray(data?.activate_leads) ? data.activate_leads : [];
 
-      // keep this inside fetchSuggestions so it can close over `user`
-      const normalize = (l, assigned = false) => {
-        const response_id =
-          l?.lead_response_id ??
-          l?.response_id ??
-          l?.lead_response?.id ?? null;
+      const normalize = (l) => {
+        const au = l?.assigned_user || null;
+        const isMine =
+          !!au?.employee_code &&
+          !!user?.employee_code &&
+          au.employee_code === user.employee_code;
 
-        const response_name =
-          l?.lead_response_name ??
-          l?.response_name ??
-          l?.lead_response?.name ?? "";
-
-        // ✅ no mixing of ?? and ||; final fallback uses only ??
-        const assigned_name = (
-          l?.assigned_user?.name ??
-          l?.assigned_to_user?.name ??           // sometimes nested
-          l?.assigned_to_user_name ??
-          l?.assigned_user_name ??
-          l?.assigned_to_name ??
-          (typeof l?.assigned_to === "string" ? l.assigned_to : undefined)
-        ) ?? (assigned ? (user?.name ?? "You") : "");
+        const masked =
+          !!l?.is_masked ||
+          /\*/.test(String(l?.mobile || "")) ||
+          /\*/.test(String(l?.email || ""));
 
         return {
-          id: l?.id ?? l?.lead_id ?? l?._id,
-          full_name:
-            l?.full_name ?? l?.name ?? [l?.first_name, l?.last_name].filter(Boolean).join(" "),
-          mobile: l?.mobile ?? l?.phone ?? l?.contact_no ?? "",
-          email: l?.email ?? l?.mail ?? "",
-          lead_response_id: response_id,
-          lead_response_name: response_name,
-          source_id: l?.source_id ?? l?.lead_source_id ?? null,
-          source_name: l?.source_name ?? l?.lead_source_name ?? "",
+          // ids & basics
+          id: l?.id ?? null,
+          full_name: l?.full_name ?? null,
+          mobile: l?.mobile ?? "",
+          email: l?.email ?? "",
+
+          // response / source / branch (use only what API sends)
+          lead_response_id: l?.lead_response_id ?? null,
+          lead_response_name: l?.lead_response_name ?? "",
+          source_id: l?.lead_source_id ?? null,
           branch_id: l?.branch_id ?? null,
-          assigned_to_name: assigned_name,
+
+          // assignment (use assigned_user object verbatim)
+          assigned_user: au,
+          assigned_to_code: au?.employee_code ?? "",
+          assigned_to_name: au?.name ?? "",
+          assigned_to_role: au?.role ?? "",
+
+          // flags & timestamps (as-is)
           is_masked: !!l?.is_masked,
-          __assigned: !!assigned,
-          __clickable: !!assigned && !!(l?.id ?? l?.lead_id ?? l?._id),
           created_at: l?.created_at ?? null,
+          response_changed_at: l?.response_changed_at ?? null,
+
+          __masked: masked,
+          __assigned: isMine,
+
+
+          // navigation: only allow click if it's assigned to me
+          __clickable: !masked && !!l?.id,
         };
       };
 
-      const normalizeActivate = (l) =>
-        normalize(
-          {
-            ...l,
-            id:
-              l?.id ??
-              l?.lead_id ??
-              l?._id ??
-              `act:${l?.mobile || l?.email || Math.random().toString(36).slice(2)}`,
-          },
-    /* assigned */ false
-        );
+      const normalizeActivate = (l) => {
+        // ensure an id exists for UI keys; keep API values intact
+        const safeId = l?.id ?? `act:${l?.mobile || l?.email || crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+        return normalize({ ...l, id: safeId });
+      };
 
-      const assigned = (assignedRaw || []).map((x) => normalize(x, true)).filter(x => x?.id != null);
-      const others = (activateRaw || []).map(normalizeActivate);
+      // Build lists strictly from API arrays
+      const assigned = (Array.isArray(assignedRaw) ? assignedRaw : []).map(normalize).filter(x => x?.id != null);
+      const others = (Array.isArray(activateRaw) ? activateRaw : []).map(normalizeActivate);
 
+      // final suggestion list
       const list = [...assigned, ...others].slice(0, 50);
-      // Build counts
-      const countsById = {};
+
+      // Build counts (prefer exact names from API; fall back to "No Response")
       const countsByName = {};
       for (const l of list) {
-        // prefer id; fallback by name if needed
-        if (l.lead_response_id != null) {
-          countsById[l.lead_response_id] = (countsById[l.lead_response_id] || 0) + 1;
-        }
-        const rname = l.lead_response_name || (respMap?.[l.lead_response_id] ?? "No Response");
+        const rname = l?.lead_response_name || "No Response";
         countsByName[rname] = (countsByName[rname] || 0) + 1;
       }
 
-      setRespCounts(countsById);
       setResponseCounts(countsByName);
-      setSuggestions(list.slice(0, 50));
+      setSuggestions(list);
       setRespMatches(buildResponseMatches(term, respOptions));
     } catch (err) {
       // Swallow cancels; only log real errors
       const canceled = err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError';
-      if (!canceled) console.error("search error", err);
+      if (!canceled) ErrorHandling({ error: err, defaultError: "Search failed." });
       setSuggestions([]); setRespCounts({}); setResponseCounts({});
       setRespMatches(buildResponseMatches(term, respOptions));
     } finally {
@@ -474,11 +483,19 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const handleSelect = (lead) => {
     setOpen(false); setExpanded(false); setHighlight(-1);
     setQuery(lead?.full_name || '');
-    if (lead?.__assigned && lead?.id) {
+
+    if (lead?.__clickable && lead?.id) {
       router.push(`/lead/${lead.id}`);
-    } else {
-      toast?.error("This lead isn't assigned to you.");
+      return;
     }
+
+    if (lead?.__masked) {
+      ErrorHandling({ defaultError: "This Lead Is Not Assigned To You." });
+      return;
+    }
+
+    // fallback (no id, etc.)
+    ErrorHandling({ defaultError: "This item can’t be opened." });
   };
 
   const handleEnterNoPick = () => {
@@ -609,6 +626,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                     branchMap={branchMap}
                     sourceMap={sourceMap}
                     onEnterNoPick={handleEnterNoPick}
+                    showBranch={viewerIsSuperAdmin}
                   />
                 )}
               </div>
@@ -666,7 +684,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-semibold text-gray-900">{user?.name || "User"}</p>
-                  <p className="text-xs text-gray-500">{user?.role_pretty || "Role"}</p>
+                  <p className="text-xs text-gray-500">{user?.role_label || "Role"}</p>
                 </div>
               </button>
 
@@ -717,6 +735,7 @@ function SearchOverlay({
   handleSelect, respMap, branchMap, sourceMap,
   onEnterNoPick,
   overlayRef,
+  showBranch,
 }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -851,7 +870,11 @@ function SearchOverlay({
                         lead.source_name ||
                         lead.lead_source_name ||
                         '—';
-                      const aName = lead.assigned_to_name || (lead.__assigned ? 'You' : '—');
+                      const aName =
+                        lead.assigned_to_name ||
+                        (lead.__assigned ? 'You' : '—');
+                      const aCode = lead.assigned_to_code || '';
+                      const aRole = lead.assigned_to_role || '';
                       const title = lead.full_name || lead.name || lead.client_name || 'Unnamed';
                       const phone = lead.phone || lead.mobile || lead.mobile_no || lead.contact_no || '';
                       const email = lead.email || lead.email_id || '';
@@ -866,7 +889,7 @@ function SearchOverlay({
                           onClick={() => handleSelect(lead)}
                           className={[
                             "px-3 py-2 transition",
-                            lead.__assigned ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                            lead.__clickable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
                             active ? "bg-blue-50" : "hover:bg-gray-50"
                           ].join(' ')}
                         >
@@ -882,15 +905,24 @@ function SearchOverlay({
                                 <span className="px-1.5 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                                   {rName}
                                 </span>
-                                <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
-                                  Branch: {bName}
-                                </span>
+                                {showBranch && (
+                                  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                    Branch: {bName}
+                                  </span>
+                                )}
                                 <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                   Source: {sName}
                                 </span>
                                 <span className="px-1.5 py-0.5 rounded-full border border-violet-200 bg-violet-50 text-violet-700">
                                   Assigned: {aName}
+                                  {aCode ? ` (${aCode})` : ''}
+                                  {aRole ? ` • ${aRole}` : ''}
                                 </span>
+                                {lead.response_changed_at && (
+                                  <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
+                                    Resp @ {new Date(lead.response_changed_at).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
                                 {lead.created_at && (
                                   <span className="px-1.5 py-0.5 rounded-full border border-gray-200 bg-gray-50">
                                     {new Date(lead.created_at).toLocaleDateString('en-IN', {
@@ -951,6 +983,7 @@ function ChangePasswordModal({ open, onClose }) {
       /[a-z]/.test(newPwd) &&
       /\d/.test(newPwd) &&
       /[^A-Za-z0-9]/.test(newPwd);
+    /[^A-Za-z0-9]/.test(newPwd);
     if (!strong) return "New password must include character, number, and special character.";
     if (newPwd === oldPwd) return "New password must be different from the old password.";
     if (newPwd !== confirmPwd) return "New password and confirm password do not match.";
@@ -960,7 +993,7 @@ function ChangePasswordModal({ open, onClose }) {
   const submit = async (e) => {
     e?.preventDefault?.();
     const err = validate();
-    if (err) { toast.error(err); return; }
+    if (err) { ErrorHandling({ defaultError: err }); return; }
 
     setSubmitting(true);
     try {
@@ -974,7 +1007,14 @@ function ChangePasswordModal({ open, onClose }) {
       toast.success(data?.message || "Password changed successfully.");
       onClose?.();
     } catch (error) {
-      ErrorHandling(error, toast);
+      const res = error?.response?.data;
+      //  console.log("res", res);
+      const apiMsg =
+        (typeof res === "string" ? res : (res?.detail || res?.message)) ||
+        error?.message;
+      // console.log("error", error);
+      // console.log("apimsg", apiMsg);
+      ErrorHandling({ defaultError: apiMsg || "Failed to change password." });
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { useRouter } from "next/navigation";
 import {
@@ -144,6 +144,7 @@ const LeadManage = () => {
   const [leadData, setLeadData] = useState([]);
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [sourcesList, setSourcesList] = useState([]);
   const [responsesList, setResponsesList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -171,6 +172,7 @@ const LeadManage = () => {
   const roleKey = useRoleKey();
   const [branchId, setBranchId] = useState(null);  // string
   const [ready, setReady] = useState(false);       // when role/branch is resolved
+  const prevBranchRef = useRef(branchFilter);
 
   const isSuperAdmin = roleKey === "SUPERADMIN";
   const ALLOWED_ROLES_FOR_CARDS = new Set(["SUPERADMIN", "BRANCH MANAGER"]);
@@ -225,6 +227,7 @@ useEffect(() => {
   /* ---------- load dropdown lists ---------- */
 useEffect(() => {
   if (!ready) return;
+  let cancelled = false;
 
   const loadFilterLists = async () => {
     try {
@@ -236,7 +239,8 @@ useEffect(() => {
       ]);
 
       const allBranches = bRes.data || [];
-      const allEmployees = uRes?.data?.data || [];
+      const allEmps = uRes?.data?.data || [];
+      setAllEmployees(allEmps)
 
       if (isSuperAdmin) {
         // SUPERADMIN: branches = all; employees scoped to selected branch (if any)
@@ -244,47 +248,87 @@ useEffect(() => {
         const scopedEmployees =
           branchFilter !== "All"
             ? allEmployees.filter(e => String(e.branch_id) === String(branchFilter))
-            : allEmployees;
-        setEmployees(scopedEmployees);
+            : allEmps;
+        if (!cancelled) setEmployees(scopedEmployees);
       } else {
         // Non-superadmin: lock to own branch
         const safeBranchId = String(branchId || "");
         setBranches(allBranches.filter(b => String(b.id) === safeBranchId));
-        setEmployees(allEmployees.filter(e => String(e.branch_id) === safeBranchId));
+        setEmployees(allEmps.filter(e => String(e.branch_id) === safeBranchId));
       }
 
-      setSourcesList(sRes.data || []);
-      setResponsesList(rRes.data || []);
+      if (!cancelled) {
+       setSourcesList(sRes.data || []);
+       setResponsesList(rRes.data || []);
+     }
     } catch (err) {
       console.error("Failed to load filters", err);
     }
   };
 
   loadFilterLists();
+return () => { cancelled = true; };
 }, [ready, isSuperAdmin, branchId, branchFilter]);
 
   /* ---------- load leads ---------- */
+// ---------- load leads (server-side filtering) ----------
 useEffect(() => {
   if (!ready) return;
 
   const fetchLeadData = async () => {
     try {
       setLoading(true);
-      const base = "/leads/?skip=0&limit=100&kyc_only=false";
 
-      // Decide which branch to query on the server
-      const selectedBranchId = !isSuperAdmin
-  ? branchId
-  : branchFilter !== "All"
-    ? branchFilter
-    : null;
+      // Base params from API doc / your curl
+      const params = {
+        skip: 0,
+        limit: 100,
+        kyc_only: false,        // base default
+        view: "all",
+      };
 
-const url = selectedBranchId
-  ? `${base}&branch_id=${selectedBranchId}`
-  : base;
+      // Branch logic:
+      // - Non-SA: always lock to own branch
+      // - SA + specific tab: pass that branch_id
+      // - SA + "All Branches": DON'T send branch_id (so we can search across branches)
+      const selectedBranchId =
+        !isSuperAdmin
+          ? branchId
+          : branchFilter !== "All"
+            ? branchFilter
+            : null;
 
-      const { data } = await axiosInstance.get(url);
-setLeadData(Array.isArray(data?.leads) ? data.leads : []);
+      if (selectedBranchId) params.branch_id = selectedBranchId;
+
+      // Employee filter
+      if (employeeFilter !== "All") {
+        params.assigned_to_user = String(employeeFilter).trim().toUpperCase();
+        // IMPORTANT: when searching a user across all branches, do not force branch_id
+        // (only omit if SA and the tab is "All")
+        if (isSuperAdmin && branchFilter === "All" && params.branch_id) {
+          delete params.branch_id;
+        }
+      }
+
+      // Source / Response
+      if (sourceFilter !== "All") params.lead_source_id = sourceFilter;
+      if (responseFilter !== "All") params.response_id = responseFilter;
+
+      // Global search (API param name is `search`)
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+
+      // KYC: use Completed / Pending to set boolean; otherwise leave base kyc_only=false
+      if (kycFilter === "Completed") {
+        params.kyc_only = true;      // only leads with kyc=true
+      } else if (kycFilter === "Pending") {
+        // Some backends accept kyc=false; if yours does, uncomment next line.
+        // params.kyc = false;
+        // If not, keep kyc_only=false and rely on server’s default for "not completed".
+        params.kyc_only = false;
+      }
+
+      const { data } = await axiosInstance.get("/leads/", { params });
+      setLeadData(Array.isArray(data?.leads) ? data.leads : []);
     } catch (error) {
       console.error("Lead fetch failed:", error);
       setLeadData([]);
@@ -294,7 +338,18 @@ setLeadData(Array.isArray(data?.leads) ? data.leads : []);
   };
 
   fetchLeadData();
-}, [ready, isSuperAdmin, branchId, branchFilter]);
+  // Re-run whenever any server-side filter changes
+}, [
+  ready,
+  isSuperAdmin,
+  branchId,
+  branchFilter,
+  employeeFilter,
+  sourceFilter,
+  responseFilter,
+  kycFilter,
+  searchQuery,
+]);
 
   /* ---------- quick cards (admins only) ---------- */
   useEffect(() => {
@@ -333,9 +388,12 @@ setLeadData(Array.isArray(data?.leads) ? data.leads : []);
     branches.find((b) => String(b.id) === String(id))?.name ||
     (id == null ? "—" : id);
 
-  const getEmployeeName = (code) =>
-    employees.find((e) => String(e.employee_code) === String(code))?.name ||
-    (code == null ? "—" : code);
+  const getEmployeeName = (code) => {
+    const c = String(code ?? "").trim();
+    if (!c) return "—";
+    return (allEmployees.find(e => String(e.employee_code).trim().toUpperCase() === c.toUpperCase())?.name)
+|| c;
+};
 
   /* ---------- options ---------- */
   const sourceOptions = useMemo(
@@ -348,54 +406,8 @@ setLeadData(Array.isArray(data?.leads) ? data.leads : []);
   );
 
   /* ---------- filtering ---------- */
-  const filteredLeads = useMemo(() => {
-    let updated = [...leadData];
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      updated = updated.filter((lead) => {
-        const full_name = (lead.full_name || "").toLowerCase();
-        const email = (lead.email || "").toLowerCase();
-        const mobile = String(lead.mobile || "");
-        const altMobile = String(lead.alternate_mobile || "");
-        const pan = (lead.pan || "").toLowerCase();
-        return (
-          full_name.includes(q) ||
-          email.includes(q) ||
-          mobile.includes(q) ||
-          altMobile.includes(q) ||
-          pan.includes(q)
-        );
-      });
-    }
-
-    if (branchFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.branch_id) === String(branchFilter));
-    }
-    if (employeeFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.assigned_to_user) === String(employeeFilter));
-    }
-    if (sourceFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.lead_source_id) === String(sourceFilter));
-    }
-    if (responseFilter !== "All") {
-      updated = updated.filter((lead) => String(lead.lead_response_id) === String(responseFilter));
-    }
-    if (kycFilter !== "All") {
-      const wantCompleted = kycFilter === "Completed";
-      updated = updated.filter((lead) => Boolean(lead.kyc) === wantCompleted);
-    }
-
-    return updated;
-  }, [
-    leadData,
-    searchQuery,
-    branchFilter,
-    employeeFilter,
-    sourceFilter,
-    responseFilter,
-    kycFilter,
-  ]);
+// ---------- filtering (server already did it) ----------
+const filteredLeads = useMemo(() => leadData, [leadData]);
 
   /* ---------- pagination ---------- */
   const [currentPage, setCurrentPage] = useState(1);
@@ -406,10 +418,21 @@ setLeadData(Array.isArray(data?.leads) ? data.leads : []);
     return filteredLeads.slice(startIndex, startIndex + pageSize);
   }, [filteredLeads, currentPage]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-    setOpenLead(null);
-  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter]);
+// Only reset paging when any filter changes
+ useEffect(() => {
+   setCurrentPage(1);
+   setOpenLead(null);
+ }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter]);
+
+// Clear employee selection ONLY when the branch tab actually changes
+useEffect(() => {
+  if (prevBranchRef.current !== branchFilter) {
+    setEmployeeFilter("All");
+    setEmployeeQuery("");
+    setShowEmpDrop(false);
+    prevBranchRef.current = branchFilter;
+  }
+}, [branchFilter]);
 
   useEffect(() => {
     setOpenLead(null);
@@ -421,14 +444,15 @@ setLeadData(Array.isArray(data?.leads) ? data.leads : []);
   const empMatches = useMemo(() => {
     const q = employeeQuery.trim().toLowerCase();
     if (!q) return [];
-    return employees
+    const pool = isSuperAdmin && branchFilter === "All" ? allEmployees : employees;
+    return pool
       .filter(
         (e) =>
           e?.name?.toLowerCase().includes(q) ||
           String(e.employee_code || "").toLowerCase().includes(q)
       )
       .slice(0, 20);
-  }, [employeeQuery, employees]);
+  }, [employeeQuery, employees, allEmployees, isSuperAdmin, branchFilter]);
 
   const handleEmployeeSelect = (emp) => {
     setEmployeeFilter(String(emp.employee_code));
@@ -600,9 +624,13 @@ setLeadData(Array.isArray(data?.leads) ? data.leads : []);
                   onChange={(e) => {
                     setEmployeeQuery(e.target.value);
                     setShowEmpDrop(true);
-                    if (employeeFilter !== "All") setEmployeeFilter("All");
+                    // Only clear a previously selected employee if the user edits the text
+   if (employeeFilter !== "All") setEmployeeFilter("All");
                   }}
                   onFocus={() => setShowEmpDrop(Boolean(employeeQuery))}
+                  onKeyDown={(e) => {
+   if (e.key === "Enter") e.preventDefault();
+ }}
                 />
                 {(employeeFilter !== "All" || employeeQuery) && (
                   <button className="p-2 rounded hover:bg-gray-100" onClick={clearEmployee} title="Clear">

@@ -52,8 +52,8 @@ const InvoiceModal = ({ isOpen, onClose, leadId, onViewPdf, canDownload = false 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Invoices"
-            contentClassName="w-[80vw] max-w-4xl rounded-xl shadow-2xl bg-white flex flex-col"
+            // title="Invoices"
+            contentClassName="p-6 w-[80vw] max-w-4xl rounded-xl shadow-2xl bg-white flex flex-col"
             actions={[
                 <button
                     key="close"
@@ -119,24 +119,24 @@ const InvoiceModal = ({ isOpen, onClose, leadId, onViewPdf, canDownload = false 
                                         </td>
                                         <td className="py-2 px-3">{formatDate(inv.created_at)}</td>
                                         <td className="py-2 px-3">
-   {inv.invoice_path && inv.invoice_path !== "false" ? (
-     <button
-       type="button"
-       onClick={() =>
-         onViewPdf &&
-         onViewPdf(
-           getInvoiceUrl(inv.invoice_path),
-           `Invoice #${inv.invoice_no ?? inv.id}`
-         )
-       }
-       className="text-blue-600 hover:underline"
-     >
-       View
-     </button>
-   ) : (
-     <span className="text-gray-400">N/A</span>
-   )}
- </td>
+                                            {inv.invoice_path && inv.invoice_path !== "false" ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        onViewPdf &&
+                                                        onViewPdf(
+                                                            getInvoiceUrl(inv.invoice_path),
+                                                            `Invoice #${inv.invoice_no ?? inv.id}`
+                                                        )
+                                                    }
+                                                    className="text-blue-600 hover:underline"
+                                                >
+                                                    View
+                                                </button>
+                                            ) : (
+                                                <span className="text-gray-400">N/A</span>
+                                            )}
+                                        </td>
                                         <td className="py-2 px-3">
                                             {inv.invoice_path && inv.invoice_path !== "false" ? (
                                                 <button

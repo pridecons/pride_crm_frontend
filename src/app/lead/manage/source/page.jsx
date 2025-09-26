@@ -205,14 +205,15 @@ export default function LeadSourcesPage() {
     setForm((f) => ({
       ...f,
       fetch_configs: [
-        ...f.fetch_configs,
         {
           role_id: firstFree.id,
           per_request_limit: 50,
           daily_call_limit: 2,
         },
+         ...f.fetch_configs,
       ],
     }));
+    toast.success("Added new fetch configuration");
   };
 
   const updateFetchConfig = (idx, patch) => {

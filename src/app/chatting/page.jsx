@@ -20,6 +20,34 @@ import NewChatModal from "@/components/chatting/NewChatModal";
 import Composer from "@/components/chatting/Composer";
 import ParticipantsModal from "@/components/chatting/ParticipantsModal";
 
+// --- Thread normalizers (NEW) ---
+function normalizeThread(t = {}) {
+  const lm = t.last_message || null;
+  const last_message = typeof lm === "string" ? lm : (lm?.body ?? "");
+  const last_message_time = typeof lm === "string" ? (t.last_message_time ?? null) : (lm?.created_at ?? null);
+  const last_message_id = typeof lm === "string" ? (t.last_message_id ?? null) : (lm?.id ?? null);
+
+  let unseen = t.unseen_count;
+  if (typeof unseen === "string") unseen = parseInt(unseen, 10);
+  if (!Number.isFinite(unseen) || unseen < 0) unseen = 0;
+
+  return {
+    ...t,
+    last_message,
+    last_message_time,
+    last_message_id,
+    unseen_count: unseen,
+  };
+}
+
+function normalizeThreads(arr = [], prev = []) {
+  const prevById = new Map(prev.map((x) => [x.id, x]));
+  return arr.map((raw) => {
+    const merged = { ...(prevById.get(raw.id) || {}), ...raw };
+    return normalizeThread(merged);
+  });
+}
+
 // ===== Chat Group API helpers =====
 async function createGroup({ name, participant_codes, branch_id }) {
   const { data } = await axiosInstance.post("/chat/group/create", {
@@ -92,6 +120,32 @@ export default function WhatsAppChatPage() {
   // Drag & paste to Composer
   const composerRef = useRef(null);
 
+// --- Read receipts (self) ----------------------------------------------
+// remembers the highest message id we've marked as read per thread
+const lastMarkedReadIdRef = useRef(new Map()); // Map<threadId, lastMessageId(string|number)>
+
+// guard + call API
+const markRead = useCallback(async (threadId, lastMessageId) => {
+  if (!threadId || lastMessageId == null) return;
+
+  const key = String(threadId);
+  const prev = lastMarkedReadIdRef.current.get(key);
+
+  // only call if it's actually newer than what we've sent before
+  if (prev && compareMsgId(lastMessageId, prev) <= 0) return;
+
+  lastMarkedReadIdRef.current.set(key, lastMessageId);
+  try {
+    await axiosInstance.post(`/chat/${threadId}/mark-read`, null, {
+      params: { last_message_id: lastMessageId },
+    });
+  } catch (_) {
+    // on failure, allow retry next time by rolling back
+    const cur = lastMarkedReadIdRef.current.get(key);
+    if (cur === lastMessageId) lastMarkedReadIdRef.current.delete(key);
+  }
+}, []);
+
   // Load users & branches once
   useEffect(() => {
     let alive = true;
@@ -135,10 +189,7 @@ useEffect(() => {
       const { data } = await axiosInstance.get("/chat/threads");
       if (cancelled) return;
       const arr = Array.isArray(data) ? data : [];
-      setThreads((prev) => {
-        const prevMap = new Map(prev.map((t) => [t.id, t]));
-        return arr.map((t) => ({ ...prevMap.get(t.id), ...t }));
-      });
+      setThreads((prev) => normalizeThreads(arr, prev));
     } catch (e) {
       console.error("initial threads load error", e);
     }
@@ -164,6 +215,7 @@ useEffect(() => {
       try {
         const { data: t } = await axiosInstance.get(`/chat/threads/${selected.id}`);
         if (!alive || !t?.id) return;
+        const nt = normalizeThread(t);
         // merge participants & any new meta into selected
         setSelected((prev) => (prev?.id === t.id ? { ...prev, ...t } : prev));
       } catch { }
@@ -187,19 +239,16 @@ useEffect(() => {
           setFirstUnreadIdx(idx >= 0 ? idx : null);
         }
 
-        if (list.length) {
-          const lastId = list[list.length - 1].id;
-          axiosInstance.post(`/chat/${selected.id}/mark-read`, null, { params: { last_message_id: lastId } }).catch(() => { });
-        }
+       // after setMessages(list) and computing firstUnreadIdx...
+if (list.length) {
+   const lastId = list[list.length - 1].id;
+   await markRead(selected.id, lastId);
+   // pull fresh unseen_count from server
+   await fallbackTick();
+ }
       } catch (e) { console.error("messages load error", e); }
     })();
   }, [selected?.id]);
-
-  // Local unread zero for selected
-  useEffect(() => {
-    if (!selectedId) return;
-    setThreads((prev) => prev.map((t) => (t.id === selectedId ? { ...t, unread_count: 0 } : t)));
-  }, [selectedId]);
 
   // Inbox-wide events
   const handleInboxEvent = useCallback((evt) => {
@@ -242,34 +291,31 @@ useEffect(() => {
       const isSelf = String(m.sender_id) === String(currentUser);
 
       setThreads((prev) => {
-        const idx = prev.findIndex((t) => t.id === tId);
-        if (idx === -1) {
-          const placeholder = {
-            id: tId,
-            name: m.thread_name || "Direct Chat",
-            type: m.thread_type || "DIRECT",
-            last_message: m.body,
-            last_message_time: m.created_at,
-            unread_count: isSelf || tId === selectedId ? 0 : 1,
-          };
-          return [placeholder, ...prev];
-        }
-        return prev.map((t) =>
-          t.id === tId
-            ? {
-              ...t,
-              last_message: m.body,
-              last_message_time: m.created_at,
-              unread_count: isSelf || tId === selectedId ? (t.unread_count || 0) : (t.unread_count || 0) + 1,
-            }
-            : t
-        );
-      });
+   const idx = prev.findIndex((t) => t.id === tId);
+   if (idx === -1) {
+     const placeholder = {
+       id: tId,
+       name: m.thread_name || "Direct Chat",
+       type: m.thread_type || "DIRECT",
+       last_message: m.body,
+       last_message_time: m.created_at,
+     };
+     return [placeholder, ...prev];
+   }
+   return prev.map((t) =>
+     t.id === tId
+       ? { ...t, last_message: m.body, last_message_time: m.created_at }
+       : t
+   );
+ });
+ // pull server truth for unseen_count
+ fallbackTick();
 
       (async () => {
         try {
           const { data: t } = await axiosInstance.get(`/chat/threads/${tId}`);
           if (!t?.id) return;
+          const nt = normalizeThread(t); 
           setThreads((prev) =>
             prev.some((x) => x.id === tId) ? prev.map((x) => (x.id === tId ? { ...x, ...t } : x)) : [t, ...prev]
           );
@@ -330,16 +376,12 @@ const handleRemoveParticipants = useCallback(async (codes) => {
 }, [selected?.id, selected?.type, mergeThread]);
 
   const fallbackTick = useCallback(async () => {
-    try {
-      const { data } = await axiosInstance.get("/chat/threads");
-      const arr = Array.isArray(data) ? data : [];
-      setThreads((prev) => {
-        const byId = new Map(prev.map((t) => [t.id, t]));
-        const merged = arr.map((t) => ({ ...byId.get(t.id), ...t }));
-        return merged;
-      });
-    } catch { }
-  }, []);
+  try {
+    const { data } = await axiosInstance.get("/chat/threads");
+    const arr = Array.isArray(data) ? data : [];
+    setThreads((prev) => normalizeThreads(arr, prev));   // <-- UPDATED
+  } catch { }
+}, []);
 
   useInboxSocket({ currentUser, enabled: !!currentUser, onEvent: handleInboxEvent });
 
@@ -395,16 +437,17 @@ const handleRemoveParticipants = useCallback(async (codes) => {
       }
 
       if (tId === selectedId) {
-        setMessages((prev) => (msg.id && prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
-        setThreads((prev) =>
-          prev.map((t) =>
-            t.id === tId ? { ...t, last_message: msg.body, last_message_time: msg.created_at, unread_count: 0 } : t
-          )
-        );
-        if (msg.id) {
-          axiosInstance.post(`/chat/${tId}/mark-read`, null, { params: { last_message_id: msg.id } }).catch(() => { });
-        }
-      } else {
+  setMessages((prev) => (msg.id && prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+  setThreads((prev) =>
+    prev.map((t) =>
+      t.id === tId ? { ...t, last_message: msg.body, last_message_time: msg.created_at, unread_count: 0 } : t
+    )
+  );
+  if (msg.id) {
+    // ⬇️ NEW
+    markRead(tId, msg.id);
+  }
+} else {
         setThreads((prev) =>
           prev.map((t) =>
             t.id === tId ? { ...t, last_message: msg.body, last_message_time: msg.created_at, unread_count: (t.unread_count || 0) + 1 } : t
@@ -470,14 +513,20 @@ const handleRemoveParticipants = useCallback(async (codes) => {
         setSelected(t);
         setMessages((prev) => prev.filter((m) => m.id !== tempId).concat([{ ...sentMsg, _status: "delivered" }]));
         setThreads((prev) => prev.map((th) => (th.id === t.id ? { ...th, last_message: sentMsg.body, last_message_time: sentMsg.created_at } : th)));
-        try { await axiosInstance.post(`/chat/${t.id}/mark-read`, null, { params: { last_message_id: sentMsg.id } }); } catch { }
+        try {
+   await markRead(t.id, sentMsg.id);
+   await fallbackTick();
+ } catch {}
         return true;
       }
 
       const sentMsg = await postMessageFormData(selected.id, body, files);
       setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...sentMsg, _status: "delivered" } : m)));
       setThreads((prev) => prev.map((t) => (t.id === selected.id ? { ...t, last_message: sentMsg.body, last_message_time: sentMsg.created_at } : t)));
-      try { await axiosInstance.post(`/chat/${selected.id}/mark-read`, null, { params: { last_message_id: sentMsg.id } }); } catch { }
+      try {
+   await markRead(selected.id, sentMsg.id);
+   await fallbackTick();
+ } catch {}
       return true;
     } catch (e) {
       console.error("send error", e);
@@ -559,6 +608,9 @@ const handleRemoveParticipants = useCallback(async (codes) => {
                 firstUnreadIdx={firstUnreadIdx}
                 setFirstUnreadIdx={setFirstUnreadIdx}
                 openDoc={openDoc}
+                onReachBottom={(lastIncomingId) => {
+                  if (selected?.id && lastIncomingId) markRead(selected.id, lastIncomingId);
+                  }}
               />
 
               {selected && (

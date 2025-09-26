@@ -36,6 +36,18 @@ function RationalModal({
   // local error bag
   const [errors, setErrors] = useState({});
 
+  // does API already have an image? (edit mode + string path)
+const apiHasGraph =
+  !!isEditMode &&
+  typeof formData.graph === "string" &&
+  formData.graph.trim() !== "";
+
+// did user pick a new file locally?
+const localHasFile = formData.graph instanceof File;
+
+// any image present (API or local)
+const hasAnyImage = apiHasGraph || localHasFile;
+
   // --- Load SMS templates ----------------------------------------------------
   useEffect(() => {
     let alive = true;
@@ -577,63 +589,62 @@ function RationalModal({
               rows={3}
             />
 
-            {!isEditMode && (
-              <>
-                <div className="mt-2 flex justify-end">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        graph: e.target.files?.[0] ?? null,
-                      }));
-                      setErrors((p) => ({ ...p, graph: undefined }));
-                      if (e.target.files?.[0]) setImageError("");
-                    }}
-                    className="hidden"
-                    id="rationalImageUpload"
-                  />
-                  <label
-                    htmlFor="rationalImageUpload"
-                    className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
-                    title="Upload image"
-                  >
-                    Upload Image <span className="text-red-300">*</span>
-                  </label>
-                </div>
+            {/* Show UPLOAD when NO image exists (create OR edit without graph) */}
+ {!hasAnyImage && (
+   <>
+     <div className="mt-2 flex justify-end">
+       <input
+         type="file"
+         accept="image/*"
+         onChange={(e) => {
+           setFormData((prev) => ({ ...prev, graph: e.target.files?.[0] ?? null }));
+           setErrors((p) => ({ ...p, graph: undefined }));
+           if (e.target.files?.[0]) setImageError("");
+         }}
+         className="hidden"
+         id="rationalImageUpload"
+       />
+       <label
+         htmlFor="rationalImageUpload"
+         className="inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 cursor-pointer text-sm transition"
+         title="Upload image"
+       >
+         {isEditMode ? "Upload Image" : <>Upload Image <span className="text-red-300">*</span></>}
+       </label>
+     </div>
 
-                {(imageError || errors.graph) && (
-                  <div className="mt-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded p-2">
-                    {errors.graph || imageError}
-                  </div>
-                )}
+     {/* image required error only for create mode */}
+     {!isEditMode && (imageError || errors.graph) && (
+       <div className="mt-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded p-2">
+         {errors.graph || imageError}
+       </div>
+     )}
+   </>
+ )}
 
-                {formData.graph && (
-                  <div className="mt-2 relative inline-block w-fit">
-                    <img
-                      src={
-                        formData.graph instanceof File
-                          ? URL.createObjectURL(formData.graph)
-                          : `${BASE_URL}${formData.graph}`
-                      }
-                      alt="Preview"
-                      className="max-h-20 rounded border"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, graph: null }))
-                      }
-                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
-                      title="Remove Image"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
+ {/* Show PREVIEW when an image exists (API path or local file) */}
+ {hasAnyImage && (
+   <div className="mt-2 relative inline-block w-fit">
+     <img
+       src={
+         localHasFile
+           ? URL.createObjectURL(formData.graph)
+           : `${BASE_URL}${formData.graph}`   // API string path
+       }
+       alt="Preview"
+       className="max-h-20 rounded border"
+     />
+     {/* Allow removing existing API image to enable upload in edit */}
+     <button
+       type="button"
+       onClick={() => setFormData((prev) => ({ ...prev, graph: null }))}
+       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
+       title="Remove Image"
+     >
+       ×
+     </button>
+   </div>
+ )}
           </div>
 
           <div className="md:col-span-2">

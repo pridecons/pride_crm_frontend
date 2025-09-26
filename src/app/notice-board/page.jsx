@@ -18,6 +18,7 @@ import {
   Building2,
   Clock,
 } from "lucide-react";
+import { ErrorHandling } from "@/helper/ErrorHandling";
 
 /* -----------------------------
    Helpers
@@ -127,8 +128,8 @@ export default function NoticeBoardPage() {
           const first = String(list[0]?.id ?? list[0]?.branch_id ?? "").trim();
           if (first) setBranchId(first);
         }
-      } catch {
-        toast.error("Failed to load branches.");
+      } catch(err) {
+        ErrorHandling({ error: err, defaultError: "Failed to load branches." });
       } finally {
         setLoadingBranches(false);
       }
@@ -145,8 +146,8 @@ export default function NoticeBoardPage() {
         });
         const arr = Array.isArray(data) ? data : data?.data || [];
         setUsers(arr);
-      } catch {
-        toast.error("Failed to load users.");
+      } catch(err) {
+        ErrorHandling({ error: err, defaultError: "Failed to load users." });
       } finally {
         setUsersLoading(false);
       }
@@ -194,11 +195,11 @@ export default function NoticeBoardPage() {
 
   const handleSend = async () => {
     if (!canSend) {
-      toast.error("Fill the required fields.");
+      ErrorHandling({ defaultError: "Fill the required fields." });
       return;
     }
     if (!branchId) {
-      toast.error("Branch ID not found. Please login again or choose a branch.");
+      ErrorHandling({ defaultError: "Branch ID not found. Please login again or choose a branch." });
       return;
     }
 
@@ -231,11 +232,11 @@ export default function NoticeBoardPage() {
               ...prev,
             ]);
           } else {
-            toast.error("Broadcast failed.");
+            ErrorHandling({ defaultError: "Broadcast failed." });
           }
         } catch (err) {
           const msg = err?.response?.data?.detail || err.message;
-          toast.error(`Broadcast failed: ${msg}`);
+          ErrorHandling({ error: err, defaultError: `Broadcast failed: ${msg}` });
         }
       } else {
         // Single/Multiple: one call per user to /notification/
@@ -253,11 +254,12 @@ export default function NoticeBoardPage() {
             const ok = Boolean(res?.data?.success);
             results.push({ code, ok, error: ok ? null : "Unknown error" });
             if (ok) toast.success(`Sent to ${code}`);
-            else toast.error(`Failed for ${code}`);
+            else 
+            ErrorHandling({ defaultError: `Failed for ${code}` });
           } catch (err) {
             const msg = err?.response?.data?.detail || err.message;
             results.push({ code, ok: false, error: msg });
-            toast.error(`Failed for ${code}: ${msg}`);
+            ErrorHandling({ error: err, defaultError: `Failed for ${code}: ${msg}` });
           }
         }
         setSentLog((prev) => [

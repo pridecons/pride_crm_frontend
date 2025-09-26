@@ -665,7 +665,7 @@ function ServiceCard({ selectService = {}, setSelectService = () => {} }) {
           <div
             key={service.id}
             onClick={() => handleSelect(service)}
-            className={`relative min-w-72 max-w-72 bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${
+            className={`relative bg-white border-2 rounded-2xl p-4 shadow-lg hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${
               selectService?.id === service.id
                 ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-blue-200"
                 : "border-gray-200 hover:border-gray-300"

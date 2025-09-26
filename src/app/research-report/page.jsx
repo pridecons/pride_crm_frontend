@@ -198,9 +198,16 @@ export default function NewResearchReportPage() {
     fii_fpi: { cash: null, debt: null },
     dii: { cash: null, debt: null },
   });
+const [callsIndex, setCallsIndex] = useState([
+    { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
+  { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
+]);
+  const [callsStock, setCallsStock] = useState([
+    { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
+  { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
+]);
 
-  const [callsIndex, setCallsIndex] = useState([]);
-  const [callsStock, setCallsStock] = useState([]);
+
 
   const [submitting, setSubmitting] = useState(false);
   const [submitOk, setSubmitOk] = useState(null);
@@ -245,33 +252,15 @@ export default function NewResearchReportPage() {
       ...x,
       { symbol: "", cmp: null, price_change: null, change_pct: null },
     ]);
-  const addCallIndex = () =>
+  const addCallIndex = () =>  
     setCallsIndex((x) => [
       ...x,
-      {
-        symbol: "",
-        view: "",
-        entry_at: null,
-        buy_above: null,
-        t1: null,
-        t2: null,
-        sl: null,
-        chart_file: null, // <— store the file object here
-      },
+      { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
     ]);
   const addCallStock = () =>
     setCallsStock((x) => [
       ...x,
-      {
-        symbol: "",
-        view: "",
-        entry_at: null,
-        buy_above: null,
-        t1: null,
-        t2: null,
-        sl: null,
-        chart_file: null,
-      },
+      { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
     ]);
 
   /* -----------------------------

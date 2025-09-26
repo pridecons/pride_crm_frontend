@@ -7,6 +7,38 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
 /* ----------------------------- helpers ----------------------------- */
+// NEW: strict label = Today / Yesterday / YYYY-MM-DD (from API ISO)
+function formatInboxTimeStrict(iso) {
+  if (!iso) return "";
+
+  const dt = new Date(iso);
+  if (isNaN(dt)) {
+    // fall back to API date -> dd/mm/yyyy
+    const [y, m, d] = String(iso).split("T")[0]?.split("-") ?? [];
+    return d && m && y ? `${d}/${m}/${y}` : "";
+  }
+
+  const now = new Date();
+  const diffMs = now.getTime() - dt.getTime();
+  const mins  = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days  = Math.floor(diffMs / 86400000);
+
+  if (mins < 60) {
+    const m = Math.max(1, mins);            // avoid "0 mins"
+    return `${m} mins ago`;
+  }
+  if (hours < 24) {
+    return "hour ago";                       // as requested (no number)
+  }
+  if (days === 1) return "1 day ago";
+  if (days === 2) return "2 day ago";
+
+  // otherwise show dd/mm/yyyy from API date part
+  const [y, m, d] = String(iso).split("T")[0].split("-");
+  return `${d}/${m}/${y}`;
+}
+
 const toStr = (v) => (v == null ? "" : String(v));
 const normalizeRoleKey = (r) => toStr(r).trim().toUpperCase().replace(/\s+/g, "_") || "";
 
@@ -38,27 +70,13 @@ const getEmpCode = (obj) => toStr(obj?.employee_code || obj?.code || obj?.id);
 
 const ALWAYS_INCLUDE_ADMIN_CODES = new Set(["ADMIN001"]); // extend if needed
 
-// Normalize unread count across possible shapes/types; clamp to >= 0.
-function getUnread(t) {
-  if (!t) return 0;
-  let v =
-    t.unread_count != null
-      ? t.unread_count
-      : t.unreadCount != null
-      ? t.unreadCount
-      : t.unread != null
-      ? t.unread
-      : t.unreadMessages != null
-      ? t.unreadMessages
-      : 0;
-
-  if (typeof v === "string") {
-    const n = parseInt(v, 10);
-    v = isNaN(n) ? 0 : n;
-  }
-  if (typeof v !== "number") v = 0;
-  return v < 0 ? 0 : v;
-}
+// Read unseen (unread) count strictly from API response: unseen_count
+ function getUnseen(t) {
+   if (!t) return 0;
+   let v = t.unseen_count;
+   if (typeof v === "string") v = parseInt(v, 10);
+   return Number.isFinite(v) && v > 0 ? v : 0;
+ }
 
 function useCurrentUserRB() {
   const [state, setState] = useState({ role: null, branchId: null });
@@ -172,43 +190,53 @@ const filteredUsers = useMemo(() => {
 
 
   // Reusable thread row (shows unread badge consistently)
-  const ThreadRow = ({ thread }) => {
-    const unread = getUnread(thread);
-    return (
-      <button
-        key={thread.id}
-        onClick={() => onSelectThread(thread)}
-        className={clsx(
-          "w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80",
-          selectedId === thread.id && "bg-gray-100"
-        )}
-      >
-        <div className="flex">
-          <div className="w-[44px] pt-1">
-            <Avatar name={thread.name} id={String(thread.id)} size="lg" />
-          </div>
-          <div className="pl-4 min-w-0 flex-1">
-            <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
+const ThreadRow = ({ thread }) => {
+  const unread = getUnseen(thread);
+  return (
+    <button
+      key={thread.id}
+      onClick={() => onSelectThread(thread)}
+      className={clsx(
+        "w-full text-left px-3 py-2 hover:bg-gray-50 focus:bg-gray-50",
+        "transition-colors"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="pt-0.5">
+          <Avatar name={thread.name} id={String(thread.id)} size="lg" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {/* top row: name + green weekday */}
+          <div className="flex items-start gap-3">
+            <h5 className="text-[15px] text-gray-900 font-semibold truncate">
               {thread.name || "Direct Chat"}
-              <span className="float-right text-[12px] text-gray-500 font-normal">
-                {humanTime ? humanTime(thread.last_message_time) : ""}
-              </span>
             </h5>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[13px] text-[#6b7280] truncate">
-                {thread.last_message || " "}
-              </p>
+
+            <div className="ml-auto shrink-0 flex items-center gap-2">
+              {/* time label in green */}
+              <span className="text-[12px] text-[#0f766e] font-medium italic">
+                {formatInboxTimeStrict(thread.last_message_time)}
+              </span>
+
+              {/* unread badge (green circle) */}
               {unread > 0 && (
-                <span className="ml-2 bg-teal-600 text-white text-[11px] rounded-full min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center">
+                <span className="inline-flex items-center justify-center rounded-full bg-[#0f766e] text-white text-[11px] font-semibold min-w-[22px] h-[22px] px-1.5">
                   {unread}
                 </span>
               )}
             </div>
           </div>
+
+          {/* snippet */}
+          <p className="mt-0.5 text-[13px] text-gray-600 truncate">
+            {thread.last_message || " "}
+          </p>
         </div>
-      </button>
-    );
-  };
+      </div>
+    </button>
+  );
+};
 
   return (
     <div

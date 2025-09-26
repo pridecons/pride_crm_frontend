@@ -28,7 +28,7 @@ export function MultiSelectWithCheckboxes({
   return (
     <div className="relative w-full" ref={ref}>
       <div
-        className={`border px-3 py-2 rounded-lg bg-white cursor-pointer flex justify-between ${disabled ? "bg-gray-100 text-gray-400" : ""}`}
+        className={`border px-3 py-2 rounded-lg bg-white cursor-pointer border-gray-300 flex justify-between ${disabled ? "bg-gray-100 text-gray-400" : ""}`}
         onClick={() => !disabled && setOpen((o) => !o)}
       >
         <span>

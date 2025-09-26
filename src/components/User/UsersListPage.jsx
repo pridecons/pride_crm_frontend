@@ -15,6 +15,7 @@ import UserModal from "./UserModal";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import BulkUserUploadModal from "./BulkUserUploadModal"; // ⬅️ NEW
 
+
 // components/UsersListPage.jsx (top-level imports stay same)
 const makeCodeToName = (list) =>
   (Array.isArray(list) ? list : []).reduce((acc, u) => {
@@ -143,6 +144,7 @@ const [pages, setPages] = useState(1);
     roleId = selectedRole,
     branch = selectedBranch,
     q = searchQuery,
+    signal,
   } = {}) => {
     setLoading(true);
     try {
@@ -155,7 +157,7 @@ const [pages, setPages] = useState(1);
       if (branch && branch !== "All") params.branch_id = Number(branch);
       if (q && q.trim()) params.search = q.trim();
       console.log("[users] fetch", params);
-      const res = await axiosInstance.get("/users/", { params });
+      const res = await axiosInstance.get("/users/", { params, signal });
 
       // accept either {data, total, limit} or bare array fallback
       const list =
@@ -178,41 +180,36 @@ const [pages, setPages] = useState(1);
  setSkip(apiSkip);
  setLimit(apiLimit);
  setPages(apiPages);
- setPage(apiPage);
+ if (apiPage && apiPage !== page) setPage(apiPage);
     } catch (err) {
-      console.error("Failed to fetch users:", err);
+      if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
       ErrorHandling({ error: err, defaultError: "Failed to load users." });
+    }
     } finally {
       setLoading(false);
     }
   };
+// --- replace the 3-4 fetch effects with this single one ---
+useEffect(() => {
+  if (!Object.keys(roleMap).length) return; // wait until roles loaded
 
-  // first load when roleMap is ready
-  useEffect(() => {
-    if (!Object.keys(roleMap).length) return;
-    fetchUsers({ page: 1 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roleMap]);
+  const controller = new AbortController();
+  const t = setTimeout(() => {
+    fetchUsers({
+      page,
+      roleId: selectedRole,
+      branch: selectedBranch,
+      q: searchQuery,
+      signal: controller.signal,
+    });
+  }, 350);
 
-  // role/branch change → reset to page 1
-  useEffect(() => {
-    setPage(1);
-    fetchUsers({ page: 1 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRole, selectedBranch]);
-
-  // page change
-  useEffect(() => {
-    fetchUsers({ page });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
-
-  // search (debounced) → page 1
-  useEffect(() => {
-    const t = setTimeout(() => fetchUsers({ page: 1 }), 350);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
+  return () => {
+    controller.abort();
+    clearTimeout(t);
+  };
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [roleMap, selectedRole, selectedBranch, page, searchQuery]);
 
   // If roles arrive later/changed, refresh users' readable role labels
   useEffect(() => {
@@ -330,6 +327,7 @@ const [pages, setPages] = useState(1);
           onClose={() => setDetailsUser(null)}
           user={detailsUser}
           branchMap={branchMap}
+          roleMap={roleMap}
         />
 
         {/* ⬇️ Bulk Upload Modal */}

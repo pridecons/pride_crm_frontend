@@ -12,6 +12,7 @@ export default function MessageList({
   firstUnreadIdx,
   setFirstUnreadIdx,
   openDoc, // keep: used for docs only
+  onReachBottom,
 }) {
   const listRef = useRef(null);
   const bottomRef = useRef(null);
@@ -46,7 +47,16 @@ export default function MessageList({
     if (nearBottom || String(last?.sender_id) === String(currentUser)) {
       requestAnimationFrame(() => scrollToBottom("smooth"));
     }
-  }, [messages?.length, currentUser, scrollToBottom]);
+    if (nearBottom && typeof onReachBottom === "function") {
+   let lastIncomingId = null;
+   for (let i = messages.length - 1; i >= 0; i--) {
+     const m = messages[i];
+     if (String(m?.sender_id) !== String(currentUser)) { lastIncomingId = m.id; break; }
+   }
+   if (lastIncomingId != null) onReachBottom(lastIncomingId);
+ }
+}, [messages?.length, currentUser, scrollToBottom, onReachBottom, messages]);
+
 
   const openAttachment = useCallback(
     (url, title, mime = "") => {
@@ -69,15 +79,22 @@ export default function MessageList({
     let lastSender = null;
 
     (messages || []).forEach((msg) => {
-      if (msg.sender_id === currentUser) {
-        if (!msg._status) {
-          msg._status = String(msg.id).startsWith("tmp-") ? "sending" : "delivered";
-        }
-        const othersReadUpto = readUpToByOthers.get(String(msg.thread_id));
+      // ---- UPDATED: compute delivery/read status for *your* messages ----
+      if (String(msg.sender_id) === String(currentUser)) {
+        // default status
+        let status = String(msg.id).startsWith("tmp-") ? "sending" : "delivered";
+
+        // get "others have read up to" for the *current thread*
+        const othersReadUpto = readUpToByOthers.get(String(selected?.id));
         if (othersReadUpto && compareMsgId(msg.id, othersReadUpto) <= 0) {
-          msg._status = "read";
+          status = "read"; // ✅ show double tick in UI
         }
+
+        // set both keys to be safe with your MessageBubble
+        msg._status = status;
+        msg.status  = status;
       }
+      // -------------------------------------------------------------------
 
       const date = toLocal(msg.created_at);
       if (!lastDay || !isSameDay(date, lastDay)) {
@@ -85,7 +102,7 @@ export default function MessageList({
         lastDay = date;
         lastSender = null;
       }
-      const mine = msg.sender_id === currentUser;
+      const mine = String(msg.sender_id) === String(currentUser);
       const showHeader = lastSender !== msg.sender_id;
       const showAvatar = !mine && showHeader;
 
@@ -100,7 +117,7 @@ export default function MessageList({
       lastSender = msg.sender_id;
     });
     return result;
-  }, [messages, currentUser, readUpToByOthers, openAttachment]);
+  }, [messages, currentUser, readUpToByOthers, openAttachment, selected?.id]); // ⬅️ ensure re-run when thread changes
 
   return (
     <>

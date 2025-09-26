@@ -257,26 +257,47 @@ const handleSubmit = async (e) => {
 
   try {
     if (editId) {
-      // 👉 EDIT: send JSON, not multipart
-      const payload = {
-        stock_name: String(stock_name ?? '').trim(),
-        entry_price: entry_price === '' ? null : Number(entry_price),
-        stop_loss:  stop_loss  === '' ? null : Number(stop_loss),
-        targets:    targets    === '' ? null : Number(targets),
-        targets2:   targets2   === '' ? 0    : Number(targets2),
-        targets3:   targets3   === '' ? 0    : Number(targets3),
-        rational: String(rational ?? '').trim(),
-        status: status || 'OPEN',
-        recommendation_type: recommendation_type, // array of strings
-        message: message,
-        templateId: templateId,
-        sent_on_msg: sent_on_msg || {},
-        planType: planType
-      };
+     const isNewImage = formData.graph instanceof File;
+  if (isNewImage) {
+    const fd = new FormData();
+    fd.append('stock_name', String(stock_name ?? '').trim());
+    fd.append('entry_price', entry_price === '' ? '' : String(Number(entry_price)));
+    fd.append('stop_loss',  stop_loss  === '' ? '' : String(Number(stop_loss)));
+    fd.append('targets',    targets    === '' ? '' : String(Number(targets)));
+    fd.append('targets2',   targets2   === '' ? '0' : String(Number(targets2)));
+    fd.append('targets3',   targets3   === '' ? '0' : String(Number(targets3)));
+    fd.append('rational',   String(rational ?? '').trim());
+    fd.append('status',     status || 'OPEN');
+    fd.append('message',    message || '');
+    fd.append('templateId', templateId || '');
+    fd.append('planType',   planType || '');
+    fd.append('sent_on_msg', JSON.stringify(sent_on_msg || {}));
+    (recommendation_type || []).filter(Boolean).forEach(rt => fd.append('recommendation_type', rt));
+    fd.append('graph', formData.graph); // the new file
 
-      await axiosInstance.put(`${API_URL}${editId}/`, payload, {
-        headers: { 'Content-Type': 'application/json' },
-      });
+    await axiosInstance.put(`${API_URL}${editId}/`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  } else {
+    const payload = {
+      stock_name: String(stock_name ?? '').trim(),
+      entry_price: entry_price === '' ? null : Number(entry_price),
+      stop_loss:  stop_loss  === '' ? null : Number(stop_loss),
+      targets:    targets    === '' ? null : Number(targets),
+      targets2:   targets2   === '' ? 0    : Number(targets2),
+      targets3:   targets3   === '' ? 0    : Number(targets3),
+      rational: String(rational ?? '').trim(),
+      status: status || 'OPEN',
+      recommendation_type,
+      message,
+      templateId,
+      sent_on_msg: sent_on_msg || {},
+      planType,
+    };
+    await axiosInstance.put(`${API_URL}${editId}/`, payload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
     } else {
       // 👉 CREATE: multipart (backend expects Form/File)

@@ -27,25 +27,7 @@ function buildRoleMap(list) {
   return out;
 }
 
-async function loadRoleMap() {
-  try {
-    const cached = JSON.parse(localStorage.getItem("roleMap") || "{}");
-    if (cached && typeof cached === "object" && Object.keys(cached).length) {
-      return cached;
-    }
-  } catch { }
 
-  try {
-    const res = await axiosInstance.get("/profile-role/", {
-      params: { skip: 0, limit: 100, order_by: "hierarchy_level" },
-    });
-    const map = buildRoleMap(res?.data);
-    if (Object.keys(map).length) localStorage.setItem("roleMap", JSON.stringify(map));
-    return map;
-  } catch {
-    return {};
-  }
-}
 
 function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
   try {
@@ -85,34 +67,27 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
   return "";
 }
 
-function useRoleKey() {
-  const [roleKey, setRoleKey] = useState("");
-
+function useViewerIsSuperAdmin() {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const ck = Cookies.get("role_key");
-        if (ck) {
-          if (alive) setRoleKey(canonRole(ck));
-          return;
+    try {
+      const uiRaw = Cookies.get("user_info");
+      let role =
+        uiRaw ? (JSON.parse(uiRaw)?.role_name || JSON.parse(uiRaw)?.role || "") : "";
+      if (!role) {
+        const tok = Cookies.get("access_token");
+        if (tok) {
+          const p = jwtDecode(tok);
+          role = p?.role_name || p?.role || "";
         }
-
-        const roleMap = await loadRoleMap();
-        const token = Cookies.get("access_token");
-        const uiRaw = Cookies.get("user_info");
-        const userInfo = uiRaw ? JSON.parse(uiRaw) : null;
-        const computed = getEffectiveRole({ accessToken: token, userInfo, roleMap });
-        if (alive) setRoleKey(computed);
-      } catch {
-        if (alive) setRoleKey("");
       }
-    })();
-    return () => { alive = false; };
+      const key = (role || "").toString().toUpperCase().replace(/\s+/g, "_");
+      setIsSuperAdmin(key === "SUPERADMIN" || key === "SUPER_ADMINISTRATOR");
+    } catch { setIsSuperAdmin(false); }
   }, []);
-
-  return roleKey;
+  return isSuperAdmin;
 }
+
 
 // Currency formatter (INR)
 const inr = (n) =>
@@ -124,32 +99,7 @@ const inr = (n) =>
       maximumFractionDigits: 0,
     }).format(Number(n));
 
-function useRoleBranch() {
-  const [branchId, setBranchId] = useState(null);
-  const roleKey = useRoleKey();
 
-  useEffect(() => {
-    try {
-      const uiRaw = Cookies.get("user_info");
-      let b = null;
-      if (uiRaw) {
-        const ui = JSON.parse(uiRaw);
-        b = ui?.branch_id ?? ui?.user?.branch_id ?? ui?.branch?.id ?? ui?.user?.branch?.id ?? null;
-      } else {
-        const token = Cookies.get("access_token");
-        if (token) {
-          const p = jwtDecode(token);
-          b = p?.branch_id ?? p?.user?.branch_id ?? null;
-        }
-      }
-      setBranchId(b != null ? String(b) : null);
-    } catch (e) {
-      console.error("role/branch decode failed", e);
-    }
-  }, [roleKey]);
-
-  return { role: roleKey, branchId, isSuperAdmin: roleKey === "SUPERADMIN" };
-}
 
 export default function UserTable({
   users = [],
@@ -163,9 +113,10 @@ export default function UserTable({
   goToPage,
   loading,
 }) {
-  const { isSuperAdmin, branchId } = useRoleBranch();
+
 
   // Show Branch column only for SUPERADMIN
+  const isSuperAdmin = useViewerIsSuperAdmin();
 const showBranchCol = isSuperAdmin;
 const COLS = showBranchCol ? 10 : 9; // total columns for colSpan
 

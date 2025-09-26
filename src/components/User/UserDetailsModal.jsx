@@ -2,13 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X, Shield, Phone, Mail, User as UserIcon, Building2, KeyRound, IdCard, Clock } from "lucide-react";
-import { axiosInstance } from "@/api/Axios";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
-// ---- role map helpers (dynamic) ---------------------------------------------
-const ROLE_CACHE_KEY = "role_map_v1";
-const ROLE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
 
 const normalizeRoleKey = (r) =>
   (r || "").toString().trim().toUpperCase().replace(/\s+/g, "_");
@@ -70,69 +66,20 @@ function DetailField({ label, value }) {
   );
 }
 
-export default function UserDetailsModal({ isOpen, onClose, user, branchMap }) {
+export default function UserDetailsModal({ isOpen, onClose, user, branchMap, roleMap: roleMapProp = {} }) {
   const [showAllPerms, setShowAllPerms] = useState(false);
-  const [roleMap, setRoleMap] = useState({}); // { "1": "SUPERADMIN", "2": "BRANCH MANAGER", ... }
   const viewerIsSuperAdmin = useViewerIsSuperAdmin();
 
-  // Load role map from cache and refresh in background
-  useEffect(() => {
-    // 1) warm from cache if fresh
-    try {
-      const raw = localStorage.getItem(ROLE_CACHE_KEY);
-      if (raw) {
-        const { ts, map } = JSON.parse(raw);
-        if (Date.now() - ts < ROLE_CACHE_TTL && map && typeof map === "object") {
-          setRoleMap(map);
-        }
-      }
-    } catch {
-      // ignore cache errors
-    }
 
-    // 2) fetch fresh
-    (async () => {
-      try {
-        const res = await axiosInstance.get(
-          "/profile-role/?skip=0&limit=200&order_by=hierarchy_level"
-        );
-        const arr = Array.isArray(res.data) ? res.data : [];
-        const fresh = {};
-        for (const r of arr) {
-          if (!r || r.id == null) continue;
-          fresh[String(r.id)] = toDisplayRole(r.name);
-        }
-        setRoleMap(fresh);
-        try {
-          localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ ts: Date.now(), map: fresh }));
-        } catch {
-          // ignore cache write errors
-        }
-      } catch (err) {
-        console.error("Failed to load role map:", err);
-      }
-    })();
-  }, []);
 
 const roleName = useMemo(() => {
-  if (!user) return "—";
-
-  // 1) Prefer direct strings coming with the user object
-  const direct =
-    user?.profile_role?.name || // e.g. { profile_role: { name: "BA" } }
-    user?.role_name ||          // sometimes comes as role_name
-    user?.role ||               // plain role string
-    "";
-
-  if (direct) return toDisplayRole(direct);
-
-  // 2) Fallback to mapping via role_id (works when /profile-role/ loaded)
-  const mapped = roleMap?.[String(user.role_id ?? "")];
-  if (mapped) return mapped;
-
-  // 3) Last resort
-  return "Unknown";
-}, [user, roleMap]);
+    if (!user) return "—";
+    const direct =
+      user?.profile_role?.name || user?.role_name || user?.role || "";
+    if (direct) return toDisplayRole(direct);
+    const mapped = roleMapProp?.[String(user.role_id ?? "")];
+    return mapped || "Unknown";
+  }, [user, roleMapProp]);
 
   if (!isOpen || !user) return null;
 

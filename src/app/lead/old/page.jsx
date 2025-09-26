@@ -15,7 +15,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 // ✨ IST-safe helpers — same ones used on the Lead page
 import {
@@ -86,15 +86,9 @@ export default function OldLeadsTable() {
     setUserId(userInfo.employee_code || "Admin001");
   }, []);
 
-  useEffect(() => {
-    fetchLeads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, responseFilterId, searchQuery]);
 
-  useEffect(() => {
-    if (applied) fetchLeads(fromDate, toDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [applied]);
+
+
 
   useEffect(() => {
     fetchResponses();
@@ -165,14 +159,66 @@ export default function OldLeadsTable() {
     }
   };
 
-  useEffect(() => {
-    fetchLeads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewType]);
+  const didRunOnceDev = useRef(false);
+const doFetchLeads = useCallback(async () => {
+  setLoading(true);
+  try {
+    const dateApplied = !!((fromDate && fromDate.trim()) || (toDate && toDate.trim()));
+
+    const params = {
+      skip: dateApplied ? 0 : (page - 1) * limit,
+      limit: dateApplied ? 1000 : limit,
+      view: viewType || "self",
+    };
+    if (searchQuery?.trim()) params.search = searchQuery.trim();
+    if (responseFilterId != null) params.response_id = responseFilterId;
+
+    const { data } = await axiosInstance.get("/old-leads/my-assigned", { params });
+    const all = data.assigned_old_leads || [];
+
+    if (!dateApplied) {
+      setLeads(all);
+      const serverTotal = data.count ?? data.total ?? 0;
+      setTotal(serverTotal);
+      const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
+      if (page > maxPages) setPage(maxPages);
+    } else {
+      const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
+      const f = (fromDate || "").trim();
+      const t = (toDate || "").trim();
+      const inRange = (d) => {
+        if (!f && !t) return true;
+        if (f && !t) return d === f;
+        if (!f && t) return d === t;
+        return d >= f && d <= t;
+      };
+      const filtered = all.filter((l) => inRange(day(l.response_changed_at)));
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      setLeads(filtered.slice(start, end));
+      setTotal(filtered.length);
+      const maxPages = Math.max(1, Math.ceil(filtered.length / limit));
+      if (page > maxPages) setPage(maxPages);
+    }
+  } catch (error) {
+    ErrorHandling({ error, defaultError: "Failed to load leads" });
+  } finally {
+    setLoading(false);
+  }
+}, [axiosInstance, page, limit, viewType, searchQuery, responseFilterId, fromDate, toDate]);
+
+useEffect(() => {
+  // DEV-ONLY: skip the first run of the double-mount, run on the second
+  if (process.env.NODE_ENV === "development" && !didRunOnceDev.current) {
+    didRunOnceDev.current = true;
+    return;
+  }
+  doFetchLeads();
+}, [doFetchLeads]);
 
   const handleApply = () => {
     setApplied(true);
-    fetchLeads(fromDate, toDate);
+    setPage(1);
   };
 
   const handleClear = () => {
@@ -180,7 +226,7 @@ export default function OldLeadsTable() {
     setToDate("");
     setApplied(false);
     setPage(1);
-    fetchLeads("", "");
+
   };
 
   const fetchResponses = async () => {

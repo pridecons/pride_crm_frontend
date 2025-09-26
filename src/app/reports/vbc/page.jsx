@@ -380,7 +380,7 @@ const selectEmp = (u) => {
         {tab === "all" && (
           <>
             {/* Header */}
-            <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 relative z-[60] isolate">
+            <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 relative isolate">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -487,8 +487,8 @@ const selectEmp = (u) => {
 
             {/* Table (All) */}
             <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg overflow-hidden">
-              <div className="overflow-auto max-h-[500px]">
-                <table className="min-w-[1200px] w-full">
+  <div className="overflow-x-auto">   {/* page does vertical scroll */}
+    <table className="min-w-[1200px] w-full">
                   <thead className="bg-gradient-to-r from-slate-50 to-blue-50 sticky top-0 z-10">
                     <tr>
                       <Th>Employee</Th>
@@ -693,8 +693,8 @@ className="absolute z-[120] mt-1 w-[360px] max-h-72 overflow-auto rounded-xl bor
 
             {/* Logs table */}
             <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg overflow-hidden">
-              <div className="overflow-auto max-h-[500px]">
-                <table className="min-w-[1100px] w-full">
+  <div className="overflow-x-auto">   {/* page does vertical scroll */}
+    <table className="min-w-[1100px] w-full">
                   <thead className="bg-gradient-to-r from-slate-50 to-blue-50 sticky top-0 z-10">
                     <tr>
                       <Th>Start Time</Th>
@@ -895,8 +895,8 @@ function IngestModal({ open, onClose, onSuccess }) {
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl">
           <div className="p-6 border-b border-slate-100">
-            <h2 className="text-xl font-bold text-slate-900">Ingest Today’s VBC Reports</h2>
-            <p className="text-slate-600 text-sm mt-1">This queues ingestion for today’s window (00:00–23:59 IST).</p>
+            <h2 className="text-xl font-bold text-slate-900">Fetch Today’s VBC Reports</h2>
+            <p className="text-slate-600 text-sm mt-1">This logs fetched for today’s window (00:00–23:59 IST).</p>
           </div>
 
           <div className="p-6 space-y-4">
@@ -968,7 +968,7 @@ function IngestModal({ open, onClose, onSuccess }) {
                   Queuing…
                 </span>
               ) : (
-                "Queue Ingest"
+                "Fetch Logs"
               )}
             </button>
           </div>

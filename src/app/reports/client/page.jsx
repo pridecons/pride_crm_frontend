@@ -1,6 +1,6 @@
 // src/app/reports/clients/page.jsx
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { Download, Filter } from "lucide-react";
 import Cookies from "js-cookie";
@@ -81,13 +81,15 @@ function AutoComplete({
   const showAdornment = false;
   const inputValue = open ? query : selected?.label ?? "";
 
-const filtered = React.useMemo(() => {
-  const q = query.trim().toLowerCase();
-  if (!q) return options.slice(0, 50);
-  return options
-    .filter((o) => (o.search ?? o.label ?? "").toLowerCase().includes(q))
-    .slice(0, 50);
-}, [options, query]);
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options.slice(0, 50);
+    return options
+      .filter((o) => (o.search ?? o.label ?? "").toLowerCase().includes(q))
+      .slice(0, 50);
+  }, [options, query]);
+
+  const showClear = Boolean(inputValue);
 
   return (
     <div className="relative">
@@ -106,9 +108,26 @@ const filtered = React.useMemo(() => {
         className={
           "w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm " +
           "hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent " +
-          (showAdornment ? "pr-44" : "") // reserve space for the subtitle
+          (showAdornment ? "pr-44" : "pr-9")  // space for clear button
         }
       />
+
+      {/* Clear (×) */}
+      {showClear && (
+        <button
+          type="button"
+          aria-label="Clear"
+          onMouseDown={(e) => e.preventDefault()} // prevent input blur
+          onClick={() => {
+            setQuery("");
+            onChange("");
+            setOpen(false);
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none"
+        >
+          ×
+        </button>
+      )}
 
       {showAdornment && (
         <div
@@ -138,7 +157,6 @@ const filtered = React.useMemo(() => {
                 className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors"
               >
                 <div className="text-sm">{o.label}</div>
-
               </button>
             ))
           )}
@@ -237,86 +255,43 @@ export default function ClientsReportPage() {
   );
 }
 
-function SearchAutocomplete({ value, onChange, buildParams }) {
-  const [query, setQuery] = React.useState(value || "");
-  const [open, setOpen] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [options, setOptions] = React.useState([]);
+function SearchAutocomplete({ value, onChange }) {
+  const [local, setLocal] = React.useState(value || "");
 
-  // fetch suggestions (debounced)
-  useEffect(() => {
-    let cancelled = false;
-    if (!open) return;
+  useEffect(() => setLocal(value || ""), [value]);
 
-    const q = query.trim();
-    if (!q) { setOptions([]); return; }
-
-    const t = setTimeout(async () => {
-      try {
-        setLoading(true);
-        const params = buildParams();
-        // narrow for suggestions
-        params.skip = 0;
-        params.limit = 10;
-        params.search = q;
-        params.columns = ["client_name", "email", "mobile", "pan"]; // minimal payload
-
-        const res = await axiosInstance.get("/reports/clients", { params });
-        const rows = res.data?.rows || [];
-
-        const opts = rows.map((r, i) => {
-          const parts = [r.client_name, r.email, r.mobile, r.pan].filter(Boolean);
-          const label = parts.join(" — ");
-          return {
-            id: `${r.client_name || ""}-${r.email || ""}-${r.mobile || ""}-${r.pan || ""}-${i}`,
-            label: label || "(no name/email/mobile/PAN)",
-          };
-        });
-
-        if (!cancelled) setOptions(opts);
-      } catch {
-        if (!cancelled) setOptions([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }, 250);
-
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [query, open, buildParams]);
-
-  const show = open && (loading || options.length > 0 || query);
+  const showClear = Boolean(local);
 
   return (
     <div className="relative">
       <input
-        value={open ? query : value}
-        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-        onFocus={() => { setQuery(value); setOpen(true); }}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        value={local}
+        onChange={(e) => {
+          const v = e.target.value;
+          setLocal(v);
+          onChange(v);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onChange(local.trim());
+        }}
         placeholder="name / email / mobile / PAN / city / state / product"
-        className="w-full h-11 rounded-xl border-slate-200 pl-10 pr-4 text-sm hover:border-purple-300 transition-colors focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+        className="w-full h-11 rounded-xl border-slate-300 pl-10 pr-9 text-sm hover:border-purple-300 transition-colors focus:ring-2 focus:ring-purple-500 focus:border-transparent"
       />
 
-      {/* dropdown */}
-      {show && (
-        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-          {loading && <div className="px-3 py-2 text-sm text-slate-500">Searching…</div>}
-          {!loading && options.length === 0 && query && (
-            <div className="px-3 py-2 text-sm text-slate-500">No matches</div>
-          )}
-          {!loading &&
-            options.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { onChange(o.label); setOpen(false); }}
-                className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors"
-              >
-                <div className="text-sm">{o.label}</div>
-              </button>
-            ))}
-        </div>
+      {/* Clear (×) */}
+      {showClear && (
+        <button
+          type="button"
+          aria-label="Clear"
+          onMouseDown={(e) => e.preventDefault()} // keep focus
+          onClick={() => {
+            setLocal("");
+            onChange("");
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none"
+        >
+          ×
+        </button>
       )}
     </div>
   );
@@ -341,6 +316,7 @@ function AllClientsTab() {
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
   const [search, setSearch] = useState("");
+  const [searchApplied, setSearchApplied] = useState("");
   const [view, setView] = useState("all"); // "self" | "team" | "all"
 
   const [columns, setColumns] = useState(DEFAULT_COLS.slice());
@@ -433,6 +409,14 @@ useEffect(() => {
     });
   };
 
+   useEffect(() => {
+  const t = setTimeout(() => {
+    setSearchApplied(search.trim());
+    setSkip(0);
+  }, 300); // 300ms debounce
+  return () => clearTimeout(t);
+ }, [search]);
+
   const clearFilters = () => {
   setFromDate("");
   setToDate("");
@@ -459,7 +443,7 @@ useEffect(() => {
   }
 };
 
-const buildParams = () => {
+const buildParams = useCallback(() => {
   const p = {
     filter_by: filterBy,
     view,
@@ -489,11 +473,18 @@ const buildParams = () => {
   if (departmentId) p.department_id = Number(departmentId);
   if (minAmount !== "") p.min_amount = Number(minAmount);
   if (maxAmount !== "") p.max_amount = Number(maxAmount);
-  if (search) p.search = search;
+  if (searchApplied) p.search = searchApplied;
 
   p.columns = columns;
   return p;
-};
+}, [
+  filterBy, view, skip, limit,
+  fromDate, toDate, days,
+  branchId, sourceId, responseId, employeeId,
+  profileId, departmentId,
+  minAmount, maxAmount,
+  searchApplied, columns
+]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -551,11 +542,15 @@ const currentBranchName =
     departmentId,
     minAmount,
     maxAmount,
-    search,
+    searchApplied,
     view,
     columns,
     skip,
     limit,
+    fromDate,
+ toDate,
+ days,
+filterBy,
   ]);
 
 const resetDateFilters = () => {
@@ -564,7 +559,6 @@ const resetDateFilters = () => {
    setDays(30);
    setFilterBy("payment_date");
    setSkip(0);
-   fetchData();
  };
 
   const exportFile = async (fmt) => {
@@ -749,12 +743,6 @@ const showDateReset = useMemo(() => {
 
           {/* Date-only apply/reset */}
 <div className="flex items-center gap-3 mt-4">
-  <button
-    onClick={() => { setSkip(0); fetchData(); }}
-    className="h-8 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 text-sm font-medium hover:shadow-lg transition-all duration-200 hover:scale-105"
-  >
-    Apply
-  </button>
 
   {showDateReset && (
     <button
@@ -815,7 +803,6 @@ const showDateReset = useMemo(() => {
               <SearchAutocomplete
   value={search}
   onChange={(val) => { setSearch(val); setSkip(0); }}
-  buildParams={buildParams}
 />
             </div>
           </div>

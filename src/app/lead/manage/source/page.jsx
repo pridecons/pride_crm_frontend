@@ -113,19 +113,21 @@ export default function LeadSourcesPage() {
     }
   };
 
-  const fetchSources = async () => {
-    try {
-      const { data } = await axiosInstance.get(
-        "/lead-config/sources/?skip=0&limit=100"
-      );
-      setSources(Array.isArray(data) ? data : []);
-    } catch (err) {
-      ErrorHandling({
-        error: err,
-        defaultError: "Failed to load sources",
-      });
-    }
-  };
+
+
+  const fetchSources = async (search = "") => {
+  try {
+    const { data } = await axiosInstance.get(
+      `/lead-config/sources/?skip=0&limit=100&search=${encodeURIComponent(search)}`
+    );
+    setSources(Array.isArray(data) ? data : []);
+  } catch (err) {
+    ErrorHandling({
+      error: err,
+      defaultError: "Failed to load sources",
+    });
+  }
+};
 
   const fetchRoles = async () => {
     try {
@@ -333,24 +335,15 @@ export default function LeadSourcesPage() {
   };
 
   /* --------------------------- filters --------------------------- */
-  const filteredSources = useMemo(() => {
-    const term = (searchTerm || "").toLowerCase();
-    return (sources || []).filter((src) => {
-      const roleNames =
-        (src.fetch_configs || [])
-          .map((fc) => {
-            const r = roles.find((x) => x.id === fc.role_id);
-            return r?.name || "";
-          })
-          .join(", ") || "";
-      return (
-        (src?.name || "").toLowerCase().includes(term) ||
-        (src?.description || "").toLowerCase().includes(term) ||
-        String(src?.branch_id || "").toLowerCase().includes(term) ||
-        roleNames.toLowerCase().includes(term)
-      );
-    });
-  }, [sources, searchTerm, roles]);
+
+  useEffect(() => {
+  const delayDebounce = setTimeout(() => {
+    fetchSources(searchTerm);
+  }, 400); // wait before firing API call
+
+  return () => clearTimeout(delayDebounce);
+}, [searchTerm]);
+
 
   /* --------------------------- UI --------------------------- */
   const renderBranchField = (isCreateMode) => {
@@ -595,7 +588,7 @@ export default function LeadSourcesPage() {
             <div>
               <p className="text-sm font-medium text-purple-600">Filtered</p>
               <p className="text-2xl font-bold text-purple-900">
-                {filteredSources.length}
+                {sources.length}
               </p>
             </div>
           </div>
@@ -730,7 +723,7 @@ export default function LeadSourcesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredSources.map((src) => {
+            {sources.map((src) => {
               const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
               const fcPreview =
                 fc
@@ -818,7 +811,7 @@ export default function LeadSourcesPage() {
               );
             })}
 
-            {!loading && filteredSources.length === 0 && (
+            {!loading && sources.length === 0 && (
               <tr>
                 <td colSpan={tableCols} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center gap-2">

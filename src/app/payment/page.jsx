@@ -456,13 +456,11 @@ export default function PaymentHistoryPage() {
     }
   };
 
-  // Auto-fetch when filters (except draft dates) change
   useEffect(() => {
     if (role) fetchPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, branchId, service, plan, clientFilter, selectedUserId, date_from, date_to, limit, offset, myView]);
 
-  if (loading) return <LoadingState message="Fetching payments..." />;
+  // if (loading) return <LoadingState message="Fetching payments..." />;
 
   return (
     <div className="mx-2 px-4 py-8">

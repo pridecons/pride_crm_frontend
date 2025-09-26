@@ -1101,7 +1101,7 @@ function SimpleTable({ cols = [], rows = [], className = '' }) {
         <thead className="sticky top-0 z-10">
           <tr className="bg-white/90 backdrop-blur border-b border-gray-200 rupee">
             {cols.map((c) => (
-              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left rupee">
+              <th key={c} className="sticky top-0 z-10 bg-white px-3 py-2.5 font-semibold text-gray-700 text-left rupee">
                 {c}
               </th>
             ))}
@@ -1186,8 +1186,8 @@ function LeadsPiePanel({ data }) {
     const month = N(data?.cards?.leads?.this_month);
     const rest = Math.max(0, total - week - month);
     return [
-      { name: 'This Week', value: week },
-      { name: 'This Month', value: month },
+      { name: 'Week', value: week },
+      { name: 'Month', value: month },
       { name: 'Rest', value: rest },
     ];
   })();

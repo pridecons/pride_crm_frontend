@@ -99,7 +99,7 @@ function useCurrentUserRB() {
         setState({ role, branchId });
         return;
       }
-    } catch {}
+    } catch { }
     setState({ role: null, branchId: null });
   }, []);
 
@@ -128,65 +128,65 @@ export default function ThreadList({
   }, [threads, q]);
 
   // Users search: SUPERADMIN sees all; others only same-branch users
-const filteredUsers = useMemo(() => {
-  if (!q) return [];
+  const filteredUsers = useMemo(() => {
+    if (!q) return [];
 
-  const base = Array.isArray(users) ? users : [];
-  const queryHintsSuper = q.includes("super");
-  const queryHintsAdmin = q.includes("admin");
+    const base = Array.isArray(users) ? users : [];
+    const queryHintsSuper = q.includes("super");
+    const queryHintsAdmin = q.includes("admin");
 
-  const byQuery = base.filter((u) => {
-    const code = getEmpCode(u);
-    const roleK = getRoleKeyLike(u);
-    const phantom = [];
+    const byQuery = base.filter((u) => {
+      const code = getEmpCode(u);
+      const roleK = getRoleKeyLike(u);
+      const phantom = [];
 
-    // make sure typing "super" or "admin" still matches the superadmin account
-    if (ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())) {
-      phantom.push("superadmin", "super admin", "admin", "admin001");
+      // make sure typing "super" or "admin" still matches the superadmin account
+      if (ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())) {
+        phantom.push("superadmin", "super admin", "admin", "admin001");
+      }
+      if (roleK === "SUPERADMIN" || u?.is_super_admin || u?.isSuperAdmin) {
+        phantom.push("superadmin", "super admin");
+      }
+
+      const hay = [
+        toStr(u.full_name || u.name),
+        toStr(code),
+        toStr(roleK),       // e.g. "SUPERADMIN"
+        ...phantom,         // extra hints
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      // normal match OR explicit hint match ("super"/"admin")
+      return (
+        hay.includes(q) ||
+        ((queryHintsSuper || queryHintsAdmin) &&
+          (roleK === "SUPERADMIN" ||
+            ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())))
+      );
+    });
+
+    if (isSuperAdmin) return byQuery;
+
+    // non-superadmins: same branch, but ALWAYS include superadmin/admin001
+    const myBranch = branchId != null ? String(branchId) : null;
+    if (!myBranch) {
+      return byQuery.filter((u) => {
+        const roleK = getRoleKeyLike(u);
+        const code = getEmpCode(u).toUpperCase();
+        return roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code);
+      });
     }
-    if (roleK === "SUPERADMIN" || u?.is_super_admin || u?.isSuperAdmin) {
-      phantom.push("superadmin", "super admin");
-    }
 
-    const hay = [
-      toStr(u.full_name || u.name),
-      toStr(code),
-      toStr(roleK),       // e.g. "SUPERADMIN"
-      ...phantom,         // extra hints
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    // normal match OR explicit hint match ("super"/"admin")
-    return (
-      hay.includes(q) ||
-      ((queryHintsSuper || queryHintsAdmin) &&
-        (roleK === "SUPERADMIN" ||
-         ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())))
-    );
-  });
-
-  if (isSuperAdmin) return byQuery;
-
-  // non-superadmins: same branch, but ALWAYS include superadmin/admin001
-  const myBranch = branchId != null ? String(branchId) : null;
-  if (!myBranch) {
     return byQuery.filter((u) => {
       const roleK = getRoleKeyLike(u);
       const code = getEmpCode(u).toUpperCase();
-      return roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code);
+      if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code)) return true;
+      const ub = getBranchIdLike(u);
+      return ub != null && String(ub) === myBranch;
     });
-  }
-
-  return byQuery.filter((u) => {
-    const roleK = getRoleKeyLike(u);
-    const code = getEmpCode(u).toUpperCase();
-    if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code)) return true;
-    const ub = getBranchIdLike(u);
-    return ub != null && String(ub) === myBranch;
-  });
-}, [users, q, isSuperAdmin, branchId]);
+  }, [users, q, isSuperAdmin, branchId]);
 
 
   // Reusable thread row (shows unread badge consistently)
@@ -277,42 +277,42 @@ const ThreadRow = ({ thread }) => {
             ))}
 
             {filteredUsers.map((user) => {
-  const roleK = getRoleKeyLike(user);
-  const code = getEmpCode(user);
-  const displayName =
-    roleK === "SUPERADMIN" ? "SuperAdmin" : (user.full_name || user.name || code);
+              const roleK = getRoleKeyLike(user);
+              const code = getEmpCode(user);
+              const displayName =
+                roleK === "SUPERADMIN" ? "SuperAdmin" : (user.full_name || user.name || code);
 
-  return (
-    <button
-      key={`user-${code}`}
-      onClick={() => onSelectUserAsPending(user)}
-      className="w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80"
-    >
-      <div className="flex">
-        <div className="w-[44px] pt-1">
-          <Avatar name={displayName} id={code} size="lg" />
-        </div>
-        <div className="pl-4 min-w-0 flex-1">
-          <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
-            {displayName}
-          </h5>
-          <p className="text-[13px] text-[#6b7280] truncate">
-            {code}
-            {roleK === "SUPERADMIN" ? (
-              <span className="ml-2 text-[11px] text-gray-500">· All branches</span>
-            ) : (
-              user.branch_id != null && (
-                <span className="ml-2 text-[11px] text-gray-500">
-                  · B{String(user.branch_id)}
-                </span>
-              )
-            )}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-})}
+              return (
+                <button
+                  key={`user-${code}`}
+                  onClick={() => onSelectUserAsPending(user)}
+                  className="w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80"
+                >
+                  <div className="flex">
+                    <div className="w-[44px] pt-1">
+                      <Avatar name={displayName} id={code} size="lg" />
+                    </div>
+                    <div className="pl-4 min-w-0 flex-1">
+                      <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
+                        {displayName}
+                      </h5>
+                      <p className="text-[13px] text-[#6b7280] truncate">
+                        {code}
+                        {roleK === "SUPERADMIN" ? (
+                          <span className="ml-2 text-[11px] text-gray-500">· All branches</span>
+                        ) : (
+                          user.branch_id != null && (
+                            <span className="ml-2 text-[11px] text-gray-500">
+                              · B{String(user.branch_id)}
+                            </span>
+                          )
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </>
         ) : (
           (threads || []).map((t) => <ThreadRow key={t.id} thread={t} />)

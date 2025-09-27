@@ -157,10 +157,10 @@ export default function LeadForm() {
     if (!formData.pan) return ErrorHandling({ defaultError: "Please enter a PAN number first" })
     if (!formData.pan_type) return ErrorHandling({ defaultError: "Please select PAN type before verifying" })
 
-  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i;
-  if (!panRegex.test(formData.pan.trim())) {
-    return ErrorHandling({ defaultError: "Invalid format for PAN number" });
-  }
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i;
+    if (!panRegex.test(formData.pan.trim())) {
+      return ErrorHandling({ defaultError: "Invalid format for PAN number" });
+    }
     setLoadingPan(true)
     try {
       const res = await axiosInstance.post(
@@ -326,7 +326,7 @@ export default function LeadForm() {
               value={formData.pan_type}
               onChange={handleChange}
               disabled={panLocked.pan_type}   // was panVerified
-              className={baseSelect}  
+              className={baseSelect}
             >
               <option value="">Select PAN Type</option>
               <option value="Person">Individual</option>
@@ -489,9 +489,19 @@ export default function LeadForm() {
           </Field>
 
           <Field label="Lead Response">
-            <select name="lead_response_id focus:outline-none " value={formData.lead_response_id} onChange={handleChange} className={baseSelect} required>
+            <select
+              name="lead_response_id"
+              value={String(formData.lead_response_id ?? '')}
+              onChange={handleChange}
+              className={baseSelect}
+              required
+            >
               <option value="">Select Response</option>
-              {leadResponses.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              {leadResponses.map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  {r.name}
+                </option>
+              ))}
             </select>
           </Field>
 

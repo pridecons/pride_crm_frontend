@@ -12,6 +12,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import ShowNotifications from "./Notofication/ShowNotifications";
 import { doLogout } from "@/utils/logout";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import ShowChatCount from "./chatting/ShowChatCount";
 
 /** ---------- helpers ---------- */
 
@@ -639,22 +640,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
             {/* Chat icon with unread bubble */}
-            {hasPermission("chat_page") && <button
-              type="button"
-              onClick={() => router.push('/chatting')}
-              className="group relative pr-2 rounded-xl text-gray-500 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
-              aria-label="Open chat"
-              title="Chat"
-            >
-              <MessageCircle size={18} className="transition-transform group-hover:scale-105" />
-              {chatUnread > 0 && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center z-10"
-                >
-                  {chatUnread > 99 ? '99+' : chatUnread}
-                </span>
-              )}
-            </button>}
+            {hasPermission("chat_page") && <ShowChatCount user={user?.employee_code} />}
 
             {/* Clock */}
             <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-5 py-1 rounded-xl border border-gray-200 shadow-sm">

@@ -25,14 +25,100 @@ import {
   BarChart3,
   Download,
   CheckSquare,
-  Search, // ⬅️ added
+  Search,
 } from "lucide-react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import LoadingState from "@/components/LoadingState"; // Adjust the import path if needed
+import LoadingState from "@/components/LoadingState";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
-// ---------- SearchFilter (from first page) ----------
+/* ========= THEME HELPERS =========
+   These components/styles only use CSS variables.
+   Define them once in your app (light/dark):
+   :root {
+     --theme-page-bg: #0b1220;            // example (dark)
+     --theme-text: #e6edf3;
+     --theme-text-muted: #94a3b8;
+     --theme-card-bg: #0f172a;
+     --theme-input-bg: #0f172a;
+     --theme-border: #253042;
+     --theme-primary: #3b82f6;
+     --theme-primary-contrast: #ffffff;
+     --theme-primary-soft: color-mix(in oklab, var(--theme-primary) 12%, transparent);
+     --theme-success: #22c55e;
+     --theme-success-soft: color-mix(in oklab, var(--theme-success) 14%, transparent);
+     --theme-warning: #f59e0b;
+     --theme-warning-soft: color-mix(in oklab, var(--theme-warning) 16%, transparent);
+     --theme-danger: #ef4444;
+     --theme-danger-soft: color-mix(in oklab, var(--theme-danger) 16%, transparent);
+   }
+*/
+const styles = {
+  page: {
+    background: "var(--theme-page-bg)",
+    color: "var(--theme-text)",
+  },
+  card: {
+    background: "var(--theme-card-bg)",
+    borderColor: "var(--theme-border)",
+    color: "var(--theme-text)",
+  },
+  headerPrimary: {
+    background:
+      "linear-gradient(90deg, color-mix(in oklab, var(--theme-primary) 22%, transparent), color-mix(in oklab, var(--theme-primary) 32%, transparent))",
+    borderBottom: "1px solid var(--theme-border)",
+  },
+  headerSecondary: (hueVar) => ({
+    background:
+      `linear-gradient(90deg, color-mix(in oklab, var(${hueVar}) 22%, transparent), color-mix(in oklab, var(${hueVar}) 32%, transparent))`,
+    borderBottom: "1px solid var(--theme-border)",
+  }),
+  softPill: (baseVar) => ({
+    background: `color-mix(in oklab, var(${baseVar}) 12%, transparent)`,
+    color: "var(--theme-text)",
+    border: `1px solid color-mix(in oklab, var(${baseVar}) 24%, var(--theme-border))`,
+  }),
+  input: {
+    background: "var(--theme-input-bg)",
+    color: "var(--theme-text)",
+    borderColor: "var(--theme-border)",
+  },
+  inputFocus: {
+    boxShadow:
+      "0 0 0 4px color-mix(in oklab, var(--theme-primary) 18%, transparent)",
+    borderColor: "var(--theme-primary)",
+  },
+  placeholder: `
+    .theme-perms input::placeholder { color: var(--theme-text-muted); opacity: 1; }
+  `,
+  btn: (baseVar) => ({
+    background:
+      `linear-gradient(90deg, color-mix(in oklab, var(${baseVar}) 60%, var(${baseVar}) 60%), var(${baseVar}))`,
+    color: "var(--theme-primary-contrast)",
+    boxShadow: "0 6px 16px 0 color-mix(in oklab, var(${baseVar}) 26%, transparent)",
+  }),
+  btnNeutral: {
+    background: "transparent",
+    color: "var(--theme-text)",
+    borderColor: "var(--theme-border)",
+  },
+  chipOn: {
+    background: "var(--theme-success-soft)",
+    border: "1px solid color-mix(in oklab, var(--theme-success) 28%, var(--theme-border))",
+    color: "var(--theme-text)",
+  },
+  chipOff: {
+    background: "rgba(148,163,184,0.08)",
+    border: "1px solid var(--theme-border)",
+    color: "var(--theme-text)",
+  },
+  ringPrimary: {
+    boxShadow:
+      "0 0 0 4px color-mix(in oklab, var(--theme-primary) 18%, transparent)",
+  },
+};
+
+// ---------- SearchFilter ----------
 function SearchFilter({ allItems, onFilter }) {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -44,49 +130,47 @@ function SearchFilter({ allItems, onFilter }) {
       onFilter([]);
       return;
     }
-
-    // If search is empty, return all items
     if (!value.trim()) {
       onFilter(allItems);
       return;
     }
 
-    // Filter items based on search term
     const filtered = allItems.filter((item) => {
-      const searchValue = value.toLowerCase();
+      const s = value.toLowerCase();
       return (
-        item.toLowerCase().includes(searchValue) ||
-        item.replace(/_/g, " ").toLowerCase().includes(searchValue)
+        item.toLowerCase().includes(s) ||
+        item.replace(/_/g, " ").toLowerCase().includes(s)
       );
     });
-
     onFilter(filtered);
   };
 
   return (
     <div className="relative mb-4">
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <Search className="h-4 w-4 text-gray-400" />
+        <Search className="h-4 w-4" style={{ color: "var(--theme-text-muted)" }} />
       </div>
       <input
         type="text"
         placeholder="Search permissions..."
         value={searchTerm}
         onChange={handleSearchChange}
-        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg
-                   focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                   transition-all duration-200 text-gray-900 placeholder-gray-500"
+        className="w-full pl-10 pr-4 py-2 rounded-lg transition-all duration-200"
+        style={{
+          ...styles.input,
+          border: "1px solid var(--theme-border)",
+        }}
+        onFocus={(e) => Object.assign(e.currentTarget.style, styles.inputFocus)}
+        onBlur={(e) => Object.assign(e.currentTarget.style, styles.input)}
       />
     </div>
   );
 }
-// ----------------------------------------------------
 
-// Get permission keys, filter out meta fields
+// ---------- helpers ----------
 const getPermissionKeys = (permObj) =>
   Object.keys(permObj || {}).filter((k) => !["user_id", "user", "id"].includes(k));
 
-// Permission Icon helper
 const getPermissionIcon = (perm) => {
   const iconMap = {
     add_user: Plus,
@@ -109,8 +193,6 @@ const getPermissionIcon = (perm) => {
     chatting: MessageSquare,
     targets: Target,
     reports: BarChart3,
-    
-    // ⬇️ ADD NEW MAPPINGS FOR YOUR ACTUAL API PERMISSIONS
     lead_recording_view: Eye,
     lead_recording_upload: Plus,
     lead_story_view: Eye,
@@ -178,7 +260,6 @@ const getPermissionIcon = (perm) => {
   return iconMap[perm] || Settings;
 };
 
-// Categorize dynamically
 const getPermissionCategory = (perm) => {
   if (perm.includes("user")) return "User Management";
   if (perm.includes("lead")) return "Lead Management";
@@ -197,8 +278,8 @@ const getPermissionCategory = (perm) => {
 };
 
 export default function PermissionsPage() {
-  const [permissions, setPermissions] = useState([]); // list of permission rows (user_id + booleans)
-  const [usersByCode, setUsersByCode] = useState({}); // employee_code -> user object
+  const [permissions, setPermissions] = useState([]);
+  const [usersByCode, setUsersByCode] = useState({});
   const [usersTotal, setUsersTotal] = useState(0);
 
   const [selectedUser, setSelectedUser] = useState(null);
@@ -207,16 +288,14 @@ export default function PermissionsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [query, setQuery] = useState(""); // search for users list (left pane)
+  const [query, setQuery] = useState("");
 
-  // ⬇️ NEW: state to hold filtered permission keys (right pane)
   const [filteredPermissions, setFilteredPermissions] = useState([]);
 
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  // When a user is selected / data loaded, initialize permission filter to all keys
   useEffect(() => {
     if (selectedUserPermissions) {
       const allPerms = getPermissionKeys(selectedUserPermissions);
@@ -226,14 +305,12 @@ export default function PermissionsPage() {
     }
   }, [selectedUserPermissions]);
 
-  // Helper to clear current selection
   const clearSelection = () => {
     setSelectedUser(null);
     setSelectedUserPermissions(null);
     setFilteredPermissions([]);
   };
 
-  // Fetch permissions + users together and merge by employee_code/user_id
   const fetchAllData = async () => {
     try {
       setLoading(true);
@@ -242,23 +319,17 @@ export default function PermissionsPage() {
         axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
       ]);
 
-      // ⬇️ FIXED: Handle the actual API response structure
-      // The /permissions/ endpoint returns array of permission strings, not user permissions
-      // We need to get user permissions separately or use the permissions from users API
-      const usersArray = Array.isArray(usersRes?.data?.data) ? usersRes.data.data : [];
+      const usersArray = Array.isArray(usersRes?.data?.data)
+        ? usersRes.data.data
+        : [];
 
-      // ⬇️ FIXED: Create usersByCode mapping correctly
       const map = {};
-      for (const u of usersArray) {
-        map[u.employee_code] = u;
-      }
+      for (const u of usersArray) map[u.employee_code] = u;
 
-      // ⬇️ FIXED: Since /permissions/ returns available permissions list, not user permissions
-      // We'll use the users data which should contain permissions for each user
-      const permList = usersArray.map(user => ({
+      const permList = usersArray.map((user) => ({
         user_id: user.employee_code,
-        user: user,
-        permissions: user.permissions || []
+        user,
+        permissions: user.permissions || [],
       }));
 
       setPermissions(permList);
@@ -266,7 +337,7 @@ export default function PermissionsPage() {
       setUsersTotal(usersRes?.data?.pagination?.total ?? usersArray.length);
     } catch (err) {
       console.error(err);
-       ErrorHandling({ error: err, defaultError: "Failed to load users/permissions"});
+      ErrorHandling({ error: err, defaultError: "Failed to load users/permissions" });
     } finally {
       setLoading(false);
     }
@@ -276,90 +347,87 @@ export default function PermissionsPage() {
     await fetchAllData();
   };
 
- const loadUserPermissions = async (userId, permissions = []) => {
-  try {
-    setSelectedUser(userId);
-    setLoading(true);
+  const loadUserPermissions = async (userId, permissions = []) => {
+    try {
+      setSelectedUser(userId);
+      setLoading(true);
 
-    const userData = usersByCode[userId];
-    if (!userData) throw new Error("User data not found");
+      const userData = usersByCode[userId];
+      if (!userData) throw new Error("User data not found");
 
-    // ✅ Get department ID from user
-    const deptId = userData.department_id;
-    if (!deptId) throw new Error("User does not have a department");
+      const deptId = userData.department_id;
+      if (!deptId) throw new Error("User does not have a department");
 
-    // ✅ Fetch department details
-    const deptRes = await axiosInstance.get(`/departments/${deptId}`);
-    const availablePermissions = deptRes?.data?.available_permissions || [];
+      const deptRes = await axiosInstance.get(`/departments/${deptId}`);
+      const availablePermissions = deptRes?.data?.available_permissions || [];
 
-    // ✅ Build permissions object based on department permissions
-    const permissionsObj = {};
-    availablePermissions.forEach((perm) => {
-      permissionsObj[perm] = permissions.includes(perm); // enabled if in user's permissions
-    });
+      const permissionsObj = {};
+      availablePermissions.forEach((perm) => {
+        permissionsObj[perm] = permissions.includes(perm);
+      });
 
-    // Add meta
-    permissionsObj.user_id = userId;
-    permissionsObj.user = userData;
+      permissionsObj.user_id = userId;
+      permissionsObj.user = userData;
 
-    setSelectedUserPermissions(permissionsObj);
-  } catch (err) {
-    console.error(err);
-    ErrorHandling({ error: err, defaultError: `Could not load user permissions for ${userId}` });
-  } finally {
-    setLoading(false);
-  }
-};
+      setSelectedUserPermissions(permissionsObj);
+    } catch (err) {
+      console.error(err);
+      ErrorHandling({
+        error: err,
+        defaultError: `Could not load user permissions for ${userId}`,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const togglePermission = async (perm) => {
     try {
-      const res = await axiosInstance.patch(`/permissions/user/${selectedUser}/toggle/${perm}`);
+      const res = await axiosInstance.patch(
+        `/permissions/user/${selectedUser}/toggle/${perm}`
+      );
       toast.success(res.data?.message || `Toggled ${perm}`);
-      // ⬇️ FIXED: Get user data and reload permissions
       const userData = usersByCode[selectedUser];
       if (userData) {
         loadUserPermissions(selectedUser, userData.permissions);
       }
     } catch (err) {
       console.error(err);
-       ErrorHandling({ error: err, defaultError: `Failed to toggle ${perm}`});
+      ErrorHandling({ error: err, defaultError: `Failed to toggle ${perm}` });
     }
   };
 
   const resetToDefault = async () => {
     try {
-      const res = await axiosInstance.post(`/permissions/user/${selectedUser}/reset-defaults`);
+      const res = await axiosInstance.post(
+        `/permissions/user/${selectedUser}/reset-defaults`
+      );
       toast.success(res.data?.message || "Reset to default");
-      // ⬇️ FIXED: Get user data and reload permissions
       const userData = usersByCode[selectedUser];
       if (userData) {
         loadUserPermissions(selectedUser, userData.permissions);
       }
     } catch (err) {
       console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to reset permissions"});
+      ErrorHandling({ error: err, defaultError: "Failed to reset permissions" });
     }
   };
 
- const handleUpdate = async () => {
+  const handleUpdate = async () => {
     try {
       setSaving(true);
-      
-      // Convert permissions object to array of enabled permission names
-      const enabledPermissions = getPermissionKeys(selectedUserPermissions)
-        .filter(perm => selectedUserPermissions[perm]);
-      
-      const requestBody = {
-        permissions: enabledPermissions
-      };
-      
-      await axiosInstance.put(`/permissions/user/${selectedUser}`, requestBody);
+      const enabledPermissions = getPermissionKeys(selectedUserPermissions).filter(
+        (p) => selectedUserPermissions[p]
+      );
+      await axiosInstance.put(`/permissions/user/${selectedUser}`, {
+        permissions: enabledPermissions,
+      });
       toast.success("Permissions updated successfully");
       await fetchAllPermissions();
       clearSelection();
     } catch (err) {
       console.error(err);
-       ErrorHandling({ error: err, defaultError: "Update failed"});
+      ErrorHandling({ error: err, defaultError: "Update failed" });
     } finally {
       setSaving(false);
     }
@@ -372,7 +440,6 @@ export default function PermissionsPage() {
     }));
   };
 
-  // ⬇️ NEW: get filtered permissions grouped by category (uses filteredPermissions)
   const groupedPermissions =
     selectedUserPermissions && filteredPermissions.length > 0
       ? filteredPermissions.reduce((acc, perm) => {
@@ -384,30 +451,33 @@ export default function PermissionsPage() {
       : {};
 
   const enabledPermissions = selectedUserPermissions
-    ? getPermissionKeys(selectedUserPermissions).filter((key) => selectedUserPermissions[key]).length
+    ? getPermissionKeys(selectedUserPermissions).filter(
+        (key) => selectedUserPermissions[key]
+      ).length
     : 0;
 
   const totalPermissions = selectedUserPermissions
     ? getPermissionKeys(selectedUserPermissions).length
     : 0;
 
-  // ⬇️ FIXED: Derived "display list" of users with merged user info from usersByCode
   const mergedPermissionUsers = useMemo(() => {
     const list = permissions.map((row) => {
       const fromUsers = usersByCode[row.user_id];
       const name = fromUsers?.name ?? row.user?.name ?? row.user_id ?? "Unknown";
-      const role = fromUsers?.profile_role?.name ?? row.user?.role ?? "Role not assigned";
-      const email = fromUsers?.email ?? row.user?.email ?? "Email not available";
+      const role =
+        fromUsers?.profile_role?.name ?? row.user?.role ?? "Role not assigned";
+      const email =
+        fromUsers?.email ?? row.user?.email ?? "Email not available";
       return {
         ...row,
         _display: { name, role, email },
       };
     });
 
-    // 🚫 Filter out SUPERADMIN
-    const filtered = list.filter((r) => r._display.role?.toUpperCase() !== "SUPERADMIN");
+    const filtered = list.filter(
+      (r) => r._display.role?.toUpperCase() !== "SUPERADMIN"
+    );
 
-    // simple search by name/role/email/user_id
     const q = query.trim().toLowerCase();
     if (!q) return filtered;
 
@@ -422,120 +492,116 @@ export default function PermissionsPage() {
     });
   }, [permissions, usersByCode, query]);
 
-  // ⬇️ NEW: wrapper to handle SearchFilter callback
   const handlePermissionFilter = (filtered) => {
     setFilteredPermissions(filtered);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
+    <div className="theme-perms min-h-screen p-4 sm:p-6 lg:p-8" style={styles.page}>
+      <style dangerouslySetInnerHTML={{ __html: styles.placeholder }} />
       <div className="mx-2">
-        {/* Enhanced Header */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-              <div className="bg-blue-100 rounded-full p-3">
-                <Shield className="w-8 h-8 text-blue-600" />
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-3" style={{ color: "var(--theme-text)" }}>
+              <div className="rounded-full p-3" style={styles.softPill("--theme-primary")}>
+                <Shield className="w-8 h-8" style={{ color: "var(--theme-primary)" }} />
               </div>
               Permission Management
             </h1>
-            <p className="text-gray-600 flex items-center gap-2">
+            <p className="flex items-center gap-2" style={{ color: "var(--theme-text-muted)" }}>
               <Settings className="w-4 h-4" />
               Manage user permissions and access controls
             </p>
           </div>
           <button
             onClick={fetchAllPermissions}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="px-6 py-3 rounded-xl transition-all duration-200"
+            style={styles.btn("--theme-primary")}
           >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
+            <span className="inline-flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </span>
           </button>
         </div>
 
-        {/* Stats Overview */}
+        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                  Total Users
-                </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {usersTotal || permissions.length}
-                </p>
-              </div>
-              <div className="bg-blue-50 rounded-full p-3">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                  Total Permissions
-                </p>
-                <p className="text-3xl font-bold text-gray-900">{totalPermissions}</p>
-              </div>
-              <div className="bg-green-50 rounded-full p-3">
-                <Shield className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                  Selected User
-                </p>
-                <p className="text-xl font-bold text-gray-900 truncate">
-                  {selectedUser || "None"}
-                </p>
-              </div>
-              <div className="bg-purple-50 rounded-full p-3">
-                <User className="w-6 h-6 text-purple-600" />
+          {[ // four cards
+            {
+              title: "Total Users",
+              value: usersTotal || permissions.length,
+              icon: <Users className="w-6 h-6" style={{ color: "var(--theme-primary)" }} />,
+              pill: styles.softPill("--theme-primary"),
+            },
+            {
+              title: "Total Permissions",
+              value: totalPermissions,
+              icon: <Shield className="w-6 h-6" style={{ color: "var(--theme-success)" }} />,
+              pill: styles.softPill("--theme-success"),
+            },
+            {
+              title: "Selected User",
+              value: selectedUser || "None",
+              icon: <User className="w-6 h-6" style={{ color: "var(--theme-warning)" }} />,
+              pill: styles.softPill("--theme-warning"),
+            },
+            {
+              title: "Enabled Permissions",
+              value: `${enabledPermissions}/${totalPermissions}`,
+              icon: <CheckCircle className="w-6 h-6" style={{ color: "var(--theme-warning)" }} />,
+              pill: styles.softPill("--theme-warning"),
+            },
+          ].map((c, i) => (
+            <div key={i} className="rounded-2xl shadow-lg p-6 border" style={styles.card}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-wide mb-1" style={{ color: "var(--theme-text-muted)" }}>
+                    {c.title}
+                  </p>
+                  <p className="text-3xl font-bold" style={{ color: "var(--theme-text)" }}>
+                    {c.value}
+                  </p>
+                </div>
+                <div className="rounded-full p-3" style={c.pill}>
+                  {c.icon}
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-1">
-                  Enabled Permissions
-                </p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {enabledPermissions}/{totalPermissions}
-                </p>
-              </div>
-              <div className="bg-amber-50 rounded-full p-3">
-                <CheckCircle className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Enhanced Users List */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+          {/* Users list */}
+          <div className="rounded-2xl border overflow-hidden shadow-lg" style={styles.card}>
+            <div className="px-6 py-4" style={styles.headerPrimary}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="bg-white/20 rounded-full p-2">
-                    <Users className="w-5 h-5 text-white" />
+                  <div className="rounded-full p-2" style={{ background: "color-mix(in oklab, var(--theme-primary) 20%, transparent)" }}>
+                    <Users className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)" }} />
                   </div>
-                  <h2 className="text-xl font-semibold text-white">Users with Permissions</h2>
+                  <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)" }}>
+                    Users with Permissions
+                  </h2>
                 </div>
-                {/* Quick search for users */}
                 <div className="w-56">
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search name/role/email"
-                    className="w-full text-sm rounded-lg px-3 py-2 bg-white/90 outline-none focus:ring-2 ring-white/60 placeholder:text-gray-500"
+                    className="w-full text-sm rounded-lg px-3 py-2 outline-none transition"
+                    style={{
+                      ...styles.input,
+                      border: "1px solid var(--theme-border)",
+                      background: "color-mix(in oklab, var(--theme-card-bg) 85%, white 15%)",
+                    }}
+                    onFocus={(e) => Object.assign(e.currentTarget.style, { ...styles.input, ...styles.inputFocus })}
+                    onBlur={(e) => Object.assign(e.currentTarget.style, {
+                      ...styles.input,
+                      border: "1px solid var(--theme-border)",
+                      background: "color-mix(in oklab, var(--theme-card-bg) 85%, white 15%)",
+                    })}
                   />
                 </div>
               </div>
@@ -555,40 +621,45 @@ export default function PermissionsPage() {
                         <div
                           key={row.user_id}
                           onClick={() => loadUserPermissions(row.user_id, row.permissions)}
-                          className={`group p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
-                            isSelected
-                              ? "bg-blue-50 border-blue-200 text-blue-700"
-                              : "hover:bg-gray-50 border-gray-100 hover:border-gray-200"
-                          }`}
+                          className="group p-4 rounded-xl cursor-pointer transition-all duration-200 border"
+                          style={{
+                            background: isSelected ? "color-mix(in oklab, var(--theme-primary) 10%, transparent)" : "transparent",
+                            borderColor: isSelected ? "color-mix(in oklab, var(--theme-primary) 40%, var(--theme-border))" : "var(--theme-border)",
+                            color: "var(--theme-text)",
+                          }}
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className={`rounded-full p-2 ${
-                                isSelected ? "bg-blue-100" : "bg-gray-100 group-hover:bg-gray-200"
-                              }`}
+                              className="rounded-full p-2"
+                              style={{
+                                background: isSelected
+                                  ? "color-mix(in oklab, var(--theme-primary) 18%, transparent)"
+                                  : "rgba(148,163,184,0.12)",
+                              }}
                             >
                               <User
-                                className={`w-4 h-4 ${
-                                  isSelected ? "text-blue-600" : "text-gray-600"
-                                }`}
+                                className="w-4 h-4"
+                                style={{ color: isSelected ? "var(--theme-primary)" : "var(--theme-text-muted)" }}
                               />
                             </div>
                             <div className="flex-1">
-                              <p className={`text-xs ${isSelected ? "text-blue-900" : "text-gray-900"}`}>
+                              <p className="text-xs" style={{ color: "var(--theme-text-muted)" }}>
                                 {row.user_id}
                               </p>
                               <div className="flex justify-between gap-3">
-                                <p className={`font-medium ${isSelected ? "text-blue-900" : "text-gray-900"}`}>
+                                <p className="font-medium" style={{ color: "var(--theme-text)" }}>
                                   {name}
                                 </p>
-                                <p className={`text-sm ${isSelected ? "text-blue-600" : "text-gray-500"}`}>
+                                <p className="text-sm" style={{ color: isSelected ? "var(--theme-primary)" : "var(--theme-text-muted)" }}>
                                   {role}
                                 </p>
                               </div>
-                              <p className="text-xs text-gray-500 truncate">{email}</p>
+                              <p className="text-xs truncate" style={{ color: "var(--theme-text-muted)" }}>
+                                {email}
+                              </p>
                             </div>
                             {isSelected && (
-                              <div className="text-blue-600">
+                              <div style={{ color: "var(--theme-primary)" }}>
                                 <Settings className="w-4 h-4" />
                               </div>
                             )}
@@ -597,7 +668,9 @@ export default function PermissionsPage() {
                       );
                     })}
                     {mergedPermissionUsers.length === 0 && (
-                      <div className="text-sm text-gray-500 px-1 py-4">No users found.</div>
+                      <div className="text-sm px-1 py-4" style={{ color: "var(--theme-text-muted)" }}>
+                        No users found.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -605,20 +678,22 @@ export default function PermissionsPage() {
             </div>
           </div>
 
-          {/* Enhanced Permissions Editor */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          {/* Permissions editor */}
+          <div className="rounded-2xl border overflow-hidden shadow-lg" style={styles.card}>
             {loading && selectedUser && <LoadingState message="Loading user permissions..." />}
 
             {!loading && selectedUserPermissions ? (
               <>
-                <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex justify-between items-center">
+                <div className="px-6 py-4 flex justify-between items-center" style={styles.headerSecondary("--theme-success")}>
                   <div className="flex items-center gap-3">
-                    <div className="bg-white/20 rounded-full p-2">
-                      <Settings className="w-5 h-5 text-white" />
+                    <div className="rounded-full p-2" style={{ background: "color-mix(in oklab, var(--theme-success) 20%, transparent)" }}>
+                      <Settings className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)" }} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold text-white">Permissions Editor</h2>
-                      <p className="text-green-100 text-sm">
+                      <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)" }}>
+                        Permissions Editor
+                      </h2>
+                      <p className="text-sm" style={{ color: "color-mix(in oklab, var(--theme-primary-contrast) 70%, transparent)" }}>
                         Editing:{" "}
                         <span className="font-medium">
                           {usersByCode[selectedUser]?.name ||
@@ -633,18 +708,17 @@ export default function PermissionsPage() {
                       </p>
                     </div>
                   </div>
-                  {/* Close Button */}
                   <button
                     onClick={clearSelection}
-                    className="text-white hover:text-gray-200 transition"
+                    className="transition"
                     title="Close Editor"
+                    style={{ color: "var(--theme-primary-contrast)" }}
                   >
                     <XCircle className="w-6 h-6" />
                   </button>
                 </div>
 
                 <div className="p-6">
-                  {/* ⬇️ NEW: permission search box */}
                   <SearchFilter
                     allItems={getPermissionKeys(selectedUserPermissions)}
                     onFilter={handlePermissionFilter}
@@ -655,9 +729,12 @@ export default function PermissionsPage() {
                       {Object.keys(groupedPermissions).length > 0 ? (
                         Object.entries(groupedPermissions).map(([category, perms]) => (
                           <div key={category} className="space-y-3">
-                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 border-b border-gray-200 pb-2">
-                              <div className="bg-blue-50 rounded-full p-1">
-                                <Shield className="w-4 h-4 text-blue-600" />
+                            <h3
+                              className="text-lg font-semibold flex items-center gap-2 pb-2"
+                              style={{ color: "var(--theme-text)", borderBottom: "1px solid var(--theme-border)" }}
+                            >
+                              <div className="rounded-full p-1" style={styles.softPill("--theme-primary")}>
+                                <Shield className="w-4 h-4" style={{ color: "var(--theme-primary)" }} />
                               </div>
                               {category}
                             </h3>
@@ -669,54 +746,71 @@ export default function PermissionsPage() {
                                 return (
                                   <label
                                     key={perm}
-                                    className={`group flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
-                                      isChecked
-                                        ? "bg-green-50 border-green-200 hover:bg-green-100"
-                                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                                    }`}
+                                    className="group flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200"
+                                    style={isChecked ? styles.chipOn : styles.chipOff}
+                                    onClick={(e) => {
+                                      // keep existing external toggle API usage optional
+                                      e.preventDefault();
+                                      handleCheckboxChange(perm);
+                                    }}
                                   >
                                     <div className="relative">
-                                      <input
-                                        type="checkbox"
-                                        className="sr-only"
-                                        checked={isChecked}
-                                        onChange={() => handleCheckboxChange(perm)}
-                                      />
+                                      <input type="checkbox" className="sr-only" checked={isChecked} readOnly />
                                       <div
-                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
-                                          isChecked
-                                            ? "bg-green-500 border-green-500"
-                                            : "bg-white border-gray-300 group-hover:border-gray-400"
-                                        }`}
+                                        className="w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200"
+                                        style={{
+                                          borderColor: isChecked ? "var(--theme-success)" : "var(--theme-border)",
+                                          background: isChecked ? "var(--theme-success)" : "transparent",
+                                        }}
                                       >
-                                        {isChecked && <CheckSquare className="w-3 h-3 text-white" />}
+                                        {isChecked && <CheckSquare className="w-3 h-3" style={{ color: "#fff" }} />}
                                       </div>
                                     </div>
 
                                     <div
-                                      className={`rounded-full p-2 ${
-                                        isChecked ? "bg-green-100" : "bg-gray-100 group-hover:bg-gray-200"
-                                      }`}
+                                      className="rounded-full p-2"
+                                      style={{
+                                        background: isChecked
+                                          ? "color-mix(in oklab, var(--theme-success) 20%, transparent)"
+                                          : "rgba(148,163,184,0.12)",
+                                      }}
                                     >
                                       <IconComponent
-                                        className={`w-4 h-4 ${isChecked ? "text-green-600" : "text-gray-600"}`}
+                                        className="w-4 h-4"
+                                        style={{
+                                          color: isChecked
+                                            ? "var(--theme-success)"
+                                            : "var(--theme-text-muted)",
+                                        }}
                                       />
                                     </div>
 
                                     <div className="flex-1">
                                       <span
-                                        className={`font-medium capitalize ${
-                                          isChecked ? "text-green-900" : "text-gray-900"
-                                        }`}
+                                        className="font-medium capitalize"
+                                        style={{ color: "var(--theme-text)" }}
                                       >
                                         {perm.replace(/_/g, " ")}
                                       </span>
-                                      <p className={`text-sm ${isChecked ? "text-green-600" : "text-gray-500"}`}>
+                                      <p
+                                        className="text-sm"
+                                        style={{
+                                          color: isChecked
+                                            ? "var(--theme-success)"
+                                            : "var(--theme-text-muted)",
+                                        }}
+                                      >
                                         {isChecked ? "Enabled" : "Disabled"}
                                       </p>
                                     </div>
 
-                                    <div className={`${isChecked ? "text-green-600" : "text-gray-400"}`}>
+                                    <div
+                                      style={{
+                                        color: isChecked
+                                          ? "var(--theme-success)"
+                                          : "var(--theme-text-muted)",
+                                      }}
+                                    >
                                       {isChecked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                                     </div>
                                   </label>
@@ -727,35 +821,39 @@ export default function PermissionsPage() {
                         ))
                       ) : (
                         <div className="text-center py-8">
-                          <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">No permissions found matching your search.</p>
+                          <Search className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--theme-text-muted)" }} />
+                          <p style={{ color: "var(--theme-text-muted)" }}>
+                            No permissions found matching your search.
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-6 border-t border-gray-100">
+                  <div className="flex justify-end gap-3 pt-6" style={{ borderTop: "1px solid var(--theme-border)" }}>
                     <button
                       onClick={resetToDefault}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                      className="px-6 py-3 rounded-xl transition-all duration-200"
+                      style={styles.btn("--theme-warning")}
                     >
-                      <RefreshCw className="w-4 h-4" />
-                      Reset to Default
+                      <span className="inline-flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4" />
+                        Reset to Default
+                      </span>
                     </button>
                     <button
                       onClick={handleUpdate}
                       disabled={saving}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+                      className="px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={styles.btn("--theme-primary")}
                     >
                       {saving ? (
-                        <>
-                          <LoadingState message="Saving..." />
-                        </>
+                        <LoadingState message="Saving..." />
                       ) : (
-                        <>
+                        <span className="inline-flex items-center gap-2">
                           <Save className="w-4 h-4" />
                           Update Permissions
-                        </>
+                        </span>
                       )}
                     </button>
                   </div>
@@ -763,12 +861,14 @@ export default function PermissionsPage() {
               </>
             ) : (
               !loading && (
-                <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
+                <div className="px-6 py-4" style={styles.headerSecondary("--theme-border")}>
                   <div className="flex items-center gap-3">
-                    <div className="bg-white/20 rounded-full p-2">
-                      <Settings className="w-5 h-5 text-white" />
+                    <div className="rounded-full p-2" style={{ background: "rgba(255,255,255,0.12)" }}>
+                      <Settings className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)" }} />
                     </div>
-                    <h2 className="text-xl font-semibold text-white">Permissions Editor</h2>
+                    <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)" }}>
+                      Permissions Editor
+                    </h2>
                   </div>
                 </div>
               )
@@ -776,11 +876,13 @@ export default function PermissionsPage() {
 
             {!selectedUserPermissions && !loading && (
               <div className="p-6 flex flex-col items-center justify-center py-24">
-                <div className="bg-gray-100 rounded-full p-6 mb-6">
-                  <User className="w-12 h-12 text-gray-400" />
+                <div className="rounded-full p-6 mb-6" style={{ background: "rgba(148,163,184,0.12)" }}>
+                  <User className="w-12 h-12" style={{ color: "var(--theme-text-muted)" }} />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No User Selected</h3>
-                <p className="text-gray-500 text-center max-w-sm">
+                <h3 className="text-lg font-medium mb-2" style={{ color: "var(--theme-text)" }}>
+                  No User Selected
+                </h3>
+                <p className="text-center max-w-sm" style={{ color: "var(--theme-text-muted)" }}>
                   Select a user from the list to view and edit their permissions
                 </p>
               </div>

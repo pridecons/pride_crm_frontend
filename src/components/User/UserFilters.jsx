@@ -72,11 +72,11 @@ function useRoleBranch() {
 export default function UserFilters({
   searchQuery,
   setSearchQuery,
-  selectedRole,       // <-- holds role ID or "All"
+  selectedRole,       // role ID or "All"
   setSelectedRole,
   selectedBranch,
   setSelectedBranch,
-  roles = [],         // <-- from /profile-role/ (has .id and .name)
+  roles = [],         // from /profile-role/
   branches = [],
 }) {
   const { hasPermission } = usePermissions();
@@ -85,11 +85,11 @@ export default function UserFilters({
   // Role options: value=id (string), label=name
   const normalizedRoles = useMemo(() => {
     const out = [];
-    (roles || []).forEach((r, i) => {
+    (roles || []).forEach((r) => {
       if (r?.id == null || !r?.name) return;
       out.push({
-        value: String(r.id),     // use id for filtering
-        label: String(r.name),   // show name
+        value: String(r.id),
+        label: String(r.name),
         raw: r,
       });
     });
@@ -106,37 +106,92 @@ export default function UserFilters({
     [branches]
   );
 
-// Non-superadmins: hard-lock to own branch (coerce "All"/empty too)
-useEffect(() => {
-  if (!isSuperAdmin && branchId) {
-    const must = String(branchId);
-    if (String(selectedBranch || "") !== must) {
-      setSelectedBranch(must);
+  // Non-superadmins: hard-lock to own branch
+  useEffect(() => {
+    if (!isSuperAdmin && branchId) {
+      const must = String(branchId);
+      if (String(selectedBranch || "") !== must) {
+        setSelectedBranch(must);
+      }
     }
-  }
-}, [isSuperAdmin, branchId, selectedBranch, setSelectedBranch]);
+  }, [isSuperAdmin, branchId, selectedBranch, setSelectedBranch]);
 
+  // theme-driven styles
+  const fieldBase = "h-12 rounded-xl transition outline-none border px-4";
+  const inputStyle = {
+    background: "var(--theme-card-bg)",
+    color: "var(--theme-text)",
+    borderColor: "var(--theme-border)",
+  };
+  const focusStyle = {
+    boxShadow: "0 0 0 3px color-mix(in oklab, var(--theme-primary) 20%, transparent)",
+    borderColor: "var(--theme-primary)",
+  };
+
+  const hasBranchSelect = isSuperAdmin && hasPermission("user_all_branches");
+
+  // grid template: 1fr for search, fixed 220px for each select (keeps one-line layout on lg+)
+  const gridTemplate = hasBranchSelect
+    ? "1fr 220px 220px"
+    : "1fr 220px";
 
   return (
-    <div className="bg-white  shadow-lg p-2 mb-8 border border-gray-100 flex flex-col lg:flex-row justify-between gap-4">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input
-          type="text"
-          placeholder="Search by name, email, phone or code..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl"
-        />
-      </div>
+    <div
+      className="rounded-2xl shadow-lg p-4 mb-6 border"
+      style={{
+        background: "var(--theme-surface, var(--theme-card-bg))",
+        borderColor: "var(--theme-border)",
+        color: "var(--theme-text)",
+      }}
+    >
+      <div
+        className="grid gap-3 items-center"
+        style={{
+          gridTemplateColumns: gridTemplate,
+        }}
+      >
+        {/* Search */}
+        <div className="relative">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
+            style={{ color: "var(--theme-text-muted)" }}
+          />
+          <input
+            type="text"
+            placeholder="Search by name, email, phone or code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={`${fieldBase} pl-10 w-full`}
+            style={inputStyle}
+            onFocus={(e) => Object.assign(e.currentTarget.style, { ...inputStyle, ...focusStyle })}
+            onBlur={(e) => Object.assign(e.currentTarget.style, inputStyle)}
+          />
+          <style jsx>{`
+            input::placeholder { color: var(--theme-text-muted); opacity: 1; }
+          `}</style>
+        </div>
 
-      <div className="flex flex-wrap gap-3 items-center">
         {/* Role filter (by role ID) */}
         {hasPermission("user_all_roles") && (
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="border rounded-xl px-4 py-3"
+            className={`${fieldBase} w-full`}
+            style={{
+              ...inputStyle,
+              WebkitAppearance: "none",
+              MozAppearance: "none",
+              appearance: "none",
+              backgroundImage:
+                "linear-gradient(45deg, transparent 50%, var(--theme-text) 50%), linear-gradient(135deg, var(--theme-text) 50%, transparent 50%)",
+              backgroundPosition:
+                "calc(100% - 22px) calc(50% + 2px), calc(100% - 16px) calc(50% + 2px)",
+              backgroundSize: "6px 6px, 6px 6px",
+              backgroundRepeat: "no-repeat",
+              paddingRight: "36px",
+            }}
+            onFocus={(e) => Object.assign(e.currentTarget.style, { ...e.currentTarget.style, ...focusStyle })}
+            onBlur={(e) => Object.assign(e.currentTarget.style, inputStyle)}
           >
             <option value="All">All Roles</option>
             {normalizedRoles.map((r) => (
@@ -147,21 +202,36 @@ useEffect(() => {
           </select>
         )}
 
-{/* Branch filter: ONLY SUPERADMIN sees the dropdown */}
-{isSuperAdmin && hasPermission("user_all_branches") && (
-  <select
-    value={selectedBranch}
-    onChange={(e) => setSelectedBranch(e.target.value)}
-    className="border rounded-xl px-4 py-3"
-  >
-    <option value="All">All Branches</option>
-    {normalizedBranches.map((b, i) => (
-      <option key={branchKey(b.raw, i)} value={b.id}>
-        {b.label}
-      </option>
-    ))}
-  </select>
-)}
+        {/* Branch filter: ONLY SUPERADMIN sees the dropdown */}
+        {hasBranchSelect && (
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className={`${fieldBase} w-full`}
+            style={{
+              ...inputStyle,
+              WebkitAppearance: "none",
+              MozAppearance: "none",
+              appearance: "none",
+              backgroundImage:
+                "linear-gradient(45deg, transparent 50%, var(--theme-text) 50%), linear-gradient(135deg, var(--theme-text) 50%, transparent 50%)",
+              backgroundPosition:
+                "calc(100% - 22px) calc(50% + 2px), calc(100% - 16px) calc(50% + 2px)",
+              backgroundSize: "6px 6px, 6px 6px",
+              backgroundRepeat: "no-repeat",
+              paddingRight: "36px",
+            }}
+            onFocus={(e) => Object.assign(e.currentTarget.style, { ...e.currentTarget.style, ...focusStyle })}
+            onBlur={(e) => Object.assign(e.currentTarget.style, inputStyle)}
+          >
+            <option value="All">All Branches</option>
+            {normalizedBranches.map((b, i) => (
+              <option key={branchKey(b.raw, i)} value={b.id}>
+                {b.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     </div>
   );

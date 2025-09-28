@@ -50,7 +50,9 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
       }
     })();
 
-    return () => { isActive = false; };
+    return () => {
+      isActive = false;
+    };
   }, [open, tab]);
 
   // Load logs
@@ -62,7 +64,9 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
       setLogs([]);
       setLogsLoading(true);
       try {
-        const res = await axiosInstance.get("/email/logs/", { params: { recipient_email: leadEmail } });
+        const res = await axiosInstance.get("/email/logs/", {
+          params: { recipient_email: leadEmail },
+        });
         if (!isActive) return;
         setLogs(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
@@ -72,7 +76,9 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
       }
     })();
 
-    return () => { isActive = false; };
+    return () => {
+      isActive = false;
+    };
   }, [open, tab, leadEmail]);
 
   // On template change, compute placeholders
@@ -90,7 +96,8 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
   }, [selectedTemplateId, templates]);
 
   const handleSendEmail = async () => {
-    if (!selectedTemplateId) return ErrorHandling({ defaultError: "Select a template" });
+    if (!selectedTemplateId)
+      return ErrorHandling({ defaultError: "Select a template" });
     if (contextFields.some((f) => !emailContext[f])) {
       ErrorHandling({ defaultError: "Fill all required fields" });
       return;
@@ -112,7 +119,9 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
 
       setLogsLoading(true);
       try {
-        const res = await axiosInstance.get("/email/logs/", { params: { recipient_email: leadEmail } });
+        const res = await axiosInstance.get("/email/logs/", {
+          params: { recipient_email: leadEmail },
+        });
         setLogs(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         ErrorHandling({ error: err, defaultError: "Failed to refresh logs" });
@@ -141,20 +150,30 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
   const TitleTabs = (
     <div className="flex items-center gap-2">
       <button
-        className={`px-3 py-1 rounded-full text-sm border ${tab === "send"
-          ? "bg-white text-blue-700 border-white"
-          : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
-          }`}
+        style={{
+          background:
+            tab === "send"
+              ? "var(--theme-card-bg)"
+              : "color-mix(in srgb, var(--theme-card-bg) 10%, transparent)",
+          color: tab === "send" ? "var(--theme-primary)" : "var(--theme-card-bg)",
+          border: "1px solid rgba(255,255,255,0.35)",
+        }}
+        className="px-3 py-1 rounded-full text-sm"
         onClick={() => setTab("send")}
         type="button"
       >
         Send
       </button>
       <button
-        className={`px-3 py-1 rounded-full text-sm border ${tab === "logs"
-          ? "bg-white text-blue-700 border-white"
-          : "bg-white/10 text-white/90 border-white/30 hover:bg-white/20"
-          }`}
+        style={{
+          background:
+            tab === "logs"
+              ? "var(--theme-card-bg)"
+              : "color-mix(in srgb, var(--theme-card-bg) 10%, transparent)",
+          color: tab === "logs" ? "var(--theme-primary)" : "var(--theme-card-bg)",
+          border: "1px solid rgba(255,255,255,0.35)",
+        }}
+        className="px-3 py-1 rounded-full text-sm"
         onClick={() => setTab("logs")}
         type="button"
       >
@@ -173,7 +192,12 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
         <button
           key="close"
           onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="px-4 py-2 rounded-xl"
+          style={{
+            border: `1px solid var(--theme-border)`,
+            color: "var(--theme-text)",
+            background: "var(--theme-card-bg)",
+          }}
         >
           Close
         </button>,
@@ -182,7 +206,11 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
             key="send"
             onClick={handleSendEmail}
             disabled={sending}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50"
+            style={{
+              background: "var(--theme-primary)",
+              color: "var(--theme-primary-contrast, #fff)",
+            }}
           >
             {sending ? <Loader2 className="animate-spin" size={16} /> : null}
             Send
@@ -190,18 +218,38 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
         ),
       ].filter(Boolean)}
     >
-      <div className="border border-none shadow-sm overflow-hidden">
+      <div
+        className="overflow-hidden"
+        // style={{ borderColor: "var(--theme-border)" }}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
+        <div
+          className="px-5 py-4 text-white"
+          style={{
+            background:
+              "linear-gradient(90deg, color-mix(in srgb, var(--theme-primary) 90%, #0000), color-mix(in srgb, var(--theme-primary) 70%, #ffffff 10%), color-mix(in srgb, var(--theme-primary) 55%, #ffffff 20%))",
+          }}
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+              <span
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl backdrop-blur"
+                style={{
+                  background: "color-mix(in srgb, #ffffff 18%, transparent)",
+                }}
+              >
                 <Mail size={18} />
               </span>
               <div>
-                <h3 className="text-base font-semibold leading-5">Email — Send & Logs</h3>
-                <p className="text-xs/5 text-white/80">
-                  Send templated emails and review history for {leadName || "lead"}
+                <h3 className="text-base font-semibold leading-5">
+                  Email — Send & Logs
+                </h3>
+                <p
+                  className="text-xs/5"
+                  style={{ color: "rgba(255,255,255,0.85)" }}
+                >
+                  Send templated emails and review history for{" "}
+                  {leadName || "lead"}
                 </p>
               </div>
             </div>
@@ -209,7 +257,9 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
               {TitleTabs}
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-600 transition-colors"
+                className="transition-colors"
+                style={{ color: "#fff" }}
+                title="Close"
               >
                 <X size={20} />
               </button>
@@ -218,33 +268,71 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
         </div>
 
         {/* Body */}
-        <div className="p-5 bg-white">
+        <div
+          className="p-5"
+          style={{ background: "var(--theme-card-bg)", color: "var(--theme-text)" }}
+        >
           {tab === "send" ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Select Email Template</label>
+                <label className="block text-sm font-medium mb-1">
+                  Select Email Template
+                </label>
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(Number(e.target.value))}
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-xl px-3 py-2 text-sm"
+                  style={{
+                    border: `1px solid var(--theme-border)`,
+                    background: "var(--theme-card-bg)",
+                    color: "var(--theme-text)",
+                    outline: "none",
+                    boxShadow: "0 0 0 0px transparent",
+                  }}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.boxShadow =
+                      "0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent)")
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.boxShadow = "0 0 0 0px transparent")
+                  }
                   disabled={sending}
                 >
                   <option value="">-- Select Template --</option>
                   {templates.map((template) => (
                     <option key={template.id} value={template.id}>
-                      {template.name} {(template.subject || "").replace(/{{.*?}}/g, "").trim() ? `(${(template.subject || "").replace(/{{.*?}}/g, "").trim()})` : ""}
+                      {template.name}{" "}
+                      {(template.subject || "")
+                        .replace(/{{.*?}}/g, "")
+                        .trim()
+                        ? `(${(template.subject || "")
+                            .replace(/{{.*?}}/g, "")
+                            .trim()})`
+                        : ""}
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">To: {leadEmail || "-"}</p>
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: "var(--theme-muted)" }}
+                >
+                  To: {leadEmail || "-"}
+                </p>
               </div>
 
               {contextFields.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-medium mb-2 text-gray-700">Fill Template Data</h4>
+                  <h4
+                    className="text-xs font-medium mb-2"
+                    style={{ color: "var(--theme-text)" }}
+                  >
+                    Fill Template Data
+                  </h4>
                   {contextFields.map((field) => (
                     <div key={field} className="mb-3">
-                      <label className="block text-xs font-medium mb-1 capitalize">{field}</label>
+                      <label className="block text-xs font-medium mb-1 capitalize">
+                        {field}
+                      </label>
                       <input
                         type="text"
                         value={emailContext[field] || ""}
@@ -254,7 +342,22 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
                             [field]: e.target.value,
                           }))
                         }
-                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        className="w-full rounded-xl px-3 py-2 text-sm placeholder-opacity-70"
+                        style={{
+                          border: `1px solid var(--theme-border)`,
+                          background: "var(--theme-card-bg)",
+                          color: "var(--theme-text)",
+                          outline: "none",
+                          boxShadow: "0 0 0 0px transparent",
+                        }}
+                        onFocus={(e) =>
+                          (e.currentTarget.style.boxShadow =
+                            "0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent)")
+                        }
+                        onBlur={(e) =>
+                          (e.currentTarget.style.boxShadow =
+                            "0 0 0 0px transparent")
+                        }
                         placeholder={`Enter ${field}`}
                         disabled={sending}
                       />
@@ -266,38 +369,73 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
           ) : (
             <div>
               {logsLoading ? (
-                <div className="flex items-center justify-center py-12 text-gray-500">
+                <div
+                  className="flex items-center justify-center py-12"
+                  style={{ color: "var(--theme-muted)" }}
+                >
                   <Loader2 className="animate-spin" size={24} />{" "}
                   <span className="ml-2">Loading logs...</span>
                 </div>
               ) : logs.length === 0 ? (
-                <div className="py-12 text-center text-gray-500">No logs available for this recipient.</div>
+                <div
+                  className="py-12 text-center"
+                  style={{ color: "var(--theme-muted)" }}
+                >
+                  No logs available for this recipient.
+                </div>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {logs.map((log) => (
                     <div
                       key={log.id}
-                      className="p-3 border rounded-xl hover:bg-gray-50 cursor-pointer"
+                      className="p-3 rounded-xl cursor-pointer"
+                      style={{
+                        border: `1px solid var(--theme-border)`,
+                        background: "var(--theme-card-bg)",
+                      }}
                       onClick={async () => {
                         try {
-                          const { data } = await axiosInstance.get(`/email/logs/${log.id}`);
+                          const { data } = await axiosInstance.get(
+                            `/email/logs/${log.id}`
+                          );
                           toast(
                             <div>
                               <div className="font-bold mb-1">{data.subject}</div>
-                              <div className="text-xs mb-1">To: {data.recipient_email}</div>
-                              <div className="text-xs">Sent: {new Date(data.sent_at).toLocaleString()}</div>
+                              <div className="text-xs mb-1">
+                                To: {data.recipient_email}
+                              </div>
+                              <div className="text-xs">
+                                Sent:{" "}
+                                {new Date(data.sent_at).toLocaleString()}
+                              </div>
                               <hr className="my-2" />
-                              <div className="text-sm whitespace-pre-wrap">{data.body}</div>
+                              <div className="text-sm whitespace-pre-wrap">
+                                {data.body}
+                              </div>
                             </div>,
                             { duration: 8000 }
                           );
                         } catch (err) {
-                          ErrorHandling({ error: err, defaultError: "Failed to load log details" });
+                          ErrorHandling({
+                            error: err,
+                            defaultError: "Failed to load log details",
+                          });
                         }
                       }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background =
+                          "color-mix(in srgb, var(--theme-primary) 5%, var(--theme-card-bg))";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "var(--theme-card-bg)";
+                      }}
                     >
-                      <p className="text-sm font-medium text-gray-800">{log.subject}</p>
-                      <p className="text-xs text-gray-500">Sent at: {new Date(log.sent_at).toLocaleString()}</p>
+                      <p className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>
+                        {log.subject}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--theme-muted)" }}>
+                        Sent at: {new Date(log.sent_at).toLocaleString()}
+                      </p>
                     </div>
                   ))}
                 </div>

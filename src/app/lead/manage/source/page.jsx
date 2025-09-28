@@ -132,7 +132,6 @@ export default function LeadSourcesPage() {
       const { data } = await axiosInstance.get(
         "/profile-role/?skip=0&limit=50&order_by=hierarchy_level"
       );
-    // Expecting array of profiles [{id, name, ...}]
       const list = Array.isArray(data) ? data.filter((r) => r?.is_active) : [];
       setRoles(list);
     } catch (err) {
@@ -160,7 +159,6 @@ export default function LeadSourcesPage() {
   }, []);
 
   /* --------------------------- role visibility + defaults --------------------------- */
-  // Roles a non-superadmin is allowed to see (hide SUPERADMIN)
   const visibleRoles = useMemo(() => {
     if (isSuperAdmin) return roles;
     return roles.filter(
@@ -169,7 +167,6 @@ export default function LeadSourcesPage() {
     );
   }, [roles, isSuperAdmin]);
 
-  // Make 4 default configs from first available visible roles
   const makeDefaultConfigs = () => {
     const picks = [];
     for (const r of visibleRoles) {
@@ -199,7 +196,6 @@ export default function LeadSourcesPage() {
     form.fetch_configs.some((fc) => Number(fc.role_id) === Number(role_id));
 
   const addFetchConfig = () => {
-    // pick first available visible role
     const firstFree = visibleRoles.find((r) => !roleAlreadyUsed(r.id));
     if (!firstFree) return;
     setForm((f) => ({
@@ -210,7 +206,7 @@ export default function LeadSourcesPage() {
           per_request_limit: 50,
           daily_call_limit: 2,
         },
-         ...f.fetch_configs,
+        ...f.fetch_configs,
       ],
     }));
     toast.success("Added new fetch configuration");
@@ -238,7 +234,6 @@ export default function LeadSourcesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Branch checks
     if (isSuperAdmin && !form.branch_id) {
       ErrorHandling({ defaultError: "Please select a branch" });
       return;
@@ -248,7 +243,6 @@ export default function LeadSourcesPage() {
       return;
     }
 
-    // Validate fetch configs (allow zero, but if present they must be valid)
     const cleanedFetchConfigs = (form.fetch_configs || [])
       .filter((fc) => fc && fc.role_id)
       .map((fc) => ({
@@ -257,7 +251,6 @@ export default function LeadSourcesPage() {
         daily_call_limit: Math.max(1, toInt(fc.daily_call_limit)),
       }));
 
-    // prevent duplicates
     const seen = new Set();
     for (const fc of cleanedFetchConfigs) {
       const key = String(fc.role_id);
@@ -352,22 +345,21 @@ export default function LeadSourcesPage() {
     });
   }, [sources, searchTerm, roles]);
 
-  /* --------------------------- UI --------------------------- */
+  /* --------------------------- UI helpers --------------------------- */
   const renderBranchField = (isCreateMode) => {
-    // Hide completely for non-superadmins, but branch_id is still set in form state
     if (!isSuperAdmin) return null;
 
     if (isCreateMode) {
       return (
         <div>
-          <label className="block text-sm font-semibold text-gray-800 mb-2">
-            Branch <span className="text-red-500">*</span>
+          <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
+            Branch <span className="text-[var(--theme-danger)]">*</span>
           </label>
           <select
             value={String(form.branch_id ?? "")}
             onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
             required
-            className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+            className="w-full px-4 py-2.5 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all text-[var(--theme-text)]"
           >
             <option value="" disabled>
               {branches.length ? "Select branch…" : "Loading branches…"}
@@ -382,10 +374,9 @@ export default function LeadSourcesPage() {
       );
     }
 
-    // EDIT mode → read-only view for SUPERADMIN
     return (
       <div>
-        <label className="block text-sm font-semibold text-gray-800 mb-2">Branch</label>
+        <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">Branch</label>
         <input
           type="text"
           value={
@@ -393,7 +384,7 @@ export default function LeadSourcesPage() {
             (form.branch_id ? `Branch-${form.branch_id}` : "")
           }
           readOnly
-          className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
+          className="w-full px-4 py-2.5 bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-lg text-[var(--theme-text-muted)]"
         />
       </div>
     );
@@ -404,16 +395,16 @@ export default function LeadSourcesPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-              <Users className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-semibold text-[var(--theme-text)] flex items-center gap-2">
+              <Users className="w-4 h-4 text-[var(--theme-primary)]" />
               Fetch Configurations
             </h3>
-            <p className="text-xs text-gray-500 mt-1">Set role-specific fetch limits</p>
+            <p className="text-xs text-[var(--theme-text-muted)] mt-1">Set role-specific fetch limits</p>
           </div>
           <button
             type="button"
             onClick={addFetchConfig}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-lg hover:from-indigo-600 hover:to-blue-700 transition-all shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] rounded-lg hover:opacity-90 transition-all shadow-sm"
             disabled={!canAddConfig}
           >
             <Plus className="w-4 h-4" />
@@ -422,10 +413,10 @@ export default function LeadSourcesPage() {
         </div>
 
         {form.fetch_configs?.length === 0 && (
-          <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-            <Users className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No fetch configurations added</p>
-            <p className="text-xs text-gray-400 mt-1">Click "Add Config" to set role-specific limits</p>
+          <div className="border-2 border-dashed border-[var(--theme-border)] rounded-lg p-6 text-center bg-[var(--theme-surface)]">
+            <Users className="w-8 h-8 text-[var(--theme-text-muted)] mx-auto mb-2" />
+            <p className="text-sm text-[var(--theme-text-muted)]">No fetch configurations added</p>
+            <p className="text-xs text-[var(--theme-text-muted)] mt-1">Click "Add Config" to set role-specific limits</p>
           </div>
         )}
 
@@ -436,18 +427,16 @@ export default function LeadSourcesPage() {
             );
             const currentId = Number(fc.role_id ?? 0);
             const currentRole = roles.find((r) => Number(r.id) === currentId);
-            const currentInVisible = visibleRoles.some(
-              (r) => Number(r.id) === currentId
-            );
+            const currentInVisible = visibleRoles.some((r) => Number(r.id) === currentId);
 
             return (
               <div
                 key={idx}
-                className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] rounded-lg p-4 hover:shadow-md transition-shadow"
               >
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-[var(--theme-text)] mb-1.5">
                       Profile Role
                     </label>
                     <select
@@ -455,13 +444,12 @@ export default function LeadSourcesPage() {
                       onChange={(e) =>
                         updateFetchConfig(idx, { role_id: Number(e.target.value) })
                       }
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent text-sm text-[var(--theme-text)]"
                     >
                       <option value="" disabled>
                         Select profile…
                       </option>
 
-                      {/* If current role is hidden (e.g., SUPERADMIN), keep it as a non-selectable option */}
                       {!currentInVisible && currentRole && (
                         <option value={String(currentRole.id)} disabled>
                           {currentRole.name} (hidden)
@@ -481,7 +469,7 @@ export default function LeadSourcesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-[var(--theme-text)] mb-1.5">
                       Per-Request Limit
                     </label>
                     <input
@@ -493,12 +481,12 @@ export default function LeadSourcesPage() {
                           per_request_limit: toInt(e.target.value),
                         })
                       }
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent text-sm text-[var(--theme-text)]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-[var(--theme-text)] mb-1.5">
                       Daily Call Limit
                     </label>
                     <input
@@ -510,7 +498,7 @@ export default function LeadSourcesPage() {
                           daily_call_limit: toInt(e.target.value),
                         })
                       }
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent text-sm text-[var(--theme-text)]"
                     />
                   </div>
 
@@ -518,7 +506,7 @@ export default function LeadSourcesPage() {
                     <button
                       type="button"
                       onClick={() => removeFetchConfig(idx)}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[var(--theme-danger-soft)] text-[var(--theme-danger)] rounded-lg hover:opacity-90 transition-colors text-sm font-medium"
                       title="Remove config"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -535,7 +523,7 @@ export default function LeadSourcesPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-[var(--theme-background)]">
       {/* Header */}
       <div className="flex items-center justify-end mb-6">
         {!isCreateNew && hasPermission("create_lead") && (
@@ -551,11 +539,11 @@ export default function LeadSourcesPage() {
                 name: "",
                 description: "",
                 branch_id: isSuperAdmin ? "" : userBranchId || "",
-                fetch_configs: makeDefaultConfigs(), // default 4 configs
+                fetch_configs: makeDefaultConfigs(),
               });
               setIsCreateNew(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--theme-success)] text-[var(--theme-background)] rounded-lg hover:opacity-90 transition"
           >
             <Plus className="w-5 h-5" />
             Create New Source
@@ -565,36 +553,36 @@ export default function LeadSourcesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+        <div className="rounded-xl p-4 border border-[var(--theme-border)] bg-[var(--theme-card-bg)]">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 rounded-full p-2">
-              <Database className="w-5 h-5 text-blue-600" />
+            <div className="rounded-full p-2 bg-[var(--theme-primary-softer)]">
+              <Database className="w-5 h-5 text-[var(--theme-primary)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-blue-600">Total Sources</p>
-              <p className="text-2xl font-bold text-blue-900">{sources.length}</p>
+              <p className="text-sm font-medium text-[var(--theme-primary)]">Total Sources</p>
+              <p className="text-2xl font-bold text-[var(--theme-text)]">{sources.length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+        <div className="rounded-xl p-4 border border-[var(--theme-border)] bg-[var(--theme-card-bg)]">
           <div className="flex items-center gap-3">
-            <div className="bg-green-100 rounded-full p-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
+            <div className="rounded-full p-2 bg-[var(--theme-success-soft)]">
+              <CheckCircle className="w-5 h-5 text-[var(--theme-success)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-green-600">Active</p>
-              <p className="text-2xl font-bold text-green-900">{sources.length}</p>
+              <p className="text-sm font-medium text-[var(--theme-success)]">Active</p>
+              <p className="text-2xl font-bold text-[var(--theme-text)]">{sources.length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+        <div className="rounded-xl p-4 border border-[var(--theme-border)] bg-[var(--theme-card-bg)]">
           <div className="flex items-center gap-3">
-            <div className="bg-purple-100 rounded-full p-2">
-              <Search className="w-5 h-5 text-purple-600" />
+            <div className="rounded-full p-2 bg-[var(--theme-primary-softer)]">
+              <Search className="w-5 h-5 text-[var(--theme-accent)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-purple-600">Filtered</p>
-              <p className="text-2xl font-bold text-purple-900">
+              <p className="text-sm font-medium text-[var(--theme-accent)]">Filtered</p>
+              <p className="text-2xl font-bold text-[var(--theme-text)]">
                 {filteredSources.length}
               </p>
             </div>
@@ -602,42 +590,42 @@ export default function LeadSourcesPage() {
         </div>
       </div>
 
-      {/* Enhanced Create / Edit Form Modal */}
+      {/* Create / Edit Modal */}
       {isCreateNew && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-[var(--theme-backdrop)] backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-[var(--theme-border)]">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-8 py-5 z-10">
+            <div className="sticky top-0 bg-[var(--theme-card-bg)] border-b border-[var(--theme-border)] px-8 py-5 z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-xl font-bold text-[var(--theme-text)]">
                     {editingId ? "Edit Lead Source" : "Create New Lead Source"}
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-[var(--theme-text-muted)] mt-1">
                     {editingId ? "Update source configuration" : "Set up a new lead source"}
                   </p>
                 </div>
-                <button 
-                  onClick={resetForm} 
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                <button
+                  onClick={resetForm}
+                  className="p-2 hover:bg-[var(--theme-primary-softer)] rounded-lg transition-colors text-[var(--theme-text)]"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Basic Information Section */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <Database className="w-4 h-4 text-blue-600" />
+              {/* Basic Information */}
+              <div className="rounded-xl p-6 border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+                <h3 className="text-sm font-semibold text-[var(--theme-text)] mb-4 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[var(--theme-primary)]" />
                   Basic Information
                 </h3>
-                
+
                 <div className={`grid grid-cols-1 ${isSuperAdmin ? "md:grid-cols-2" : ""} gap-5`}>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Source Name <span className="text-red-500">*</span>
+                    <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
+                      Source Name <span className="text-[var(--theme-danger)]">*</span>
                     </label>
                     <input
                       type="text"
@@ -645,7 +633,7 @@ export default function LeadSourcesPage() {
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                       required
                       placeholder="Enter source name"
-                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-2.5 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all text-[var(--theme-text)] placeholder-[var(--theme-text-muted)]"
                     />
                   </div>
 
@@ -653,8 +641,8 @@ export default function LeadSourcesPage() {
                 </div>
 
                 <div className="mt-5">
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
-                    Description <span className="text-red-500">*</span>
+                  <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
+                    Description <span className="text-[var(--theme-danger)]">*</span>
                   </label>
                   <textarea
                     value={form.description}
@@ -662,29 +650,29 @@ export default function LeadSourcesPage() {
                     rows={3}
                     required
                     placeholder="Describe this lead source"
-                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                    className="w-full px-4 py-2.5 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all resize-none text-[var(--theme-text)] placeholder-[var(--theme-text-muted)]"
                   />
                 </div>
               </div>
 
-              {/* Fetch Configurations Section */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+              {/* Fetch Configurations */}
+              <div className="rounded-xl p-6 border border-[var(--theme-border)] bg-[var(--theme-surface)]">
                 {renderFetchConfigs()}
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--theme-border)]">
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  className="px-6 py-2.5 bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)] rounded-lg hover:bg-[var(--theme-primary-softer)] transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 transition-all font-medium shadow-lg shadow-green-500/25"
+                  className="px-6 py-2.5 bg-[var(--theme-success)] text-[var(--theme-background)] rounded-lg hover:opacity-90 disabled:opacity-50 transition-all font-medium shadow-lg"
                 >
                   {isSubmitting
                     ? editingId
@@ -703,33 +691,33 @@ export default function LeadSourcesPage() {
       {/* Search Bar */}
       <div className="flex items-center mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-2 w-4 h-4 text-[var(--theme-text-muted)]" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search sources…"
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-64 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2 border border-[var(--theme-border)] rounded-md w-64 bg-[var(--theme-input-background)] text-[var(--theme-text)] placeholder-[var(--theme-text-muted)] focus:ring-[var(--theme-primary)] focus:border-[var(--theme-primary)]"
           />
         </div>
       </div>
 
       {/* Sources Table */}
-      <div className="bg-white rounded-2xl shadow overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 sticky top-0 z-10">
+      <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow overflow-x-auto border border-[var(--theme-border)]">
+        <table className="min-w-full divide-y divide-[var(--theme-border)]">
+          <thead className="sticky top-0 z-10 bg-[var(--theme-surface)]">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Source Name</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">ID</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Source Name</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Description</th>
               {showBranchColumn && (
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Branch</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Branch</th>
               )}
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fetch Configs</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Fetch Configs</th>
+              <th className="px-6 py-3 text-center text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[var(--theme-border)]">
             {filteredSources.map((src) => {
               const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
               const fcPreview =
@@ -743,23 +731,23 @@ export default function LeadSourcesPage() {
                   .join(", ") || "—";
 
               return (
-                <tr key={src.id} className="hover:bg-gray-50">
+                <tr key={src.id} className="hover:bg-[var(--theme-primary-softer)]">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-[var(--theme-primary-softer)] text-[var(--theme-primary)]">
                       #{src.id}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <div className="bg-blue-100 rounded-full p-1">
-                        <Database className="w-4 h-4 text-blue-600" />
+                      <div className="rounded-full p-1 bg-[var(--theme-primary-softer)]">
+                        <Database className="w-4 h-4 text-[var(--theme-primary)]" />
                       </div>
-                      <span className="font-medium text-gray-900">{src.name}</span>
+                      <span className="font-medium text-[var(--theme-text)]">{src.name}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <p
-                      className="text-sm text-gray-600 truncate max-w-xs"
+                      className="text-sm text-[var(--theme-text-muted)] truncate max-w-xs"
                       title={src.description}
                     >
                       {src.description}
@@ -768,10 +756,10 @@ export default function LeadSourcesPage() {
                   {showBranchColumn && (
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        <div className="bg-gray-100 rounded-full p-1">
-                          <Building className="w-3 h-3 text-blue-600" />
+                        <div className="rounded-full p-1 bg-[var(--theme-surface)]">
+                          <Building className="w-3 h-3 text-[var(--theme-primary)]" />
                         </div>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-[var(--theme-text)]">
                           {branchMap[Number(src.branch_id)] ||
                             src.branch_name ||
                             src?.branch?.name ||
@@ -781,13 +769,13 @@ export default function LeadSourcesPage() {
                     </td>
                   )}
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-700" title={fcPreview}>
+                    <div className="text-sm text-[var(--theme-text)]" title={fcPreview}>
                       {fc.length ? (
                         <span className="inline-flex items-center gap-2">
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
                             {fc.length} role(s)
                           </span>
-                          <span className="hidden xl:inline">{fcPreview}</span>
+                          <span className="hidden xl:inline text-[var(--theme-text-muted)]">{fcPreview}</span>
                         </span>
                       ) : (
                         "—"
@@ -799,17 +787,17 @@ export default function LeadSourcesPage() {
                       {hasPermission("edit_lead") && (
                         <button
                           onClick={() => handleEdit(src)}
-                          className="p-2 hover:bg-blue-50 rounded"
+                          className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
                         >
-                          <Edit className="w-4 h-4 text-blue-600" />
+                          <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
                         </button>
                       )}
                       {hasPermission("delete_lead") && (
                         <button
                           onClick={() => handleDelete(src.id)}
-                          className="p-2 hover:bg-red-50 rounded"
+                          className="p-2 rounded hover:bg-[var(--theme-danger-soft)]"
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
                         </button>
                       )}
                     </div>
@@ -822,8 +810,8 @@ export default function LeadSourcesPage() {
               <tr>
                 <td colSpan={tableCols} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <Database className="w-12 h-12 text-gray-400" />
-                    <p className="text-gray-500">
+                    <Database className="w-12 h-12 text-[var(--theme-text-muted)]" />
+                    <p className="text-[var(--theme-text-muted)]">
                       {searchTerm
                         ? `No sources match "${searchTerm}".`
                         : "No sources available."}
@@ -835,7 +823,7 @@ export default function LeadSourcesPage() {
 
             {loading && (
               <tr>
-                <td colSpan={tableCols} className="px-6 py-6 text-center text-gray-500">
+                <td colSpan={tableCols} className="px-6 py-6 text-center text-[var(--theme-text-muted)]">
                   Loading...
                 </td>
               </tr>

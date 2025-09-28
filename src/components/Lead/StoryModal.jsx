@@ -15,8 +15,8 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
       setLoading(true);
       const { data } = await axiosInstance.get(`/leads/${leadId}/stories`);
       setStories(Array.isArray(data) ? data : []);
-    } catch(error) {
-      ErrorHandling({ error: error, defaultError: "Failed to fetch stories" });
+    } catch (error) {
+      ErrorHandling({ error, defaultError: "Failed to fetch stories" });
       setStories([]);
     } finally {
       setLoading(false);
@@ -28,6 +28,15 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
     // eslint-disable-next-line
   }, [isOpen, leadId]);
 
+  // Themed button styles
+  const secondaryBtnBase = {
+    background: "var(--theme-components-button-secondary-bg)",
+    color: "var(--theme-components-button-secondary-text)",
+    border: "1px solid var(--theme-components-button-secondary-border)",
+    boxShadow:
+      "0 1px 0 0 var(--theme-components-button-secondary-shadow, transparent)",
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -38,44 +47,103 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
         <button
           key="close"
           onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="px-4 py-2 rounded-xl transition-colors"
+          style={secondaryBtnBase}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.background =
+              "var(--theme-components-button-secondary-hoverBg)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.background =
+              "var(--theme-components-button-secondary-bg)")
+          }
         >
           Close
         </button>,
       ]}
     >
-      <div className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: "var(--theme-components-card-bg)",
+          color: "var(--theme-components-card-text)",
+          // border: "1px solid var(--theme-components-card-border)",
+          boxShadow: "0 8px 24px -12px var(--theme-components-card-shadow)",
+        }}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
+        <div
+          className="px-5 py-4"
+          style={{
+            background:
+              "var(--theme-components-modal-headerBg, linear-gradient(90deg, var(--theme-primary), var(--theme-primaryHover)))",
+            color: "var(--theme-components-modal-headerText, #fff)",
+          }}
+        >
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+            <span
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ background: "color-mix(in oklab, #fff 15%, transparent)" }}
+            >
               <BookOpenText size={18} />
             </span>
             <div>
               <h3 className="text-base font-semibold leading-5">Lead Story</h3>
-              <p className="text-xs/5 text-white/80">Timeline of updates & notes</p>
+              <p
+                className="text-xs/5"
+                style={{ color: "color-mix(in oklab, currentColor 80%, transparent)" }}
+              >
+                Timeline of updates &amp; notes
+              </p>
             </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="p-5 bg-white">
+        <div
+          className="p-5"
+          style={{ background: "var(--theme-cardBackground)" }}
+        >
           {loading ? (
             <div className="space-y-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="animate-pulse h-5 bg-gray-200 rounded" />
+                <div
+                  key={i}
+                  className="h-5 rounded animate-pulse"
+                  style={{
+                    background:
+                      "color-mix(in oklab, var(--theme-border) 60%, transparent)",
+                  }}
+                />
               ))}
             </div>
           ) : stories.length === 0 ? (
-            <p className="text-gray-600">No story available for this lead.</p>
+            <p style={{ color: "var(--theme-textSecondary)" }}>
+              No story available for this lead.
+            </p>
           ) : (
             <div className="max-h-96 overflow-y-auto pl-4">
-              <ol className="relative border-s border-gray-200">
+              <ol
+                className="relative"
+                style={{ borderLeft: "1px solid var(--theme-border)" }}
+              >
                 {stories.map((s) => (
-                  <li key={s.id} className="ms-4 py-3">
-                    <span className="absolute -start-1.5 inline-flex h-3 w-3 rounded-full bg-blue-600 ring-4 ring-white" />
-                    <p className="text-sm text-gray-800">{s.msg}</p>
-                    <p className="mt-1 text-xs text-gray-500 inline-flex items-center gap-1">
+                  <li key={s.id} className="ms-4 py-3 relative">
+                    <span
+                      className="absolute -start-1.5 inline-flex h-3 w-3 rounded-full"
+                      style={{
+                        background: "var(--theme-primary)",
+                        boxShadow:
+                          "0 0 0 4px var(--theme-cardBackground)", // ring effect
+                      }}
+                    />
+                    <p className="text-sm" style={{ color: "var(--theme-text)" }}>
+                      {s.msg}
+                    </p>
+                    <p
+                      className="mt-1 text-xs inline-flex items-center gap-1"
+                      style={{ color: "var(--theme-textSecondary)" }}
+                    >
                       <Clock size={12} />
                       {new Date(s.timestamp).toLocaleString()} • {s.user_id}
                     </p>

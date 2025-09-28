@@ -108,8 +108,8 @@ function StateAutocomplete({
   onPick,         // (obj | null) -> void   obj = { state_name, code }
   placeholder = "Select state",
   busy = false,
-  list = [],      // <-- NEW
-  error = null,   // <-- NEW
+  list = [],
+  error = null,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value || "");
@@ -152,7 +152,12 @@ function StateAutocomplete({
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+      <label
+        className="block text-sm font-medium mb-1"
+        style={{ color: "var(--theme-text,#0f172a)" }}
+      >
+        State
+      </label>
       <div className="flex items-center gap-2">
         <input
           type="text"
@@ -169,18 +174,30 @@ function StateAutocomplete({
           onFocus={() => !disabled && setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="w-full py-2 px-3 border mt-1 border-gray-300 rounded-lg"
+          className="w-full py-2 px-3 rounded-lg mt-1"
+          style={{
+            background: "var(--theme-card-bg,#fff)",
+            color: "var(--theme-text,#0f172a)",
+            border: "1px solid var(--theme-border,#e5e7eb)",
+            outline: "none",
+          }}
         />
         {busy && <MiniLoader />}
       </div>
 
       {open && !disabled && (
         <div
-          className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white shadow"
+          className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg shadow"
           onMouseLeave={() => setHoverIdx(-1)}
+          style={{
+            background: "var(--theme-card-bg,#fff)",
+            border: "1px solid var(--theme-border,#e5e7eb)",
+          }}
         >
           {error ? (
-            <div className="px-3 py-2 text-sm text-red-600">{error}</div>
+            <div className="px-3 py-2 text-sm" style={{ color: "var(--theme-danger,#dc2626)" }}>
+              {error}
+            </div>
           ) : listNow.length ? (
             listNow.map((item, idx) => (
               <button
@@ -188,15 +205,22 @@ function StateAutocomplete({
                 type="button"
                 onClick={() => onSelect(item)}
                 onMouseEnter={() => setHoverIdx(idx)}
-                className={`w-full text-left px-3 py-2 text-sm ${idx === hoverIdx ? "bg-indigo-50" : "bg-white"} hover:bg-indigo-50`}
+                className="w-full text-left px-3 py-2 text-sm transition-colors"
+                style={{
+                  background:
+                    idx === hoverIdx
+                      ? "color-mix(in srgb, var(--theme-primary,#4f46e5) 10%, var(--theme-card-bg,#fff))"
+                      : "var(--theme-card-bg,#fff)",
+                  color: "var(--theme-text,#0f172a)",
+                }}
               >
                 {item.state_name}
-                {/* code hidden */}
               </button>
             ))
           ) : (
-
-            <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+            <div className="px-3 py-2 text-sm" style={{ color: "var(--theme-text-muted,#64748b)" }}>
+              No matches
+            </div>
           )}
         </div>
       )}
@@ -235,7 +259,6 @@ export const ViewAndEditLead = ({
       setStateLoading(true);
       setStateError(null);
       try {
-        // uses your axiosInstance baseURL (same as other endpoints)
         const res = await axiosInstance.get("/state/");
         const items = Array.isArray(res?.data?.states) ? res.data.states : [];
         if (!cancel) setStateList(items);
@@ -284,7 +307,6 @@ export const ViewAndEditLead = ({
     };
   }, []);
 
-
   // Keep lead_type in sync
   useEffect(() => {
     if (isEditMode) {
@@ -319,7 +341,7 @@ export const ViewAndEditLead = ({
       if (name === "dob") {
         const ymd = toYMD(newVal);
         setEditFormData((p) => ({ ...p, dob: ymd }));
-        return; // no further processing needed
+        return;
       }
 
       // Update form state
@@ -359,10 +381,9 @@ export const ViewAndEditLead = ({
                     ? "Female"
                     : p.gender,
             }));
-            // AFTER setEditFormData(...) in the PAN success block, ADD:
             const addr = r.user_address || {};
             setPanLocked({
-              pan: false, // keep PAN editable in edit mode to allow re-verify/change
+              pan: false,
               full_name: isFilled(r.user_full_name),
               father_name: isFilled(r.user_father_name),
               dob: isFilled(r.user_dob),
@@ -381,8 +402,6 @@ export const ViewAndEditLead = ({
           }
         } catch (err) {
           setPanError(err.toString());
-          // const msg = err?.response?.data?.detail?.message || err?.response?.data?.detail || err?.message
-          // toast.error(msg);
           ErrorHandling({ error: err });
         } finally {
           setPanLoading(false);
@@ -488,22 +507,13 @@ export const ViewAndEditLead = ({
     { name: "segment", label: "Segment", type: "multiselect", options: segmentOptions, icon: Briefcase },
   ];
 
-  // Which fields to lock after PAN fetched or saved
-  // REMOVE lockedFields array completely
-
-  // NEW: lock rules
   const isLocked = (name) => {
-    // view mode: everything read-only
     if (!isEditMode) return true;
-
-    // mobile must never be editable
     if (name === "mobile") return true;
-
-    // lock only the fields that PAN actually populated
     return !!panLocked[name];
+    // default (unlocked) handled by InputField's isEditMode prop
   };
 
-  // Compact email for view mode: "local@…..", keep full in title/hover
   const shortEmail = (email) => {
     const raw = String(email || "").trim();
     if (!raw) return "";
@@ -517,11 +527,22 @@ export const ViewAndEditLead = ({
   return (
     <div className="flex flex-col gap-6">
 
-      <div className="bg-white px-6 py-3 rounded-2xl shadow-md">
+      {/* Top summary card */}
+      <div
+        className="px-6 py-3 rounded-2xl shadow-md"
+        style={{
+          background: "var(--theme-card-bg,#ffffff)",
+          color: "var(--theme-text,#0f172a)",
+        }}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {/* Lead Type */}
           <div>
-            <label htmlFor="lead_type" className="block text-sm font-medium text-gray-600 mb-1">
+            <label
+              htmlFor="lead_type"
+              className="block text-sm font-medium mb-1"
+              style={{ color: "var(--theme-text-muted,#64748b)" }}
+            >
               Lead Type
             </label>
             {isEditMode ? (
@@ -530,13 +551,26 @@ export const ViewAndEditLead = ({
                 name="lead_type"
                 value={leadType}
                 onChange={handleInputChange}
-                className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+                className="w-full h-12 px-4 rounded-lg transition"
+                style={{
+                  background: "var(--theme-card-bg,#fff)",
+                  color: "var(--theme-text,#0f172a)",
+                  border: "1px solid var(--theme-border,#e5e7eb)",
+                  outline: "none",
+                }}
               >
                 <option value="INDIVIDUAL PAN">Individual PAN</option>
                 <option value="COMPANY PAN">Company PAN</option>
               </select>
             ) : (
-              <span className="block w-full px-4 py-2 bg-gray-100 rounded-lg text-gray-700">
+              <span
+                className="block w-full px-4 py-2 rounded-lg"
+                style={{
+                  background: "var(--theme-panel,#f8fafc)",
+                  color: "var(--theme-text,#0f172a)",
+                  border: "1px solid var(--theme-border,#e5e7eb)",
+                }}
+              >
                 {leadType}
               </span>
             )}
@@ -544,7 +578,11 @@ export const ViewAndEditLead = ({
 
           {/* Lead Source */}
           <div>
-            <label htmlFor="lead_source_id" className="block text-sm font-medium text-gray-600 mb-1">
+            <label
+              htmlFor="lead_source_id"
+              className="block text-sm font-medium mb-1"
+              style={{ color: "var(--theme-text-muted,#64748b)" }}
+            >
               Lead Source
             </label>
             <InputField
@@ -560,19 +598,25 @@ export const ViewAndEditLead = ({
           <div>
             <label
               htmlFor="lead_response_id"
-              className="block text-sm font-medium text-gray-600 mb-1"
+              className="block text-sm font-medium mb-1"
+              style={{ color: "var(--theme-text-muted,#64748b)" }}
             >
               Lead Response
             </label>
 
             {isEditMode ? (
-              // EDIT MODE: show a real select so user can change response
               <select
                 id="lead_response_id"
                 name="lead_response_id"
                 value={String(editFormData.lead_response_id ?? "")}
                 onChange={(e) => handleResponseSelect(e.target.value)}
-                className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="w-full h-12 px-3 rounded-lg"
+                style={{
+                  background: "var(--theme-card-bg,#fff)",
+                  color: "var(--theme-text,#0f172a)",
+                  border: "1px solid var(--theme-border,#e5e7eb)",
+                  outline: "none",
+                }}
               >
                 <option value="">Select Response</option>
                 {leadResponses.map((resp) => (
@@ -587,7 +631,13 @@ export const ViewAndEditLead = ({
                 name="lead_response_id"
                 value={String(editFormData.lead_response_id ?? "")}
                 onChange={(e) => handleResponseSelect(e.target.value)}
-                className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className="w-full h-12 px-3 rounded-lg"
+                style={{
+                  background: "var(--theme-card-bg,#fff)",
+                  color: "var(--theme-text,#0f172a)",
+                  border: "1px solid var(--theme-border,#e5e7eb)",
+                  outline: "none",
+                }}
               >
                 <option value="">Select Response</option>
                 {leadResponses.map((resp) => (
@@ -598,19 +648,27 @@ export const ViewAndEditLead = ({
               </select>
             )}
           </div>
-
         </div>
       </div>
 
       {/* Personal / Company */}
-      <section className="bg-white p-6 rounded-lg shadow">
-        <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-5">
-          <User className="mr-2 text-blue-500" size={20} />
+      <section
+        className="p-6 rounded-lg shadow"
+        style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}
+      >
+        <h3
+          className="flex items-center text-lg font-semibold mb-5"
+          style={{ color: "var(--theme-text,#0f172a)" }}
+        >
+          <User
+            className="mr-2"
+            size={20}
+            style={{ color: "var(--theme-primary,#4f46e5)" }}
+          />
           {leadType === "COMPANY" ? "Company Details" : "Personal Information"}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {(leadType === "COMPANY" ? personalCompany : personalIndividual).map((f) => {
-            // Age is derived
             if (f.name === "age") {
               return (
                 <InputField
@@ -622,7 +680,6 @@ export const ViewAndEditLead = ({
               );
             }
 
-            // PAN: keep editable in edit mode (no lock), show loader suffix
             if (f.name === "pan") {
               return (
                 <InputField
@@ -637,7 +694,6 @@ export const ViewAndEditLead = ({
               );
             }
 
-            // 🔹 Email: shorten in view mode, full value on hover
             if (f.name === "email") {
               if (isEditMode) {
                 return (
@@ -652,20 +708,27 @@ export const ViewAndEditLead = ({
               }
               return (
                 <div key="email">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    style={{ color: "var(--theme-text-muted,#64748b)" }}
+                  >
                     {f.label || "Email"}
                   </label>
                   <div
-                    className="px-3 py-2 bg-gray-50 rounded border border-gray-200 overflow-hidden truncate"
-                    title={editFormData.email || ""}   // <-- hover shows full email
+                    className="px-3 py-2 rounded border overflow-hidden truncate"
+                    title={editFormData.email || ""}
+                    style={{
+                      background: "var(--theme-panel,#f8fafc)",
+                      borderColor: "var(--theme-border,#e5e7eb)",
+                      color: "var(--theme-text,#0f172a)",
+                    }}
                   >
-                    {shortEmail(editFormData.email) || "—"}  {/* <-- compact display */}
+                    {shortEmail(editFormData.email) || "—"}
                   </div>
                 </div>
               );
             }
 
-            // Default: editable only if not locked by PAN (and in edit mode)
             return (
               <InputField
                 key={f.name}
@@ -680,9 +743,19 @@ export const ViewAndEditLead = ({
       </section>
 
       {/* Address */}
-      <section className="bg-white p-6 rounded-lg shadow">
-        <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-5">
-          <MapPin className="mr-2 text-green-500" size={20} />
+      <section
+        className="p-6 rounded-lg shadow"
+        style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}
+      >
+        <h3
+          className="flex items-center text-lg font-semibold mb-5"
+          style={{ color: "var(--theme-text,#0f172a)" }}
+        >
+          <MapPin
+            className="mr-2"
+            size={20}
+            style={{ color: "var(--theme-success,#16a34a)" }}
+          />
           Address Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -701,7 +774,6 @@ export const ViewAndEditLead = ({
             }
 
             if (f.name === "state") {
-              // If locked or view-mode -> keep your normal read-only input
               if (isLocked("state")) {
                 return (
                   <InputField
@@ -714,15 +786,14 @@ export const ViewAndEditLead = ({
                 );
               }
 
-              // Editable -> show autocomplete
               return (
                 <div key="state">
                   <StateAutocomplete
                     value={editFormData.state || ""}
                     disabled={false}
                     busy={stateLoading}
-                    list={stateList}          // <-- pass list
-                    error={stateError}        // <-- pass error
+                    list={stateList}
+                    error={stateError}
                     onPick={(picked) => {
                       if (!picked) {
                         setEditFormData((p) => ({ ...p, state: "", state_code: null }));
@@ -739,7 +810,6 @@ export const ViewAndEditLead = ({
               );
             }
 
-            // default for other address fields
             return (
               <InputField
                 key={f.name}
@@ -750,19 +820,27 @@ export const ViewAndEditLead = ({
               />
             );
           })}
-
         </div>
       </section>
 
       {/* Professional & Docs */}
-      <section className="bg-white p-6 rounded-lg shadow mb-6">
-        <h3 className="flex items-center text-lg font-semibold text-gray-900 mb-5">
-          <Briefcase className="mr-2 text-purple-500" size={20} />
+      <section
+        className="p-6 rounded-lg shadow mb-6"
+        style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}
+      >
+        <h3
+          className="flex items-center text-lg font-semibold mb-5"
+          style={{ color: "var(--theme-text,#0f172a)" }}
+        >
+          <Briefcase
+            className="mr-2"
+            size={20}
+            style={{ color: "var(--theme-primary,#4f46e5)" }}
+          />
           Professional & Documentation
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {professionalFields.map((f) => {
-            // Lead Source always readonly
             if (f.name === "lead_source_id") {
               return (
                 <InputField
@@ -774,11 +852,13 @@ export const ViewAndEditLead = ({
                 />
               );
             }
-            // Segment multiselect
             if (f.name === "segment") {
               return (
                 <div key="segment">
-                  <label className="block mb-1 text-gray-700 font-medium">
+                  <label
+                    className="block mb-1 font-medium"
+                    style={{ color: "var(--theme-text,#0f172a)" }}
+                  >
                     Segment
                   </label>
                   {isEditMode ? (
@@ -794,7 +874,14 @@ export const ViewAndEditLead = ({
                       }
                     />
                   ) : (
-                    <div className="px-3 py-2 bg-gray-50 rounded border border-gray-200 ">
+                    <div
+                      className="px-3 py-2 rounded border"
+                      style={{
+                        background: "var(--theme-panel,#f8fafc)",
+                        borderColor: "var(--theme-border,#e5e7eb)",
+                        color: "var(--theme-text,#0f172a)",
+                      }}
+                    >
                       {editFormData.segment?.length
                         ? editFormData.segment.join(", ")
                         : "—"}
@@ -803,7 +890,6 @@ export const ViewAndEditLead = ({
                 </div>
               );
             }
-            // Lead Response + inline FT / Callback
             if (f.name === "lead_response_id") {
               const sel = editFormData.lead_response_id ?? currentLead.lead_response_id;
               const lbl = leadResponses.find((r) => r.value === sel)?.label.toLowerCase();
@@ -852,7 +938,7 @@ export const ViewAndEditLead = ({
                   )}
 
                   {!isEditMode && lbl === "ft" && (
-                    <div className="mt-2 text-sm text-blue-700">
+                    <div className="mt-2 text-sm" style={{ color: "var(--theme-primary,#4f46e5)" }}>
                       <div>
                         <strong>FT From:</strong>{" "}
                         {currentLead.ft_from_date
@@ -868,7 +954,7 @@ export const ViewAndEditLead = ({
                     </div>
                   )}
                   {!isEditMode && lbl === "call back" && (
-                    <div className="mt-2 text-sm text-indigo-700">
+                    <div className="mt-2 text-sm" style={{ color: "var(--theme-primary,#4f46e5)" }}>
                       <strong>Call Back:</strong>{" "}
                       {currentLead.call_back_date
                         ? new Date(currentLead.call_back_date).toLocaleString()
@@ -878,7 +964,6 @@ export const ViewAndEditLead = ({
                 </div>
               );
             }
-            // Default
             return (
               <InputField
                 key={f.name}

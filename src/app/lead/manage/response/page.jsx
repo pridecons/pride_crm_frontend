@@ -3,14 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { axiosInstance } from "@/api/Axios";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  MessageSquare,
-  Search,
-  X,
-} from "lucide-react";
+import { Plus, Edit, Trash2, MessageSquare, Search, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
@@ -35,7 +28,7 @@ export default function LeadResponsesPage() {
       setResponses(data);
     } catch (err) {
       console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to load responsess" });
+      ErrorHandling({ error: err, defaultError: "Failed to load responses" });
     }
   };
 
@@ -79,7 +72,6 @@ export default function LeadResponsesPage() {
     } catch (err) {
       console.error(err);
       ErrorHandling({ error: err, defaultError: "Save failed!" });
-
     } finally {
       setIsSubmitting(false);
     }
@@ -102,13 +94,14 @@ export default function LeadResponsesPage() {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-[var(--theme-background)] text-[var(--theme-text)]">
       {/* Header */}
       <div className="flex items-center justify-end mb-6">
         {!isFormVisible && (
           <button
             onClick={handleCreateClick}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[var(--theme-primary-contrast)] shadow-sm transition
+                       bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)]"
           >
             <Plus className="w-5 h-5" />
             Create New Response
@@ -118,29 +111,37 @@ export default function LeadResponsesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+        {/* Total */}
+        <div className="rounded-xl p-4 border bg-[var(--theme-primary-softer)] border-[var(--theme-border)]">
           <div className="flex items-center gap-3">
-            <div className="bg-purple-100 rounded-full p-2">
-              <MessageSquare className="w-5 h-5 text-purple-600" />
+            <div className="rounded-full p-2 bg-[var(--theme-primary-soft)]">
+              <MessageSquare className="w-5 h-5 text-[var(--theme-primary)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-purple-600">
+              <p className="text-sm font-medium text-[var(--theme-text-muted)]">
                 Total Responses
               </p>
-              <p className="text-2xl font-bold text-purple-900">
+              <p className="text-2xl font-bold text-[var(--theme-text)]">
                 {responses.length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+
+        {/* Spacer card to keep layout symmetric on small screens */}
+        <div className="rounded-xl p-4 border bg-[var(--theme-surface)] border-[var(--theme-border)] sm:col-span-1 hidden sm:block" />
+
+        {/* Filtered */}
+        <div className="rounded-xl p-4 border bg-[var(--theme-warning, #f59e0b)]/10 border-[var(--theme-border)]">
           <div className="flex items-center gap-3">
-            <div className="bg-amber-100 rounded-full p-2">
-              <Search className="w-5 h-5 text-amber-600" />
+            <div className="rounded-full p-2 bg-[var(--theme-warning, #f59e0b)]/15">
+              <Search className="w-5 h-5 text-[var(--theme-warning, #f59e0b)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-amber-600">Filtered</p>
-              <p className="text-2xl font-bold text-amber-900">
+              <p className="text-sm font-medium text-[var(--theme-text-muted)]">
+                Filtered
+              </p>
+              <p className="text-2xl font-bold text-[var(--theme-text)]">
                 {filtered.length}
               </p>
             </div>
@@ -150,18 +151,22 @@ export default function LeadResponsesPage() {
 
       {/* Form */}
       {isFormVisible && (
-        <div className="bg-white rounded-2xl p-6 mb-6 border border-gray-200 shadow">
+        <div className="rounded-2xl p-6 mb-6 border shadow bg-[var(--theme-surface)] border-[var(--theme-border)]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-[var(--theme-text)]">
               {editingId ? "Edit Response" : "Create New Response"}
             </h2>
-            <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
+            <button
+              onClick={resetForm}
+              className="text-[var(--theme-text-muted)] hover:bg-[var(--theme-primary-softer)] rounded-lg p-1"
+              title="Close"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-[var(--theme-text)]">
                 Response Name
               </label>
               <input
@@ -171,29 +176,40 @@ export default function LeadResponsesPage() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, name: e.target.value }))
                 }
-                className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-purple-500 focus:border-purple-500"
+                className="mt-1 block w-full rounded-md p-2
+                           bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)]
+                           border border-[var(--theme-components-input-border)]
+                           placeholder:text-[var(--theme-components-input-placeholder)]
+                           focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
               />
             </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                className="px-4 py-2 rounded-lg transition-colors
+                           bg-[var(--theme-components-button-secondary-bg)]
+                           text-[var(--theme-components-button-secondary-text)]
+                           border border-[var(--theme-components-button-secondary-border)]
+                           hover:bg-[var(--theme-components-button-secondary-hoverBg)]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                className="px-4 py-2 rounded-lg shadow-sm transition
+                           text-[var(--theme-components-button-primary-text)]
+                           bg-[var(--theme-components-button-primary-bg)]
+                           hover:bg-[var(--theme-components-button-primary-hoverBg)]"
               >
                 {isSubmitting
                   ? editingId
                     ? "Updating..."
                     : "Creating..."
                   : editingId
-                    ? "Update Response"
-                    : "Create Response"}
+                  ? "Update Response"
+                  : "Create Response"}
               </button>
             </div>
           </form>
@@ -203,61 +219,67 @@ export default function LeadResponsesPage() {
       {/* Search */}
       <div className="flex items-center mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-2 w-4 h-4 text-[var(--theme-text-muted)]" />
           <input
             type="text"
             placeholder="Search responses..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-64 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2 rounded-md w-64
+                       bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)]
+                       border border-[var(--theme-components-input-border)]
+                       placeholder:text-[var(--theme-components-input-placeholder)]
+                       focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow overflow-x-auto">
-        <table className="min-w-full table-fixed divide-y divide-gray-200 text-sm leading-tight">
-          {/* set fixed, narrow columns to avoid huge gaps */}
+      <div className="rounded-2xl shadow overflow-x-auto bg-[var(--theme-surface)] border border-[var(--theme-border)]">
+        <table className="min-w-full table-fixed divide-y divide-[var(--theme-border)] text-sm leading-tight">
           <colgroup>
-            <col className="w-20" />        {/* ID */}
-            <col />                         {/* Name (stretches) */}
-            <col className="w-28" />        {/* Actions */}
+            <col className="w-20" />
+            <col />
+            <col className="w-28" />
           </colgroup>
 
-          <thead className="bg-gray-50">
-            <tr className="text-xs uppercase tracking-wide text-gray-500">
+          <thead className="bg-[var(--theme-surface)]">
+            <tr className="text-xs uppercase tracking-wide text-[var(--theme-text-muted)]">
               <th className="px-3 py-2 text-left">ID</th>
               <th className="px-3 py-2 text-center">Name</th>
               <th className="px-3 py-2 text-center">Actions</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[var(--theme-border)]">
             {filtered.map((resp) => (
-              <tr key={resp.id} className="hover:bg-gray-50 align-middle">
-                <td className="px-3 py-2 text-gray-700 whitespace-nowrap">#{resp.id}</td>
+              <tr
+                key={resp.id}
+                className="hover:bg-[var(--theme-primary-softer)] align-middle"
+              >
+                <td className="px-3 py-2 text-[var(--theme-text-muted)] whitespace-nowrap">
+                  #{resp.id}
+                </td>
 
-                {/* NAME centered (no left/right gap) */}
-                <td className="px-3 py-2 text-center text-gray-900 whitespace-nowrap">
+                <td className="px-3 py-2 text-center text-[var(--theme-text)] whitespace-nowrap">
                   {resp.name}
                 </td>
 
-                {/* compact actions — no extra padding */}
                 <td className="px-2 py-1">
                   <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => handleEditClick(resp)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-indigo-50"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-[var(--theme-primary-softer)]"
                       title="Edit"
                     >
-                      <Edit className="h-4 w-4 text-indigo-600" />
+                      <Edit className="h-4 w-4 text-[var(--theme-primary)]" />
                     </button>
                     <button
                       onClick={() => handleDelete(resp.id)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-red-50"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-[var(--theme-danger-soft)]"
                       title="Delete"
                     >
-                      <Trash2 className="h-4 w-4 text-red-600" />
+                      <Trash2 className="h-4 w-4 text-[var(--theme-danger)]" />
                     </button>
                   </div>
                 </td>
@@ -266,7 +288,10 @@ export default function LeadResponsesPage() {
 
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-3 py-8 text-center text-gray-500">
+                <td
+                  colSpan={3}
+                  className="px-3 py-8 text-center text-[var(--theme-text-muted)]"
+                >
                   No responses found.
                 </td>
               </tr>

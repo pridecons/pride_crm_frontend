@@ -1,7 +1,8 @@
+// components/Department/index.jsx (or the same path you use)
 "use client";
 
 import { useState } from "react";
-import { Building2 } from "lucide-react";
+import { Building2 } from "lucide-react"; // (kept as-is, even if unused)
 import AddDepartmentModal from "@/components/Department/DepartmentAddModel";
 import AddProfileModal from "@/components/Department/ProfileAddModel";
 import DepartmentAccordion from "@/components/Department/table";
@@ -23,34 +24,30 @@ export default function Department() {
   const selectedDept = departments[0] || null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
-      {/* Content Section */}
-      <div className="mx-2 px-6 py-8">
-        <div className="space-y-6">
-          {/* Department Accordion */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible">
-            <DepartmentAccordion />
-          </div>
-        </div>
+    <div
+      className="min-h-screen p-2"
+      style={{
+        // Page background from theme (fallback keeps your old light gradient)
+        // background:
+        //   "var(--theme-page-bg, linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, rgba(59,130,246,0.06) 100%))",
+        color: "var(--theme-text, #0f172a)",
+      }}
+    >
+      <DepartmentAccordion />
+      <AddDepartmentModal
+        isOpen={openAddDeptModal}
+        onClose={() => setOpenAddDeptModal(false)}
+        onAdd={handleAddDepartment}
+      />
 
-        {/* Hidden Modals */}
-        <div className="hidden">
-          <AddDepartmentModal
-            isOpen={openAddDeptModal}
-            onClose={() => setOpenAddDeptModal(false)}
-            onAdd={handleAddDepartment}
-          />
-
-          <AddProfileModal
-            isOpen={openAddProfileModal}
-            onClose={() => setOpenAddProfileModal(false)}
-            onAdd={handleAddProfile}
-            departmentId={selectedDept?.id}
-            departments={departments}
-            setDepartments={setDepartments}
-          />
-        </div>
-      </div>
+      <AddProfileModal
+        isOpen={openAddProfileModal}
+        onClose={() => setOpenAddProfileModal(false)}
+        onAdd={handleAddProfile}
+        departmentId={selectedDept?.id}
+        departments={departments}
+        setDepartments={setDepartments}
+      />
     </div>
   );
 }

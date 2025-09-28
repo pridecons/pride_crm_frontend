@@ -16,23 +16,39 @@ export function InputField({
   onInputChange,
   suffix,
 }) {
+  const labelStyle = { color: "var(--theme-text,#0f172a)" };
+  const iconStyle = { color: "var(--theme-text-muted,#64748b)" };
+
+  const baseFieldStyle = {
+    background: "var(--theme-card-bg,#ffffff)",
+    color: "var(--theme-text,#0f172a)",
+    border: "1px solid var(--theme-border,#e5e7eb)",
+    outline: "none",
+  };
+
+  const viewBoxStyle = {
+    background: "var(--theme-panel,#f8fafc)",
+    color: "var(--theme-text,#0f172a)",
+    border: "1px solid var(--theme-border,#e5e7eb)",
+  };
+
   return (
     <div className="space-y-2">
-      <label className="flex items-center text-sm font-medium text-gray-700">
-        {Icon && <Icon size={16} className="mr-2 text-gray-500" />}
+      <label className="flex items-center text-sm font-medium" style={labelStyle}>
+        {Icon && <Icon size={16} className="mr-2" style={iconStyle} />}
         {label}
       </label>
 
       {isEditMode && type !== "readonly" ? (
-        // ————— your existing edit-mode branches (select/textarea/checkbox/etc) —————
         type === "select" ? (
           <select
             name={name}
             value={value || ""}
             onChange={onInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 rounded-lg"
+            style={baseFieldStyle}
           >
-            <option value="">Select {label}</option>
+            <option value="">{`Select ${label}`}</option>
             {options.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -46,7 +62,8 @@ export function InputField({
             onChange={onInputChange}
             rows={rows}
             placeholder={placeholder}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
+            className="w-full px-3 py-2 rounded-lg resize-none"
+            style={baseFieldStyle}
           />
         ) : (
           <div className="relative">
@@ -62,7 +79,8 @@ export function InputField({
               }
               onChange={onInputChange}
               placeholder={placeholder}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 rounded-lg"
+              style={baseFieldStyle}
             />
             {suffix && (
               <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
@@ -72,9 +90,11 @@ export function InputField({
           </div>
         )
       ) : (
-        <div className="px-3 py-2 bg-gray-50 rounded-lg min-h-[38px] flex items-center">
-          {/* — your view-mode rendering (checkbox badge, formatted date or text) — */}
-          <span className="text-gray-900 break-words">
+        <div
+          className="px-3 py-2 rounded-lg min-h-[38px] flex items-center border"
+          style={viewBoxStyle}
+        >
+          <span className="break-words">
             {Array.isArray(value) ? value.join(", ") : value || "—"}
           </span>
         </div>

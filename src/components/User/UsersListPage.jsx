@@ -15,8 +15,7 @@ import UserModal from "./UserModal";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import BulkUserUploadModal from "./BulkUserUploadModal"; // ⬅️ NEW
 
-
-// components/UsersListPage.jsx (top-level imports stay same)
+// helper to build map from employee_code → name
 const makeCodeToName = (list) =>
   (Array.isArray(list) ? list : []).reduce((acc, u) => {
     if (u?.employee_code) acc[String(u.employee_code)] = u?.name || "";
@@ -39,9 +38,7 @@ const normalizeUsers = (list, roleMap) =>
   (Array.isArray(list) ? list : []).map((u) => ({
     ...u,
     role:
-      // prefer API provided string if present
       (u.role && toDisplayRole(u.role)) ||
-      // else map by role_id/profile_role.id
       roleMap[String(u?.profile_role?.id ?? u?.role_id ?? "")] ||
       "Unknown",
   }));
@@ -81,16 +78,17 @@ export default function UsersListPage() {
   const [usersTotal, setUsersTotal] = useState(0);  // <-- TOTAL users (for card)
   const [activeTotal, setActiveTotal] = useState(0);
   const [skip, setSkip]   = useState(0);   // NEW
-const [pages, setPages] = useState(1);  
+  const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(false);
+
   // NEW: keep all card numbers from the /users/ response here
-const [cards, setCards] = useState({
-  total_employee: 0,
-  active_employee: 0,
-  inactive_employee: 0,
-  branches: 0,
-  roles: 0,
-});
+  const [cards, setCards] = useState({
+    total_employee: 0,
+    active_employee: 0,
+    inactive_employee: 0,
+    branches: 0,
+    roles: 0,
+  });
 
   const openAdd = () => {
     setModalUser(null);
@@ -115,8 +113,6 @@ const [cards, setCards] = useState({
 
     const load = async () => {
       try {
-        // BEFORE: const [usersRes, branchesRes, rolesRes] = await Promise.all([...])
-
         const [branchesRes, rolesRes] = await Promise.all([
           axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
           axiosInstance.get("/profile-role/?skip=0&limit=200&order_by=hierarchy_level"),
@@ -137,9 +133,6 @@ const [cards, setCards] = useState({
           if (r && r.id != null) rmap[String(r.id)] = toDisplayRole(r.name);
         });
         setRoleMap(rmap);
-
-
-
       } catch (err) {
         console.error("Failed initial load:", err);
         ErrorHandling({ error: err, defaultError: "Failed to load users or metadata." });
@@ -163,88 +156,86 @@ const [cards, setCards] = useState({
         limit,
         active_only: false,
       };
-      if (roleId && roleId !== "All") params.role_id = Number(roleId);;
+      if (roleId && roleId !== "All") params.role_id = Number(roleId);
       if (branch && branch !== "All") params.branch_id = Number(branch);
       if (q && q.trim()) params.search = q.trim();
-      console.log("[users] fetch", params);
+
       const res = await axiosInstance.get("/users/", { params, signal });
 
-// pull cards from the same response (no extra API calls)
-const card = res?.data?.card || {};
-setCards((prev) => ({
-  ...prev,
-  total_employee: Number(card.total_employee) || 0,
-  active_employee: Number(card.active_employee) || 0,
-  inactive_employee: Number(card.inactive_employee) || 0,
-  branches: Number(card.branches) || 0,
-  roles: Number(card.roles) || 0,
-}));
+      // pull cards from the same response (no extra API calls)
+      const card = res?.data?.card || {};
+      setCards((prev) => ({
+        ...prev,
+        total_employee: Number(card.total_employee) || 0,
+        active_employee: Number(card.active_employee) || 0,
+        inactive_employee: Number(card.inactive_employee) || 0,
+        branches: Number(card.branches) || 0,
+        roles: Number(card.roles) || 0,
+      }));
 
-// OPTIONAL: if you also want to base usersTotal on the card block
-setUsersTotal(Number(card.total_employee) || (Number(res?.data?.pagination?.total) || list.length));
+      // OPTIONAL: if you also want to base usersTotal on the card block
+      setUsersTotal(
+        Number(card.total_employee) ||
+          (Number(res?.data?.pagination?.total) || list.length)
+      );
 
       // accept either {data, total, limit} or bare array fallback
       const list =
         Array.isArray(res?.data?.data) ? res.data.data :
-          (Array.isArray(res?.data) ? res.data : []);
+        (Array.isArray(res?.data) ? res.data : []);
 
       setUsers(normalizeUsers(list, roleMap));
       setCodeToName(makeCodeToName(list));
 
-      // try multiple shapes, then fall back to headers or list length
       // NEW: use API pagination block
- const pg = res?.data?.pagination || {};
- const apiTotal = Number(pg.total) || 0;
- const apiSkip  = Number(pg.skip)  || 0;
- const apiLimit = Number(pg.limit) || limit;
- const apiPages = Number(pg.pages) || Math.max(1, Math.ceil(apiTotal / (apiLimit || 1)));
- const apiPage  = apiLimit ? Math.floor(apiSkip / apiLimit) + 1 : 1;
+      const pg = res?.data?.pagination || {};
+      const apiTotal = Number(pg.total) || 0;
+      const apiSkip  = Number(pg.skip)  || 0;
+      const apiLimit = Number(pg.limit) || limit;
+      const apiPages = Number(pg.pages) || Math.max(1, Math.ceil(apiTotal / (apiLimit || 1)));
+      const apiPage  = apiLimit ? Math.floor(apiSkip / apiLimit) + 1 : 1;
 
- setTotal(apiTotal || list.length);
- setUsersTotal(apiTotal || 0);
- setSkip(apiSkip);
- setLimit(apiLimit);
- setPages(apiPages);
- if (apiPage && apiPage !== page) setPage(apiPage);
+      setTotal(apiTotal || list.length);
+      setUsersTotal(apiTotal || 0);
+      setSkip(apiSkip);
+      setLimit(apiLimit);
+      setPages(apiPages);
+      if (apiPage && apiPage !== page) setPage(apiPage);
     } catch (err) {
       if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
-      ErrorHandling({ error: err, defaultError: "Failed to load users." });
-    }
+        ErrorHandling({ error: err, defaultError: "Failed to load users." });
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (!Object.keys(roleMap).length) return; // wait until roles loaded
 
-useEffect(() => {
-  if (!Object.keys(roleMap).length) return; // wait until roles loaded
+    const controller = new AbortController();
+    const t = setTimeout(() => {
+      fetchUsers({
+        page,
+        roleId: selectedRole,
+        branch: selectedBranch,
+        q: searchQuery,
+        signal: controller.signal,
+      });
+    }, 350);
 
-  const controller = new AbortController();
-  const t = setTimeout(() => {
-    fetchUsers({
-      page,
-      roleId: selectedRole,
-      branch: selectedBranch,
-      q: searchQuery,
-      signal: controller.signal,
-    });
-  }, 350);
-
-  return () => {
-    controller.abort();
-    clearTimeout(t);
-  };
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [roleMap, selectedRole, selectedBranch, page, searchQuery]);
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleMap, selectedRole, selectedBranch, page, searchQuery]);
 
   // If roles arrive later/changed, refresh users' readable role labels
   useEffect(() => {
     if (!Object.keys(roleMap).length || !Array.isArray(users) || users.length === 0) return;
-    // Re-normalize current users to ensure .role reflects latest roleMap
     setUsers((prev) => normalizeUsers(prev, roleMap));
-  }, [roleMap]);
-
-
+  }, [roleMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async (employee_code) => {
     if (!confirm(`Are you sure you want to delete user ${employee_code}?`)) return;
@@ -258,8 +249,6 @@ useEffect(() => {
     }
   };
 
-
-
   const canAdd = hasPermission("user_add_user");
   const canBulk = hasPermission("user_bulk_upload") || hasPermission("user_add_user"); // fallback
 
@@ -269,73 +258,158 @@ useEffect(() => {
   const nextPage = () => goToPage(page + 1);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+    <div
+      className="min-h-screen p-6"
+      style={{
+        background: "var(--theme-background)",
+        color: "var(--theme-text)",
+      }}
+    >
+      {/* Theme-scoped helpers */}
+      <style jsx global>{`
+        /* Panels / cards */
+        .theme-panel {
+          background: var(--theme-card-bg, var(--theme-card));
+          border: 1px solid var(--theme-border);
+          border-radius: 1rem;
+          box-shadow: 0 4px 14px var(--theme-components-card-shadow, rgba(0,0,0,0.06));
+        }
+
+        /* Header text + muted */
+        .theme-heading {
+          color: var(--theme-text);
+        }
+        .theme-muted {
+          color: var(--theme-text-muted);
+        }
+
+        /* Buttons */
+        .theme-btn {
+          border-radius: 0.75rem;
+          padding: 0.5rem 0.75rem;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          box-shadow: 0 6px 14px var(--theme-components-button-secondary-shadow, rgba(0,0,0,0.05));
+          border: 1px solid transparent;
+          transition: transform .15s ease, filter .15s ease, background .15s ease, border .15s ease;
+        }
+        .theme-btn:active { transform: translateY(1px); }
+
+        .theme-btn-primary {
+          background: var(--theme-components-button-primary-bg, var(--theme-primary));
+          color: var(--theme-components-button-primary-text, var(--theme-primary-contrast));
+          border-color: var(--theme-components-button-primary-border, transparent);
+          box-shadow: 0 8px 18px var(--theme-components-button-primary-shadow, rgba(0,0,0,0.12));
+        }
+        .theme-btn-primary:hover {
+          background: var(--theme-components-button-primary-hover-bg, var(--theme-primary-hover));
+          filter: brightness(0.98);
+        }
+
+        .theme-btn-success {
+          background: var(--theme-success);
+          color: var(--theme-primary-contrast);
+          box-shadow: 0 8px 18px rgba(34,197,94,0.25);
+        }
+        .theme-btn-success:hover { filter: brightness(0.98); }
+
+        .theme-btn-secondary {
+          background: var(--theme-components-button-secondary-bg, var(--theme-surface));
+          color: var(--theme-components-button-secondary-text, var(--theme-text));
+          border-color: var(--theme-components-button-secondary-border, var(--theme-border));
+        }
+        .theme-btn-secondary:hover {
+          background: var(--theme-components-button-secondary-hover-bg, var(--theme-primary-softer));
+        }
+
+        /* Page header chip bg */
+        .theme-soft {
+          background: var(--theme-components-tag-info-bg, var(--theme-primary-softer));
+          color: var(--theme-components-tag-info-text, var(--theme-primary));
+          border: 1px solid var(--theme-components-tag-info-border, rgba(0,0,0,0));
+          border-radius: 9999px;
+          padding: 0.25rem 0.5rem;
+          font-size: .75rem;
+          font-weight: 600;
+        }
+
+        /* Table container background */
+        .theme-table-wrap {
+          background: var(--theme-card-bg, var(--theme-card));
+          border: 1px solid var(--theme-border);
+          border-radius: 1rem;
+          box-shadow: 0 4px 14px var(--theme-components-card-shadow, rgba(0,0,0,0.06));
+          overflow: hidden;
+        }
+      `}</style>
+
       <div className="mx-2">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-            <p className="text-gray-600 flex items-center gap-2">
-              <Users className="w-4 h-4" /> Manage and track all users
+            <h1 className="theme-heading text-3xl font-bold mb-2">User Management</h1>
+            <p className="theme-muted flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Manage and track all users
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {canBulk && (
-              <button
-                onClick={openBulk}
-                className="bg-indigo-600 text-white px-3 py-2 rounded-xl hover:bg-indigo-700 flex items-center gap-2 shadow-sm"
-              >
+              <button onClick={openBulk} className="theme-btn theme-btn-primary">
                 <Upload className="w-4 h-4" />
                 Bulk Upload
               </button>
             )}
             {canAdd && (
-              <button
-                onClick={openAdd}
-                className="bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 flex items-center gap-2 shadow-sm"
-              >
+              <button onClick={openAdd} className="theme-btn theme-btn-success">
                 + Add User
               </button>
             )}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats (uses its own component; it can read CSS vars from ThemeProvider if it uses them) */}
         <StatsCards
-  totalUsers={cards.total_employee}
-  activeUsers={cards.active_employee}
-  branchesCount={cards.branches || branches.length}
-  rolesCount={cards.roles || roles.length}
-/>
+          totalUsers={cards.total_employee}
+          activeUsers={cards.active_employee}
+          branchesCount={cards.branches || branches.length}
+          rolesCount={cards.roles || roles.length}
+        />
 
         {/* Filters */}
-        <UserFilters
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          selectedRole={selectedRole}
-          setSelectedRole={setSelectedRole}
-          selectedBranch={selectedBranch}
-          setSelectedBranch={setSelectedBranch}
-          roles={roles}
-          branches={branches}
-        />
+        <div className="mb-6">
+          <UserFilters
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedRole={selectedRole}
+            setSelectedRole={setSelectedRole}
+            selectedBranch={selectedBranch}
+            setSelectedBranch={setSelectedBranch}
+            roles={roles}
+            branches={branches}
+          />
+        </div>
 
         {/* Table */}
-        <UserTable
-          users={users}
-          branchMap={branchMap}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          onDetails={(u) => setDetailsUser(u)}
-          refreshUsers={() => fetchUsers({ page })}
-          pagination={{ page, totalPages, total, limit, skip }}   // NEW: skip
-          onPrev={prevPage}
-          onNext={nextPage}
-          goToPage={goToPage}
-          loading={loading}
-          codeToName={codeToName}
-        />
+        <div className="theme-table-wrap">
+          <UserTable
+            users={users}
+            branchMap={branchMap}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            onDetails={(u) => setDetailsUser(u)}
+            refreshUsers={() => fetchUsers({ page })}
+            pagination={{ page, totalPages, total, limit, skip }}   // NEW: skip
+            onPrev={prevPage}
+            onNext={nextPage}
+            goToPage={goToPage}
+            loading={loading}
+            codeToName={codeToName}
+          />
+        </div>
 
         {/* Create/Edit Modal */}
         <UserModal
@@ -370,7 +444,7 @@ useEffect(() => {
             fetchUsers();
             setBulkOpen(false);
           }}
-          roles={roles}          // ⬅️ pass roles
+          roles={roles}
           branches={branches}
         />
       </div>

@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Shield, Phone, Mail, User as UserIcon, Building2, KeyRound, IdCard, Clock } from "lucide-react";
+import {
+  X,
+  Shield,
+  Phone,
+  User as UserIcon,
+  Building2,
+  KeyRound,
+  IdCard,
+  Clock,
+} from "lucide-react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
-
+/* --------------------------- role helpers --------------------------- */
 const normalizeRoleKey = (r) =>
   (r || "").toString().trim().toUpperCase().replace(/\s+/g, "_");
 
@@ -16,40 +25,40 @@ const toDisplayRole = (raw) => {
   return key; // SUPERADMIN, HR, SALES_MANAGER, TL, SBA, BA, RESEARCHER, etc.
 };
 
- // Determine if the *viewer* is SUPERADMIN
- function useViewerIsSuperAdmin() {
-   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-   useEffect(() => {
-     try {
-       // prefer user_info cookie
-       const uiRaw = Cookies.get("user_info");
-       let role = "";
-       if (uiRaw) {
-         const ui = JSON.parse(uiRaw);
-         role =
-           ui?.role_name ||
-           ui?.role ||
-           ui?.user?.role_name ||
-           ui?.user?.role ||
-           ui?.profile_role?.name ||
-           "";
-       } else {
-         const token = Cookies.get("access_token");
-         if (token) {
-           const p = jwtDecode(token) || {};
-           role = p?.role_name || p?.role || p?.profile_role?.name || p?.user?.role || "";
-         }
-       }
-       const key = normalizeRoleKey(role);
-       setIsSuperAdmin(key === "SUPERADMIN" || key === "SUPER_ADMINISTRATOR");
-     } catch {
-       setIsSuperAdmin(false);
-     }
-   }, []);
-   return isSuperAdmin;
- }
+/* Determine if the *viewer* is SUPERADMIN */
+function useViewerIsSuperAdmin() {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  useEffect(() => {
+    try {
+      const uiRaw = Cookies.get("user_info");
+      let role = "";
+      if (uiRaw) {
+        const ui = JSON.parse(uiRaw);
+        role =
+          ui?.role_name ||
+          ui?.role ||
+          ui?.user?.role_name ||
+          ui?.user?.role ||
+          ui?.profile_role?.name ||
+          "";
+      } else {
+        const token = Cookies.get("access_token");
+        if (token) {
+          const p = jwtDecode(token) || {};
+          role =
+            p?.role_name || p?.role || p?.profile_role?.name || p?.user?.role || "";
+        }
+      }
+      const key = normalizeRoleKey(role);
+      setIsSuperAdmin(key === "SUPERADMIN" || key === "SUPER_ADMINISTRATOR");
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
+  return isSuperAdmin;
+}
 
-// ---- misc ui utils ----------------------------------------------------------
+/* ----------------------------- ui utils ---------------------------- */
 function formatDate(d) {
   if (!d) return "—";
   const dt = new Date(d);
@@ -60,22 +69,30 @@ function formatDate(d) {
 function DetailField({ label, value }) {
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-700">{label}</h4>
-      <p className="text-gray-600 break-words">{value ?? "—"}</p>
+      <h4 className="text-sm font-semibold" style={{ color: "var(--theme-text)" }}>
+        {label}
+      </h4>
+      <p className="break-words" style={{ color: "var(--theme-text-muted)" }}>
+        {value ?? "—"}
+      </p>
     </div>
   );
 }
 
-export default function UserDetailsModal({ isOpen, onClose, user, branchMap, roleMap: roleMapProp = {} }) {
+/* =========================== Component ============================== */
+export default function UserDetailsModal({
+  isOpen,
+  onClose,
+  user,
+  branchMap,
+  roleMap: roleMapProp = {},
+}) {
   const [showAllPerms, setShowAllPerms] = useState(false);
   const viewerIsSuperAdmin = useViewerIsSuperAdmin();
 
-
-
-const roleName = useMemo(() => {
+  const roleName = useMemo(() => {
     if (!user) return "—";
-    const direct =
-      user?.profile_role?.name || user?.role_name || user?.role || "";
+    const direct = user?.profile_role?.name || user?.role_name || user?.role || "";
     if (direct) return toDisplayRole(direct);
     const mapped = roleMapProp?.[String(user.role_id ?? "")];
     return mapped || "Unknown";
@@ -87,17 +104,60 @@ const roleName = useMemo(() => {
   const visiblePerms = showAllPerms ? perms : perms.slice(0, 24);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-auto">
+    <div className="fixed inset-0 z-50 p-4 flex items-center justify-center">
+      {/* Backdrop uses themed overlay */}
+      <div
+        className="absolute inset-0"
+        onClick={onClose}
+        style={{
+          background:
+            "var(--theme-components-modal-overlay, var(--theme-backdrop, rgba(0,0,0,.45)))",
+        }}
+      />
+
+      {/* Panel */}
+      <div
+        className="relative w-full max-w-4xl max-h-[92vh] overflow-auto rounded-2xl shadow-2xl"
+        style={{
+          background: "var(--theme-card-bg, var(--theme-card))",
+          border: "1px solid var(--theme-border)",
+          boxShadow:
+            "0 18px 50px var(--theme-components-card-shadow, rgba(0,0,0,0.18))",
+        }}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4 flex justify-between items-center">
+        <div
+          className="px-6 py-4 flex justify-between items-center"
+          style={{
+            background:
+              "var(--theme-components-modal-header-bg, var(--theme-components-modal-headerBg, var(--theme-primary-softer)))",
+            borderBottom: "1px solid var(--theme-border)",
+          }}
+        >
           <div className="flex items-center gap-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <UserIcon className="w-5 h-5 text-white" />
+            <div
+              className="rounded-full p-2"
+              style={{
+                background: "var(--theme-primary-soft)",
+                border: "1px solid var(--theme-border)",
+              }}
+            >
+              <UserIcon
+                className="w-5 h-5"
+                style={{ color: "var(--theme-primary)" }}
+              />
             </div>
-            <div className="text-white">
-              <h3 className="text-xl font-semibold">{user.name || "User Details"}</h3>
-              <p className="text-white/90 text-sm">
+            <div>
+              <h3
+                className="text-xl font-semibold"
+                style={{ color: "var(--theme-text)" }}
+              >
+                {user.name || "User Details"}
+              </h3>
+              <p
+                className="text-sm"
+                style={{ color: "var(--theme-text-muted)" }}
+              >
                 {roleName} • {user.employee_code}
               </p>
             </div>
@@ -105,18 +165,32 @@ const roleName = useMemo(() => {
 
           <div className="flex items-center gap-3">
             <span
-              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                user.is_active
-                  ? "bg-green-100 text-green-700 border border-green-200"
-                  : "bg-red-100 text-red-700 border border-red-200"
-              }`}
+              className="px-3 py-1 rounded-full text-xs font-semibold"
+              style={{
+                background: user.is_active
+                  ? "var(--theme-components-tag-success-bg, rgba(34,197,94,.10))"
+                  : "var(--theme-components-tag-error-bg, rgba(239,68,68,.10))",
+                color: user.is_active
+                  ? "var(--theme-success)"
+                  : "var(--theme-error)",
+                border: `1px solid ${
+                  user.is_active
+                    ? "var(--theme-components-tag-success-border, rgba(34,197,94,.35))"
+                    : "var(--theme-components-tag-error-border, rgba(239,68,68,.35))"
+                }`,
+              }}
             >
               {user.is_active ? "Active" : "Inactive"}
             </span>
             <button
               onClick={onClose}
-              className="text-white hover:text-gray-100 p-1 rounded-lg hover:bg-white/10 transition"
+              className="p-1 rounded-lg transition"
               title="Close"
+              style={{ color: "var(--theme-text)" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--theme-primary-softer)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <X className="w-5 h-5" />
             </button>
@@ -130,34 +204,49 @@ const roleName = useMemo(() => {
             <DetailField label="Employee Code" value={user.employee_code} />
             <DetailField label="Role" value={roleName} />
             {viewerIsSuperAdmin && (
-   <DetailField label="Branch" value={branchMap?.[user.branch_id] || "—"} />
- )}
+              <DetailField label="Branch" value={branchMap?.[user.branch_id] || "—"} />
+            )}
             <DetailField label="Reporting" value={user.senior_profile_id || "—"} />
           </div>
 
           {/* Contact */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Phone className="w-4 h-4 text-gray-500" />
-              <h4 className="font-semibold text-gray-800">Contact</h4>
+              <Phone className="w-4 h-4" style={{ color: "var(--theme-text-muted)" }} />
+              <h4 className="font-semibold" style={{ color: "var(--theme-text)" }}>
+                Contact
+              </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailField label="Phone" value={user.phone_number} />
               <DetailField label="Email" value={user.email} />
               <DetailField label="Father's Name" value={user.father_name} />
-              <DetailField label="Experience" value={user.experience != null ? `${user.experience} year(s)` : "—"} />
+              <DetailField
+                label="Experience"
+                value={
+                  user.experience != null ? `${user.experience} year(s)` : "—"
+                }
+              />
             </div>
           </section>
 
           {/* Personal / Employment */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <IdCard className="w-4 h-4 text-gray-500" />
-              <h4 className="font-semibold text-gray-800">Personal & Employment</h4>
+              <IdCard
+                className="w-4 h-4"
+                style={{ color: "var(--theme-text-muted)" }}
+              />
+              <h4 className="font-semibold" style={{ color: "var(--theme-text)" }}>
+                Personal & Employment
+              </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailField label="Date of Birth" value={formatDate(user.date_of_birth)} />
-              <DetailField label="Date of Joining" value={formatDate(user.date_of_joining)} />
+              <DetailField
+                label="Date of Joining"
+                value={formatDate(user.date_of_joining)}
+              />
               <DetailField label="PAN" value={user.pan || "—"} />
               <DetailField label="Aadhaar" value={user.aadhaar || "—"} />
             </div>
@@ -166,8 +255,13 @@ const roleName = useMemo(() => {
           {/* Address */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Building2 className="w-4 h-4 text-gray-500" />
-              <h4 className="font-semibold text-gray-800">Address</h4>
+              <Building2
+                className="w-4 h-4"
+                style={{ color: "var(--theme-text-muted)" }}
+              />
+              <h4 className="font-semibold" style={{ color: "var(--theme-text)" }}>
+                Address
+              </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailField label="Address" value={user.address} />
@@ -180,8 +274,13 @@ const roleName = useMemo(() => {
           {/* VBC / Telephony */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <KeyRound className="w-4 h-4 text-gray-500" />
-              <h4 className="font-semibold text-gray-800">VBC / Telephony</h4>
+              <KeyRound
+                className="w-4 h-4"
+                style={{ color: "var(--theme-text-muted)" }}
+              />
+              <h4 className="font-semibold" style={{ color: "var(--theme-text)" }}>
+                VBC / Telephony
+              </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailField label="VBC Extension ID" value={user.vbc_extension_id} />
@@ -194,13 +293,19 @@ const roleName = useMemo(() => {
           <section>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-gray-500" />
-                <h4 className="font-semibold text-gray-800">Permissions</h4>
+                <Shield
+                  className="w-4 h-4"
+                  style={{ color: "var(--theme-text-muted)" }}
+                />
+                <h4 className="font-semibold" style={{ color: "var(--theme-text)" }}>
+                  Permissions
+                </h4>
               </div>
               {perms.length > 24 && (
                 <button
                   onClick={() => setShowAllPerms((s) => !s)}
-                  className="text-sm text-purple-700 hover:text-purple-800"
+                  className="text-sm"
+                  style={{ color: "var(--theme-primary)" }}
                 >
                   {showAllPerms ? "Show less" : `Show all (${perms.length})`}
                 </button>
@@ -211,36 +316,57 @@ const roleName = useMemo(() => {
                 {visiblePerms.map((p) => (
                   <span
                     key={p}
-                    className="px-2.5 py-1 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-200"
+                    className="px-2.5 py-1 rounded-full text-xs"
+                    style={{
+                      background:
+                        "var(--theme-components-tag-info-bg, rgba(59,130,246,.10))",
+                      color: "var(--theme-primary)",
+                      border:
+                        "1px solid var(--theme-components-tag-info-border, rgba(59,130,246,.35))",
+                    }}
                   >
                     {p}
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">No permissions assigned.</p>
+              <p className="text-sm" style={{ color: "var(--theme-text-muted)" }}>
+                No permissions assigned.
+              </p>
             )}
           </section>
 
           {/* Comments */}
           {user.comment ? (
             <section>
-              <h4 className="font-semibold text-gray-800 mb-1">Comment</h4>
-              <p className="text-gray-600 whitespace-pre-wrap">{user.comment}</p>
+              <h4 className="font-semibold mb-1" style={{ color: "var(--theme-text)" }}>
+                Comment
+              </h4>
+              <p
+                className="whitespace-pre-wrap"
+                style={{ color: "var(--theme-text-muted)" }}
+              >
+                {user.comment}
+              </p>
             </section>
           ) : null}
 
           {/* Meta / Timestamps */}
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <h4 className="font-semibold text-gray-800">Meta</h4>
+              <Clock
+                className="w-4 h-4"
+                style={{ color: "var(--theme-text-muted)" }}
+              />
+              <h4 className="font-semibold" style={{ color: "var(--theme-text)" }}>
+                Meta
+              </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailField label="Role ID" value={user.role_id} />
               {viewerIsSuperAdmin && (
-   <DetailField label="Branch ID" value={user.branch_id ?? "—"} />
- )}
+                <DetailField label="Branch ID" value={user.branch_id ?? "—"} />
+              )}
               <DetailField label="Created At" value={formatDate(user.created_at)} />
               <DetailField label="Updated At" value={formatDate(user.updated_at)} />
             </div>
@@ -248,10 +374,29 @@ const roleName = useMemo(() => {
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end">
+        <div
+          className="px-6 py-4 flex justify-end"
+          style={{
+            background: "var(--theme-surface)",
+            borderTop: "1px solid var(--theme-border)",
+          }}
+        >
           <button
             onClick={onClose}
-            className="px-6 py-3 text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+            className="rounded-xl px-5 py-2 font-medium"
+            style={{
+              color: "var(--theme-text)",
+              background: "var(--theme-components-button-secondary-bg, var(--theme-surface))",
+              border: "1px solid var(--theme-components-button-secondary-border, var(--theme-border))",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background =
+                "var(--theme-components-button-secondary-hover-bg, var(--theme-primary-softer))")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background =
+                "var(--theme-components-button-secondary-bg, var(--theme-surface))")
+            }
           >
             Close
           </button>
@@ -260,4 +405,3 @@ const roleName = useMemo(() => {
     </div>
   );
 }
-

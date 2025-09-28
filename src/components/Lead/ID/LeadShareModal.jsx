@@ -1,3 +1,4 @@
+// LeadShareModal.jsx
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
@@ -38,7 +39,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
   const cleanedCode = useMemo(() => {
     const raw = String(targetUserId || "").trim().toUpperCase();
     if (!raw) return "";
-    if (/^EMP\d+$/.test(raw) || /^ADMIN\d+/.test(raw)) return raw; 
+    if (/^EMP\d+$/.test(raw) || /^ADMIN\d+/.test(raw)) return raw;
     if (/^\d+$/.test(raw)) return `EMP${raw.padStart(3, "0")}`;
     return raw;
   }, [targetUserId]);
@@ -48,9 +49,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
     if (!q) return [];
     const pick = (u) =>
       `${u.employee_code || ""} ${(u.name || "")} ${(u.phone_number || "")} ${(u.email || "")}`.toLowerCase();
-    return users
-      .filter((u) => pick(u).includes(q))
-      .slice(0, 8);
+    return users.filter((u) => pick(u).includes(q)).slice(0, 8);
   }, [targetUserId, users]);
 
   const selectUser = (u) => {
@@ -130,8 +129,13 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
         <button
           key="cancel"
           onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50"
+          className="px-4 py-2 rounded-xl transition-colors"
           disabled={loading}
+          style={{
+            background: "var(--theme-muted,#f1f5f9)",
+            color: "var(--theme-text,#0f172a)",
+            border: "1px solid var(--theme-border,#e5e7eb)",
+          }}
         >
           Cancel
         </button>,
@@ -139,7 +143,13 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
           key="transfer"
           onClick={handleTransfer}
           disabled={!canTransfer}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+          style={{
+            background: "var(--theme-primary,#4f46e5)",
+            color: "var(--theme-primary-contrast,#fff)",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary-hover,#4338ca)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--theme-primary,#4f46e5)")}
         >
           <Send size={16} />
           {loading ? "Transferring..." : "Transfer Lead"}
@@ -147,20 +157,39 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
       ]}
     >
       <div className="shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
+        {/* Header */}
+        <div
+          className="px-5 py-4"
+          style={{
+            color: "var(--theme-primary-contrast,#fff)",
+            background:
+              "linear-gradient(90deg, color-mix(in srgb, var(--theme-primary,#4f46e5) 90%, transparent), color-mix(in srgb, var(--theme-primary,#4f46e5) 65%, #fff 10%))",
+          }}
+        >
           <div className="flex items-center gap-3">
-           <div className="flex items-center gap-3 flex-grow">
-             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-              <UserPlus size={18} />
-            </span>
-            <div>
-              <h3 className="text-base font-semibold leading-5">Transfer Lead</h3>
-              <p className="text-xs/5 text-white/80">Assign this lead to another employee.</p>
-            </div></div>
+            <div className="flex items-center gap-3 flex-grow">
+              <span
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl backdrop-blur"
+                style={{ background: "color-mix(in srgb, #fff 18%, transparent)" }}
+              >
+                <UserPlus size={18} />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold leading-5">Transfer Lead</h3>
+                <p
+                  className="text-xs/5"
+                  style={{ color: "color-mix(in srgb, #fff 82%, transparent)" }}
+                >
+                  Assign this lead to another employee.
+                </p>
+              </div>
+            </div>
             <div>
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-600 transition-colors"
+                className="transition-colors"
+                style={{ color: "var(--theme-primary-contrast,#fff)" }}
+                aria-label="Close"
               >
                 <X size={20} />
               </button>
@@ -168,16 +197,36 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
           </div>
         </div>
 
-        <div className="p-5 space-y-5 bg-white">
+        {/* Body */}
+        <div
+          className="p-5 space-y-5"
+          style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}
+        >
+          {/* Employee Code / Autocomplete */}
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-800">
-              Target Employee Code <span className="text-red-500">*</span>
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--theme-text,#0f172a)" }}
+            >
+              Target Employee Code <span style={{ color: "var(--theme-danger,#dc2626)" }}>*</span>
             </label>
+
             <div
-              className="mt-1.5 flex rounded-xl border border-gray-300 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition"
+              className="mt-1.5 flex rounded-xl transition"
+              style={{
+                border: "1px solid var(--theme-border,#e5e7eb)",
+                boxShadow: "0 0 0 0 rgba(0,0,0,0)",
+              }}
               onFocus={() => setListOpen(true)}
             >
-              <span className="px-3 shrink-0 inline-flex items-center text-gray-500 text-sm border-r border-gray-200 bg-gray-50 rounded-l-xl">
+              <span
+                className="px-3 shrink-0 inline-flex items-center text-sm rounded-l-xl"
+                style={{
+                  color: "var(--theme-text-muted,#64748b)",
+                  borderRight: "1px solid var(--theme-border,#e5e7eb)",
+                  background: "var(--theme-panel,#f8fafc)",
+                }}
+              >
                 EMP
               </span>
               <input
@@ -191,16 +240,29 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                 onKeyDown={onKeyDown}
                 onBlur={() => setTimeout(() => setListOpen(false), 120)}
                 placeholder="Type code, name, phone, or email…"
-                className="w-full rounded-r-xl border-0 px-3 py-2 outline-none text-sm placeholder-gray-400"
+                className="w-full rounded-r-xl border-0 px-3 py-2 outline-none text-sm"
                 autoFocus
+                style={{
+                  background: "var(--theme-card-bg,#fff)",
+                  color: "var(--theme-text,#0f172a)",
+                }}
               />
             </div>
 
-            {/* Suggestions dropdown */}
+            {/* Suggestions */}
             {listOpen && (usersLoading || suggestions.length > 0) && (
-              <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg max-h-72 overflow-auto">
+              <div
+                className="absolute z-50 mt-1 w-full rounded-xl shadow-lg max-h-72 overflow-auto"
+                style={{
+                  background: "var(--theme-card-bg,#fff)",
+                  border: "1px solid var(--theme-border,#e5e7eb)",
+                }}
+              >
                 {usersLoading ? (
-                  <div className="px-3 py-2 text-sm text-gray-500 flex items-center gap-2">
+                  <div
+                    className="px-3 py-2 text-sm flex items-center gap-2"
+                    style={{ color: "var(--theme-text-muted,#64748b)" }}
+                  >
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading users…
                   </div>
@@ -211,20 +273,34 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => selectUser(u)}
-                      className={`w-full text-left px-3 py-2 text-sm flex flex-col gap-0.5 ${idx === highlight ? "bg-blue-50" : "bg-white"
-                        } hover:bg-blue-50`}
+                      className="w-full text-left px-3 py-2 text-sm flex flex-col gap-0.5 transition-colors"
+                      style={{
+                        background:
+                          idx === highlight
+                            ? "color-mix(in srgb, var(--theme-primary,#4f46e5) 10%, var(--theme-card-bg,#fff))"
+                            : "var(--theme-card-bg,#fff)",
+                        color: "var(--theme-text,#0f172a)",
+                      }}
+                      onMouseEnter={() => setHighlight(idx)}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-gray-900">
-                          <User className="h-4 w-4 text-gray-500" />
+                        <div
+                          className="flex items-center gap-2"
+                          style={{ color: "var(--theme-text,#0f172a)" }}
+                        >
+                          <User className="h-4 w-4" style={{ color: "var(--theme-text-muted,#64748b)" }} />
                           <span className="font-medium">{u.employee_code}</span>
-                          <span className="text-gray-500">— {u.name || "—"}</span>
+                          <span style={{ color: "var(--theme-text-muted,#64748b)" }}>
+                            — {u.name || "—"}
+                          </span>
                         </div>
                         {u.branch_id != null && (
-                          <span className="text-xs text-gray-500">Branch #{u.branch_id}</span>
+                          <span className="text-xs" style={{ color: "var(--theme-text-muted,#94a3b8)" }}>
+                            Branch #{u.branch_id}
+                          </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex items-center gap-4 text-xs" style={{ color: "var(--theme-text-muted,#64748b)" }}>
                         {u.phone_number && (
                           <span className="inline-flex items-center gap-1">
                             <Phone className="h-3 w-3" />
@@ -242,31 +318,57 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                   ))
                 )}
                 {!usersLoading && suggestions.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
+                  <div
+                    className="px-3 py-2 text-sm"
+                    style={{ color: "var(--theme-text-muted,#64748b)" }}
+                  >
+                    No matches
+                  </div>
                 )}
               </div>
             )}
 
-            <p className="mt-1 text-xs text-gray-500">
+            <p
+              className="mt-1 text-xs"
+              style={{ color: "var(--theme-text-muted,#64748b)" }}
+            >
               You can search by code (e.g. <span className="font-medium">EMP003</span> or{" "}
               <span className="font-medium">012</span>), name, phone, or email.
             </p>
           </div>
 
-          <div className="flex items-start gap-2.5 rounded-xl bg-blue-50 border border-blue-100 p-3">
-            <Info className="mt-0.5 text-blue-600" size={16} />
-            <p className="text-xs text-blue-900">Action is audit-logged with your code and timestamp.</p>
+          {/* Info Note */}
+          <div
+            className="flex items-start gap-2.5 rounded-xl p-3 border"
+            style={{
+              background:
+                "color-mix(in srgb, var(--theme-primary,#4f46e5) 10%, var(--theme-card-bg,#fff))",
+              borderColor:
+                "color-mix(in srgb, var(--theme-primary,#4f46e5) 35%, var(--theme-border,#e5e7eb))",
+              color: "var(--theme-text,#0f172a)",
+            }}
+          >
+            <Info size={16} style={{ color: "var(--theme-primary,#4f46e5)" }} />
+            <p className="text-xs" style={{ color: "var(--theme-text,#0f172a)" }}>
+              Action is audit-logged with your code and timestamp.
+            </p>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          {/* Footer Row */}
+          <div
+            className="flex items-center justify-between text-xs"
+            style={{ color: "var(--theme-text-muted,#64748b)" }}
+          >
             <div>
-              <span className="text-gray-400">Preview:</span>{" "}
-              <span className="font-medium text-gray-700">{cleanedCode || "EMP—"}</span>
+              <span style={{ color: "var(--theme-text-muted,#94a3b8)" }}>Preview:</span>{" "}
+              <span className="font-medium" style={{ color: "var(--theme-text,#0f172a)" }}>
+                {cleanedCode || "EMP—"}
+              </span>
             </div>
             {loading && <span className="animate-pulse">Processing…</span>}
           </div>
         </div>
       </div>
-    </Modal >
+    </Modal>
   );
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { Users, CheckCircle2, Building2, Shield } from "lucide-react";
+import React from "react";
 
 export default function StatsCards({
   totalUsers = 0,
@@ -14,35 +15,65 @@ export default function StatsCards({
       <Card
         title="Total Users"
         value={totalUsers}
-        icon={<Users className="w-6 h-6 text-blue-600" />}
+        icon={<Users className="w-6 h-6" />}
+        iconColorVar="--theme-primary"
       />
       <Card
         title="Active Users"
         value={activeUsers}
-        icon={<CheckCircle2 className="w-6 h-6 text-green-600" />}
+        icon={<CheckCircle2 className="w-6 h-6" />}
+        iconColorVar="--theme-success"
       />
       <Card
         title="Branches"
         value={branchesCount}
-        icon={<Building2 className="w-6 h-6 text-purple-600" />}
+        icon={<Building2 className="w-6 h-6" />}
+        iconColorVar="--theme-accent"
       />
       <Card
         title="Roles"
         value={rolesCount}
-        icon={<Shield className="w-6 h-6 text-amber-600" />}
+        icon={<Shield className="w-6 h-6" />}
+        iconColorVar="--theme-warning"
       />
     </div>
   );
 }
 
-function Card({ title, value, icon }) {
+function Card({ title, value, icon, iconColorVar = "--theme-primary" }) {
+  // clone the passed icon element so we can apply theme color without changing API
+  const themedIcon = React.cloneElement(icon, {
+    style: { color: `var(${iconColorVar}, #2563eb)` }, // fallback to blue if var missing
+  });
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 flex justify-between">
+    <div
+      className="rounded-2xl shadow-lg p-6 border flex justify-between"
+      style={{
+        background: "var(--theme-card-bg, #ffffff)",
+        borderColor: "var(--theme-border, #e5e7eb)",
+        color: "var(--theme-text, #0f172a)",
+      }}
+    >
       <div>
-        <p className="text-sm text-gray-500">{title}</p>
+        <p
+          className="text-sm"
+          style={{ color: "var(--theme-text-muted, #64748b)" }}
+        >
+          {title}
+        </p>
         <p className="text-3xl font-bold">{value}</p>
       </div>
-      <div className="bg-gray-50 p-3 rounded-full">{icon}</div>
+
+      <div
+        className="p-3 rounded-full"
+        style={{
+          background:
+            "var(--theme-muted-surface, color-mix(in oklab, var(--theme-text, #0f172a) 6%, transparent))",
+        }}
+      >
+        {themedIcon}
+      </div>
     </div>
   );
 }

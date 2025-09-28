@@ -95,14 +95,37 @@ export default function DepartmentAccordion() {
       .toLowerCase()
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  // THEME HELPERS
+  const surface = { background: "var(--theme-card-bg, #ffffff)", color: "var(--theme-text, #0f172a)" };
+  const borderColor = { borderColor: "var(--theme-border, #e5e7eb)" };
+  const muted = { color: "var(--theme-text-muted, #6b7280)" };
+  const primary = "var(--theme-primary, #4f46e5)";
+  const primaryWeak = "var(--theme-primary-weak, rgba(79,70,229,0.08))";
+  const success = "var(--theme-success, #16a34a)";
+  const successWeak = "var(--theme-success-weak, rgba(22,163,74,0.12))";
+  const danger = "var(--theme-danger, #dc2626)";
+  const dangerWeak = "var(--theme-danger-weak, rgba(220,38,38,0.12))";
+  const accent = "var(--theme-accent, #7c3aed)";
+
+  const btnPrimaryStyle = {
+    color: "#fff",
+    background: `linear-gradient(90deg, ${primary}, color-mix(in oklab, ${primary} 85%, ${accent}))`,
+  };
+  const btnSuccessStyle = {
+    color: "#fff",
+    background: `linear-gradient(90deg, ${success}, color-mix(in oklab, ${success} 85%, ${successWeak}))`,
+  };
+
   return (
-    <div className="w-full  mt-2">
+    <div className="w-full mt-2">
       {/* Action Bar (Sticky) */}
-      <div className="sticky top-16 z-40 left-0 right-0 bg-white border-b border-gray-200">
-        <div className="flex justify-end px-3 py-3">
+     <div className="flex justify-end px-3 py-3">
           <div className="flex gap-3">
             <button
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-medium shadow-lg"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
+              style={btnPrimaryStyle}
+              onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.98)")}
+              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
               onClick={() => setOpenAddDeptModal(true)}
             >
               <Building2 className="w-4 h-4" />
@@ -110,7 +133,10 @@ export default function DepartmentAccordion() {
             </button>
 
             <button
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-200 transition-all duration-200 font-medium shadow-lg"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
+              style={btnSuccessStyle}
+              onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.98)")}
+              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
               onClick={() => {
                 setSelectedDept(departments[0] || null);
                 setOpenAddProfileModal(true);
@@ -121,97 +147,148 @@ export default function DepartmentAccordion() {
             </button>
           </div>
         </div>
-      </div>
 
       {/* Department List */}
       {loadingDept ? (
         <div className="flex items-center justify-center py-12">
           <div className="flex items-center space-x-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="text-gray-600 font-medium">Loading departments...</span>
+            <div
+              className="animate-spin rounded-full h-6 w-6 border-b-2"
+              style={{ borderColor: primary }}
+            ></div>
+            <span className="font-medium" style={muted}>
+              Loading departments...
+            </span>
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div
+          className="rounded-2xl shadow-lg border overflow-hidden"
+          style={{ ...surface, ...borderColor }}
+        >
           {departments.length === 0 ? (
             <div className="text-center py-12">
-              <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 font-medium">No departments found</p>
-              <p className="text-gray-400 text-sm">Create your first department to get started</p>
+              <Building2 className="w-12 h-12 mx-auto mb-4" style={{ color: "color-mix(in oklab, var(--theme-text, #0f172a) 30%, transparent)" }} />
+              <p className="font-medium" style={muted}>No departments found</p>
+              <p className="text-sm" style={muted}>Create your first department to get started</p>
             </div>
           ) : (
             departments.map((dept, index) => (
-              <div key={dept.id} className={index < departments.length - 1 ? "border-b border-gray-200" : ""}>
+              <div
+                key={dept.id}
+                className={index < departments.length - 1 ? "border-b" : ""}
+                style={borderColor}
+              >
                 {/* Accordion Header */}
                 <div
-                  className="flex justify-between items-center px-6 py-4 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 cursor-pointer transition-all duration-200 group"
+                  className="flex justify-between items-center px-6 py-4 cursor-pointer transition-all duration-200 group"
+                  style={surface}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "color-mix(in oklab, var(--theme-text, #0f172a) 3%, var(--theme-card-bg, #ffffff))";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--theme-card-bg, #ffffff)";
+                  }}
                   onClick={() => toggleDepartment(dept.id)}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors duration-200">
+                    <div
+                      className="p-2 rounded-lg transition-colors duration-200"
+                      style={{
+                        background: "color-mix(in oklab, var(--theme-primary, #4f46e5) 12%, transparent)",
+                      }}
+                    >
                       {expandedDept === dept.id ? (
-                        <ChevronDown className="w-5 h-5 text-blue-600" />
+                        <ChevronDown className="w-5 h-5" style={{ color: primary }} />
                       ) : (
-                        <ChevronRight className="w-5 h-5 text-blue-600" />
+                        <ChevronRight className="w-5 h-5" style={{ color: primary }} />
                       )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">
+                      <h3 className="font-semibold transition-colors duration-200">
                         {dept.name}
                       </h3>
                       {dept.description && (
-                        <p className="text-sm text-gray-500 mt-1">{dept.description}</p>
+                        <p className="text-sm mt-1" style={muted}>
+                          {dept.description}
+                        </p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${dept.is_active
-                        ? "bg-green-100 text-green-700 border border-green-200"
-                        : "bg-red-100 text-red-700 border border-red-200"
-                      }`}>
+                    <span
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border"
+                      style={{
+                        background: dept.is_active ? successWeak : dangerWeak,
+                        color: dept.is_active ? success : danger,
+                        borderColor: dept.is_active
+                          ? `color-mix(in oklab, ${success} 35%, transparent)`
+                          : `color-mix(in oklab, ${danger} 35%, transparent)`,
+                      }}
+                    >
                       {dept.is_active ? "Active" : "Inactive"}
                     </span>
                     <button
-                      className="p-2 rounded-full hover:bg-blue-100 transition-colors duration-200 group"
+                      className="p-2 rounded-full transition-colors duration-200 group"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditDept(dept);
                       }}
                       aria-label={`Edit ${dept.name} Department`}
+                      title="Edit Department"
+                      onMouseEnter={(e) => (e.currentTarget.style.background = primaryWeak)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <Edit className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
+                      <Edit className="w-4 h-4" style={{ color: primary }} />
                     </button>
                     <button
-                      className="p-2 rounded-full hover:bg-red-100 transition-colors duration-200 group"
+                      className="p-2 rounded-full transition-colors duration-200 group"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteDepartment(dept.id);
                       }}
                       aria-label={`Delete ${dept.name} Department`}
+                      title="Delete Department"
+                      onMouseEnter={(e) => (e.currentTarget.style.background = dangerWeak)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <Trash className="w-4 h-4 text-red-600 group-hover:text-red-700" />
+                      <Trash className="w-4 h-4" style={{ color: danger }} />
                     </button>
                   </div>
                 </div>
 
                 {/* Accordion Content */}
                 {expandedDept === dept.id && (
-                  <div className="border-t border-gray-100 bg-gradient-to-br from-gray-50 to-blue-50/30">
+                  <div
+                    className="border-t"
+                    style={{
+                      ...borderColor,
+                      background:
+                        "linear-gradient(180deg, color-mix(in oklab, var(--theme-text, #0f172a) 4%, transparent), transparent)",
+                    }}
+                  >
                     {loadingProfiles[dept.id] ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="flex items-center space-x-3">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                          <span className="text-gray-600">Loading profiles...</span>
+                          <div
+                            className="animate-spin rounded-full h-5 w-5 border-b-2"
+                            style={{ borderColor: primary }}
+                          ></div>
+                          <span style={muted}>Loading profiles...</span>
                         </div>
                       </div>
                     ) : (
                       <>
                         {/* Header with profile count */}
-                        <div className="flex items-center justify-between px-6 py-3 bg-white/50 border-b border-gray-200">
+                        <div
+                          className="flex items-center justify-between px-6 py-3 border-b"
+                          style={{ ...borderColor, background: "color-mix(in oklab, var(--theme-text, #0f172a) 2%, var(--theme-card-bg, #ffffff))" }}
+                        >
                           <div className="flex items-center space-x-2">
-                            <Users className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm font-medium text-gray-700">
-                              {profiles[dept.id]?.length ?? 0} Profile{profiles[dept.id]?.length === 1 ? "" : "s"}
+                            <Users className="w-4 h-4" style={{ color: muted.color }} />
+                            <span className="text-sm font-medium">
+                              {(profiles[dept.id]?.length ?? 0)} Profile{profiles[dept.id]?.length === 1 ? "" : "s"}
                             </span>
                           </div>
                         </div>
@@ -221,94 +298,147 @@ export default function DepartmentAccordion() {
                             <div className="overflow-x-auto">
                               <table className="min-w-full">
                                 <thead>
-                                  <tr className="bg-white/70">
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                      Profile Name
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                      Description
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                      Status
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                      Level
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                      Permissions
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                      Actions
-                                    </th>
+                                  <tr
+                                    style={{
+                                      background: "color-mix(in oklab, var(--theme-text, #0f172a) 2%, var(--theme-card-bg, #ffffff))",
+                                    }}
+                                  >
+                                    {[
+                                      "Profile Name",
+                                      "Description",
+                                      "Status",
+                                      "Level",
+                                      "Permissions",
+                                      "Actions",
+                                    ].map((h) => (
+                                      <th
+                                        key={h}
+                                        className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider"
+                                        style={muted}
+                                      >
+                                        {h === "Status" || h === "Level" || h === "Actions" ? (
+                                          <span className="block text-center">{h}</span>
+                                        ) : (
+                                          h
+                                        )}
+                                      </th>
+                                    ))}
                                   </tr>
                                 </thead>
-                                <tbody className="bg-white/30 divide-y divide-gray-200">
+                                <tbody
+                                  className="divide-y"
+                                  style={{ borderColor: "color-mix(in oklab, var(--theme-text, #0f172a) 12%, transparent)" }}
+                                >
                                   {Array.isArray(profiles[dept.id]) &&
-                                    profiles[dept.id].map((profile, profileIndex) => (
+                                    profiles[dept.id].map((profile) => (
                                       <tr
                                         key={profile.id}
-                                        className="hover:bg-white/60 transition-colors duration-200"
+                                        className="transition-colors duration-200"
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.background =
+                                            "color-mix(in oklab, var(--theme-text, #0f172a) 2.5%, transparent)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.background = "transparent";
+                                        }}
                                       >
                                         {/* Name */}
                                         <td className="px-6 py-4">
                                           <div className="flex items-center space-x-3">
-                                            <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                                            <span className="font-medium text-gray-900">{profile.name}</span>
+                                            <div
+                                              className="w-2 h-2 rounded-full"
+                                              style={{
+                                                background: `linear-gradient(90deg, ${primary}, ${accent})`,
+                                              }}
+                                            />
+                                            <span className="font-medium">{profile.name}</span>
                                           </div>
                                         </td>
 
                                         {/* Description */}
-                                        <td className="px-6 py-4 text-gray-600">
+                                        <td className="px-6 py-4" style={muted}>
                                           {profile.description || (
-                                            <span className="italic text-gray-400">No description</span>
+                                            <span className="italic" style={muted}>
+                                              No description
+                                            </span>
                                           )}
                                         </td>
 
                                         {/* Active badge */}
-                                        <td className="px-6 py-4 text-center">
-                                          <span
-                                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${profile.is_active
-                                                ? "bg-green-100 text-green-700 border border-green-200"
-                                                : "bg-red-100 text-red-700 border border-red-200"
-                                              }`}
-                                          >
+                                        <td className="px-6 py-4">
+                                          <div className="flex justify-center">
                                             <span
-                                              className={`h-1.5 w-1.5 rounded-full ${profile.is_active ? "bg-green-500" : "bg-red-500"
-                                                }`}
-                                            />
-                                            {profile.is_active ? "Active" : "Inactive"}
-                                          </span>
+                                              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border"
+                                              style={{
+                                                background: profile.is_active ? successWeak : dangerWeak,
+                                                color: profile.is_active ? success : danger,
+                                                borderColor: profile.is_active
+                                                  ? `color-mix(in oklab, ${success} 35%, transparent)`
+                                                  : `color-mix(in oklab, ${danger} 35%, transparent)`,
+                                              }}
+                                            >
+                                              <span
+                                                className="h-1.5 w-1.5 rounded-full"
+                                                style={{ background: profile.is_active ? success : danger }}
+                                              />
+                                              {profile.is_active ? "Active" : "Inactive"}
+                                            </span>
+                                          </div>
                                         </td>
 
                                         {/* Hierarchy pill */}
-                                        <td className="px-6 py-4 text-center">
-                                          <span className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-indigo-100 to-purple-100 px-3 py-1.5 text-sm font-semibold text-indigo-700 border border-indigo-200">
-                                            {profile.hierarchy_level ?? "—"}
-                                          </span>
+                                        <td className="px-6 py-4">
+                                          <div className="flex justify-center">
+                                            <span
+                                              className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-semibold border"
+                                              style={{
+                                                background: "color-mix(in oklab, var(--theme-primary, #4f46e5) 12%, transparent)",
+                                                color: primary,
+                                                borderColor: `color-mix(in oklab, ${primary} 35%, transparent)`,
+                                              }}
+                                            >
+                                              {profile.hierarchy_level ?? "—"}
+                                            </span>
+                                          </div>
                                         </td>
 
                                         {/* Permissions as chips */}
                                         <td className="px-6 py-4">
                                           {Array.isArray(profile.default_permissions) &&
-                                            profile.default_permissions.length > 0 ? (
+                                          profile.default_permissions.length > 0 ? (
                                             <div className="flex flex-wrap gap-1 max-w-xs">
                                               {profile.default_permissions.slice(0, 3).map((perm, i) => (
                                                 <span
                                                   key={i}
-                                                  className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 border border-blue-200"
+                                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
+                                                  style={{
+                                                    background: primaryWeak,
+                                                    color: primary,
+                                                    borderColor: `color-mix(in oklab, ${primary} 35%, transparent)`,
+                                                  }}
                                                   title={formatPerm(perm)}
                                                 >
                                                   {formatPerm(perm)}
                                                 </span>
                                               ))}
                                               {profile.default_permissions.length > 3 && (
-                                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 border border-gray-200">
+                                                <span
+                                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
+                                                  style={{
+                                                    background:
+                                                      "color-mix(in oklab, var(--theme-text, #0f172a) 6%, transparent)",
+                                                    color: "var(--theme-text-muted, #6b7280)",
+                                                    borderColor: "var(--theme-border, #e5e7eb)",
+                                                  }}
+                                                >
                                                   +{profile.default_permissions.length - 3} more
                                                 </span>
                                               )}
                                             </div>
                                           ) : (
-                                            <span className="italic text-gray-400 text-sm">No permissions</span>
+                                            <span className="italic text-sm" style={muted}>
+                                              No permissions
+                                            </span>
                                           )}
                                         </td>
 
@@ -316,7 +446,19 @@ export default function DepartmentAccordion() {
                                         <td className="px-6 py-4">
                                           <div className="flex items-center justify-center gap-2">
                                             <button
-                                              className="inline-flex items-center justify-center rounded-lg bg-blue-100 p-2 text-blue-600 shadow-sm transition-all duration-200 hover:bg-blue-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                              className="inline-flex items-center justify-center rounded-lg p-2 shadow-sm transition-all duration-200"
+                                              style={{
+                                                background: primaryWeak,
+                                                color: primary,
+                                                boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+                                              }}
+                                              onMouseEnter={(e) =>
+                                                (e.currentTarget.style.background =
+                                                  "color-mix(in oklab, var(--theme-primary, #4f46e5) 18%, transparent)")
+                                              }
+                                              onMouseLeave={(e) =>
+                                                (e.currentTarget.style.background = primaryWeak)
+                                              }
                                               onClick={() => setEditProfile(profile)}
                                               aria-label={`Edit ${profile.name} Profile`}
                                               title="Edit Profile"
@@ -325,7 +467,19 @@ export default function DepartmentAccordion() {
                                             </button>
 
                                             <button
-                                              className="inline-flex items-center justify-center rounded-lg bg-red-100 p-2 text-red-600 shadow-sm transition-all duration-200 hover:bg-red-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                                              className="inline-flex items-center justify-center rounded-lg p-2 shadow-sm transition-all duration-200"
+                                              style={{
+                                                background: dangerWeak,
+                                                color: danger,
+                                                boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+                                              }}
+                                              onMouseEnter={(e) =>
+                                                (e.currentTarget.style.background =
+                                                  "color-mix(in oklab, var(--theme-danger, #dc2626) 18%, transparent)")
+                                              }
+                                              onMouseLeave={(e) =>
+                                                (e.currentTarget.style.background = dangerWeak)
+                                              }
                                               onClick={() => handleDeleteProfile(profile.id, dept.id)}
                                               aria-label={`Delete ${profile.name} Profile`}
                                               title="Delete Profile"
@@ -342,9 +496,12 @@ export default function DepartmentAccordion() {
                           </div>
                         ) : (
                           <div className="text-center py-8">
-                            <Users className="w-8 h-8 text-gray-400 mx-auto mb-3" />
-                            <p className="text-gray-500 font-medium">No profiles found</p>
-                            <p className="text-gray-400 text-sm">Add profiles to this department</p>
+                            <Users
+                              className="w-8 h-8 mx-auto mb-3"
+                              style={{ color: "color-mix(in oklab, var(--theme-text, #0f172a) 30%, transparent)" }}
+                            />
+                            <p className="font-medium" style={muted}>No profiles found</p>
+                            <p className="text-sm" style={muted}>Add profiles to this department</p>
                           </div>
                         )}
                       </>

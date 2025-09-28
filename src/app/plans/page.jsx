@@ -5,22 +5,22 @@ import { axiosInstance } from '@/api/Axios'
 import LoadingState from '@/components/LoadingState'
 import toast from 'react-hot-toast'
 import { usePermissions } from '@/context/PermissionsContext'
-import { PhoneCall, BadgePercent, Pencil, Trash2, Tag } from "lucide-react";
+import { PhoneCall, BadgePercent, Pencil, Trash2, Tag } from 'lucide-react'
 import { ErrorHandling } from '@/helper/ErrorHandling'
 
 export default function ServicesPage() {
-  const { hasPermission } = usePermissions();
+  const { hasPermission } = usePermissions()
 
   /* ---------- hydration-safe flags ---------- */
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => setIsClient(true), []);
-  const canCreate = isClient && hasPermission('service_create');
-  const canEdit = isClient && hasPermission('service_edit');
-  const canDelete = isClient && hasPermission('service_delete');
+  const [isClient, setIsClient] = useState(false)
+  useEffect(() => setIsClient(true), [])
+  const canCreate = isClient && hasPermission('service_create')
+  const canEdit = isClient && hasPermission('service_edit')
+  const canDelete = isClient && hasPermission('service_delete')
 
   /* ---------- state ---------- */
-  const [services, setServices] = useState([]);
-  const [billingCycles] = useState(['CALL']); // fixed to CALL
+  const [services, setServices] = useState([])
+  const [billingCycles] = useState(['CALL']) // fixed to CALL
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -30,171 +30,153 @@ export default function ServicesPage() {
     CALL: 0,
     service_type: [],
     plan_type: '',
-  });
-  const [editId, setEditId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [serviceTypeOptions, setServiceTypeOptions] = useState([]);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const allCheckboxRef = useRef(null);
-  const [planTypeOptions, setPlanTypeOptions] = useState([]);
-  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
-const [activePlanType, setActivePlanType] = useState("");
-  const SERVICE_API = '/services';
+  })
+  const [editId, setEditId] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [serviceTypeOptions, setServiceTypeOptions] = useState([])
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false)
+  const allCheckboxRef = useRef(null)
+  const [planTypeOptions, setPlanTypeOptions] = useState([])
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false)
+  const [activePlanType, setActivePlanType] = useState('')
+  const SERVICE_API = '/services'
 
-
-const fetchPlanTypeOptions = async () => {
-  try {
-    const res = await axiosInstance.get('/services/plan-types');
-    const types = res.data || [];
-
-    setPlanTypeOptions(types);
-
-    // always default to All
-    if (!activePlanType) {
-      setActivePlanType("All");
+  const fetchPlanTypeOptions = async () => {
+    try {
+      const res = await axiosInstance.get('/services/plan-types')
+      const types = res.data || []
+      setPlanTypeOptions(types)
+      if (!activePlanType) setActivePlanType('All')
+    } catch (error) {
+      ErrorHandling({ error, defaultError: 'Failed to fetch plan types' })
     }
-  } catch (error) {
-    ErrorHandling({ error: error, defaultError: "Failed to fetch plan types" });
   }
-};
 
+  useEffect(() => {
+    fetchServiceTypeOptions()
+    fetchPlanTypeOptions()
+    fetchServices()
+  }, [])
 
-useEffect(() => {
-  fetchServiceTypeOptions();
-  fetchPlanTypeOptions();
-  fetchServices();
-}, []);
+  // filter services by active tab
+  const filteredServices = services.filter((s) => {
+    const matchesType = activePlanType === 'All' || s.plan_type === activePlanType
+    const matchesBilling = s.billing_cycle === 'CALL'
+    return matchesType && matchesBilling
+  })
 
-// filter services by active tab
-const filteredServices = services.filter((s) => {
-  const matchesType = activePlanType === "All" || s.plan_type === activePlanType;
-  const matchesBilling = s.billing_cycle === "CALL";
-  return matchesType && matchesBilling;
-});
-
-
-const availablePlanTypes = planTypeOptions.filter((type) =>
-  services.some(
-    (s) => s.plan_type === type && s.billing_cycle === "CALL"
+  const availablePlanTypes = planTypeOptions.filter((type) =>
+    services.some((s) => s.plan_type === type && s.billing_cycle === 'CALL')
   )
-);
 
-
-useEffect(() => {
-  if (!activePlanType && availablePlanTypes.length > 0) {
-    setActivePlanType("All"); // default to All instead of first type
-  }
-}, [availablePlanTypes, activePlanType]);
+  useEffect(() => {
+    if (!activePlanType && availablePlanTypes.length > 0) {
+      setActivePlanType('All')
+    }
+  }, [availablePlanTypes, activePlanType])
 
   /* ---------- helpers ---------- */
-  // Stable currency string: plain number during SSR, formatted after mount
   const displayINR = (n) =>
     isClient
       ? new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(Number(n ?? 0))
-      : String(Number(n ?? 0));
+      : String(Number(n ?? 0))
 
   /* ---------- effects ---------- */
   useEffect(() => {
-    fetchServiceTypeOptions();
-    fetchServices();
-  }, []);
+    fetchServiceTypeOptions()
+    fetchServices()
+  }, [])
 
   useEffect(() => {
-    if (!allCheckboxRef.current) return;
+    if (!allCheckboxRef.current) return
     allCheckboxRef.current.indeterminate =
-      formData.service_type.length > 0 &&
-      formData.service_type.length < serviceTypeOptions.length;
-  }, [formData.service_type, serviceTypeOptions]);
+      formData.service_type.length > 0 && formData.service_type.length < serviceTypeOptions.length
+  }, [formData.service_type, serviceTypeOptions])
 
   useEffect(() => {
-    if (!showTypeDropdown) return;
+    if (!showTypeDropdown) return
     const handleClick = (e) => {
       if (!e.target.closest('.relative.md\\:col-span-2')) {
-        setShowTypeDropdown(false);
+        setShowTypeDropdown(false)
       }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showTypeDropdown]);
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showTypeDropdown])
 
   /* ---------- data ---------- */
   const fetchServiceTypeOptions = async () => {
     try {
-      const res = await axiosInstance.get('/profile-role/recommendation-type');
-      setServiceTypeOptions(res.data || []);
+      const res = await axiosInstance.get('/profile-role/recommendation-type')
+      setServiceTypeOptions(res.data || [])
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to fetch service types" });
+      ErrorHandling({ error, defaultError: 'Failed to fetch service types' })
     }
-  };
+  }
 
   const fetchServices = async () => {
     try {
-      const res = await axiosInstance.get(SERVICE_API);
-      setServices(res.data || []);
+      const res = await axiosInstance.get(SERVICE_API)
+      setServices(res.data || [])
     } catch (err) {
-      console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to fetch services" });
+      ErrorHandling({ error: err, defaultError: 'Failed to fetch services' })
     }
-  };
+  }
 
   /* ---------- handlers ---------- */
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target
 
     if (name === 'service_type') {
       setFormData((prev) => ({
         ...prev,
-        service_type: value.split(',').map(s => s.trim()).filter(Boolean),
-      }));
+        service_type: value.split(',').map((s) => s.trim()).filter(Boolean),
+      }))
     } else {
       setFormData((prev) => ({
         ...prev,
-        [name]: name === 'CALL'
-          ? (value === '' ? '' : parseInt(value))
-          : value,
-      }));
+        [name]: name === 'CALL' ? (value === '' ? '' : parseInt(value)) : value,
+      }))
     }
-  };
+  }
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const { name, description, price, billing_cycle, discount_percent } = formData;
+    e.preventDefault()
+    const { name, description, price, billing_cycle, discount_percent } = formData
 
     if (!name || !description || !price || !billing_cycle) {
-      ErrorHandling({ defaultError: "Please fill all required fields" });
-      return;
+      ErrorHandling({ defaultError: 'Please fill all required fields' })
+      return
     }
     if (discount_percent > 100) {
-      ErrorHandling({ defaultError: "Discount cannot be more than 100%" });
-      return;
+      ErrorHandling({ defaultError: 'Discount cannot be more than 100%' })
+      return
     }
 
     try {
-      setLoading(true);
-      const payload = { ...formData, billing_cycle: 'CALL' }; // enforce CALL
+      setLoading(true)
+      const payload = { ...formData, billing_cycle: 'CALL' }
       if (editId) {
-        const res = await axiosInstance.patch(`${SERVICE_API}/${editId}`, payload);
-        toast.success(`Service "${res.data.name}" updated!`);
+        const res = await axiosInstance.patch(`${SERVICE_API}/${editId}`, payload)
+        toast.success(`Service "${res.data.name}" updated!`)
       } else {
-        const res = await axiosInstance.post(SERVICE_API, payload);
-        toast.success(`Service "${res.data.name}" created!`);
+        const res = await axiosInstance.post(SERVICE_API, payload)
+        toast.success(`Service "${res.data.name}" created!`)
       }
-      resetForm();
-      fetchServices();
+      resetForm()
+      fetchServices()
     } catch (err) {
-      const status = err?.response?.status;
-
+      const status = err?.response?.status
       if (status === 409) {
-        // Let the helper extract the backend message if any, but show a friendly default
-        ErrorHandling({ error: err, defaultError: "This service already exists" });
+        ErrorHandling({ error: err, defaultError: 'This service already exists' })
       } else {
-        ErrorHandling({ error: err, defaultError: "Failed to save service" });
+        ErrorHandling({ error: err, defaultError: 'Failed to save service' })
       }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const resetForm = () => {
     setFormData({
@@ -206,10 +188,10 @@ useEffect(() => {
       CALL: 0,
       service_type: [],
       plan_type: '',
-    });
-    setEditId(null);
-    setIsModalOpen(false);
-  };
+    })
+    setEditId(null)
+    setIsModalOpen(false)
+  }
 
   const handleEdit = (srv) => {
     setFormData({
@@ -221,115 +203,121 @@ useEffect(() => {
       CALL: srv.CALL || 0,
       service_type: Array.isArray(srv.service_type)
         ? srv.service_type
-        : (srv.service_type ? [srv.service_type] : []),
+        : srv.service_type
+        ? [srv.service_type]
+        : [],
       plan_type: srv.plan_type || '',
-    });
-    setEditId(srv.id);
-    setIsModalOpen(true);
-  };
+    })
+    setEditId(srv.id)
+    setIsModalOpen(true)
+  }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this service?')) return;
+    if (!confirm('Are you sure you want to delete this service?')) return
     try {
-      await axiosInstance.delete(`${SERVICE_API}/${id}`);
-      toast.success('Service deleted');
-      fetchServices();
+      await axiosInstance.delete(`${SERVICE_API}/${id}`)
+      toast.success('Service deleted')
+      fetchServices()
     } catch (err) {
-      console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to delete service" });
+      ErrorHandling({ error: err, defaultError: 'Failed to delete service' })
     }
-  };
-
-  /* ---------- derived ---------- */
-  const callOnlyServices = services.filter(s => s.billing_cycle === 'CALL');
+  }
 
   /* ---------- render ---------- */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-8">
+    <div className="min-h-screen bg-[var(--theme-background)] py-8">
       <div className="mx-2 px-6">
-
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-10">
           <div className="text-center md:text-left mb-6 md:mb-0">
-            <h1 className="text-4xl font-bold text-gray-800 mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text ">
+            <h1 className="text-4xl font-bold text-[var(--theme-text)] mb-2">
               Plans Management
             </h1>
-            <p className="text-gray-600 text-lg">Manage and organize your plan offerings</p>
+            <p className="text-lg text-[var(--theme-text-muted)]">
+              Manage and organize your plan offerings
+            </p>
           </div>
 
-          {hasPermission("plans_create") && <button
-            onClick={() => { resetForm(); setIsModalOpen(true); }}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-3 rounded-xl shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 flex items-center gap-3 font-semibold"
-          >
-            + Create Plan
-          </button>}
-
+          {hasPermission('plans_create') && (
+            <button
+              onClick={() => {
+                resetForm()
+                setIsModalOpen(true)
+              }}
+              className="bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-contrast)] px-4 py-3 rounded-xl shadow-sm transition-colors font-semibold"
+            >
+              + Create Plan
+            </button>
+          )}
         </div>
-<div className="flex flex-wrap gap-2 mb-8">
-  {/* All Plans button */}
-  <button
-    onClick={() => setActivePlanType("All")}
-    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-      activePlanType === "All"
-        ? "bg-indigo-600 text-white shadow-md"
-        : "bg-white text-gray-600 border hover:bg-indigo-50"
-    }`}
-  >
-    All Plans
-  </button>
 
-  {/* Show only plan types that have services */}
-  {availablePlanTypes.map((type) => (
-    <button
-      key={type}
-      onClick={() => setActivePlanType(type)}
-      className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-        activePlanType === type
-          ? "bg-indigo-600 text-white shadow-md"
-          : "bg-white text-gray-600 border hover:bg-indigo-50"
-      }`}
-    >
-      {type}
-    </button>
-  ))}
-</div>
+        {/* Plan Type Filters */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          <button
+            onClick={() => setActivePlanType('All')}
+            className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
+              activePlanType === 'All'
+                ? 'bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]'
+                : 'bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]'
+            }`}
+          >
+            All Plans
+          </button>
 
-
-
+          {availablePlanTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setActivePlanType(type)}
+              className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
+                activePlanType === type
+                  ? 'bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]'
+                  : 'bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
 
         {loading ? (
           <LoadingState message="Loading services..." />
         ) : filteredServices.length === 0 ? (
-  <div className="text-center py-20">
-    <p className="text-xl text-gray-500 font-medium">
-      No {activePlanType} plans available
-    </p>
-    <p className="text-gray-400 mt-2">
-      Create your first {activePlanType} plan to get started
-    </p>
-  </div>
-) : (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-    {filteredServices.map((srv) => {
-
-              const hasDiscount = Number(srv.discount_percent) > 0 && srv.discounted_price != null;
-              const finalPrice = srv.discounted_price != null ? srv.discounted_price : srv.price;
-              const youSave = hasDiscount ? (Number(srv.price) - Number(srv.discounted_price)).toFixed(2) : null;
-              const types = Array.isArray(srv.service_type) ? srv.service_type : (srv.service_type ? [srv.service_type] : []);
-              const visibleTypes = types.slice(0, 3);
-              const extraCount = Math.max(0, types.length - visibleTypes.length);
+          <div className="text-center py-20">
+            <p className="text-xl font-medium text-[var(--theme-text-muted)]">
+              No {activePlanType} plans available
+            </p>
+            <p className="mt-2 text-[var(--theme-text-muted)]">
+              Create your first {activePlanType} plan to get started
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {filteredServices.map((srv) => {
+              const hasDiscount =
+                Number(srv.discount_percent) > 0 && srv.discounted_price != null
+              const finalPrice =
+                srv.discounted_price != null ? srv.discounted_price : srv.price
+              const youSave = hasDiscount
+                ? (Number(srv.price) - Number(srv.discounted_price)).toFixed(2)
+                : null
+              const types = Array.isArray(srv.service_type)
+                ? srv.service_type
+                : srv.service_type
+                ? [srv.service_type]
+                : []
+              const visibleTypes = types.slice(0, 3)
+              const extraCount = Math.max(0, types.length - visibleTypes.length)
 
               return (
                 <div
                   key={srv.id}
-                  className="group relative p-[1px] rounded-2xl bg-gradient-to-br from-indigo-200 via-blue-200 to-sky-100 hover:shadow-2xl hover:shadow-indigo-200/60 transition-all duration-300"
+                  className="group relative p-[1px] rounded-2xl bg-[var(--theme-surface)] border border-[var(--theme-border)] hover:shadow-md transition-all duration-300"
                 >
-                  <div className="relative h-full bg-white/90 backdrop-blur rounded-2xl overflow-hidden">
-
-                    {/* Corner ribbon for discount */}
+                  <div className="relative h-full bg-[var(--theme-card-bg)] rounded-2xl overflow-hidden">
+                    {/* Discount ribbon */}
                     {hasDiscount && (
-                      <div className="absolute -right-10 top-4 z-10 rotate-45 bg-emerald-500 text-white text-xs font-semibold tracking-wide px-10 py-1 shadow-md">
-                        <span className="inline-flex items-center gap-1 rupee">
+                      <div className="absolute -right-10 top-4 z-10 rotate-45 bg-[var(--theme-success)] text-white text-xs font-semibold tracking-wide px-10 py-1 shadow-md">
+                        <span className="inline-flex items-center gap-1">
                           <BadgePercent size={14} />
                           Save {Number(srv.discount_percent)}%
                         </span>
@@ -337,21 +325,21 @@ useEffect(() => {
                     )}
 
                     {/* Header */}
-                    <div className="relative p-4 bg-gradient-to-br from-indigo-600 to-blue-600 text-white">
-                      <h3 className='text-red-500 font-semibold leading-snug line-clamp-2 pr-6'>
+                    <div className="relative p-4 bg-[var(--theme-surface)] border-b border-[var(--theme-border)]">
+                      <h3 className="text-[12px] font-semibold leading-snug text-[var(--theme-text-muted)]">
                         {srv.plan_type}
                       </h3>
-                      <h3 className="text-lg font-semibold leading-snug line-clamp-2 pr-6">
+                      <h3 className="text-lg font-semibold leading-snug text-[var(--theme-text)] pr-10">
                         {srv.name}
                       </h3>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/15 ring-1 ring-white/20">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--theme-primary-softer)] text-[var(--theme-text)]">
                           CALL
                         </span>
 
                         {srv.CALL > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/10 ring-1 ring-white/15">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--theme-primary-soft)] text-[var(--theme-text)]">
                             <PhoneCall size={14} />
                             {srv.CALL} Calls
                           </span>
@@ -361,14 +349,12 @@ useEffect(() => {
 
                     {/* Body */}
                     <div className="p-4 relative">
-
-                      <div className="absolute right-2 top-2 flex items-center">
-
-                        {hasPermission("edit_plan") && (
+                      <div className="absolute right-2 top-2 flex items-center gap-1">
+                        {hasPermission('edit_plan') && (
                           <>
                             <button
                               onClick={() => handleEdit(srv)}
-                              className="p-1 rounded-full hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                              className="p-1 rounded-full hover:bg-[var(--theme-primary-softer)] text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] focus:outline-none"
                               aria-label="Edit"
                               title="Edit"
                             >
@@ -377,7 +363,7 @@ useEffect(() => {
 
                             <button
                               onClick={() => handleDelete(srv.id)}
-                              className="p-1 rounded-full hover:bg-rose-50 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400/50"
+                              className="p-1 rounded-full hover:bg-[var(--theme-danger-soft)] text-[var(--theme-danger)] hover:opacity-90 focus:outline-none"
                               aria-label="Delete"
                               title="Delete"
                             >
@@ -385,33 +371,27 @@ useEffect(() => {
                             </button>
                           </>
                         )}
-
-                        {/* {hasPermission("delete_plan") &&  */}
-
-                        {/* } */}
-
                       </div>
 
-
                       {/* Description */}
-                      <p className="text-sm text-gray-600 mb-4 pr-12 line-clamp-3">
+                      <p className="text-sm text-[var(--theme-text-muted)] mb-4 pr-12 line-clamp-3">
                         {srv.description}
                       </p>
 
                       {/* Price block */}
                       <div className="mb-5">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-bold text-gray-900">
+                          <span className="text-2xl font-bold text-[var(--theme-text)]">
                             ₹{displayINR(finalPrice)}
                           </span>
                           {hasDiscount && (
-                            <span className="text-sm text-gray-500 line-through">
+                            <span className="text-sm text-[var(--theme-text-muted)] line-through">
                               ₹{displayINR(srv.price)}
                             </span>
                           )}
                         </div>
                         {hasDiscount && (
-                          <p className="text-sm text-emerald-600 font-medium mt-1">
+                          <p className="text-sm font-medium mt-1 text-[var(--theme-success)]">
                             You save ₹{displayINR(youSave)}
                           </p>
                         )}
@@ -423,135 +403,147 @@ useEffect(() => {
                           {visibleTypes.map((t) => (
                             <span
                               key={t}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)]"
                             >
                               <Tag size={12} />
                               {t}
                             </span>
                           ))}
                           {extraCount > 0 && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-700">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)]">
                               +{extraCount}
                             </span>
                           )}
                         </div>
                       )}
                     </div>
-
-                    {/* Subtle hover glow */}
-                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-0 group-hover:ring-2 ring-indigo-500/20 transition-all" />
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         )}
 
         {/* Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-
+          <div className="fixed inset-0 bg-[var(--theme-backdrop)] backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
-              <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl">
+              <div className="sticky top-0 bg-[var(--theme-surface)] border-b border-[var(--theme-border)] p-6 rounded-t-2xl">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">{editId ? 'Edit Plan' : 'Create Plan'}</h2>
-                  <button onClick={() => setIsModalOpen(false)} className="text-white text-lg">✕</button>
+                  <h2 className="text-2xl font-bold text-[var(--theme-text)]">
+                    {editId ? 'Edit Plan' : 'Create Plan'}
+                  </h2>
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="text-[var(--theme-text-muted)] text-lg hover:text-[var(--theme-text)]"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
 
               {/* Modal Body */}
-              <div className="p-6">
+              <div className="p-6 text-[var(--theme-text)]">
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
                   {/* Service Name */}
                   <div>
-                    <label className="block mb-2 font-medium text-gray-700">Service Name</label>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Service Name
+                    </label>
                     <input
                       type="text"
                       name="name"
                       placeholder="Service Name"
                       value={formData.name}
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full"
+                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)]"
                       required
                     />
                   </div>
 
                   {/* Price */}
                   <div>
-                    <label className="block mb-2 font-medium text-gray-700">Price (₹)</label>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Price (₹)
+                    </label>
                     <input
                       type="number"
                       name="price"
                       placeholder="Price (₹)"
                       value={formData.price}
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full"
+                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)]"
                       required
                     />
                   </div>
 
                   {/* Discount */}
                   <div>
-                    <label className="block mb-2 font-medium text-gray-700">Discount (%)</label>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Discount (%)
+                    </label>
                     <input
                       type="number"
                       name="discount_percent"
                       placeholder="Discount (%)"
                       value={formData.discount_percent}
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full"
+                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)]"
                     />
                   </div>
 
                   {/* Billing Cycle (locked to CALL) */}
                   <div>
-                    <label className="block mb-2 font-medium text-gray-700">Billing Cycle</label>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Billing Cycle
+                    </label>
                     <select
                       name="billing_cycle"
                       value="CALL"
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full bg-gray-100 appearance-none"
-                    // disabled
+                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] appearance-none"
                     >
                       {billingCycles.map((bc) => (
-                        <option key={bc} value={bc}>{bc}</option>
+                        <option key={bc} value={bc}>
+                          {bc}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   {/* CALL Limit */}
                   <div>
-                    <label className="block mb-2 font-medium text-gray-700">CALL Limit</label>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      CALL Limit
+                    </label>
                     <input
                       type="number"
                       name="CALL"
                       placeholder="CALL Limit"
                       value={formData.CALL}
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full"
+                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)]"
                       required
                     />
                   </div>
 
                   {/* Plan Type */}
                   <div className="relative md:col-span-2">
-                    <label className="block mb-2 font-medium text-gray-700">
-                      Plan Type <span className="text-red-500">*</span>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Plan Type <span className="text-[var(--theme-danger)]">*</span>
                     </label>
                     <button
                       type="button"
-                      className="w-full text-left bg-white border p-4 rounded-xl focus:outline-none flex justify-between items-center"
+                      className="w-full text-left bg-[var(--theme-surface)] border border-[var(--theme-border)] p-4 rounded-xl focus:outline-none flex justify-between items-center text-[var(--theme-text)]"
                       onClick={() => setShowPlanDropdown((v) => !v)}
                     >
-                      <span>
-                        {formData.plan_type
-                          ? formData.plan_type
-                          : "Select Plan Type"}
-                      </span>
+                      <span>{formData.plan_type ? formData.plan_type : 'Select Plan Type'}</span>
                       <svg
-                        className={`w-4 h-4 ml-2 transition-transform ${showPlanDropdown ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 ml-2 transition-transform ${
+                          showPlanDropdown ? 'rotate-180' : ''
+                        }`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -561,22 +553,20 @@ useEffect(() => {
                     </button>
 
                     {showPlanDropdown && (
-                      <div className="absolute z-20 bg-white border rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
+                      <div className="absolute z-20 bg-[var(--theme-card-bg)] border border-[var(--theme-border)] rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
                         {planTypeOptions.map((type) => (
                           <label
                             key={type}
-                            className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                            className="flex items-center px-4 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
                           >
                             <input
                               type="radio"
                               name="plan_type"
                               checked={formData.plan_type === type}
-                              onChange={() =>
-                                setFormData((prev) => ({ ...prev, plan_type: type }))
-                              }
-                              className="form-radio mr-2 accent-indigo-600"
+                              onChange={() => setFormData((prev) => ({ ...prev, plan_type: type }))}
+                              className="mr-2 accent-[var(--theme-primary)]"
                             />
-                            <span>{type}</span>
+                            <span className="text-[var(--theme-text)]">{type}</span>
                           </label>
                         ))}
                       </div>
@@ -585,20 +575,20 @@ useEffect(() => {
 
                   {/* Service Type */}
                   <div className="relative md:col-span-2">
-                    <label className="block mb-2 font-medium text-gray-700">
-                      Service Type <span className="text-red-500">*</span>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Service Type <span className="text-[var(--theme-danger)]">*</span>
                     </label>
                     <button
                       type="button"
-                      className="w-full text-left bg-white border p-4 rounded-xl focus:outline-none flex justify-between items-center"
+                      className="w-full text-left bg-[var(--theme-surface)] border border-[var(--theme-border)] p-4 rounded-xl focus:outline-none flex justify-between items-center text-[var(--theme-text)]"
                       onClick={() => setShowTypeDropdown((v) => !v)}
                     >
                       <span>
                         {formData.service_type.length === 0
-                          ? "Select Service Type(s)"
-                          : (formData.service_type.length === serviceTypeOptions.length
-                            ? "All"
-                            : formData.service_type.join(", "))}
+                          ? 'Select Service Type(s)'
+                          : formData.service_type.length === serviceTypeOptions.length
+                          ? 'All'
+                          : formData.service_type.join(', ')}
                       </span>
                       <svg
                         className={`w-4 h-4 ml-2 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`}
@@ -611,26 +601,29 @@ useEffect(() => {
                     </button>
 
                     {showTypeDropdown && (
-                      <div className="absolute z-20 bg-white border rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
-                        <label className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer border-b">
+                      <div className="absolute z-20 bg-[var(--theme-card-bg)] border border-[var(--theme-border)] rounded-xl mt-1 w-full max-h-64 overflow-y-auto shadow-lg">
+                        <label className="flex items-center px-4 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer border-b border-[var(--theme-border)]">
                           <input
                             ref={allCheckboxRef}
                             type="checkbox"
                             checked={formData.service_type.length === serviceTypeOptions.length}
                             onChange={() => {
                               if (formData.service_type.length === serviceTypeOptions.length) {
-                                setFormData(prev => ({ ...prev, service_type: [] }));
+                                setFormData((prev) => ({ ...prev, service_type: [] }))
                               } else {
-                                setFormData(prev => ({ ...prev, service_type: [...serviceTypeOptions] }));
+                                setFormData((prev) => ({ ...prev, service_type: [...serviceTypeOptions] }))
                               }
                             }}
-                            className="form-checkbox mr-2 accent-indigo-600"
+                            className="mr-2 accent-[var(--theme-primary)]"
                           />
-                          <span className="font-semibold">All</span>
+                          <span className="font-semibold text-[var(--theme-text)]">All</span>
                         </label>
 
                         {serviceTypeOptions.map((type) => (
-                          <label key={type} className="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer">
+                          <label
+                            key={type}
+                            className="flex items-center px-4 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
+                          >
                             <input
                               type="checkbox"
                               checked={formData.service_type.includes(type)}
@@ -638,13 +631,13 @@ useEffect(() => {
                                 setFormData((prev) => {
                                   const selected = prev.service_type.includes(type)
                                     ? prev.service_type.filter((t) => t !== type)
-                                    : [...prev.service_type, type];
-                                  return { ...prev, service_type: selected };
-                                });
+                                    : [...prev.service_type, type]
+                                  return { ...prev, service_type: selected }
+                                })
                               }}
-                              className="form-checkbox mr-2 accent-indigo-600"
+                              className="mr-2 accent-[var(--theme-primary)]"
                             />
-                            <span>{type}</span>
+                            <span className="text-[var(--theme-text)]">{type}</span>
                           </label>
                         ))}
                       </div>
@@ -653,13 +646,15 @@ useEffect(() => {
 
                   {/* Description */}
                   <div className="md:col-span-2">
-                    <label className="block mb-2 font-medium text-gray-700">Description</label>
+                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
+                      Description
+                    </label>
                     <textarea
                       name="description"
                       placeholder="Description"
                       value={formData.description}
                       onChange={handleChange}
-                      className="p-4 border rounded-xl w-full"
+                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)]"
                       rows="3"
                       required
                     />
@@ -670,13 +665,13 @@ useEffect(() => {
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(false)}
-                      className="flex-1 px-6 py-3 border rounded-xl"
+                      className="flex-1 px-6 py-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)]"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl"
+                      className="flex-1 bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-contrast)] px-6 py-3 rounded-xl"
                       disabled={loading}
                     >
                       {loading ? 'Saving...' : editId ? 'Update Plan' : 'Create Plan'}
@@ -684,7 +679,6 @@ useEffect(() => {
                   </div>
                 </form>
               </div>
-
             </div>
           </div>
         )}

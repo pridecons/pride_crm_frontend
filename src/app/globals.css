@@ -1,14 +1,38 @@
 @import "tailwindcss";
 
-/* Chrome 109 Compatible CSS - globals.css */
+/* Updated globals.css with Theme Support */
 
-/* Remove @theme inline and use standard CSS */
 :root {
   --rupee-font: "Noto Sans","Segoe UI Symbol","Arial Unicode MS","DejaVu Sans",system-ui,sans-serif;
-  --background: #ffffff;
-  --foreground: #171717;
   
-  /* Define all colors explicitly for Chrome 109 */
+  /* Theme Variables - Default Light Theme */
+  /* --theme-primary: #3b82f6;
+  --theme-primaryHover: #2563eb;
+  --theme-secondary: #64748b;
+  --theme-background: #ffffff;
+  --theme-surface: #f8fafc;
+  --theme-text: #1e293b;
+  --theme-textSecondary: #64748b;
+  --theme-border: #e2e8f0;
+  --theme-accent: #10b981;
+  --theme-error: #ef4444;
+  --theme-warning: #f59e0b;
+  --theme-success: #22c55e;
+  --theme-sidebar: #ffffff;
+  --theme-sidebarText: #374151;
+  --theme-header: #ffffff;
+  --theme-headerText: #1f2937;
+  --theme-cardBackground: #ffffff;
+  --theme-inputBackground: #ffffff;
+  --theme-inputBorder: #d1d5db;
+  --theme-inputFocus: #3b82f6;
+  --theme-shadow: rgba(0, 0, 0, 0.1); */
+  
+  /* Legacy color variables for backward compatibility */
+  --background: var(--theme-background);
+  --foreground: var(--theme-text);
+  
+  /* Static colors that don't change with theme */
   --color-white: #ffffff;
   --color-black: #000000;
   --color-gray-50: #f9fafb;
@@ -78,22 +102,86 @@
   --color-orange-900: #7c2d12;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Body styling with theme support */
 body {
-  background: var(--color-white);
-  color: var(--color-black);
+  background: var(--theme-background);
+  color: var(--theme-text);
   min-width: 100%;
   min-height: 100vh;
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Chrome 109 compatible utility classes */
+/* Theme-aware utility classes */
+.theme-bg { background-color: var(--theme-background) !important; }
+.theme-surface { background-color: var(--theme-surface) !important; }
+.theme-primary { background-color: var(--theme-primary) !important; }
+.theme-primary-hover:hover { background-color: var(--theme-primaryHover) !important; }
+.theme-card { background-color: var(--theme-cardBackground) !important; }
+.theme-sidebar { background-color: var(--theme-sidebar) !important; }
+.theme-header { background-color: var(--theme-header) !important; }
+
+.theme-text { color: var(--theme-text) !important; }
+.theme-text-secondary { color: var(--theme-textSecondary) !important; }
+.theme-sidebar-text { color: var(--theme-sidebarText) !important; }
+.theme-header-text { color: var(--theme-headerText) !important; }
+.theme-primary-text { color: var(--theme-primary) !important; }
+
+.theme-border { border-color: var(--theme-border) !important; }
+.theme-shadow { box-shadow: 0 4px 6px var(--theme-shadow) !important; }
+
+/* Input styling with theme support */
+.theme-input {
+  background-color: var(--theme-inputBackground) !important;
+  border-color: var(--theme-inputBorder) !important;
+  color: var(--theme-text) !important;
+}
+
+.theme-input:focus {
+  border-color: var(--theme-inputFocus) !important;
+  box-shadow: 0 0 0 3px rgba(var(--theme-primary), 0.1) !important;
+}
+
+/* Button styling with theme support */
+.theme-btn-primary {
+  background-color: var(--theme-primary) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.theme-btn-primary:hover {
+  background-color: var(--theme-primaryHover) !important;
+}
+
+.theme-btn-secondary {
+  background-color: var(--theme-surface) !important;
+  color: var(--theme-text) !important;
+  border: 1px solid var(--theme-border) !important;
+}
+
+.theme-btn-secondary:hover {
+  background-color: var(--theme-border) !important;
+}
+
+/* Card styling */
+.theme-card-style {
+  background-color: var(--theme-cardBackground) !important;
+  border: 1px solid var(--theme-border) !important;
+  box-shadow: 0 1px 3px var(--theme-shadow) !important;
+}
+
+/* Status colors that work in all themes */
+.status-success { color: var(--theme-success) !important; }
+.status-error { color: var(--theme-error) !important; }
+.status-warning { color: var(--theme-warning) !important; }
+.status-accent { color: var(--theme-accent) !important; }
+
+.bg-status-success { background-color: var(--theme-success) !important; }
+.bg-status-error { background-color: var(--theme-error) !important; }
+.bg-status-warning { background-color: var(--theme-warning) !important; }
+.bg-status-accent { background-color: var(--theme-accent) !important; }
+
+/* Legacy utility classes for backward compatibility */
 .bg-white { background-color: var(--color-white) !important; }
 .bg-black { background-color: var(--color-black) !important; }
 
@@ -167,18 +255,17 @@ body {
 
 .border-white { border-color: var(--color-white) !important; }
 
-/* Remove modern CSS features for Chrome 109 compatibility */
+/* Scrollbar styling */
 .scrollbar-hide-x {
-  overflow-x: auto;       /* horizontal scroll */
-  overflow-y: hidden;     /* disable vertical scroll */
-  -ms-overflow-style: none;  /* IE/Edge */
-  scrollbar-width: none;      /* Firefox */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scrollbar-hide-x::-webkit-scrollbar {
-  height: 0px;  /* hide horizontal scrollbar in Chrome/Safari */
+  height: 0px;
 }
-
 
 button {
   cursor: pointer;
@@ -186,7 +273,7 @@ button {
 
 .thin-scroll {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-gray-300) transparent;
+  scrollbar-color: var(--theme-border) transparent;
 }
 
 .thin-scroll::-webkit-scrollbar {
@@ -195,12 +282,12 @@ button {
 }
 
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300); 
+  background: var(--theme-border); 
   border-radius: 9999px;
 }
 
 .thin-scroll:hover::-webkit-scrollbar-thumb {
-  background: var(--color-gray-400);
+  background: var(--theme-primary);
 }
 
 .thin-scroll::-webkit-scrollbar-track {
@@ -209,34 +296,34 @@ button {
 
 .rupee { font-family: var(--rupee-font); }
 
-/* Hide scrollbar but keep scroll functionality */
 .no-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Edge */
+  display: none;
 }
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scroll-container {
   overflow-x: auto;
   scrollbar-width: thin;
-  scrollbar-color: #84888d #f3f4f6; /* thumb blue, track gray */
+  scrollbar-color: var(--theme-primary) var(--theme-surface);
 }
 
 .scroll-container::-webkit-scrollbar {
-  height: 6px; /* horizontal scrollbar thickness */
+  height: 6px;
 }
 
 .scroll-container::-webkit-scrollbar-track {
-  background: #f3f4f6;
+  background: var(--theme-surface);
   border-radius: 9999px;
 }
 
 .scroll-container::-webkit-scrollbar-thumb {
-  background-color: #60a5fa;
+  background-color: var(--theme-primary);
   border-radius: 9999px;
 }
+
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -244,4 +331,33 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 input[type="number"] {
     -moz-appearance: textfield;
+}
+
+/* Theme transition animations */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Dark theme specific adjustments */
+.theme-dark .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark .shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive theme adjustments */
+@media (max-width: 768px) {
+  .theme-responsive {
+    padding: 1rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+  }
 }

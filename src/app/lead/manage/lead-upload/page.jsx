@@ -210,7 +210,6 @@ export default function BulkUploadPage() {
       if (!mobiles.length) return alert("Please paste at least one valid mobile number.");
 
       // build a CSV with a single "mobile" column
-      // no header needed unless your backend expects it; we'll keep it simple: just values
       const csvContent = mobiles.map((m) => m).join("\r\n");
       const blob = new Blob([csvContent], { type: "text/csv" });
 
@@ -219,7 +218,7 @@ export default function BulkUploadPage() {
 
       // force mobile column to 0 as requested
       fd.append("mobile_column", "0");
-      // no other mappings are needed; server should ignore missing ones
+      // other mappings optional
     }
 
     try {
@@ -239,48 +238,43 @@ export default function BulkUploadPage() {
   };
 
   // download error rows as CSV
-const downloadErrorsAsCSV = () => {
-  const errs = Array.isArray(uploadResult?.errors) ? uploadResult.errors : [];
-  if (!errs.length) return;
+  const downloadErrorsAsCSV = () => {
+    const errs = Array.isArray(uploadResult?.errors) ? uploadResult.errors : [];
+    if (!errs.length) return;
 
-  // Decide which keys we actually have (from the first error’s data)
-  const sampleData = errs.find(e => e?.data)?.data || {};
-  const presentKeys = ERROR_DATA_KEYS.filter(k => k in sampleData);
+    const sampleData = errs.find((e) => e?.data)?.data || {};
+    const presentKeys = ERROR_DATA_KEYS.filter((k) => k in sampleData);
 
-  // CSV headers aligned to present keys
-  const headers = [
-    "Row",
-    "Existing Lead ID",
-    ...presentKeys.map(k => k.charAt(0).toUpperCase() + k.slice(1)), // e.g., Mobile, Email, Pan
-    "Errors",
-  ];
-
-  const rows = errs.map((err) => {
-    const dataArr = normalizeErrorData(err?.data, presentKeys);
-    const errText = Array.isArray(err?.errors) ? err.errors.join("; ") : (err?.errors ?? "");
-    return [
-      err?.row ?? "",
-      err?.existing_lead_id ?? "",
-      ...dataArr,          // SAFE: always an array
-      errText,
+    const headers = [
+      "Row",
+      "Existing Lead ID",
+      ...presentKeys.map((k) => k.charAt(0).toUpperCase() + k.slice(1)),
+      "Errors",
     ];
-  });
 
-  const csv = [
-    headers.map(csvEscape).join(","),
-    ...rows.map((r) => r.map(csvEscape).join(",")),
-  ].join("\r\n");
+    const rows = errs.map((err) => {
+      const dataArr = normalizeErrorData(err?.data, presentKeys);
+      const errText = Array.isArray(err?.errors)
+        ? err.errors.join("; ")
+        : err?.errors ?? "";
+      return [err?.row ?? "", err?.existing_lead_id ?? "", ...dataArr, errText];
+    });
 
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "duplicate_or_error_rows.csv";
-  document.body.appendChild(a);
-  a.click();
-  URL.revokeObjectURL(url);
-  a.remove();
-};
+    const csv = [
+      headers.map(csvEscape).join(","),
+      ...rows.map((r) => r.map(csvEscape).join(",")),
+    ].join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "duplicate_or_error_rows.csv";
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
+  };
 
   // column mapping meta (icons instead of emojis)
   const columnFields = [
@@ -295,52 +289,59 @@ const downloadErrorsAsCSV = () => {
   ];
 
   // ---- CSV helpers ----
-function csvEscape(val) {
-  if (val == null) return "";
-  const s = String(val).replace(/"/g, '""');
-  return /[",\r\n]/.test(s) ? `"${s}"` : s;
-}
-
-// Convert err.data into an array in a stable order.
-// Adjust "order" to include any keys your backend might send.
-const ERROR_DATA_KEYS = ["name", "mobile", "email", "city", "address", "segment", "occupation", "investment", "pan"];
-
-function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
-  if (Array.isArray(data)) return data;
-
-  if (data && typeof data === "object") {
-    // Map to requested keys order; if missing, put "".
-    return keys.map((k) => data[k] ?? "");
+  function csvEscape(val) {
+    if (val == null) return "";
+    const s = String(val).replace(/"/g, '""');
+    return /[",\r\n]/.test(s) ? `"${s}"` : s;
   }
 
-  return []; // nothing usable
-}
+  const ERROR_DATA_KEYS = [
+    "name",
+    "mobile",
+    "email",
+    "city",
+    "address",
+    "segment",
+    "occupation",
+    "investment",
+    "pan",
+  ];
+
+  function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      return keys.map((k) => data[k] ?? "");
+    }
+    return [];
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen p-6 bg-[var(--theme-background)] text-[var(--theme-text)]">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Upload Form */}
-        <div className="flex-1 bg-white rounded-2xl shadow p-6 overflow-y-auto">
+        <div className="flex-1 rounded-2xl shadow p-6 overflow-y-auto bg-[var(--theme-surface)] border border-[var(--theme-border)]">
           {/* Tabs */}
           <div className="mb-5 flex w-full">
-            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            <div className="inline-flex rounded-lg border border-[var(--theme-border)] overflow-hidden">
               <button
                 type="button"
                 onClick={() => setMode("file")}
-                className={`px-4 py-2 text-sm font-medium ${mode === "file"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
+                className={`px-4 py-2 text-sm font-medium transition ${
+                  mode === "file"
+                    ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                    : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                }`}
               >
                 File Upload
               </button>
               <button
                 type="button"
                 onClick={() => setMode("paste")}
-                className={`px-4 py-2 text-sm font-medium border-l border-gray-200 ${mode === "paste"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-                  }`}
+                className={`px-4 py-2 text-sm font-medium border-l border-[var(--theme-border)] transition ${
+                  mode === "paste"
+                    ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                    : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                }`}
               >
                 Paste Upload
               </button>
@@ -351,16 +352,17 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
             {/* File or Paste */}
             {mode === "file" ? (
               <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <FolderOpen className="text-blue-600 w-5 h-5" />
+                <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
+                  <FolderOpen className="text-[var(--theme-primary)] w-5 h-5" />
                   Select File
                 </h2>
 
                 <label
                   className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition
-      ${selectedFile
-                      ? "border-green-400 bg-green-50 text-green-700"
-                      : "border-red-400 bg-red-50 text-red-600"
+                    ${
+                      selectedFile
+                        ? "border-[var(--theme-success)] bg-[color:rgb(34_197_94_/0.08)] text-[var(--theme-success)]"
+                        : "border-[var(--theme-danger)] bg-[color:rgb(239_68_68_/0.08)] text-[var(--theme-danger)]"
                     }`}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
@@ -388,8 +390,8 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
               </section>
             ) : (
               <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <Phone className="text-blue-600 w-5 h-5" />
+                <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
+                  <Phone className="text-[var(--theme-primary)] w-5 h-5" />
                   Paste Mobiles
                 </h2>
                 <textarea
@@ -405,13 +407,20 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
 (91) 98989 89898 97979 79797
 `}
                   rows={8}
-                  className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder:text-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full px-4 py-3 rounded-lg transition
+                             bg-[var(--theme-components-input-bg)]
+                             text-[var(--theme-components-input-text)]
+                             placeholder:text-[var(--theme-components-input-placeholder)]
+                             border border-[var(--theme-components-input-border)]
+                             focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                   required={mode === "paste"}
                 />
-                <div className="text-sm text-gray-700">
+                <div className="text-sm text-[var(--theme-text-muted)]">
                   Detected:{" "}
-                  <span className="font-semibold">{pastedMobiles.length}</span> mobile
-                  {pastedMobiles.length === 1 ? "" : "s"}
+                  <span className="font-semibold text-[var(--theme-text)]">
+                    {pastedMobiles.length}
+                  </span>{" "}
+                  mobile{pastedMobiles.length === 1 ? "" : "s"}
                 </div>
               </section>
             )}
@@ -419,23 +428,30 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
             {/* Column Mapping (file mode only) */}
             {mode === "file" && (
               <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <LinkIcon className="text-blue-600 w-5 h-5" />
+                <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
+                  <LinkIcon className="text-[var(--theme-primary)] w-5 h-5" />
                   Column Mapping
                 </h2>
-                <p className="text-sm text-gray-600">Enter column numbers for each field</p>
+                <p className="text-sm text-[var(--theme-text-muted)]">
+                  Enter column numbers for each field
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {columnFields.map(({ name, label, Icon }) => (
                     <div key={name} className="space-y-1">
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <Icon className="w-4 h-4" />
+                      <label className="flex items-center gap-2 text-sm font-medium text-[var(--theme-text)]">
+                        <Icon className="w-4 h-4 text-[var(--theme-primary)]" />
                         {label}
                       </label>
                       <input
                         type="number"
                         name={name}
                         placeholder="Column #"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                        className="w-full px-4 py-2 rounded-lg transition
+                                   bg-[var(--theme-components-input-bg)]
+                                   text-[var(--theme-components-input-text)]
+                                   placeholder:text-[var(--theme-components-input-placeholder)]
+                                   border border-[var(--theme-components-input-border)]
+                                   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                       />
                     </div>
                   ))}
@@ -445,49 +461,64 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
 
             {/* Configuration */}
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <Settings2 className="text-blue-600 w-5 h-5" />
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
+                <Settings2 className="text-[var(--theme-primary)] w-5 h-5" />
                 Configuration
               </h2>
 
-              <div className={`grid grid-cols-1 ${isSuperAdmin ? "md:grid-cols-2" : "md:grid-cols-1"} gap-4`}>
+              <div
+                className={`grid grid-cols-1 ${
+                  isSuperAdmin ? "md:grid-cols-2" : "md:grid-cols-1"
+                } gap-4`}
+              >
                 {/* Branch (dropdown only for SUPERADMIN) */}
                 {isSuperAdmin ? (
                   <div className="space-y-1">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <Building2 className="w-4 h-4" />
+                    <label className="flex items-center gap-2 text-sm font-medium text-[var(--theme-text)]">
+                      <Building2 className="w-4 h-4 text-[var(--theme-primary)]" />
                       Select Branch
                     </label>
                     <select
                       name="branch_id"
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                      className="w-full px-4 py-2 rounded-lg transition
+                                 bg-[var(--theme-components-input-bg)]
+                                 text-[var(--theme-components-input-text)]
+                                 border border-[var(--theme-components-input-border)]
+                                 focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                       value={selectedBranchId || ""}
                       onChange={(e) => setSelectedBranchId(e.target.value)}
                     >
-                      <option value="" disabled>Choose a branch…</option>
+                      <option value="" disabled>
+                        {branches.length ? "Choose a branch…" : "Loading branches…"}
+                      </option>
                       {branches.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                 ) : (
-                  // hidden but still submitted; selectedBranchId is already set to user's branch in effects
                   <input type="hidden" name="branch_id" value={branchId ?? ""} />
                 )}
 
                 {/* Lead source dropdown */}
                 <div className="space-y-1 w-fit">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                    <Tag className="w-4 h-4" />
+                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--theme-text)]">
+                    <Tag className="w-4 h-4 text-[var(--theme-primary)]" />
                     Select Lead Source
                   </label>
                   <select
                     name="lead_source_id"
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                    className="w-full px-4 py-2 rounded-lg transition
+                               bg-[var(--theme-components-input-bg)]
+                               text-[var(--theme-components-input-text)]
+                               border border-[var(--theme-components-input-border)]
+                               focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     defaultValue=""
-                    disabled={!selectedBranchId} // optional UX guard
+                    disabled={!selectedBranchId}
                   >
                     <option value="" disabled>
                       {selectedBranchId ? "Choose a source…" : "Pick a branch first…"}
@@ -506,7 +537,10 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
             <button
               type="submit"
               disabled={uploading}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 transition"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg transition shadow-sm
+                         text-[var(--theme-components-button-primary-text)]
+                         bg-[var(--theme-components-button-primary-bg)]
+                         hover:bg-[var(--theme-components-button-primary-hoverBg)] disabled:opacity-50"
             >
               {uploading ? (
                 <>
@@ -543,29 +577,29 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
         </div>
 
         {/* Right: Results */}
-        <div className="w-full lg:w-96 bg-white rounded-2xl shadow p-6 overflow-y-auto">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <BarChart3 className="text-blue-600 w-5 h-5" />
+        <div className="w-full lg:w-96 rounded-2xl shadow p-6 overflow-y-auto bg-[var(--theme-surface)] border border-[var(--theme-border)]">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-[var(--theme-text)]">
+            <BarChart3 className="text-[var(--theme-primary)] w-5 h-5" />
             Upload Summary
           </h2>
 
           {!uploadResult ? (
-            <div className="text-center text-gray-500 mt-12">
-              <Database className="mx-auto mb-4 w-16 h-16 text-gray-300" />
-              <p className="font-medium">No upload results yet</p>
+            <div className="text-center text-[var(--theme-text-muted)] mt-12">
+              <Database className="mx-auto mb-4 w-16 h-16 text-[var(--theme-border)]" />
+              <p className="font-medium text-[var(--theme-text)]">No upload results yet</p>
               <p className="text-sm">Submit a file or paste mobiles to see the summary here</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Stats */}
-              <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+              <div className="rounded-xl p-4 border bg-[color:rgb(22_163_74_/0.08)] border-[color:rgb(22_163_74_/0.25)]">
                 <div className="flex justify-between mb-3">
-                  <span className="font-semibold text-green-800">Success Rate</span>
-                  <span className="text-2xl font-bold text-green-600">
+                  <span className="font-semibold text-[var(--theme-success)]">Success Rate</span>
+                  <span className="text-2xl font-bold text-[var(--theme-success)]">
                     {uploadResult.total_rows
                       ? Math.round(
-                        (uploadResult.successful_uploads / uploadResult.total_rows) * 100
-                      )
+                          (uploadResult.successful_uploads / uploadResult.total_rows) * 100
+                        )
                       : 0}
                     %
                   </span>
@@ -576,24 +610,26 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
                   ["Duplicates Skipped", uploadResult.duplicates_skipped],
                   ["Errors", uploadResult.errors?.length],
                 ].map(([label, val]) => (
-                  <div key={label} className="flex justify-between text-sm text-gray-700">
+                  <div key={label} className="flex justify-between text-sm text-[var(--theme-text-muted)]">
                     <span>{label}</span>
-                    <span className="font-semibold">{val ?? 0}</span>
+                    <span className="font-semibold text-[var(--theme-text)]">{val ?? 0}</span>
                   </div>
                 ))}
               </div>
 
               {/* Errors */}
               {uploadResult.errors?.length > 0 && (
-                <div className="bg-red-50 rounded-xl p-4 border border-red-100">
-                  <h3 className="flex items-center gap-2 font-semibold text-red-800 mb-2">
+                <div className="rounded-xl p-4 border bg-[color:rgb(239_68_68_/0.08)] border-[color:rgb(239_68_68_/0.25)]">
+                  <h3 className="flex items-center gap-2 font-semibold text-[var(--theme-danger)] mb-2">
                     <AlertTriangle className="w-5 h-5" />
                     Error Details
                   </h3>
-                  <ul className="max-h-48 overflow-y-auto space-y-2 text-sm text-gray-700">
+                  <ul className="max-h-48 overflow-y-auto space-y-2 text-sm text-[var(--theme-text)]">
                     {uploadResult.errors.map((err) => (
                       <li key={err.row} className="flex gap-2">
-                        <span className="font-semibold text-red-600">Row {err.row}:</span>
+                        <span className="font-semibold text-[var(--theme-danger)]">
+                          Row {err.row}:
+                        </span>
                         <span>
                           {Array.isArray(err.errors)
                             ? err.errors.join(", ")
@@ -604,7 +640,8 @@ function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
                   </ul>
                   <button
                     onClick={downloadErrorsAsCSV}
-                    className="mt-4 w-full flex items-center justify-center gap-2 bg-yellow-400 text-yellow-900 py-2 rounded-lg hover:bg-yellow-500 transition"
+                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-lg transition
+                               text-[var(--theme-text)] bg-[var(--theme-warning, #f59e0b)]/80 hover:bg-[var(--theme-warning, #f59e0b)]"
                   >
                     <ArrowDownToLine className="w-5 h-5" />
                     Download Errors file

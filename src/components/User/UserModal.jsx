@@ -43,9 +43,9 @@ const SELECT_NO_CARET_STYLE = {
 const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
 
 const INPUT_CLS =
-  "w-full h-11 px-3 border rounded-xl bg-white text-gray-900 placeholder-gray-400";
+  "w-full h-11 px-3 rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] placeholder-[color:rgba(0,0,0,.45)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none";
 
-  // Auto-insert dashes as DD-MM-YYYY while typing/pasting
+// Auto-insert dashes as DD-MM-YYYY while typing/pasting
 const formatDateInput = (value) => {
   const d = String(value || "").replace(/\D/g, "").slice(0, 8); // keep 8 digits
   if (!d) return "";
@@ -116,7 +116,7 @@ function getRoleKeyFromEverywhere(currentUser) {
         null;
       if (cookieRole) return toRoleKey(cookieRole);
     }
-  } catch { }
+  } catch {}
 
   // 3) Try access_token fallback (same as UserFilters)
   try {
@@ -126,7 +126,7 @@ function getRoleKeyFromEverywhere(currentUser) {
       const tRole = p?.role_name || p?.role || null;
       if (tRole) return toRoleKey(tRole);
     }
-  } catch { }
+  } catch {}
 
   return ""; // unknown
 }
@@ -206,7 +206,7 @@ export default function UserModal({
   });
 
   // States API + autocomplete
-  const [states, setStates] = useState([]);                 // [{state_name, code}]
+  const [states, setStates] = useState([]); // [{state_name, code}]
   const [stateQuery, setStateQuery] = useState("");
   const [showStateList, setShowStateList] = useState(false);
   const [stateIndex, setStateIndex] = useState(0);
@@ -223,7 +223,7 @@ export default function UserModal({
 
   // ADD: track which fields are locked by PAN & remember last locked set while editing PAN
   const [panLocked, setPanLocked] = useState({
-    name: false,          // Full Name
+    name: false, // Full Name
     father_name: false,
     date_of_birth: false,
     aadhaar: false,
@@ -232,8 +232,8 @@ export default function UserModal({
     state: false,
     pincode: false,
   });
-  const prevPanLockedRef = useRef(null);   // remembers which fields were PAN-filled before you clicked "Edit PAN"
-  const panInputRef = useRef(null);        // optional: focus PAN after Edit
+  const prevPanLockedRef = useRef(null); // remembers which fields were PAN-filled before you clicked "Edit PAN"
+  const panInputRef = useRef(null); // optional: focus PAN after Edit
 
   // ADD: map PAN API result to lock flags (only lock when value is present)
   const computePanLocks = (r) => {
@@ -257,15 +257,11 @@ export default function UserModal({
     setSeniorPopup({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
   };
 
-
   const selectSenior = (u) => {
     setFormData((p) => ({ ...p, senior_profile_id: u.employee_code }));
-    setSeniorQuery(
-      `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
-    );
+    setSeniorQuery(`${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`);
     setShowSeniorList(false);
   };
-
 
   const filteredStates = useMemo(() => {
     const q = (stateQuery || "").toUpperCase().trim();
@@ -286,12 +282,9 @@ export default function UserModal({
     setStatePopup({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
   };
 
-
-
   // ---- Derived ----
   const selectedDepartment = useMemo(
-    () =>
-      departments.find((d) => String(d.id) === String(selectedDepartmentId)),
+    () => departments.find((d) => String(d.id) === String(selectedDepartmentId)),
     [departments, selectedDepartmentId]
   );
 
@@ -315,10 +308,7 @@ export default function UserModal({
   }, [profiles, selectedDepartmentId]);
 
   const selectedProfile = useMemo(
-    () =>
-      filteredProfilesForDepartment.find(
-        (p) => String(p.id) === String(selectedProfileId)
-      ),
+    () => filteredProfilesForDepartment.find((p) => String(p.id) === String(selectedProfileId)),
     [filteredProfilesForDepartment, selectedProfileId]
   );
 
@@ -333,20 +323,18 @@ export default function UserModal({
   const labeledSeniors = useMemo(() => {
     return seniorOptions.map((u) => ({
       ...u,
-      roleLabel: u.__isBranchManager
-        ? "Branch Manager"
-        : (profileById[String(u.role_id)]?.name || ""),
+      roleLabel: u.__isBranchManager ? "Branch Manager" : profileById[String(u.role_id)]?.name || "",
     }));
   }, [seniorOptions, profileById]);
-
 
   const filteredSeniors = useMemo(() => {
     const q = seniorQuery.trim().toLowerCase();
     if (!q) return labeledSeniors;
-    return labeledSeniors.filter((u) =>
-      String(u.employee_code).toLowerCase().includes(q) ||
-      (u.name || "").toLowerCase().includes(q) ||
-      (u.roleLabel || "").toLowerCase().includes(q)
+    return labeledSeniors.filter(
+      (u) =>
+        String(u.employee_code).toLowerCase().includes(q) ||
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.roleLabel || "").toLowerCase().includes(q)
     );
   }, [labeledSeniors, seniorQuery]);
 
@@ -355,13 +343,9 @@ export default function UserModal({
       setSeniorQuery("");
       return;
     }
-    const u = labeledSeniors.find(
-      (x) => String(x.employee_code) === String(formData.senior_profile_id)
-    );
+    const u = labeledSeniors.find((x) => String(x.employee_code) === String(formData.senior_profile_id));
     if (u) {
-      setSeniorQuery(
-        `${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`
-      );
+      setSeniorQuery(`${u.name} (${u.employee_code})${u.roleLabel ? ` — ${u.roleLabel}` : ""}`);
     }
   }, [formData.senior_profile_id, labeledSeniors]);
   useEffect(() => {
@@ -375,7 +359,6 @@ export default function UserModal({
       window.removeEventListener("resize", onScrollOrResize);
     };
   }, [showSeniorList]);
-
 
   // ---- Fetch branches / deps / profiles on open ----
   useEffect(() => {
@@ -404,9 +387,7 @@ export default function UserModal({
                 const raw = Cookies.get("user_info");
                 if (!raw) return "";
                 const p = JSON.parse(raw);
-                return (
-                  p?.branch_id ?? p?.user?.branch_id ?? p?.user_info?.branch_id
-                );
+                return p?.branch_id ?? p?.user?.branch_id ?? p?.user_info?.branch_id;
               } catch {
                 return "";
               }
@@ -416,20 +397,18 @@ export default function UserModal({
 
         // If editing, pre-select department/profile by role_id
         if (isEdit && user?.role_id) {
-          const foundProfile = (profRes.data || []).find(
-            (p) => String(p.id) === String(user.role_id)
-          );
+          const foundProfile = (profRes.data || []).find((p) => String(p.id) === String(user.role_id));
           if (foundProfile) {
             prefilling.current = true;
             setSelectedDepartmentId(String(foundProfile.department_id));
             setSelectedProfileId(String(foundProfile.id));
             setSelectedPermissions(
-              user?.permissions?.length
-                ? user.permissions
-                : foundProfile.default_permissions || []
+              user?.permissions?.length ? user.permissions : foundProfile.default_permissions || []
             );
             // release the guard on the next tick (after dependent effects run)
-            setTimeout(() => { prefilling.current = false; }, 0);
+            setTimeout(() => {
+              prefilling.current = false;
+            }, 0);
           }
         }
       } catch (err) {
@@ -465,16 +444,11 @@ export default function UserModal({
         // If your path is different, adjust (e.g., `/api/v1/branches/${id}/details`)
         const res = await axiosInstance.get(`/branches/${selectedBranchId}/details`);
         const mgrRaw =
-          res?.data?.manager ||
-          res?.data?.branch_manager ||
-          res?.data?.manager_user ||
-          null;
+          res?.data?.manager || res?.data?.branch_manager || res?.data?.manager_user || null;
 
         const mgr = normalizeManagerUser(mgrRaw);
         setBranchManager(mgr);
       } catch (e) {
-        // Non-blocking: if details not available, we just skip
-        // console.debug("Branch manager fetch failed", e);
         setBranchManager(null);
       }
     })();
@@ -516,12 +490,14 @@ export default function UserModal({
     setSelectedDepartmentId(String(found.department_id));
     setSelectedProfileId(String(found.id));
     setSelectedPermissions(
-      (Array.isArray(user?.permissions) && user.permissions.length > 0)
+      Array.isArray(user?.permissions) && user.permissions.length > 0
         ? user.permissions
-        : (found.default_permissions || [])
+        : found.default_permissions || []
     );
 
-    const t = setTimeout(() => { prefilling.current = false; }, 0);
+    const t = setTimeout(() => {
+      prefilling.current = false;
+    }, 0);
     return () => clearTimeout(t);
   }, [isOpen, isEdit, user?.role_id, profiles, selectedDepartmentId, selectedProfileId]);
 
@@ -609,12 +585,8 @@ export default function UserModal({
         pincode: user.pincode || "",
         comment: user.comment || "",
         experience: user.experience?.toString() || "",
-        date_of_joining: user.date_of_joining
-          ? dateToDMY(new Date(user.date_of_joining))
-          : "",
-        date_of_birth: user.date_of_birth
-          ? dateToDMY(new Date(user.date_of_birth))
-          : "",
+        date_of_joining: user.date_of_joining ? dateToDMY(new Date(user.date_of_joining)) : "",
+        date_of_birth: user.date_of_birth ? dateToDMY(new Date(user.date_of_birth)) : "",
         branch_id: user.branch_id?.toString() || "",
         target: user.target != null ? String(user.target) : "",
         senior_profile_id: user.senior_profile_id || "",
@@ -713,11 +685,11 @@ export default function UserModal({
         maybeSet("father_name", r?.user_father_name);
         maybeSet("date_of_birth", r?.user_dob);
         maybeSet("aadhaar", r?.masked_aadhaar);
-        const addr = r?.user_address || {};
-        maybeSet("address", addr?.full);
-        maybeSet("city", addr?.city);
-        maybeSet("state", addr?.state);
-        maybeSet("pincode", addr?.zip);
+        const addr2 = r?.user_address || {};
+        maybeSet("address", addr2?.full);
+        maybeSet("city", addr2?.city);
+        maybeSet("state", addr2?.state);
+        maybeSet("pincode", addr2?.zip);
         return out;
       });
 
@@ -738,26 +710,18 @@ export default function UserModal({
 
   // -------- Permissions toggling ----------
   const togglePermission = (perm) => {
-    setSelectedPermissions((prev) =>
-      prev.includes(perm)
-        ? prev.filter((p) => p !== perm)
-        : [...prev, perm]
-    );
+    setSelectedPermissions((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]));
   };
 
   const aadhaarError =
     formData.aadhaar.length > 0 &&
-      !(/^\d{12}$/.test(formData.aadhaar) || /^[Xx]{8}\d{4}$/.test(formData.aadhaar))
+    !(/^\d{12}$/.test(formData.aadhaar) || /^[Xx]{8}\d{4}$/.test(formData.aadhaar))
       ? "Enter 12 digits or masked like XXXXXXXX1234"
       : "";
   const phoneError =
-    formData.phone_number.length > 0 && formData.phone_number.length !== 10
-      ? "Must be 10 digits"
-      : "";
+    formData.phone_number.length > 0 && formData.phone_number.length !== 10 ? "Must be 10 digits" : "";
   const passwordError =
-    showPasswordField &&
-      formData.password.length > 0 &&
-      !passwordRegex.test(formData.password)
+    showPasswordField && formData.password.length > 0 && !passwordRegex.test(formData.password)
       ? "Password must be ≥6 chars with a number & special char"
       : "";
 
@@ -766,20 +730,16 @@ export default function UserModal({
     e.preventDefault();
 
     // Flow validations
-    if (isBranchRequired && !selectedBranchId)
-      return ErrorHandling({ defaultError: "Please select a Branch first" });
-    if (!selectedDepartmentId)
-      return ErrorHandling({ defaultError: "Please select a Department" });
+    if (isBranchRequired && !selectedBranchId) return ErrorHandling({ defaultError: "Please select a Branch first" });
+    if (!selectedDepartmentId) return ErrorHandling({ defaultError: "Please select a Department" });
     if (!selectedProfileId) return ErrorHandling({ defaultError: "Please select a Profile" });
 
     // Basic required fields
     if (!formData.name.trim()) return ErrorHandling({ defaultError: "Full Name is required" });
     if (!formData.email.trim()) return ErrorHandling({ defaultError: "Email is required" });
-    if (!formData.phone_number.trim())
-      return ErrorHandling({ defaultError: "Phone number is required" });
+    if (!formData.phone_number.trim()) return ErrorHandling({ defaultError: "Phone number is required" });
     // DOJ required
-    if (!formData.date_of_joining?.trim())
-      return ErrorHandling({ defaultError: "Date of Joining is required" });
+    if (!formData.date_of_joining?.trim()) return ErrorHandling({ defaultError: "Date of Joining is required" });
 
     // PAN is optional; if provided, enforce format
     if (formData.pan && formData.pan.trim()) {
@@ -841,10 +801,7 @@ export default function UserModal({
       // IMPORTANT: role_id not role name
       role_id: String(selectedProfileId),
 
-      target:
-        formData.target === "" || formData.target == null
-          ? undefined
-          : Number(formData.target),
+      target: formData.target === "" || formData.target == null ? undefined : Number(formData.target),
 
       // Permissions
       permissions: selectedPermissions || [],
@@ -880,12 +837,6 @@ export default function UserModal({
       onSuccess?.(res.data);
       onClose?.();
     } catch (error) {
-      // toast.dismiss();
-      // const detail = error?.response?.data?.detail;
-      // const msg = Array.isArray(detail?.errors)
-      //   ? detail.errors.join(", ")
-      //   : detail?.errors || detail?.message || detail || "Request failed";
-      // toast.error(msg);
       ErrorHandling({ error: error, defaultError: "Array.isArray(detail?.errors)" });
     } finally {
       setIsSubmitting(false);
@@ -895,22 +846,24 @@ export default function UserModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4"
+         style={{ background: "var(--theme-backdrop)" }}>
+      <div className="rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-auto border border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text)]">
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex justify-between items-center p-4 border-b">
+        <div className="sticky top-0 z-10 flex justify-between items-center p-4 border-b border-[var(--theme-border)] bg-[var(--theme-card-bg)]">
           <div className="flex items-center gap-2">
             {isEdit ? (
-              <Edit className="w-6 h-6 text-gray-700" />
+              <Edit className="w-6 h-6 text-[var(--theme-text)]" />
             ) : (
-              <Check className="w-6 h-6 text-green-600" />
+              <Check className="w-6 h-6 text-[var(--theme-success)]" />
             )}
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold">
               {isEdit ? `Edit User: ${user.employee_code}` : "Add New User"}
             </h2>
           </div>
-          <button onClick={onClose}>
-            <X className="w-6 h-6 text-gray-500 hover:text-gray-700" />
+          <button onClick={onClose}
+                  className="rounded-lg p-1 hover:bg-[var(--theme-primary-softer)]">
+            <X className="w-6 h-6 text-[var(--theme-text)]" />
           </button>
         </div>
 
@@ -922,11 +875,11 @@ export default function UserModal({
               {/* Branch — only SUPERADMIN can see/select; others are auto-locked */}
               {showBranchField && (
                 <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Branch {isBranchRequired ? "*" : "(optional)"}
                   </label>
                   <select
-                    className="w-full p-3 border rounded-xl bg-white appearance-none"
+                    className="w-full p-3 rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
                     style={SELECT_NO_CARET_STYLE}
                     value={selectedBranchId}
                     onChange={(e) => setSelectedBranchId(e.target.value)}
@@ -944,20 +897,18 @@ export default function UserModal({
 
               {/* Department */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                   Department *
                 </label>
                 <select
-                  className="w-full p-3 border rounded-xl bg-white appearance-none"
+                  className="w-full p-3 rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
                   style={SELECT_NO_CARET_STYLE}
                   value={selectedDepartmentId}
                   onChange={(e) => setSelectedDepartmentId(e.target.value)}
                   required
                 >
                   <option value="">
-                    {showBranchField
-                      ? (selectedBranchId ? "Select Department" : "Select Branch first")
-                      : "Select Department"}
+                    {showBranchField ? (selectedBranchId ? "Select Department" : "Select Branch first") : "Select Department"}
                   </option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -969,11 +920,11 @@ export default function UserModal({
 
               {/* Profile / Role */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                   Profile (Role) *
                 </label>
                 <select
-                  className="w-full p-3 border rounded-xl bg-white appearance-none"
+                  className="w-full p-3 rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none disabled:opacity-60"
                   style={SELECT_NO_CARET_STYLE}
                   value={selectedProfileId}
                   onChange={(e) => setSelectedProfileId(e.target.value)}
@@ -981,9 +932,7 @@ export default function UserModal({
                   disabled={!selectedDepartmentId}
                 >
                   <option value="">
-                    {selectedDepartmentId
-                      ? "Select Profile"
-                      : "Select Department first"}
+                    {selectedDepartmentId ? "Select Profile" : "Select Department first"}
                   </option>
                   {filteredProfilesForDepartment.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -992,7 +941,7 @@ export default function UserModal({
                   ))}
                 </select>
                 {selectedProfile && (
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-[var(--theme-text-muted)]">
                     {selectedProfile.description}
                   </p>
                 )}
@@ -1003,29 +952,28 @@ export default function UserModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Left column */}
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900">Basic Information</h4>
+                <h4 className="font-semibold text-[var(--theme-text)]">Basic Information</h4>
 
                 {/* PAN (with slot-based input enforcement) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     PAN Number (optional)
                   </label>
                   <div className="flex gap-2 items-center">
                     <input
                       ref={panInputRef}
-                      className="flex-1 p-3 border rounded-xl uppercase"
+                      className="flex-1 p-3 rounded-xl uppercase bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
                       value={formData.pan}
-                      onChange={(e) =>
-                        setFormData({ ...formData, pan: sanitizePAN(e.target.value) })
-                      }
+                      onChange={(e) => setFormData({ ...formData, pan: sanitizePAN(e.target.value) })}
                       maxLength={10}
                       placeholder="ABCDE1234F"
                       disabled={loadingPan || isPanVerified}
                     />
                     {isPanVerified ? (
                       <>
-                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-600">
-                          <Check className="w-4 h-4 text-white" />
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--theme-success)] shadow"
+                              style={{ color: "var(--theme-primary-contrast)" }}>
+                          <Check className="w-4 h-4" />
                         </span>
                         <button
                           type="button"
@@ -1049,7 +997,7 @@ export default function UserModal({
                             // optional: focus the PAN input
                             setTimeout(() => panInputRef.current?.focus(), 0);
                           }}
-                          className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-600 flex items-center"
+                          className="p-2 rounded-lg hover:bg-[var(--theme-warning)]/15 text-[var(--theme-warning)] flex items-center border border-[var(--theme-warning)]/30"
                           title="Edit PAN"
                         >
                           <Edit className="w-5 h-5" />
@@ -1060,7 +1008,7 @@ export default function UserModal({
                         type="button"
                         onClick={handleVerifyPan}
                         disabled={loadingPan}
-                        className="px-4 py-2 rounded-lg flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        className="px-4 py-2 rounded-lg flex items-center gap-1 bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-contrast)] shadow"
                       >
                         {loadingPan ? (
                           <>
@@ -1077,46 +1025,40 @@ export default function UserModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Full Name *
                   </label>
                   <input
-                    className="w-full p-3 border rounded-xl"
+                    className={INPUT_CLS}
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                     disabled={panLocked.name}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Email *
                   </label>
                   <input
-                    className="w-full p-3 border rounded-xl"
+                    className={INPUT_CLS}
                     type="email"
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Phone Number *
                   </label>
                   {phoneError && (
-                    <div className="mb-1 text-xs text-red-600 font-medium">
-                      {phoneError}
-                    </div>
+                    <div className="mb-1 text-xs font-medium text-[var(--theme-danger)]">{phoneError}</div>
                   )}
                   <input
-                    className="w-full p-3 border rounded-xl"
+                    className={INPUT_CLS}
                     maxLength={10}
                     value={formData.phone_number}
                     onChange={(e) => {
@@ -1131,52 +1073,44 @@ export default function UserModal({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Father&apos;s Name
                   </label>
                   <input
-                    className="w-full p-3 border rounded-xl"
+                    className={INPUT_CLS}
                     value={formData.father_name}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        father_name: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setFormData({ ...formData, father_name: e.target.value })}
                     disabled={panLocked.father_name}
                   />
                 </div>
 
-                {/* Password (Create) / Reset Password (Edit, SuperAdmin only) */}
                 {/* Password (Create) / Reset Password (Edit by permission only) */}
                 {showPasswordField && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                       {isEdit ? "Reset Password" : "Password *"}
                     </label>
 
-                    {/* When editing: field is shown only if user has permission.
-        When creating: always shown and required. */}
                     {isEdit && (
-                      <p className="text-xs text-gray-500 mb-1">
+                      <p className="text-xs text-[var(--theme-text-muted)] mb-1">
                         Leave blank to keep existing password.
                       </p>
                     )}
 
                     {passwordError && (
-                      <div id="pwd-error" className="mb-1 text-xs text-red-600 font-medium">
+                      <div id="pwd-error" className="mb-1 text-xs font-medium text-[var(--theme-danger)]">
                         {passwordError}
                       </div>
                     )}
 
                     <div className="relative">
                       <input
-                        className="w-full p-3 border rounded-xl pr-10 bg-white text-gray-900 placeholder-gray-400 caret-gray-700"
+                        className={`${INPUT_CLS} pr-10 caret-[var(--theme-text)]`}
                         type={showPwd ? "text" : "password"}
                         value={formData.password ?? ""}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         autoComplete="new-password"
-                        required={!isEdit}  // create required; edit optional
+                        required={!isEdit} // create required; edit optional
                         placeholder={isEdit ? "Enter new password" : "Create a password"}
                         aria-invalid={!!passwordError}
                         aria-describedby={passwordError ? "pwd-error" : undefined}
@@ -1187,7 +1121,11 @@ export default function UserModal({
                         className="absolute inset-y-0 right-3 flex items-center"
                         aria-label={showPwd ? "Hide password" : "Show password"}
                       >
-                        {showPwd ? <EyeOff className="w-5 h-5 text-gray-500" /> : <Eye className="w-5 h-5 text-gray-500" />}
+                        {showPwd ? (
+                          <EyeOff className="w-5 h-5 text-[var(--theme-text-muted)]" />
+                        ) : (
+                          <Eye className="w-5 h-5 text-[var(--theme-text-muted)]" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1196,29 +1134,22 @@ export default function UserModal({
 
               {/* Right column */}
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900">
-                  Organization & Docs
-                </h4>
+                <h4 className="font-semibold text-[var(--theme-text)]">Organization & Docs</h4>
 
                 {/* Aadhaar */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Aadhaar Number
                   </label>
                   {aadhaarError && (
-                    <div className="mb-1 text-xs text-red-600 font-medium">
-                      {aadhaarError}
-                    </div>
+                    <div className="mb-1 text-xs font-medium text-[var(--theme-danger)]">{aadhaarError}</div>
                   )}
                   <input
-                    className="w-full p-3 border rounded-xl"
+                    className={INPUT_CLS}
                     maxLength={12}
                     value={formData.aadhaar}
                     onChange={(e) => {
-                      const clean = e.target.value
-                        .replace(/[^0-9xX]/g, "")
-                        .toUpperCase()
-                        .slice(0, 12);
+                      const clean = e.target.value.replace(/[^0-9xX]/g, "").toUpperCase().slice(0, 12);
                       setFormData({ ...formData, aadhaar: clean });
                     }}
                     disabled={panLocked.aadhaar}
@@ -1227,13 +1158,13 @@ export default function UserModal({
 
                 {/* Senior (from /users) */}
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Reporting Profile
                   </label>
                   <div className="relative">
                     <input
                       ref={seniorInputRef}
-                      className="w-full p-3 border rounded-xl bg-white"
+                      className="w-full p-3 rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
                       value={seniorQuery}
                       onChange={(e) => {
                         setSeniorQuery(e.target.value);
@@ -1241,15 +1172,27 @@ export default function UserModal({
                         setSeniorIndex(0);
                         updateSeniorPopupPos();
                       }}
-                      onFocus={() => { setShowSeniorList(true); updateSeniorPopupPos(); }}
+                      onFocus={() => {
+                        setShowSeniorList(true);
+                        updateSeniorPopupPos();
+                      }}
                       onBlur={() => setTimeout(() => setShowSeniorList(false), 120)}
                       onKeyDown={(e) => {
                         const has = Array.isArray(filteredSeniors) && filteredSeniors.length > 0;
                         if (!showSeniorList || !has) return;
-                        if (e.key === "ArrowDown") { e.preventDefault(); setSeniorIndex(i => Math.min(i + 1, filteredSeniors.length - 1)); }
-                        else if (e.key === "ArrowUp") { e.preventDefault(); setSeniorIndex(i => Math.max(i - 1, 0)); }
-                        else if (e.key === "Enter") { e.preventDefault(); const u = filteredSeniors[seniorIndex]; if (u) selectSenior(u); }
-                        else if (e.key === "Escape") { setShowSeniorList(false); }
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setSeniorIndex((i) => Math.min(i + 1, filteredSeniors.length - 1));
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setSeniorIndex((i) => Math.max(i - 1, 0));
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          const u = filteredSeniors[seniorIndex];
+                          if (u) selectSenior(u);
+                        } else if (e.key === "Escape") {
+                          setShowSeniorList(false);
+                        }
                       }}
                       placeholder={selectedBranchId ? "Type name / code / role…" : "SuperAdmin only (no branch selected)"}
                       autoComplete="off"
@@ -1257,9 +1200,14 @@ export default function UserModal({
                     {formData.senior_profile_id && (
                       <button
                         type="button"
-                        className="absolute inset-y-0 right-3 text-sm text-gray-500"
-                        onMouseDown={(e) => { e.preventDefault(); }}
-                        onClick={() => { setFormData((p) => ({ ...p, senior_profile_id: "" })); setSeniorQuery(""); }}
+                        className="absolute inset-y-0 right-3 text-sm text-[var(--theme-text-muted)]"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                        }}
+                        onClick={() => {
+                          setFormData((p) => ({ ...p, senior_profile_id: "" }));
+                          setSeniorQuery("");
+                        }}
                         title="Clear"
                       >
                         ×
@@ -1267,95 +1215,86 @@ export default function UserModal({
                     )}
                   </div>
 
-                  {showSeniorList && filteredSeniors.length > 0 && createPortal(
-                    <div
-                      className="absolute t-0 z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
-                      style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
-                    >
-                      {filteredSeniors.map((u, idx) => {
-                        const isBM = !!u.__isBranchManager;
-                        return (
-                          <button
-                            type="button"
-                            key={u.employee_code}
-                            onMouseDown={(e) => { e.preventDefault(); selectSenior(u); }}
-                            className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === seniorIndex ? "bg-gray-100" : ""}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium">
-                                {u.name} ({u.employee_code})
+                  {showSeniorList &&
+                    filteredSeniors.length > 0 &&
+                    createPortal(
+                      <div
+                        className="absolute t-0 z-[9999] rounded-md shadow max-h-60 overflow-auto border border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text)]"
+                        style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
+                      >
+                        {filteredSeniors.map((u, idx) => {
+                          const isBM = !!u.__isBranchManager;
+                          return (
+                            <button
+                              type="button"
+                              key={u.employee_code}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectSenior(u);
+                              }}
+                              className={`w-full text-left px-3 py-2 hover:bg-[var(--theme-primary-softer)] ${
+                                idx === seniorIndex ? "bg-[var(--theme-primary-softer)]" : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium">
+                                  {u.name} ({u.employee_code})
+                                </div>
+                                {isBM && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--theme-success-soft)] text-[var(--theme-success)] border border-[color:rgba(16,185,129,.35)]">
+                                    Branch Manager
+                                  </span>
+                                )}
                               </div>
-                              {isBM && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                  Branch Manager
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {u.roleLabel || (isBM ? "Branch Manager" : "")}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>,
-                    document.body
-                  )}
+                              <div className="text-xs text-[var(--theme-text-muted)]">
+                                {u.roleLabel || (isBM ? "Branch Manager" : "")}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>,
+                      document.body
+                    )}
 
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-[var(--theme-text-muted)]">
                     {selectedBranchId
                       ? "Start typing to search users in this branch. The Branch Manager is included."
                       : "No branch selected: searching within SuperAdmin users."}
                   </p>
-
                 </div>
 
                 {/* VBC fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                       VBC Extension ID
                     </label>
                     <input
-                      className="w-full p-3 border rounded-xl"
+                      className={INPUT_CLS}
                       value={formData.vbc_extension_id}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          vbc_extension_id: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setFormData({ ...formData, vbc_extension_id: e.target.value })}
                       placeholder="e.g., 1"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                       VBC Username
                     </label>
                     <input
-                      className="w-full p-3 border rounded-xl"
+                      className={INPUT_CLS}
                       value={formData.vbc_user_username}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          vbc_user_username: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setFormData({ ...formData, vbc_user_username: e.target.value })}
                       placeholder="VBC username"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                       VBC Password
                     </label>
                     <input
-                      className="w-full p-3 border rounded-xl"
+                      className={INPUT_CLS}
                       value={formData.vbc_user_password}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          vbc_user_password: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setFormData({ ...formData, vbc_user_password: e.target.value })}
                       placeholder="VBC password"
                     />
                   </div>
@@ -1365,26 +1304,22 @@ export default function UserModal({
 
             {/* Address */}
             <div className="space-y-4">
-              <h4 className="font-semibold text-gray-900">Address Info</h4>
+              <h4 className="font-semibold text-[var(--theme-text)]">Address Info</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City
-                  </label>
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">City</label>
                   <input
-                    className="p-3 border rounded-xl w-full"
+                    className={INPUT_CLS}
                     value={formData.city}
-                    onChange={(e) =>
-                      setFormData({ ...formData, city: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">State</label>
 
                   <input
                     ref={stateInputRef}
-                    className="p-3 border rounded-xl w-full bg-white"
+                    className={`${INPUT_CLS} bg-[var(--theme-input-background)]`}
                     value={formData.state}
                     onChange={(e) => {
                       setFormData({ ...formData, state: e.target.value });
@@ -1393,42 +1328,58 @@ export default function UserModal({
                       setStateIndex(0);
                       updateStatePopupPos();
                     }}
-                    onFocus={() => { setShowStateList(true); updateStatePopupPos(); }}
+                    onFocus={() => {
+                      setShowStateList(true);
+                      updateStatePopupPos();
+                    }}
                     onBlur={() => setTimeout(() => setShowStateList(false), 120)}
                     onKeyDown={(e) => {
                       if (!showStateList || filteredStates.length === 0) return;
-                      if (e.key === "ArrowDown") { e.preventDefault(); setStateIndex(i => Math.min(i + 1, filteredStates.length - 1)); }
-                      else if (e.key === "ArrowUp") { e.preventDefault(); setStateIndex(i => Math.max(i - 1, 0)); }
-                      else if (e.key === "Enter") { e.preventDefault(); const pick = filteredStates[stateIndex]; if (pick) selectState(pick.state_name); }
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setStateIndex((i) => Math.min(i + 1, filteredStates.length - 1));
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setStateIndex((i) => Math.max(i - 1, 0));
+                      } else if (e.key === "Enter") {
+                        e.preventDefault();
+                        const pick = filteredStates[stateIndex];
+                        if (pick) selectState(pick.state_name);
+                      }
                     }}
                     placeholder="Start typing… e.g. MADHYA PRADESH"
                     autoComplete="off"
                   />
-                  {showStateList && filteredStates.length > 0 && createPortal(
-                    <div
-                      className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
-                      style={{ top: statePopup.top, left: statePopup.left, width: statePopup.width }}
-                    >
-                      {filteredStates.map((s, idx) => (
-                        <button
-                          type="button"
-                          key={s.code}
-                          onMouseDown={(e) => { e.preventDefault(); selectState(s.state_name); }}
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === stateIndex ? "bg-gray-100" : ""}`}
-                        >
-                          {s.state_name}
-                        </button>
-                      ))}
-                    </div>,
-                    document.body
-                  )}
+                  {showStateList &&
+                    filteredStates.length > 0 &&
+                    createPortal(
+                      <div
+                        className="fixed z-[9999] rounded-md shadow max-h-60 overflow-auto border border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text)]"
+                        style={{ top: statePopup.top, left: statePopup.left, width: statePopup.width }}
+                      >
+                        {filteredStates.map((s, idx) => (
+                          <button
+                            type="button"
+                            key={s.code}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              selectState(s.state_name);
+                            }}
+                            className={`w-full text-left px-3 py-2 hover:bg-[var(--theme-primary-softer)] ${
+                              idx === stateIndex ? "bg-[var(--theme-primary-softer)]" : ""
+                            }`}
+                          >
+                            {s.state_name}
+                          </button>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pincode
-                  </label>
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">Pincode</label>
                   <input
-                    className="p-3 border rounded-xl w-full"
+                    className={INPUT_CLS}
                     value={formData.pincode}
                     onChange={(e) => {
                       const digits = e.target.value.replace(/\D/g, "");
@@ -1438,98 +1389,90 @@ export default function UserModal({
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                   Complete Address
                 </label>
                 <textarea
-                  className="w-full p-3 border rounded-xl resize-none"
+                  className="w-full px-3 py-2 rounded-xl resize-none bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
                   rows="3"
                   value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 />
               </div>
             </div>
 
             {/* Additional */}
             <div className="space-y-4">
-              <h4 className="font-semibold text-gray-900">Additional Info</h4>
+              <h4 className="font-semibold text-[var(--theme-text)]">Additional Info</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Date of Joining (DD-MM-YYYY)
                   </label>
                   <DatePicker
-  selected={dmyToDate(formData.date_of_joining)}
-  value={formData.date_of_joining}                
-  onChange={(date) =>
-    setFormData((p) => ({ ...p, date_of_joining: dateToDMY(date) }))
-  }
-  onChangeRaw={(e) => {                            // keep without preventDefault
-    const v = formatDateInput(e.target.value);
-    setFormData((p) => ({ ...p, date_of_joining: v }));
-  }}
-  onPaste={(e) => {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData("text");
-    const v = formatDateInput(text);
-    setFormData((p) => ({ ...p, date_of_joining: v }));
-  }}
-  dateFormat="dd-MM-yyyy"
-  placeholderText="DD-MM-YYYY"
-  className={INPUT_CLS}
-  required
-  showPopperArrow={false}
-/>
+                    selected={dmyToDate(formData.date_of_joining)}
+                    value={formData.date_of_joining}
+                    onChange={(date) => setFormData((p) => ({ ...p, date_of_joining: dateToDMY(date) }))}
+                    onChangeRaw={(e) => {
+                      const v = formatDateInput(e.target.value);
+                      setFormData((p) => ({ ...p, date_of_joining: v }));
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const text = (e.clipboardData || window.clipboardData).getData("text");
+                      const v = formatDateInput(text);
+                      setFormData((p) => ({ ...p, date_of_joining: v }));
+                    }}
+                    dateFormat="dd-MM-yyyy"
+                    placeholderText="DD-MM-YYYY"
+                    className={INPUT_CLS}
+                    required
+                    showPopperArrow={false}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                     Date of Birth (DD-MM-YYYY)
                   </label>
                   <DatePicker
-  selected={dmyToDate(formData.date_of_birth)}
-  value={formData.date_of_birth}                   
-  onChange={(date) =>
-    setFormData((p) => ({ ...p, date_of_birth: dateToDMY(date) }))
-  }
-  onChangeRaw={(e) => {                            // keep without preventDefault
-    const v = formatDateInput(e.target.value);
-    setFormData((p) => ({ ...p, date_of_birth: v }));
-  }}
-  onPaste={(e) => {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData("text");
-    const v = formatDateInput(text);
-    setFormData((p) => ({ ...p, date_of_birth: v }));
-  }}
-  dateFormat="dd-MM-yyyy"
-  placeholderText="DD-MM-YYYY"
-  className={`${INPUT_CLS} ${panLocked.date_of_birth ? "opacity-80 pointer-events-none bg-gray-50" : ""}`}
-  isClearable
-  showPopperArrow={false}
-  disabled={panLocked.date_of_birth}
-  title={panLocked.date_of_birth ? "DOB is locked from PAN" : undefined}
-/>
+                    selected={dmyToDate(formData.date_of_birth)}
+                    value={formData.date_of_birth}
+                    onChange={(date) => setFormData((p) => ({ ...p, date_of_birth: dateToDMY(date) }))}
+                    onChangeRaw={(e) => {
+                      const v = formatDateInput(e.target.value);
+                      setFormData((p) => ({ ...p, date_of_birth: v }));
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const text = (e.clipboardData || window.clipboardData).getData("text");
+                      const v = formatDateInput(text);
+                      setFormData((p) => ({ ...p, date_of_birth: v }));
+                    }}
+                    dateFormat="dd-MM-yyyy"
+                    placeholderText="DD-MM-YYYY"
+                    className={`${INPUT_CLS} ${panLocked.date_of_birth ? "opacity-80 pointer-events-none bg-[var(--theme-surface)]" : ""}`}
+                    isClearable
+                    showPopperArrow={false}
+                    disabled={panLocked.date_of_birth}
+                    title={panLocked.date_of_birth ? "DOB is locked from PAN" : undefined}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                   Experience (Years)
                 </label>
                 <input
                   className={INPUT_CLS}
                   type="number"
                   value={formData.experience}
-                  onChange={(e) =>
-                    setFormData({ ...formData, experience: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
                 />
               </div>
               {/* ✨ Target (INR) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                   Monthly Target (₹)
                 </label>
                 <input
@@ -1547,34 +1490,29 @@ export default function UserModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
                   Comments
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border rounded-xl resize-none"
+                  className="w-full px-3 py-2 rounded-xl resize-none bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
                   rows="3"
                   value={formData.comment}
-                  onChange={(e) =>
-                    setFormData({ ...formData, comment: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
                 />
               </div>
             </div>
 
             {/* === Permissions === */}
             <div className="space-y-3">
-              <h4 className="font-semibold text-gray-900">Permissions</h4>
+              <h4 className="font-semibold text-[var(--theme-text)]">Permissions</h4>
               {!selectedDepartmentId && (
-                <p className="text-sm text-gray-500">
-                  Select a Department to load permissions.
-                </p>
+                <p className="text-sm text-[var(--theme-text-muted)]">Select a Department to load permissions.</p>
               )}
 
               {selectedDepartmentId && (
                 <>
-                  <p className="text-xs text-gray-500">
-                    Preselected from profile defaults; remaining department
-                    permissions are unchecked by default.
+                  <p className="text-xs text-[var(--theme-text-muted)]">
+                    Preselected from profile defaults; remaining department permissions are unchecked by default.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {departmentPermissions.map((perm) => {
@@ -1582,7 +1520,7 @@ export default function UserModal({
                       return (
                         <label
                           key={perm}
-                          className="flex items-center gap-2 p-2 rounded-lg border hover:bg-gray-50"
+                          className="flex items-center gap-2 p-2 rounded-lg border border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
                         >
                           <input
                             type="checkbox"
@@ -1590,9 +1528,7 @@ export default function UserModal({
                             checked={checked}
                             onChange={() => togglePermission(perm)}
                           />
-                          <span className="text-sm text-gray-800 break-all">
-                            {perm}
-                          </span>
+                          <span className="text-sm text-[var(--theme-text)] break-all">{perm}</span>
                         </label>
                       );
                     })}
@@ -1607,7 +1543,7 @@ export default function UserModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200"
+              className="px-5 py-2 rounded-xl bg-[var(--theme-surface)] hover:bg-[var(--theme-primary-softer)] border border-[var(--theme-border)] text-[var(--theme-text)]"
               disabled={isSubmitting}
             >
               Cancel
@@ -1615,12 +1551,11 @@ export default function UserModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] text-[var(--theme-primary-contrast)] flex items-center gap-2 shadow disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />{" "}
-                  {isEdit ? "Updating" : "Saving"}…
+                  <Loader2 className="w-4 h-4 animate-spin" /> {isEdit ? "Updating" : "Saving"}…
                 </>
               ) : (
                 <>

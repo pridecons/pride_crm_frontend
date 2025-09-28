@@ -32,6 +32,8 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 
+import { useTheme } from '@/context/ThemeContext';
+
 /* ----------------------------- Helpers ----------------------------- */
 
 const DAY_OPTIONS = [
@@ -44,6 +46,18 @@ const DAY_OPTIONS = [
   { value: 180, label: 'Last 180 days' },
   { value: 365, label: 'Last 365 days' },
 ];
+
+function hexToRgba(hex = "#000000", alpha = 1) {
+  try {
+    const h = String(hex || "#000000").replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } catch {
+    return `rgba(0,0,0,${alpha})`;
+  }
+}
 
 function getFirstName(nameLike, usernameLike) {
   const name = (nameLike || '').trim();
@@ -95,6 +109,8 @@ function getGreeting() {
 
 /* ----------------------------- Component ----------------------------- */
 export default function Dashboard() {
+  const { themeConfig } = useTheme();
+
   // user/auth
   const [user, setUser] = useState(null);
   useEffect(() => {
@@ -403,17 +419,28 @@ export default function Dashboard() {
     []
   );
 
+  /* --- Theme-driven chart colors --- */
+  const COLORS_AGE = [themeConfig.error, themeConfig.warning];
+  const COLORS_OUT = [themeConfig.accent, themeConfig.primary, themeConfig.secondary];
+  const COLORS_PER = [themeConfig.accent, themeConfig.primaryHover || themeConfig.primary, themeConfig.success];
 
+  /* ----------------------------- Render ----------------------------- */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div
+      className="min-h-screen"
+      style={{
+        background: `linear-gradient(135deg, ${hexToRgba(themeConfig.surface, 0.75)} 0%, ${hexToRgba(themeConfig.background, 1)} 40%, ${hexToRgba(themeConfig.accent, 0.08)} 100%)`,
+        color: themeConfig.text
+      }}
+    >
       <div className="p-4 md:p-6 space-y-6 mx-2">
         {/* Greeting header (BM & Employees) */}
         {!isSuperAdmin && (
           <div className="w-fit">
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-semibold" style={{ color: themeConfig.text }}>
               {getGreeting()}, {firstName}!
             </h1>
-            <p className="text-gray-600 mt-0.5 text-sm">
+            <p className="mt-0.5 text-sm" style={{ color: themeConfig.textSecondary }}>
               Here’s your performance overview for {appliedFilters.days === 1 ? 'today' : `the last ${appliedFilters.days} days`}
             </p>
           </div>
@@ -421,9 +448,19 @@ export default function Dashboard() {
 
         {/* Branch Tabs */}
         {isSuperAdmin && (
-          <div className="bg-white/70 backdrop-blur-sm border border-white/50 p-3 shadow-md">
+          <div
+            className="p-3 shadow-md rounded-xl"
+            style={{
+              backgroundColor: hexToRgba(themeConfig.cardBackground, 0.9),
+              border: `1px solid ${themeConfig.border}`,
+            }}
+          >
             <div className="flex items-center gap-2 overflow-x-auto">
-              <Tab active={branchTabId === ''} onClick={() => setBranchTabId('')}>
+              <Tab
+                active={branchTabId === ''}
+                onClick={() => setBranchTabId('')}
+                themeConfig={themeConfig}
+              >
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="text-sm">All Branches</span>
@@ -435,6 +472,7 @@ export default function Dashboard() {
                   key={b.id}
                   active={String(branchTabId) === String(b.id)}
                   onClick={() => setBranchTabId(b.id)}
+                  themeConfig={themeConfig}
                 >
                   <div className="flex items-center gap-2">
                     <Store className="h-4 w-4" />
@@ -450,30 +488,51 @@ export default function Dashboard() {
         <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             {appliedFilters.fromDate && (
-              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
-                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
+              <span
+                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                  color: themeConfig.primary,
+                }}
+              >
                 From: {appliedFilters.fromDate}
               </span>
             )}
             {appliedFilters.toDate && (
-              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
-                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
-
+              <span
+                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                  color: themeConfig.primary,
+                }}
+              >
                 To: {appliedFilters.toDate}
               </span>
             )}
             {!!appliedFilters.employeeCode && (
-              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
-                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
-
+              <span
+                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                  color: themeConfig.primary,
+                }}
+              >
                 Emp: {appliedFilters.employeeCode}
               </span>
             )}
             {/* Days chip */}
             {appliedFilters.days && (
-              <span className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
-                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200">
-
+              <span
+                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                  color: themeConfig.primary,
+                }}
+              >
                 {
                   DAY_OPTIONS.find(opt => opt.value === appliedFilters.days)?.label
                   || `${appliedFilters.days} days`
@@ -485,23 +544,34 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 
-                 hover:bg-blue-700 hover:text-white cursor-pointer transition-colors duration-200"
+                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
                 title="Reset filters"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.accent, 0.08),
+                  border: `1px solid ${hexToRgba(themeConfig.accent, 0.25)}`,
+                  color: themeConfig.accent,
+                }}
               >
                 <span className="font-medium">Reset</span>
               </button>
             )}
 
             <button type="button" onClick={() => setFiltersOpen(true)} title="Open filters">
-              <SlidersHorizontal className="h-6 w-5 text-blue-600" />
+              <SlidersHorizontal className="h-6 w-5" style={{ color: themeConfig.primary }} />
             </button>
           </div>
         </div>
 
         {/* Errors */}
         {errMsg ? (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded-lg shadow-sm">
+          <div
+            className="p-3 rounded-lg shadow-sm"
+            style={{
+              backgroundColor: hexToRgba(themeConfig.error, 0.08),
+              borderLeft: `4px solid ${themeConfig.error}`,
+              color: themeConfig.error
+            }}
+          >
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               <span className="font-medium text-sm">{errMsg}</span>
@@ -513,7 +583,14 @@ export default function Dashboard() {
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-28 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl animate-pulse shadow" />
+              <div
+                key={i}
+                className="h-28 rounded-xl animate-pulse shadow"
+                style={{
+                  background: `linear-gradient(135deg, ${hexToRgba(themeConfig.surface, 0.6)}, ${hexToRgba(themeConfig.background, 0.9)})`,
+                  boxShadow: `0 10px 20px ${hexToRgba(themeConfig.shadow || '#000', 0.15)}`
+                }}
+              />
             ))}
           </div>
         )}
@@ -521,45 +598,44 @@ export default function Dashboard() {
         {/* Cards */}
         {!!data && (
           <>
-            <SectionHeader title="Payments Overview" />
+            <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} color="pink" />
-              <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} color="emerald" />
-              <Card title="Today Payment" value={inr(data?.cards?.payments?.weekly_paid)} icon={<CalendarCheck className="h-5 w-5" />} color="purple" />
-              <Card title="Running FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} color="indigo" />
+              <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} themeConfig={themeConfig} />
+              <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} themeConfig={themeConfig} />
+              <Card title="Today Payment" value={inr(data?.cards?.payments?.weekly_paid)} icon={<CalendarCheck className="h-5 w-5" />} themeConfig={themeConfig} />
+              <Card title="Running FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
             </div>
 
-            <SectionHeader title="Call Analytics" />
+            <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card
                 title="Total Calls"
                 value={num(data?.cards?.calls?.total)}
                 icon={<PhoneCall className="h-5 w-5" />}
-                color="indigo"
+                themeConfig={themeConfig}
               />
               <Card
                 title="Answered Calls"
                 value={num(data?.cards?.calls?.answered)}
                 icon={<PhoneIncoming className="h-5 w-5" />}
-                color="emerald"
+                themeConfig={themeConfig}
               />
               <Card
                 title="Missed Calls"
                 value={num(data?.cards?.calls?.missed)}
                 icon={<PhoneOff className="h-5 w-5" />}
-                color="red"
+                themeConfig={themeConfig}
               />
               <Card
                 title="Avg Duration"
                 value={data?.cards?.calls?.duration_hms || "00:00:00"}
                 icon={<Clock3 className="h-5 w-5" />}
-                color="purple"
+                themeConfig={themeConfig}
               />
             </div>
 
-            <SectionHeader title="Leads Analytics" />
-            <LeadsPiePanel data={data} />
-
+            <SectionHeader title="Leads Analytics" themeConfig={themeConfig} />
+            <LeadsPiePanel data={data} themeConfig={themeConfig} COLORS_AGE={COLORS_AGE} COLORS_OUT={COLORS_OUT} COLORS_PER={COLORS_PER} />
           </>
         )}
 
@@ -567,28 +643,30 @@ export default function Dashboard() {
         {!!data && (
           <div className="gap-4">
             {isSuperAdmin && (
-              <TableWrap className="mb-6 px-3" title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5 text-purple-500" />}>
+              <TableWrap className="mb-6 px-3" title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5" style={{ color: themeConfig.primary }} />} themeConfig={themeConfig}>
                 <div className="max-h-72 overflow-y-auto pr-1">
                   <SimpleTable
                     cols={['Branch', 'Revenue', 'Paid Count', 'Conversion %']}
                     rows={(data?.top?.branches || []).map((b) => [
-                      <span className="font-medium text-gray-800" key={`${b.branch_code}-name`}>
+                      <span className="font-medium" style={{ color: themeConfig.text }} key={`${b.branch_code}-name`}>
                         {b.branch_name || '—'}
                       </span>,
-                      <span className="text-blue-600 font-medium" key={`${b.branch_code}-rev`}>
+                      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${b.branch_code}-rev`}>
                         {inr(b.revenue)}
                       </span>,
-                      <span className="text-gray-700" key={`${b.branch_code}-paid`}>
+                      <span style={{ color: themeConfig.text }} key={`${b.branch_code}-paid`}>
                         {num(b.paid_count)}
                       </span>,
                       <span
-                        className={`font-semibold ${Number(b.conversion_rate) >= 50 ? 'text-green-600' : 'text-red-600'}`}
+                        className="font-semibold"
+                        style={{ color: Number(b.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
                         key={`${b.branch_code}-rate`}
                       >
                         {b.conversion_rate ?? 0}%
                       </span>,
                     ])}
-                    className="w-full border border-gray-200 rounded-2xl shadow-sm bg-white"
+                    themeConfig={themeConfig}
+                    className="w-full rounded-2xl"
                   />
                 </div>
               </TableWrap>
@@ -598,41 +676,44 @@ export default function Dashboard() {
               <TableWrap
                 className="mb-6 px-3"
                 title={`Top Employees (${isEmployee ? 'Team (Top 5)' : 'Top 10'})`}
-                icon={<Users className="h-5 w-5 text-blue-500 " />}
+                icon={<Users className="h-5 w-5" style={{ color: themeConfig.accent }} />}
+                themeConfig={themeConfig}
               >
                 <div className="max-h-72 overflow-y-auto pr-1">
                   <SimpleTable
                     cols={['Employee', 'Role', 'Leads', 'Clients', 'Revenue', 'Target', 'Achieved', 'Conv %']}
                     rows={(data?.top?.employees || []).map((e) => [
-                      <span className="font-medium text-gray-800" key={`${e.employee_code}-name`}>
-                        {e.employee_name} <span className="text-gray-400">({e.employee_code})</span>
+                      <span className="font-medium" style={{ color: themeConfig.text }} key={`${e.employee_code}-name`}>
+                        {e.employee_name} <span style={{ color: themeConfig.textSecondary }}>({e.employee_code})</span>
                       </span>,
-                      <span className="text-gray-600" key={`${e.employee_code}-role`}>
+                      <span style={{ color: themeConfig.textSecondary }} key={`${e.employee_code}-role`}>
                         {e.role_name || e.role_id}
                       </span>,
-                      <span className="text-gray-700" key={`${e.employee_code}-leads`}>
+                      <span style={{ color: themeConfig.text }} key={`${e.employee_code}-leads`}>
                         {num(e.total_leads)}
                       </span>,
-                      <span className="text-gray-700" key={`${e.employee_code}-conv`}>
+                      <span style={{ color: themeConfig.text }} key={`${e.employee_code}-conv`}>
                         {num(e.converted_leads)}
                       </span>,
-                      <span className="text-blue-600 font-medium" key={`${e.employee_code}-rev`}>
+                      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${e.employee_code}-rev`}>
                         {inr(e.total_revenue)}
                       </span>,
-                      <span className="text-[#33FFCC]" key={`${e.employee_code}-tgt`}>
+                      <span style={{ color: themeConfig.accent }} key={`${e.employee_code}-tgt`}>
                         {inr(e.target)}
                       </span>,
-                      <span className="text-indigo-600" key={`${e.employee_code}-ach`}>
+                      <span style={{ color: themeConfig.primaryHover || themeConfig.primary }} key={`${e.employee_code}-ach`}>
                         {inr(e.achieved_target ?? e.total_revenue)}
                       </span>,
                       <span
-                        className={`font-semibold ${Number(e.conversion_rate) >= 50 ? 'text-green-600' : 'text-red-600'}`}
+                        className="font-semibold"
+                        style={{ color: Number(e.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
                         key={`${e.employee_code}-rate`}
                       >
                         {e.conversion_rate}%
                       </span>,
                     ])}
-                    className="w-full border border-gray-200 rounded-2xl shadow-sm bg-white "
+                    themeConfig={themeConfig}
+                    className="w-full rounded-2xl"
                   />
                 </div>
               </TableWrap>
@@ -643,65 +724,85 @@ export default function Dashboard() {
         {/* Profiles (admin & BM only) */}
         {!!data && (isSuperAdmin || isBranchManager) && (
           <div className="grid grid-cols-1 gap-4">
-            <TableWrap className="mb-6 px-3" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5 text-yellow-600" />}>
+            <TableWrap className="mb-6 px-3" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
               <div className="max-h-72 overflow-y-auto pr-1">
                 <SimpleTable
                   cols={['Profile', 'Leads', 'Paid Revenue']}
                   rows={(data?.breakdowns?.profile_wise || []).map((p) => {
                     const prof = profiles.find((x) => x.id === p.profile_id);
                     return [
-                      <span className="font-medium text-gray-800" key={`${p.profile_id}-name`}>
+                      <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
                         {prof?.name || (p.profile_id ?? '—')}
                       </span>,
-                      <span className="text-gray-700" key={`${p.profile_id}-leads`}>
+                      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
                         {num(p.total_leads)}
                       </span>,
-                      <span className="text-blue-600 font-medium" key={`${p.profile_id}-revenue`}>
+                      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
                         {inr(p.paid_revenue)}
                       </span>,
                     ];
                   })}
-                  className="w-full border border-gray-200 rounded-2xl shadow-sm bg-white"
+                  themeConfig={themeConfig}
+                  className="w-full rounded-2xl"
                 />
               </div>
             </TableWrap>
           </div>
         )}
 
-        {/* Users table — SECOND table look, FIRST inline draft+apply */}
+        {/* Users table */}
         {!!employeesTable && (
           <TableWrap
             className="mb-6 px-3"
             title={`Employee Performance (${isEmployee ? 'Your Team' : 'All (scoped)'})`}
-            icon={<LineChart className="h-5 w-5 text-green-500" />}
+            icon={<LineChart className="h-5 w-5" style={{ color: themeConfig.success }} />}
+            themeConfig={themeConfig}
           >
             {/* Inline filters (draft) with Apply */}
             <div className="mb-3 px-1">
               <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+                  <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
                   <input
                     type="date"
-                    className="h-9 w-full border border-gray-200 bg-white rounded-md px-2.5 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                    className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
                     value={draftFilters.fromDate}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
+                    style={{
+                      backgroundColor: themeConfig.inputBackground,
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.inputBorder}`,
+                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                    }}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+                  <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
                   <input
                     type="date"
-                    className="h-9 w-full border border-gray-200 bg-white rounded-md px-2.5 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                    className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
                     value={draftFilters.toDate}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
+                    style={{
+                      backgroundColor: themeConfig.inputBackground,
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.inputBorder}`,
+                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                    }}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Days</label>
+                  <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
                   <select
-                    className="h-9 w-full border border-gray-200 bg-white rounded-md px-2.5 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
+                    className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
                     value={draftFilters.days}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
+                    style={{
+                      backgroundColor: themeConfig.inputBackground,
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.inputBorder}`,
+                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                    }}
                   >
                     {DAY_OPTIONS.map(opt => (
                       <option key={opt.value} value={opt.value}>
@@ -721,13 +822,25 @@ export default function Dashboard() {
                         days: 30,
                       }))
                     }
-                    className="h-9 px-3 rounded-md bg-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-300"
+                    className="h-9 px-3 rounded-md text-sm font-medium transition"
+                    style={{
+                      backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.border}`
+                    }}
                   >
                     Clear
                   </button>
                   <button
                     onClick={() => setAppliedFilters(draftFilters)}
-                    className="h-9 px-3 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                    className="h-9 px-3 rounded-md text-sm font-medium transition"
+                    style={{
+                      backgroundColor: themeConfig.primary,
+                      color: '#fff',
+                      boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
                   >
                     Apply
                   </button>
@@ -743,14 +856,13 @@ export default function Dashboard() {
                 otherResponses={otherResponses}
                 expanded={expandedEmp}
                 onToggle={toggleEmp}
+                themeConfig={themeConfig}
               />
             </div>
 
-
-
             {/* Pagination */}
             <div className="mt-3 flex items-center justify-between px-3">
-              <div className="text-xs text-gray-600">
+              <div className="text-xs" style={{ color: themeConfig.textSecondary }}>
                 {totalEmp === 0 ? 'No records' : `Showing ${startIdx + 1}–${endIdx} of ${totalEmp}`}
               </div>
 
@@ -759,15 +871,18 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => setEmpPage((p) => Math.max(1, p - 1))}
                   disabled={empPage === 1}
-                  className={`h-9 px-3 rounded-md text-sm font-medium border ${empPage === 1
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
+                  className="h-9 px-3 rounded-md text-sm font-medium border transition"
+                  style={{
+                    backgroundColor: empPage === 1 ? hexToRgba(themeConfig.surface, 0.6) : themeConfig.cardBackground,
+                    color: empPage === 1 ? hexToRgba(themeConfig.textSecondary, 0.7) : themeConfig.text,
+                    borderColor: themeConfig.border,
+                    cursor: empPage === 1 ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   Previous
                 </button>
 
-                <span className="text-sm text-gray-700">
+                <span className="text-sm" style={{ color: themeConfig.text }}>
                   Page <span className="font-medium">{empPage}</span> / {totalEmpPages}
                 </span>
 
@@ -775,10 +890,13 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => setEmpPage((p) => Math.min(totalEmpPages, p + 1))}
                   disabled={empPage === totalEmpPages}
-                  className={`h-9 px-3 rounded-md text-sm font-medium border ${empPage === totalEmpPages
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
+                  className="h-9 px-3 rounded-md text-sm font-medium border transition"
+                  style={{
+                    backgroundColor: empPage === totalEmpPages ? hexToRgba(themeConfig.surface, 0.6) : themeConfig.cardBackground,
+                    color: empPage === totalEmpPages ? hexToRgba(themeConfig.textSecondary, 0.7) : themeConfig.text,
+                    borderColor: themeConfig.border,
+                    cursor: empPage === totalEmpPages ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   Next
                 </button>
@@ -788,7 +906,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Slide-over Filters Panel (from FIRST) */}
+      {/* Slide-over Filters Panel */}
       {filtersOpen && (
         <div
           className="fixed inset-0 z-50"
@@ -797,20 +915,33 @@ export default function Dashboard() {
           onKeyDown={(e) => e.key === 'Escape' && setFiltersOpen(false)}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={() => setFiltersOpen(false)} />
+          <div
+            className="absolute inset-0"
+            onClick={() => setFiltersOpen(false)}
+            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          />
 
           {/* Panel */}
-          <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-white shadow-xl flex flex-col">
+          <div
+            className="absolute inset-y-0 right-0 w-full sm:w-[420px] flex flex-col"
+            style={{ backgroundColor: themeConfig.cardBackground, boxShadow: `-12px 0 24px ${hexToRgba(themeConfig.shadow || '#000', 0.25)}` }}
+          >
             {/* Header */}
-            <div className="px-4 py-2.5 border-b flex items-center justify-between">
+            <div
+              className="px-4 py-2.5 flex items-center justify-between"
+              style={{ borderBottom: `1px solid ${themeConfig.border}` }}
+            >
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5 text-blue-600" />
-                <h3 className="text-base font-semibold text-gray-900">Filters</h3>
+                <SlidersHorizontal className="h-5 w-5" style={{ color: themeConfig.primary }} />
+                <h3 className="text-base font-semibold" style={{ color: themeConfig.text }}>Filters</h3>
               </div>
               <button
                 onClick={() => setFiltersOpen(false)}
-                className="p-2 rounded-md hover:bg-gray-100"
+                className="p-2 rounded-md"
                 aria-label="Close filters"
+                style={{ color: themeConfig.textSecondary }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.06); }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
               >
                 ✕
               </button>
@@ -819,11 +950,17 @@ export default function Dashboard() {
             {/* Content (DRAFT controls) */}
             <div className="p-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 gap-3">
-                <Field label={<LabelWithIcon icon={<CalendarDays className="h-4 w-4" />} text="Time Period" />}>
+                <Field label={<LabelWithIcon icon={<CalendarDays className="h-4 w-4" />} text="Time Period" />} themeConfig={themeConfig}>
                   <select
-                    className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
+                    className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
                     value={draftFilters.days}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
+                    style={{
+                      backgroundColor: themeConfig.inputBackground,
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.inputBorder}`,
+                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                    }}
                   >
                     {DAY_OPTIONS.map(opt => (
                       <option key={opt.value} value={opt.value}>
@@ -831,33 +968,50 @@ export default function Dashboard() {
                       </option>
                     ))}
                   </select>
-
                 </Field>
 
-                <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="From Date" />}>
+                <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="From Date" />} themeConfig={themeConfig}>
                   <input
                     type="date"
-                    className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
+                    className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
                     value={draftFilters.fromDate}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
+                    style={{
+                      backgroundColor: themeConfig.inputBackground,
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.inputBorder}`,
+                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                    }}
                   />
                 </Field>
 
-                <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="To Date" />}>
+                <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="To Date" />} themeConfig={themeConfig}>
                   <input
                     type="date"
-                    className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
+                    className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
                     value={draftFilters.toDate}
                     onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
+                    style={{
+                      backgroundColor: themeConfig.inputBackground,
+                      color: themeConfig.text,
+                      border: `1px solid ${themeConfig.inputBorder}`,
+                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                    }}
                   />
                 </Field>
 
                 {!isSuperAdmin && (
-                  <Field label={<LabelWithIcon icon={<Eye className="h-4 w-4" />} text="View Type" />}>
+                  <Field label={<LabelWithIcon icon={<Eye className="h-4 w-4" />} text="View Type" />} themeConfig={themeConfig}>
                     <select
-                      className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
+                      className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
                       value={draftFilters.view}
                       onChange={(e) => setDraftFilters((d) => ({ ...d, view: e.target.value }))}
+                      style={{
+                        backgroundColor: themeConfig.inputBackground,
+                        color: themeConfig.text,
+                        border: `1px solid ${themeConfig.inputBorder}`,
+                        boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                      }}
                     >
                       <option value="self">Self</option>
                       <option value="team">Team</option>
@@ -870,11 +1024,17 @@ export default function Dashboard() {
 
                 {(isSuperAdmin || isBranchManager) && (
                   <>
-                    <Field label={<LabelWithIcon icon={<Briefcase className="h-4 w-4" />} text="Role (Profile)" />}>
+                    <Field label={<LabelWithIcon icon={<Briefcase className="h-4 w-4" />} text="Role (Profile)" />} themeConfig={themeConfig}>
                       <select
-                        className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
+                        className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
                         value={draftFilters.profileId}
                         onChange={(e) => setDraftFilters((d) => ({ ...d, profileId: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
                       >
                         <option value="">All Roles</option>
                         {(profiles || []).map((p) => (
@@ -884,33 +1044,18 @@ export default function Dashboard() {
                         ))}
                       </select>
                     </Field>
-
-                    {/* <Field label={<LabelWithIcon icon={<Building2 className="h-4 w-4" />} text="Department" />}>
-                      <select
-                        className="border border-gray-200 bg-white rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-blue-500 w-full"
-                        value={draftFilters.departmentId}
-                        onChange={(e) => setDraftFilters((d) => ({ ...d, departmentId: e.target.value }))}
-                      >
-                        <option value="">All Departments</option>
-                        {(departments || []).map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field> */}
                   </>
                 )}
 
                 {/* Users Autocomplete (draft) */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                  <label className="text-sm font-medium mb-1.5 block" style={{ color: themeConfig.text }}>
                     <LabelWithIcon icon={<User className="h-4 w-4" />} text="User (Employee)" />
                   </label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: themeConfig.textSecondary }} />
                     <input
-                      className="border border-gray-200 bg-white rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 focus:ring-blue-500"
+                      className="rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 outline-none"
                       value={userSearch}
                       onFocus={() => !draftFilters.employeeCode && setShowSuggestions(true)}
                       onChange={(e) => {
@@ -921,27 +1066,42 @@ export default function Dashboard() {
                         if (e.key === 'Escape') setShowSuggestions(false);
                       }}
                       placeholder="Search by name / code / email / phone"
+                      style={{
+                        backgroundColor: themeConfig.inputBackground,
+                        color: themeConfig.text,
+                        border: `1px solid ${themeConfig.inputBorder}`,
+                        boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                      }}
                     />
                     {showSuggestions && userSearch && !draftFilters.employeeCode && (
-                      <div className="absolute z-[60] bg-white border border-gray-200 rounded-lg mt-2 w-full max-h-64 overflow-auto shadow-md">
+                      <div
+                        className="absolute z-[60] rounded-lg mt-2 w-full max-h-64 overflow-auto shadow-md"
+                        style={{ backgroundColor: themeConfig.cardBackground, border: `1px solid ${themeConfig.border}` }}
+                      >
                         {filteredUsers.length === 0 ? (
-                          <div className="px-3 py-2.5 text-sm text-gray-500">No users found</div>
+                          <div className="px-3 py-2.5 text-sm" style={{ color: themeConfig.textSecondary }}>No users found</div>
                         ) : (
                           filteredUsers.map((u) => (
                             <button
                               key={u.employee_code}
                               type="button"
-                              className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-sm transition-colors border-b border-gray-100 last:border-b-0"
+                              className="w-full text-left px-3 py-2.5 transition-colors border-b last:border-b-0"
                               onClick={() => {
                                 setDraftFilters((d) => ({ ...d, employeeCode: u.employee_code }));
                                 setUserSearch(`${u.name} (${u.employee_code})`);
                                 setShowSuggestions(false);
                               }}
+                              style={{
+                                color: themeConfig.text,
+                                borderColor: hexToRgba(themeConfig.border, 0.7)
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.06); }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                             >
-                              <div className="font-medium text-gray-800">
-                                {u.name} <span className="text-blue-600">({u.employee_code})</span>
+                              <div className="font-medium" style={{ color: themeConfig.text }}>
+                                {u.name} <span style={{ color: themeConfig.primary }}>({u.employee_code})</span>
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs" style={{ color: themeConfig.textSecondary }}>
                                 {u.role_name} • {u.email} • {u.phone}
                               </div>
                             </button>
@@ -951,12 +1111,12 @@ export default function Dashboard() {
                     )}
                   </div>
                   {draftFilters.employeeCode ? (
-                    <div className="text-xs text-green-600 mt-1 font-medium flex items-center gap-1">
+                    <div className="text-xs mt-1 font-medium flex items-center gap-1" style={{ color: themeConfig.success }}>
                       <CheckCircle2 className="h-4 w-4" />
                       <span>Selected: {draftFilters.employeeCode}</span>
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                    <div className="text-xs mt-1 flex items-center gap-1" style={{ color: themeConfig.textSecondary }}>
                       <Info className="h-4 w-4" />
                       <span>No user selected</span>
                     </div>
@@ -964,30 +1124,38 @@ export default function Dashboard() {
                 </div>
 
                 {optLoading && (
-                  <div className="flex items-center gap-2 text-xs text-blue-600 mt-2">
-                    <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="flex items-center gap-2 text-xs mt-2" style={{ color: themeConfig.primary }}>
+                    <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: themeConfig.primary, borderTopColor: "transparent" }}></div>
                     Loading filter options…
                   </div>
                 )}
                 {optError && (
-                  <div className="text-sm text-red-600 mt-1 bg-red-50 px-3 py-2 rounded-lg">{optError}</div>
+                  <div className="text-sm mt-1 rounded-lg px-3 py-2" style={{ color: themeConfig.error, backgroundColor: hexToRgba(themeConfig.error, 0.08) }}>{optError}</div>
                 )}
               </div>
             </div>
 
             {/* Footer actions */}
-            <div className="p-4 border-t flex items-center justify-between gap-2">
-
+            <div className="p-4 flex items-center justify-between gap-2" style={{ borderTop: `1px solid ${themeConfig.border}` }}>
               <button
                 onClick={() => setDraftFilters(baseDefaults)}
-                className="px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+                className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
+                  color: themeConfig.text
+                }}
               >
                 Reset
               </button>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setFiltersOpen(false)}
-                  className="px-4 py-2.5 rounded-lg bg-white text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-50"
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                  style={{
+                    backgroundColor: themeConfig.cardBackground,
+                    color: themeConfig.text,
+                    border: `1px solid ${themeConfig.border}`
+                  }}
                 >
                   Cancel
                 </button>
@@ -996,7 +1164,14 @@ export default function Dashboard() {
                     setAppliedFilters(draftFilters);
                     setFiltersOpen(false);
                   }}
-                  className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                  style={{
+                    backgroundColor: themeConfig.primary,
+                    color: '#fff',
+                    boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
                 >
                   Apply
                 </button>
@@ -1018,61 +1193,61 @@ function LabelWithIcon({ icon, text }) {
     </span>
   );
 }
-function Field({ label, children }) {
+function Field({ label, children, themeConfig }) {
   return (
     <div className="flex flex-col">
-      <label className="text-xs font-medium text-gray-700 mb-1.5">{label}</label>
+      <label className="text-xs font-medium mb-1.5" style={{ color: themeConfig?.textSecondary }}>{label}</label>
       {children}
     </div>
   );
 }
-function SectionHeader({ title }) {
+function SectionHeader({ title, themeConfig }) {
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></div>
-      <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+      <div
+        className="w-1 h-6 rounded-full"
+        style={{
+          background: `linear-gradient(180deg, ${themeConfig.primary} 0%, ${themeConfig.accent} 100%)`
+        }}
+      />
+      <h2 className="text-xl font-semibold" style={{ color: themeConfig.text }}>{title}</h2>
     </div>
   );
 }
 
-/* --- Cards (from SECOND) --- */
-const colorThemes = {
-  pink: { base: 'bg-pink-500', side: 'bg-pink-600' },
-  purple: { base: 'bg-violet-500', side: 'bg-violet-600' },
-  blue: { base: 'bg-sky-500', side: 'bg-sky-600' },
-  indigo: { base: 'bg-indigo-500', side: 'bg-indigo-600' },
-  green: { base: 'bg-green-500', side: 'bg-green-600' },
-  emerald: { base: 'bg-emerald-500', side: 'bg-emerald-600' },
-  orange: { base: 'bg-orange-500', side: 'bg-orange-600' },
-  teal: { base: 'bg-teal-500', side: 'bg-teal-600' },
-};
-
-const deltaPill = (v) =>
-  typeof v === 'number' ? `${v > 0 ? '+' : ''}${Number(v).toFixed(2)}%` : null;
-
-function Card({ title, value, sub = '', icon, color = 'blue', delta, className = '' }) {
-  const theme = colorThemes[color] || colorThemes.blue;
-
+/* --- Cards (theme-driven) --- */
+function Card({ title, value, sub = '', icon, delta, className = '', themeConfig }) {
   return (
-    <div className={`shadow-sm overflow-hidden ${theme.base} ${className}`}>
+    <div
+      className={`shadow-sm overflow-hidden rounded-xl ${className}`}
+      style={{
+        background: `linear-gradient(135deg, ${themeConfig.primary} 0%, ${themeConfig.accent} 100%)`,
+        boxShadow: `0 12px 24px ${hexToRgba(themeConfig.shadow || '#000', 0.2)}`
+      }}
+    >
       <div className="grid grid-cols-[1fr,88px]">
         <div className="flex justify-between">
           <div className="p-4">
-            <div className="text-[11px] uppercase tracking-wide font-semibold text-white/80">{title}</div>
-            <div className="mt-1 text-[22px] leading-tight font-bold text-white rupee">{value ?? '—'}</div>
+            <div className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: hexToRgba('#FFFFFF', 0.85) }}>{title}</div>
+            <div className="mt-1 text-[22px] leading-tight font-bold rupee" style={{ color: '#fff' }}>{value ?? '—'}</div>
 
             <div className="mt-2 flex items-center px-4 gap-2">
               {typeof delta === 'number' && (
-                <span className="px-2 py-[2px] rounded text-[11px] font-semibold bg-white/20 text-white">
-                  {deltaPill(delta)}
+                <span className="px-2 py-[2px] rounded text-[11px] font-semibold" style={{ backgroundColor: hexToRgba('#FFFFFF', 0.25), color: '#fff' }}>
+                  {`${delta > 0 ? '+' : ''}${Number(delta).toFixed(2)}%`}
                 </span>
               )}
-              {sub && <span className="text-[11px] font-medium text-white/90">{sub}</span>}
+              {sub && <span className="text-[11px] font-medium" style={{ color: hexToRgba('#FFFFFF', 0.95) }}>{sub}</span>}
             </div>
           </div>
 
-          <div className={`${theme.side} flex items-center justify-center px-2`}>
-            <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center text-white">{icon}</div>
+          <div
+            className="flex items-center justify-center px-2"
+            style={{ background: hexToRgba('#000000', 0.08) }}
+          >
+            <div className="w-10 h-10 rounded-md flex items-center justify-center" style={{ backgroundColor: hexToRgba('#FFFFFF', 0.15), color: '#fff' }}>
+              {icon}
+            </div>
           </div>
         </div>
       </div>
@@ -1080,28 +1255,44 @@ function Card({ title, value, sub = '', icon, color = 'blue', delta, className =
   );
 }
 
-/* --- Tables & Tabs (from SECOND with className support) --- */
-function TableWrap({ title, children, icon, className = '' }) {
+/* --- Tables & Tabs --- */
+function TableWrap({ title, children, icon, className = '', themeConfig }) {
   return (
-    <div className={`bg-white border border-white/50 shadow-md ${className}`}>
-      <div className="flex items-center bg-gray-50 p-2 justify-between ">
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        backgroundColor: themeConfig.cardBackground,
+        border: `1px solid ${themeConfig.border}`,
+        boxShadow: `0 12px 24px ${hexToRgba(themeConfig.shadow || '#000', 0.12)}`
+      }}
+    >
+      <div
+        className="flex items-center p-2 justify-between rounded-t-2xl"
+        style={{
+          backgroundColor: themeConfig.surface,
+          borderBottom: `1px solid ${themeConfig.border}`
+        }}
+      >
         <div className="flex items-center gap-2">
           {icon && <span className="text-base rupee">{icon}</span>}
-          <h3 className="text-base font-semibold text-gray-800 rupee">{title}</h3>
+          <h3 className="text-base font-semibold rupee" style={{ color: themeConfig.text }}>{title}</h3>
         </div>
       </div>
       {children}
     </div>
   );
 }
-function SimpleTable({ cols = [], rows = [], className = '' }) {
+function SimpleTable({ cols = [], rows = [], className = '', themeConfig }) {
   return (
     <div className={`overflow-x-auto ${className}`}>
-      <table className="min-w-full text-sm">
+      <table className="min-w-full text-sm" style={{ color: themeConfig.text }}>
         <thead className="sticky top-0 z-10">
-          <tr className="bg-white/90 backdrop-blur border-b border-gray-200 rupee">
+          <tr
+            className="backdrop-blur"
+            style={{ backgroundColor: hexToRgba(themeConfig.cardBackground, 0.95), borderBottom: `1px solid ${themeConfig.border}` }}
+          >
             {cols.map((c) => (
-              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left rupee">
+              <th key={c} className="px-3 py-2.5 font-semibold text-left rupee" style={{ color: themeConfig.text }}>
                 {c}
               </th>
             ))}
@@ -1110,7 +1301,7 @@ function SimpleTable({ cols = [], rows = [], className = '' }) {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-8 text-gray-400 text-center" colSpan={cols.length}>
+              <td className="px-3 py-8 text-center" style={{ color: themeConfig.textSecondary }} colSpan={cols.length}>
                 <div className="flex flex-col items-center gap-2">
                   <BarChart3 className="h-6 w-6" />
                   <span>No data available</span>
@@ -1119,9 +1310,16 @@ function SimpleTable({ cols = [], rows = [], className = '' }) {
             </tr>
           ) : (
             rows.map((r, i) => (
-              <tr key={i} className="border-b border-gray-100 hover:bg-blue-50/50">
+              <tr
+                key={i}
+                style={{
+                  borderBottom: `1px solid ${hexToRgba(themeConfig.border, 0.8)}`
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.04); }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
                 {r.map((cell, j) => (
-                  <td key={j} className="px-3 py-2.5 text-gray-700 align-top rupee">
+                  <td key={j} className="px-3 py-2.5 align-top rupee" style={{ color: themeConfig.text }}>
                     {cell}
                   </td>
                 ))}
@@ -1133,35 +1331,42 @@ function SimpleTable({ cols = [], rows = [], className = '' }) {
     </div>
   );
 }
-function Tab({ active, onClick, children }) {
+function Tab({ active, onClick, children, themeConfig }) {
+  const activeBG = themeConfig.primary;
+  const inactiveBG = themeConfig.cardBackground;
+  const inactiveBorder = themeConfig.border;
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={[
-        'px-4 py-2 rounded-lg text-sm font-medium transition-colors border',
-        active
-          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-600 shadow'
-          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50',
-      ].join(' ')}
+      className="px-4 py-2 rounded-lg text-sm font-medium transition-colors border"
+      style={{
+        background: active ? activeBG : inactiveBG,
+        color: active ? '#fff' : themeConfig.text,
+        borderColor: active ? activeBG : inactiveBorder,
+        boxShadow: active ? `0 10px 20px ${hexToRgba(activeBG, 0.25)}` : 'none'
+      }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = hexToRgba(themeConfig.primary, 0.06);
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = inactiveBG;
+      }}
     >
       {children}
     </button>
   );
 }
 
-/* --- Pie Panels (from SECOND) --- */
+/* --- Pie Panels --- */
 function Dot({ color }) {
   return <span className="inline-block w-3 h-3 rounded-full" style={{ background: color }} />;
 }
 const N = (v) => Math.max(0, Number(v) || 0);
 
-const COLORS_AGE = ['#DC143C', '#FFD700']; // Fresh, Old
-const COLORS_OUT = ['#483D8B', '#8B008B', '#0000CD']; // Clients, FT, Others
-const COLORS_PER = ['#8ec3eb', '#2a6592', '#22C55E']; // This week, This month, Rest
-
-function LeadsPiePanel({ data }) {
-  if (!data) return <p className="text-gray-500 text-center py-10">No lead data available.</p>;
+function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }) {
+  if (!data) return <p className="text-center py-10" style={{ color: themeConfig.textSecondary }}>No lead data available.</p>;
 
   const ageData = [
     { name: 'Fresh', value: N(data?.cards?.leads?.fresh_leads) },
@@ -1196,8 +1401,15 @@ function LeadsPiePanel({ data }) {
     const total = dataset.reduce((s, x) => s + x.value, 0);
 
     return (
-      <div className="bg-white/80 backdrop-blur-sm border border-white/50 px-5 shadow-md transition-all duration-300">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">{title}</h3>
+      <div
+        className="rounded-xl px-5 shadow-md transition-all duration-300"
+        style={{
+          backgroundColor: hexToRgba(themeConfig.cardBackground, 0.95),
+          border: `1px solid ${themeConfig.border}`,
+          color: themeConfig.text
+        }}
+      >
+        <h3 className="text-lg font-semibold mb-4" style={{ color: themeConfig.text }}>{title}</h3>
 
         <div className="gap-2">
           <div className="order-2 md:order-1 md:col-span-1">
@@ -1206,16 +1418,16 @@ function LeadsPiePanel({ data }) {
                 <li key={item.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Dot color={COLORS[i % COLORS.length]} />
-                    <span className="text-sm text-gray-700">{item.name}</span>
+                    <span className="text-sm" style={{ color: themeConfig.text }}>{item.name}</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium" style={{ color: themeConfig.text }}>
                     {Number(item.value).toLocaleString('en-IN')}
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-3 text-sm text-gray-600">
-              <span className="font-medium text-gray-800">Total:</span>{' '}
+            <div className="mt-3 text-sm" style={{ color: themeConfig.textSecondary }}>
+              <span className="font-medium" style={{ color: themeConfig.text }}>Total:</span>{' '}
               {Number(total).toLocaleString('en-IN')}
             </div>
           </div>
@@ -1239,7 +1451,14 @@ function LeadsPiePanel({ data }) {
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v, n) => [Number(v).toLocaleString('en-IN'), n]} />
+                <Tooltip
+                  contentStyle={{
+                    background: themeConfig.cardBackground,
+                    border: `1px solid ${themeConfig.border}`,
+                    color: themeConfig.text
+                  }}
+                  formatter={(v, n) => [Number(v).toLocaleString('en-IN'), n]}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -1257,15 +1476,24 @@ function LeadsPiePanel({ data }) {
   );
 }
 
-
-function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], expanded, onToggle }) {
+function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], expanded, onToggle, themeConfig }) {
   return (
-    <div className="overflow-x-auto w-full border border-gray-200 rounded-2xl shadow-sm bg-white">
-      <table className="min-w-full text-sm">
+    <div
+      className="overflow-x-auto w-full rounded-2xl"
+      style={{
+        backgroundColor: themeConfig.cardBackground,
+        border: `1px solid ${themeConfig.border}`,
+        boxShadow: `0 12px 24px ${hexToRgba(themeConfig.shadow || '#000', 0.12)}`
+      }}
+    >
+      <table className="min-w-full text-sm" style={{ color: themeConfig.text }}>
         <thead className="sticky top-0 z-10">
-          <tr className="bg-white/90 backdrop-blur border-b border-gray-200">
+          <tr
+            className="backdrop-blur"
+            style={{ backgroundColor: hexToRgba(themeConfig.cardBackground, 0.95), borderBottom: `1px solid ${themeConfig.border}` }}
+          >
             {cols.map((c) => (
-              <th key={c} className="px-3 py-2.5 font-semibold text-gray-700 text-left">
+              <th key={c} className="px-3 py-2.5 font-semibold text-left" style={{ color: themeConfig.text }}>
                 {c}
               </th>
             ))}
@@ -1275,7 +1503,7 @@ function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], exp
         <tbody>
           {(rows || []).length === 0 ? (
             <tr>
-              <td className="px-3 py-8 text-gray-400 text-center" colSpan={cols.length}>
+              <td className="px-3 py-8 text-center" style={{ color: themeConfig.textSecondary }} colSpan={cols.length}>
                 <div className="flex flex-col items-center gap-2">
                   <BarChart3 className="h-6 w-6" />
                   <span>No data available</span>
@@ -1292,7 +1520,7 @@ function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], exp
                 <React.Fragment key={code}>
                   {/* Main row (click employee name to toggle) */}
                   <tr
-                    className="border-b border-gray-100 hover:bg-blue-50/50 cursor-pointer"
+                    className="cursor-pointer"
                     role="button"
                     tabIndex={0}
                     aria-expanded={isOpen}
@@ -1304,33 +1532,42 @@ function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], exp
                         onToggle(code);
                       }
                     }}
+                    style={{
+                      borderBottom: `1px solid ${hexToRgba(themeConfig.border, 0.8)}`
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.04); }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <td className="px-3 py-2.5">
-                      <span className="font-medium text-gray-800 inline-flex items-center gap-2">
-                        {u.employee_name} <span className="text-gray-400">({code})</span>
+                      <span className="font-medium inline-flex items-center gap-2" style={{ color: themeConfig.text }}>
+                        {u.employee_name} <span style={{ color: themeConfig.textSecondary }}>({code})</span>
                       </span>
                     </td>
 
-                    <td className="px-3 py-2.5 text-gray-600">{u.role_name || u.role_id}</td>
-                    <td className="px-3 py-2.5 text-[#33FFCC]">{num(u.total_leads)}</td>
-                    <td className="px-3 py-2.5 text-blue-600">{num(u.converted_leads)}</td>
-                    <td className="px-3 py-2.5 text-indigo-600">{num(map?.['FT'] ?? 0)}</td>
-                    <td className="px-3 py-2.5 text-purple-700">{num(map?.['CALL BACK'] ?? 0)}</td>
-                    <td className="px-3 py-2.5 text-red-600 font-medium">{inr(u.total_revenue)}</td>
+                    <td className="px-3 py-2.5" style={{ color: themeConfig.textSecondary }}>{u.role_name || u.role_id}</td>
+                    <td className="px-3 py-2.5" style={{ color: themeConfig.accent }}>{num(u.total_leads)}</td>
+                    <td className="px-3 py-2.5" style={{ color: themeConfig.primary }}>{num(u.converted_leads)}</td>
+                    <td className="px-3 py-2.5" style={{ color: themeConfig.primaryHover || themeConfig.primary }}>{num(map?.['FT'] ?? 0)}</td>
+                    <td className="px-3 py-2.5" style={{ color: themeConfig.secondary }}>{num(map?.['CALL BACK'] ?? 0)}</td>
+                    <td className="px-3 py-2.5 font-medium" style={{ color: themeConfig.error }}>{inr(u.total_revenue)}</td>
                   </tr>
 
                   {/* Expanded row */}
                   {isOpen && (
-                    <tr className="bg-gray-50 border-b border-gray-100" id={`emp-acc-${code}`}>
+                    <tr id={`emp-acc-${code}`} style={{ backgroundColor: themeConfig.surface, borderBottom: `1px solid ${themeConfig.border}` }}>
                       <td className="px-3 py-3" colSpan={cols.length}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                           {otherResponses.map((name) => (
                             <div
                               key={`${code}-${name}`}
-                              className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-gray-200"
+                              className="flex items-center justify-between px-3 py-2 rounded-lg"
+                              style={{
+                                backgroundColor: themeConfig.cardBackground,
+                                border: `1px solid ${themeConfig.border}`
+                              }}
                             >
-                              <span className="text-xs text-gray-600">{name}</span>
-                              <span className="text-sm font-semibold text-gray-800">
+                              <span className="text-xs" style={{ color: themeConfig.textSecondary }}>{name}</span>
+                              <span className="text-sm font-semibold" style={{ color: themeConfig.text }}>
                                 {num(map?.[name] ?? 0)}
                               </span>
                             </div>

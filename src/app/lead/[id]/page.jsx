@@ -35,24 +35,29 @@ import LeadHeader from "@/components/Lead/ID/LeadHeader";
 import ErrorState from "@/components/ErrorState";
 import { usePermissions } from "@/context/PermissionsContext";
 
-// NEW: robust SUPERADMIN detector
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
 import DocumentViewer from "@/components/DocumentViewer";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
+/* ========================= THEME HELPERS (colors only) =========================
+   Use CSS variables defined in your global theme:
 
+   --theme-page-bg, --theme-card-bg, --theme-surface, --theme-text, --theme-muted,
+   --theme-border, --theme-primary, --theme-success, --theme-warning, --theme-info
+
+   Nothing else changed—just colors wired to variables.
+=============================================================================== */
 
 const canonRole = (s) => {
   if (!s) return "";
   let x = String(s).trim().toUpperCase();
-  x = x.replace(/\s+/g, "_"); // "BRANCH MANAGER" -> "BRANCH_MANAGER"
+  x = x.replace(/\s+/g, "_");
   if (x === "SUPER_ADMINISTRATOR") x = "SUPERADMIN";
   return x;
 };
 
-// Build { [id]: CANONICAL_ROLE_NAME } from API list
 function buildRoleMap(list) {
   const out = {};
   (Array.isArray(list) ? list : []).forEach((r) => {
@@ -63,16 +68,14 @@ function buildRoleMap(list) {
   return out;
 }
 
-// Load role map: prefer localStorage cache; if missing, hit API once
 async function loadRoleMap() {
   try {
     const cached = JSON.parse(localStorage.getItem("roleMap") || "{}");
     if (cached && typeof cached === "object" && Object.keys(cached).length) {
       return cached;
     }
-  } catch { }
+  } catch {}
 
-  // axiosInstance usually already injects Authorization
   try {
     const res = await axiosInstance.get("/profile-role/", {
       params: { skip: 0, limit: 100, order_by: "hierarchy_level" },
@@ -85,9 +88,7 @@ async function loadRoleMap() {
   }
 }
 
-// Compute effective role using names (preferred) or id→name from roleMap
 function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
-  // 1) Try role name from JWT
   try {
     if (accessToken) {
       const d = jwtDecode(accessToken) || {};
@@ -101,7 +102,6 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
       const r1 = canonRole(jwtRole);
       if (r1) return r1;
 
-      // 2) Try role id from JWT → map
       const jwtRoleId =
         d.role_id ?? d.user?.role_id ?? d.profile_role?.id ?? null;
       if (jwtRoleId != null) {
@@ -109,9 +109,8 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
         if (mapped) return mapped;
       }
     }
-  } catch { }
+  } catch {}
 
-  // 3) Fallback to user_info (name first, then id→map)
   if (userInfo) {
     const uiRole =
       userInfo.role_name ||
@@ -137,29 +136,15 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
   return "";
 }
 
-// --- add near top (helpers) ---
 const normalizePhoneIN = (raw) => {
   if (!raw) return null;
   let s = String(raw).trim();
-
-  // keep only + and digits
   s = s.replace(/[^\d+]/g, "");
-
-  // already E.164-ish
   if (s.startsWith("+")) return s;
-
-  // strip leading zeros
   s = s.replace(/^0+/, "");
-
-  // "91xxxxxxxxxx" -> "+91xxxxxxxxxx"
   if (s.length === 12 && s.startsWith("91")) return `+${s}`;
-
-  // 10-digit local -> "+91"
   if (s.length === 10) return `+91${s}`;
-
-  // fallback: if it doesn't start with '+', prefix +91
   if (!s.startsWith("+")) return `+91${s}`;
-
   return s;
 };
 
@@ -170,14 +155,11 @@ function useRoleKey() {
     let alive = true;
     (async () => {
       try {
-        // 1) Fast path: cookie set by LoginPage
         const ck = Cookies.get("role_key");
         if (ck) {
           if (alive) setRoleKey(canonRole(ck));
           return;
         }
-
-        // 2) Build from cookies + dynamic role map
         const roleMap = await loadRoleMap();
         const token = Cookies.get("access_token");
         const uiRaw = Cookies.get("user_info");
@@ -199,11 +181,10 @@ function useIsSuperAdmin() {
   return roleKey === "SUPERADMIN";
 }
 
-
 const Lead = () => {
   const { id } = useParams();
   const { hasPermission } = usePermissions();
-  const isSuperAdmin = useIsSuperAdmin(); // <-- use this to show Branch ONLY for SUPERADMIN
+  const isSuperAdmin = useIsSuperAdmin();
 
   const [isOpenPayment, setIsOpenPayment] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
@@ -236,9 +217,8 @@ const Lead = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const [branchNameMap, setBranchNameMap] = useState({}); // { 1: "Main Branch", ... }
+  const [branchNameMap, setBranchNameMap] = useState({});
 
-  // === NewLeadsTable-style modal state ===
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
@@ -259,10 +239,8 @@ const Lead = () => {
     setDocOpen(true);
   };
 
-  // fetch guard (StrictMode)
   const didInit = useRef(false);
 
-  // --- add inside the Lead component ---
   const handleCallClick = async () => {
     try {
       const raw = currentLead?.mobile || currentLead?.phone || currentLead?.contact_number;
@@ -272,7 +250,6 @@ const Lead = () => {
         return ErrorHandling({ defaultError: "Mobile number not found for this lead." });
       }
 
-      // IMPORTANT: send as form-urlencoded (backend expects Form(...))
       await axiosInstance.post(
         "/vbc/call",
         { to_number: toNumber },
@@ -281,9 +258,7 @@ const Lead = () => {
         }
       );
 
-
       toast.success(`Calling ${toNumber}`);
-      // optional: open your confirm modal to mark called
       setIsOpenSource(true);
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Failed to place call" });
@@ -297,7 +272,7 @@ const Lead = () => {
       const response = await axiosInstance(config);
       return response.data;
     } catch (err) {
-      throw err
+      throw err;
     }
   };
 
@@ -331,9 +306,6 @@ const Lead = () => {
       });
       toast.success("KYC initiated successfully!");
     } catch (err) {
-      // toast.error(
-      //   "Failed to initiate KYC: " +
-      //   (err.response?.data?.detail || err.message)
       ErrorHandling({ error: err, defaultError: "Failed to initiate KYC:" });
     } finally {
       setKycLoading(false);
@@ -402,7 +374,6 @@ const Lead = () => {
         }))
       );
 
-      // Build branch name map
       const rawBranches = Array.isArray(branchesRes?.data)
         ? branchesRes.data
         : Array.isArray(branchesRes?.items)
@@ -434,7 +405,7 @@ const Lead = () => {
           updateData.dob = updateData.dob && new Date(updateData.dob).toISOString().split("T")[0];
         }
       } catch {
-        updateData.dob = null
+        updateData.dob = null;
       }
       if (respName === "ft") {
         if (!updateData.ft_from_date || !updateData.ft_to_date) {
@@ -490,7 +461,7 @@ const Lead = () => {
       toast.success("Lead updated successfully!");
       setError(null);
     } catch (err) {
-      console.error("err : ", err)
+      console.error("err : ", err);
       setError(err);
       ErrorHandling({ error: err, defaultError: "Error updating lead" });
     } finally {
@@ -536,7 +507,7 @@ const Lead = () => {
   const getResponseNameById = (rid) => {
     const match = leadResponses.find((r) => r.value === rid || r.id === rid);
     return match?.label?.toLowerCase?.() ?? match?.name?.toLowerCase?.() ?? "";
-  };
+    };
 
   const dmyToYmd = (dmy) => {
     if (!dmy) return "";
@@ -550,8 +521,6 @@ const Lead = () => {
     return `${dd}-${mm}-${yyyy}`;
   };
 
-
-  // ---- Inline Edit buttons mimic NewLeadsTable ----
   const handleEditFTInline = () => {
     const ymdFrom = currentLead?.ft_from_date
       ? dmyToYmd(currentLead.ft_from_date)
@@ -627,47 +596,61 @@ const Lead = () => {
     return <ErrorState error={error} onRetry={fetchCurrentLead} />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className="min-h-screen"
+      style={{ background: "var(--theme-page-bg)", color: "var(--theme-text)" }}
+    >
       <div className="mx-2 px-4 py-6">
-        <LeadHeader currentLead={currentLead} />
+        <div style={{ color: "var(--theme-text)" }}>
+          <LeadHeader currentLead={currentLead} />
+        </div>
 
         {/* === Compact Meta Info Bar (Assigned To + Branch) === */}
         {currentLead && (
           <div className="mb-4">
             <div className="flex flex-wrap items-center gap-2">
               {/* Assigned To */}
-              <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50">
-                  <UserCheck size={14} className="text-indigo-600" />
+              <div
+                className="group inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs shadow-sm"
+                style={{
+                  border: `1px solid var(--theme-border)`,
+                  background: "var(--theme-card-bg)",
+                  color: "var(--theme-text)",
+                }}
+              >
+                <span
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full"
+                  style={{ background: "color-mix(in srgb, var(--theme-primary) 12%, transparent)" }}
+                >
+                  <UserCheck size={14} style={{ color: "var(--theme-primary)" }} />
                 </span>
-                <span className="font-medium text-slate-900">Assigned</span>
-                <span className="text-slate-400">•</span>
+                <span className="font-medium" style={{ color: "var(--theme-text)" }}>
+                  Assigned
+                </span>
+                <span style={{ color: "var(--theme-muted)" }}>•</span>
 
                 {(() => {
                   const assignedName =
-                    currentLead?.assigned_user?.name ||
-                    null; // prefer name from API
+                    currentLead?.assigned_user?.name || null;
                   const assignedCode =
                     currentLead?.assigned_user?.employee_code ||
                     currentLead?.assigned_to_user ||
                     null;
 
                   if (!assignedName && !assignedCode) {
-                    return <span>—</span>;
+                    return <span style={{ color: "var(--theme-muted)" }}>—</span>;
                   }
 
                   return (
                     <span
                       className="truncate max-w-[160px] sm:max-w-[220px]"
-                      title={
-                        assignedName ||
-                        assignedCode ||
-                        "—"
-                      }
+                      title={assignedName || assignedCode || "—"}
                     >
-                      {assignedName || assignedCode}
+                      <span style={{ color: "var(--theme-text)" }}>
+                        {assignedName || assignedCode}
+                      </span>
                       {assignedCode ? (
-                        <span className="text-slate-500"> ({assignedCode})</span>
+                        <span style={{ color: "var(--theme-muted)" }}> ({assignedCode})</span>
                       ) : null}
                     </span>
                   );
@@ -676,24 +659,36 @@ const Lead = () => {
 
               {/* Branch — SHOW ONLY TO SUPERADMIN */}
               {isSuperAdmin && (
-                <div className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs text-slate-700 shadow-sm hover:border-slate-300">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50">
-                    <Building size={14} className="text-emerald-600" />
+                <div
+                  className="group inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs shadow-sm"
+                  style={{
+                    border: `1px solid var(--theme-border)`,
+                    background: "var(--theme-card-bg)",
+                    color: "var(--theme-text)",
+                  }}
+                >
+                  <span
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full"
+                    style={{ background: "color-mix(in srgb, var(--theme-success) 12%, transparent)" }}
+                  >
+                    <Building size={14} style={{ color: "var(--theme-success)" }} />
                   </span>
-                  <span className="font-medium text-slate-900">Branch</span>
-                  <span className="text-slate-400">•</span>
+                  <span className="font-medium" style={{ color: "var(--theme-text)" }}>
+                    Branch
+                  </span>
+                  <span style={{ color: "var(--theme-muted)" }}>•</span>
                   <span
                     className="truncate max-w-[160px] sm:max-w-[220px]"
                     title={
                       branchNameMap[currentLead?.branch_id] ||
-                      (currentLead?.branch_id
-                        ? `#${currentLead.branch_id}`
-                        : "—")
+                      (currentLead?.branch_id ? `#${currentLead.branch_id}` : "—")
                     }
                   >
-                    {branchNameMap[currentLead?.branch_id] || "—"}
+                    <span style={{ color: "var(--theme-text)" }}>
+                      {branchNameMap[currentLead?.branch_id] || "—"}
+                    </span>
                     {currentLead?.branch_id ? (
-                      <span className="text-slate-500">
+                      <span style={{ color: "var(--theme-muted)" }}>
                         {" "}
                         (#{currentLead.branch_id})
                       </span>
@@ -711,8 +706,14 @@ const Lead = () => {
 
             if (respName === "ft") {
               return (
-                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm flex items-center justify-between">
-                  <div className="text-blue-900">
+                <div
+                  className="mb-4 rounded-lg p-4 text-sm flex items-center justify-between"
+                  style={{
+                    border: `1px solid var(--theme-border)`,
+                    background: "color-mix(in srgb, var(--theme-primary) 10%, var(--theme-card-bg))",
+                  }}
+                >
+                  <div style={{ color: "var(--theme-text)" }}>
                     <div className="font-semibold">Follow-Through (FT)</div>
                     <div className="mt-1">
                       <span className="font-medium">From:</span>{" "}
@@ -723,7 +724,11 @@ const Lead = () => {
                   </div>
                   <button
                     onClick={handleEditFTInline}
-                    className="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                    className="px-3 py-1.5 text-xs rounded"
+                    style={{
+                      background: "var(--theme-primary)",
+                      color: "white",
+                    }}
                   >
                     Edit FT Dates
                   </button>
@@ -733,8 +738,14 @@ const Lead = () => {
 
             if (respName === "call back" || respName === "callback") {
               return (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm flex items-center justify-between">
-                  <div className="text-amber-900">
+                <div
+                  className="mb-4 rounded-lg p-4 text-sm flex items-center justify-between"
+                  style={{
+                    border: `1px solid var(--theme-border)`,
+                    background: "color-mix(in srgb, var(--theme-warning) 12%, var(--theme-card-bg))",
+                  }}
+                >
+                  <div style={{ color: "var(--theme-text)" }}>
                     <div className="font-semibold">Call Back</div>
                     <div className="mt-1">
                       <span className="font-medium">Call Back Date:</span>{" "}
@@ -743,7 +754,11 @@ const Lead = () => {
                   </div>
                   <button
                     onClick={handleEditCallbackInline}
-                    className="px-3 py-1.5 text-xs rounded bg-amber-600 text-white hover:bg-amber-700"
+                    className="px-3 py-1.5 text-xs rounded"
+                    style={{
+                      background: "var(--theme-warning)",
+                      color: "white",
+                    }}
                   >
                     Edit Call Back
                   </button>
@@ -755,17 +770,26 @@ const Lead = () => {
           })()}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div
+            className="rounded-lg p-4 mb-6"
+            style={{
+              background: "color-mix(in srgb, var(--theme-error) 10%, var(--theme-card-bg))",
+              border: `1px solid var(--theme-error)`,
+              color: "var(--theme-text)",
+            }}
+          >
             <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <p>
+              <AlertCircle className="h-5 w-5" style={{ color: "var(--theme-error)" }} />
+              <p className="ml-2">
                 {typeof error === "string"
                   ? error
                   : error?.message || JSON.stringify(error)}
               </p>
               <button
                 onClick={() => setError(null)}
-                className="ml-auto text-red-400 hover:text-red-600"
+                className="ml-auto"
+                title="Dismiss"
+                style={{ color: "var(--theme-error)" }}
               >
                 <X size={16} />
               </button>
@@ -773,22 +797,25 @@ const Lead = () => {
           </div>
         )}
 
-        <ActionButtons
-          currentLead={currentLead}
-          loading={loading}
-          onRefresh={fetchCurrentLead}
-          onKycClick={fetchKycUserDetails}
-          kycLoading={kycLoading}
-          onPaymentClick={() => setIsOpenPayment(true)}
-          onSendEmailClick={() => setIsEmailModalOpen(true)}
-          onSendSMSClick={() => setIsSMSModalOpen(true)}
-          onViewEmailLogsClick={() => setIsEmailModalOpen(true)}
-          onRecordingsClick={() => setIsRecordingsModalOpen(true)}
-          onViewKycClick={handleViewKyc}
-          onDocumentsClick={() => setIsDocumentsModalOpen(true)}
-          onInvoiceClick={() => setIsInvoiceModalOpen(true)}
-          onShareClick={() => setIsShareModalOpen(true)}
-        />
+        <div style={{ color: "var(--theme-text)" }}>
+          <ActionButtons
+            currentLead={currentLead}
+            loading={loading}
+            onRefresh={fetchCurrentLead}
+            onKycClick={fetchKycUserDetails}
+            kycLoading={kycLoading}
+            onPaymentClick={() => setIsOpenPayment(true)}
+            onSendEmailClick={() => setIsEmailModalOpen(true)}
+            onSendSMSClick={() => setIsSMSModalOpen(true)}
+            onViewEmailLogsClick={() => setIsEmailModalOpen(true)}
+            onRecordingsClick={() => setIsRecordingsModalOpen(true)}
+            onViewKycClick={handleViewKyc}
+            onDocumentsClick={() => setIsDocumentsModalOpen(true)}
+            onInvoiceClick={() => setIsInvoiceModalOpen(true)}
+            onShareClick={() => setIsShareModalOpen(true)}
+            // (buttons inside should already be themed or neutral; if needed, add style overrides there)
+          />
+        </div>
 
         {/* Toolbar */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -796,8 +823,9 @@ const Lead = () => {
             {hasPermission("lead_story_view") && (
               <button
                 onClick={() => setIsStoryModalOpen(true)}
-                className="w-10 h-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow"
+                className="w-10 h-10 rounded-full flex items-center justify-center shadow"
                 title="View Story"
+                style={{ background: "var(--theme-primary)", color: "white" }}
               >
                 <BookOpenText size={20} />
               </button>
@@ -805,8 +833,12 @@ const Lead = () => {
 
             <button
               onClick={() => setIsCommentsModalOpen(true)}
-              className="w-10 h-10 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow"
+              className="w-10 h-10 rounded-full flex items-center justify-center shadow"
               title="Comments"
+              style={{
+                background: "var(--theme-info, #12b0b9)",
+                color: "white",
+              }}
             >
               <MessageCircle size={20} />
             </button>
@@ -817,21 +849,23 @@ const Lead = () => {
               onClick={() => (isEditMode ? handleCancelEdit() : setIsEditMode(true))}
               disabled={!currentLead}
               aria-pressed={isEditMode}
-              className={`group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${isEditMode
-                ? "border-red-300 text-red-700 bg-white hover:bg-red-50 hover:border-red-400 focus:ring-2 focus:ring-red-200"
-                : "border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className="group relative inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                border: `1px solid var(--theme-border)`,
+                background: "var(--theme-card-bg)",
+                color: isEditMode ? "var(--theme-error)" : "var(--theme-text)",
+              }}
             >
               <span
-                className={`h-2 w-2 rounded-full ${isEditMode ? "bg-red-500" : "bg-indigo-500"
-                  }`}
+                className="h-2 w-2 rounded-full"
+                style={{ background: isEditMode ? "var(--theme-error)" : "var(--theme-primary)" }}
                 aria-hidden="true"
               />
               {isEditMode ? "Back" : "Edit"}
               {isEditMode ? (
-                <X size={16} className="opacity-80 group-hover:opacity-100" />
+                <X size={16} />
               ) : (
-                <Edit3 size={16} className="opacity-80 group-hover:opacity-100" />
+                <Edit3 size={16} />
               )}
             </button>
           </div>
@@ -847,26 +881,28 @@ const Lead = () => {
         )}
 
         {/* Lead Details */}
-        <ViewAndEditLead
-          currentLead={currentLead}
-          editFormData={editFormData}
-          setEditFormData={setEditFormData}
-          isEditMode={isEditMode}
-          leadSources={leadSources}
-          leadResponses={leadResponses}
-          handleFileChange={handleFileChange}
-          aadharFrontPreview={aadharFrontPreview}
-          aadharBackPreview={aadharBackPreview}
-          panPicPreview={panPicPreview}
-          setAadharFront={setAadharFront}
-          setAadharBack={setAadharBack}
-          setPanPic={setPanPic}
-          setAadharFrontPreview={setAadharFrontPreview}
-          setAadharBackPreview={setAadharBackPreview}
-          setPanPicPreview={setPanPicPreview}
-          handleLeadResponseChange={handleResponseChange}
-          fetchCurrentLead={fetchCurrentLead}
-        />
+        <div style={{ color: "var(--theme-text)" }}>
+          <ViewAndEditLead
+            currentLead={currentLead}
+            editFormData={editFormData}
+            setEditFormData={setEditFormData}
+            isEditMode={isEditMode}
+            leadSources={leadSources}
+            leadResponses={leadResponses}
+            handleFileChange={handleFileChange}
+            aadharFrontPreview={aadharFrontPreview}
+            aadharBackPreview={aadharBackPreview}
+            panPicPreview={panPicPreview}
+            setAadharFront={setAadharFront}
+            setAadharBack={setAadharBack}
+            setPanPic={setPanPic}
+            setAadharFrontPreview={setAadharFrontPreview}
+            setAadharBackPreview={setAadharBackPreview}
+            setPanPicPreview={setPanPicPreview}
+            handleLeadResponseChange={handleResponseChange}
+            fetchCurrentLead={fetchCurrentLead}
+          />
+        </div>
 
         {/* Save */}
         {isEditMode && (
@@ -874,7 +910,11 @@ const Lead = () => {
             <button
               onClick={handleUpdateLead}
               disabled={loading}
-              className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              style={{
+                background: "var(--theme-success)",
+                color: "white",
+              }}
             >
               <Save size={16} className="mr-2" />
               {loading ? "Saving..." : "Save"}
@@ -913,7 +953,6 @@ const Lead = () => {
           open={isKycModalOpen}
           onClose={() => setIsKycModalOpen(false)}
           url={kycUrl}
-          // Only SUPERADMIN can download
           canDownload={isSuperAdmin}
         />
 
@@ -975,7 +1014,7 @@ const Lead = () => {
               const ftResponseId = ftResp?.value ?? ftResp?.id;
               await axiosInstance.patch(`/leads/${currentLead.id}/response`, {
                 lead_response_id: ftResponseId,
-                ...payload, // <- includes ft_service_type + segment
+                ...payload,
               });
               toast.success("FT response saved!");
               setShowFTModal(false);
@@ -989,7 +1028,7 @@ const Lead = () => {
           toDate={ftToDate}
           setFromDate={setFTFromDate}
           setToDate={setFTToDate}
-          serviceType={ftServiceType}             // <- pass through
+          serviceType={ftServiceType}
           setServiceType={setFTServiceType}
           serviceTypeOptions={["Call", "SMS"]}
         />

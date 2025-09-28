@@ -1,9 +1,17 @@
+// RecordingsModal.jsx
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/Lead/ID/Modal";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
-import { AudioLines, RefreshCcw, Trash2, Upload, ExternalLink, X } from "lucide-react";
+import {
+  AudioLines,
+  RefreshCcw,
+  Trash2,
+  Upload,
+  ExternalLink,
+  X,
+} from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
@@ -26,7 +34,7 @@ export default function RecordingsModal({ open, onClose, leadId }) {
 
   const fileRef = useRef(null);
 
-  // 👇 strict-mode guard + abort support
+  // strict-mode guard + abort support
   const didFetchRef = useRef(false);
   const abortRef = useRef(null);
 
@@ -45,9 +53,8 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       });
       setList(Array.isArray(data) ? data : []);
     } catch (err) {
-      if (err?.name === "CanceledError") return; // ignore cancel
+      if (err?.name === "CanceledError") return;
       if (err?.response?.status === 404) {
-        // treat as empty; no toast spam
         setList([]);
       } else {
         ErrorHandling({ defaultError: "Failed to load recordings" });
@@ -68,7 +75,6 @@ export default function RecordingsModal({ open, onClose, leadId }) {
     };
   }, [open, leadId]);
 
-  // reset guard when modal closes
   useEffect(() => {
     if (!open) didFetchRef.current = false;
   }, [open]);
@@ -121,20 +127,36 @@ export default function RecordingsModal({ open, onClose, leadId }) {
       onClose={onClose}
       title=""
       contentClassName="w-[56rem] max-w-3xl"
-      actions={[
-
-      ]}
+      actions={[]}
     >
       <div className="shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 text-white px-5 py-4">
+        {/* Header */}
+        <div
+          className="px-5 py-4"
+          style={{
+            background:
+              "linear-gradient(90deg, color-mix(in srgb, var(--theme-primary,#4f46e5) 85%, transparent), color-mix(in srgb, var(--theme-primary,#4f46e5) 65%, #fff 10%))",
+            color: "var(--theme-primary-contrast, #ffffff)",
+          }}
+        >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+              <span
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl backdrop-blur"
+                style={{ background: "rgba(255,255,255,.15)" }}
+              >
                 <AudioLines size={18} />
               </span>
               <div>
-                <h3 className="text-base font-semibold leading-5">Call Recordings</h3>
-                <p className="text-xs/5 text-white/80">Play, upload and delete recordings</p>
+                <h3 className="text-base font-semibold leading-5">
+                  Call Recordings
+                </h3>
+                <p
+                  className="text-xs/5"
+                  style={{ color: "color-mix(in srgb, #fff 80%, transparent)" }}
+                >
+                  Play, upload and delete recordings
+                </p>
               </div>
             </div>
 
@@ -142,15 +164,29 @@ export default function RecordingsModal({ open, onClose, leadId }) {
               <button
                 onClick={fetchRecordings}
                 disabled={loading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/30 bg-white/10 text-white hover:bg-white/20"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl"
                 title="Refresh"
+                style={{
+                  border: "1px solid rgba(255,255,255,.3)",
+                  background: "rgba(255,255,255,.10)",
+                  color: "var(--theme-primary-contrast,#fff)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,.20)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,.10)";
+                }}
               >
                 <RefreshCcw size={16} />
                 Refresh
               </button>
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-600 transition-colors"
+                className="transition-colors"
+                aria-label="Close"
+                title="Close"
+                style={{ color: "var(--theme-primary-contrast, #fff)" }}
               >
                 <X size={20} />
               </button>
@@ -158,19 +194,58 @@ export default function RecordingsModal({ open, onClose, leadId }) {
           </div>
         </div>
 
-        <div className="p-5 bg-white space-y-4">
-          {hasPermission?.("lead_recording_upload") && (
-            <div className="rounded-xl border border-gray-200 p-2 bg-gray-50">
+        {/* Body */}
+        <div
+          className="p-5 space-y-4"
+          style={{ background: "var(--theme-card-bg, #ffffff)" }}
+        >
+          {canUpload && (
+            <div
+              className="rounded-xl p-2"
+              style={{
+                background: "var(--theme-panel, #f8fafc)",
+                border: "1px solid var(--theme-border, #e5e7eb)",
+              }}
+            >
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm text-gray-700">
-                  Upload a new audio file (max 3MB). Supported: <code>.mp3, .wav, .m4a</code>
+                <div
+                  className="text-sm"
+                  style={{ color: "var(--theme-text, #0f172a)" }}
+                >
+                  Upload a new audio file (max 3MB). Supported:{" "}
+                  <code
+                    style={{
+                      color: "var(--theme-text-muted,#64748b)",
+                      background: "transparent",
+                    }}
+                  >
+                    .mp3, .wav, .m4a
+                  </code>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input ref={fileRef} type="file" accept="audio/*" onChange={handleUpload} className="hidden" />
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleUpload}
+                    className="hidden"
+                  />
                   <button
                     onClick={() => fileRef.current?.click()}
                     disabled={uploading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl disabled:opacity-50"
+                    style={{
+                      background: "var(--theme-primary,#4f46e5)",
+                      color: "var(--theme-primary-contrast,#fff)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "var(--theme-primary-hover,#4338ca)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background =
+                        "var(--theme-primary,#4f46e5)";
+                    }}
                   >
                     <Upload size={16} />
                     {uploading ? "Uploading..." : "Upload Recording"}
@@ -180,43 +255,107 @@ export default function RecordingsModal({ open, onClose, leadId }) {
             </div>
           )}
 
-          <div className="border rounded-xl overflow-hidden">
-            <div className="max-h-96 overflow-y-auto divide-y">
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              border: "1px solid var(--theme-border,#e5e7eb)",
+              background: "var(--theme-card-bg,#fff)",
+            }}
+          >
+            <div className="max-h-96 overflow-y-auto">
               {loading ? (
                 <div className="p-6 space-y-3">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="animate-pulse h-5 bg-gray-200 rounded" />
+                    <div
+                      key={i}
+                      className="animate-pulse h-5 rounded"
+                      style={{ background: "var(--theme-panel,#f1f5f9)" }}
+                    />
                   ))}
                 </div>
               ) : list.length === 0 ? (
-                <div className="p-6 text-gray-600">No recordings found.</div>
+                <div
+                  className="p-6"
+                  style={{ color: "var(--theme-text-muted,#64748b)" }}
+                >
+                  No recordings found.
+                </div>
               ) : (
-                list.map((rec) => {
+                list.map((rec, idx) => {
                   const src = toAbsoluteUrl(rec.recording_url);
-                  const when = rec.created_at ? new Date(rec.created_at).toLocaleString() : "-";
+                  const when = rec.created_at
+                    ? new Date(rec.created_at).toLocaleString()
+                    : "-";
                   return (
-                    <div key={rec.id} className="p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div
+                      key={rec.id}
+                      className="p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                      style={{
+                        borderTop:
+                          idx === 0
+                            ? "none"
+                            : "1px solid var(--theme-border,#e5e7eb)",
+                        background: "var(--theme-card-bg,#fff)",
+                      }}
+                    >
                       <div className="md:w-3/4">
-                        <audio controls className="w-full">
+                        <audio
+                          controls
+                          className="w-full"
+                          style={{
+                            background: "var(--theme-card-bg,#fff)",
+                            color: "var(--theme-text,#0f172a)",
+                          }}
+                        >
                           <source src={src} type="audio/mpeg" />
                         </audio>
-                        <div className="mt-1 text-xs text-gray-500">Uploaded: {when}</div>
+                        <div
+                          className="mt-1 text-xs"
+                          style={{ color: "var(--theme-text-muted,#64748b)" }}
+                        >
+                          Uploaded: {when}
+                        </div>
                       </div>
+
                       <div className="flex items-center gap-2">
                         <a
                           href={src}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg"
                           title="Open in new tab"
+                          style={{
+                            border: "1px solid var(--theme-border,#e5e7eb)",
+                            color: "var(--theme-text,#0f172a)",
+                            background: "var(--theme-card-bg,#fff)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background =
+                              "var(--theme-panel,#f8fafc)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background =
+                              "var(--theme-card-bg,#fff)";
+                          }}
                         >
                           <ExternalLink size={16} /> Open
                         </a>
+
                         <button
                           onClick={() => handleDelete(rec.id)}
                           disabled={deletingId === rec.id}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg disabled:opacity-50"
                           title="Delete"
+                          style={{
+                            background: "var(--theme-danger,#dc2626)",
+                            color: "#fff",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.filter = "brightness(0.95)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.filter = "none";
+                          }}
                         >
                           <Trash2 size={16} />
                           {deletingId === rec.id ? "Deleting..." : "Delete"}

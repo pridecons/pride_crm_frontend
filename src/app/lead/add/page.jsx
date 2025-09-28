@@ -9,20 +9,80 @@ import { ErrorHandling } from '@/helper/ErrorHandling'
 
 /* ---------- UI helpers ---------- */
 const cn = (...x) => x.filter(Boolean).join(' ')
-const baseInput = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 disabled:bg-gray-100"
+
+// Reusable style helpers pulling from theme CSS variables
+const ringFocusStyle = {
+  // make Tailwind focus ring use themed color
+  '--tw-ring-color': 'var(--theme-components-input-focus, var(--theme-inputFocus))',
+};
+
+const inputSurfaceStyle = {
+  background: 'var(--theme-components-input-bg, var(--theme-inputBackground))',
+  color: 'var(--theme-components-card-text, var(--theme-text))',
+  borderColor: 'var(--theme-components-input-border, var(--theme-inputBorder))',
+};
+
+const cardSurfaceStyle = {
+  background: 'var(--theme-components-card-bg, var(--theme-cardBackground))',
+  color: 'var(--theme-components-card-text, var(--theme-text))',
+  borderColor: 'var(--theme-components-card-border, var(--theme-border))',
+  boxShadow: '0 6px 20px var(--theme-shadow, rgba(0,0,0,0.1))',
+};
+
+const headerBarStyle = {
+  background: 'var(--theme-components-header-bg, var(--theme-header))',
+  color: 'var(--theme-components-header-text, var(--theme-headerText))',
+  borderBottom: '1px solid var(--theme-components-card-border, var(--theme-border))',
+};
+
+const primaryBtnStyle = {
+  background: 'var(--theme-components-button-primary-bg, var(--theme-primary))',
+  color: 'var(--theme-components-button-primary-text, #fff)',
+  borderColor: 'var(--theme-components-button-primary-border, transparent)',
+  boxShadow: '0 6px 16px var(--theme-components-button-primary-shadow, rgba(0,0,0,0.15))',
+};
+
+const secondaryBtnStyle = {
+  background: 'var(--theme-components-button-secondary-bg, var(--theme-surface))',
+  color: 'var(--theme-components-button-secondary-text, var(--theme-text))',
+  borderColor: 'var(--theme-components-button-secondary-border, var(--theme-border))',
+  boxShadow: '0 4px 12px var(--theme-components-button-secondary-shadow, rgba(0,0,0,0.06))',
+};
+
+const warningBtnStyle = {
+  background: 'var(--theme-warning, #f59e0b)',
+  color: '#fff',
+  borderColor: 'transparent',
+  boxShadow: '0 6px 16px rgba(245, 158, 11, 0.25)',
+};
+
+const baseInput = "w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 disabled:bg-transparent"
 const baseSelect = baseInput
 const baseArea = baseInput + " min-h-[88px]"
 
 const Field = ({ label, children, className }) => (
   <div className={cn("space-y-1", className)}>
-    <label className="text-sm font-medium text-gray-700">{label}</label>
+    <label
+      className="text-sm font-medium"
+      style={{ color: 'var(--theme-text, #1e293b)' }}
+    >
+      {label}
+    </label>
     {children}
   </div>
 )
 
 const Section = ({ title, children, className }) => (
-  <section className={cn("overflow-hidden rounded-2xl border bg-white shadow-sm", className)}>
-    <div className="bg-gradient-to-r from-blue-700 to-slate-700 text-white px-4 py-2.5 text-sm font-semibold tracking-wide">{title}</div>
+  <section
+    className={cn("overflow-hidden rounded-2xl border shadow-sm", className)}
+    style={cardSurfaceStyle}
+  >
+    <div
+      className="px-4 py-2.5 text-sm font-semibold tracking-wide"
+      style={headerBarStyle}
+    >
+      {title}
+    </div>
     <div className="p-4">{children}</div>
   </section>
 )
@@ -312,8 +372,18 @@ export default function LeadForm() {
       {/* Title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Create Lead</h1>
-          <p className="text-sm text-gray-500">Capture client details, verify PAN, and upload KYC in one go.</p>
+          <h1
+            className="text-xl font-semibold"
+            style={{ color: 'var(--theme-text, #1e293b)' }}
+          >
+            Create Lead
+          </h1>
+          <p
+            className="text-sm"
+            style={{ color: 'var(--theme-textSecondary, #64748b)' }}
+          >
+            Capture client details, verify PAN, and upload KYC in one go.
+          </p>
         </div>
       </div>
 
@@ -325,8 +395,9 @@ export default function LeadForm() {
               name="pan_type"
               value={formData.pan_type}
               onChange={handleChange}
-              disabled={panLocked.pan_type}   // was panVerified
+              disabled={panLocked.pan_type}
               className={baseSelect}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
             >
               <option value="">Select PAN Type</option>
               <option value="Person">Individual</option>
@@ -341,16 +412,18 @@ export default function LeadForm() {
                 value={formData.pan}
                 onChange={handleChange}
                 placeholder="ABCDE1234F"
-                disabled={panLocked.pan}       // was panVerified
+                disabled={panLocked.pan}
                 maxLength={10}
                 pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$"
                 className={baseInput}
+                style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
               />
-              {panLocked.pan ? (                 // was panVerified ? (...)
+              {panLocked.pan ? (
                 <button
                   type="button"
                   onClick={handleEditPan}
-                  className="rounded-lg bg-amber-500 px-3 text-white text-sm hover:bg-amber-600"
+                  className="rounded-lg px-3 text-sm hover:opacity-90"
+                  style={warningBtnStyle}
                 >
                   Edit
                 </button>
@@ -359,7 +432,8 @@ export default function LeadForm() {
                   type="button"
                   onClick={handleVerifyPan}
                   disabled={loadingPan}
-                  className="rounded-lg bg-blue-700 px-3 text-white text-sm hover:bg-blue-800"
+                  className="rounded-lg px-3 text-sm hover:opacity-90 disabled:opacity-60"
+                  style={primaryBtnStyle}
                 >
                   {loadingPan ? 'Verifying…' : 'Verify'}
                 </button>
@@ -368,39 +442,118 @@ export default function LeadForm() {
           </Field>
 
           <Field label="Full Name">
-            <input name="full_name" value={formData.full_name} onChange={handleChange} disabled={panLocked.full_name} placeholder="Full Name" className={baseInput} />
+            <input
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleChange}
+              disabled={panLocked.full_name}
+              placeholder="Full Name"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Father Name">
-            <input name="father_name" value={formData.father_name} onChange={handleChange} disabled={panLocked.father_name} placeholder="Father Name" className={baseInput} />
+            <input
+              name="father_name"
+              value={formData.father_name}
+              onChange={handleChange}
+              disabled={panLocked.father_name}
+              placeholder="Father Name"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Mobile">
-            <input name="mobile" inputMode="numeric" value={formData.mobile} onChange={handleChange} required maxLength={10} pattern="^[0-9]{10}$" placeholder="10-digit mobile" className={baseInput} />
+            <input
+              name="mobile"
+              inputMode="numeric"
+              value={formData.mobile}
+              onChange={handleChange}
+              required
+              maxLength={10}
+              pattern="^[0-9]{10}$"
+              placeholder="10-digit mobile"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Email">
-            <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="email@example.com" className={baseInput} />
+            <input
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="email@example.com"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Alternate Mobile">
-            <input name="alternate_mobile" inputMode="numeric" value={formData.alternate_mobile} onChange={handleChange} maxLength={10} pattern="^[0-9]{10}$" placeholder="Optional" className={baseInput} />
+            <input
+              name="alternate_mobile"
+              inputMode="numeric"
+              value={formData.alternate_mobile}
+              onChange={handleChange}
+              maxLength={10}
+              pattern="^[0-9]{10}$"
+              placeholder="Optional"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Date of Birth (DD-MM-YYYY)">
-            <input name="dob" value={formData.dob} onChange={handleChange} placeholder="DD-MM-YYYY" pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$" disabled={panLocked.dob} className={baseInput} />
+            <input
+              name="dob"
+              value={formData.dob}
+              onChange={handleChange}
+              placeholder="DD-MM-YYYY"
+              pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+              disabled={panLocked.dob}
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Aadhaar Number">
-            <input name="aadhaar" inputMode="numeric" value={formData.aadhaar} onChange={handleChange} maxLength={12} pattern="^[0-9]{12}$" placeholder="12-digit Aadhaar" disabled={panLocked.aadhaar} className={baseInput} />
+            <input
+              name="aadhaar"
+              inputMode="numeric"
+              value={formData.aadhaar}
+              onChange={handleChange}
+              maxLength={12}
+              pattern="^[0-9]{12}$"
+              placeholder="12-digit Aadhaar"
+              disabled={panLocked.aadhaar}
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="GST Number">
-            <input name="gstin" value={formData.gstin} onChange={handleChange} placeholder="Optional" className={baseInput} />
+            <input
+              name="gstin"
+              value={formData.gstin}
+              onChange={handleChange}
+              placeholder="Optional"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Occupation">
-            <input name="occupation" value={formData.occupation} onChange={handleChange} placeholder="Profession" className={baseInput} />
+            <input
+              name="occupation"
+              value={formData.occupation}
+              onChange={handleChange}
+              placeholder="Profession"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="State" className="relative">
@@ -416,17 +569,27 @@ export default function LeadForm() {
                 else if (e.key === 'Enter') { e.preventDefault(); const pick = filteredStates[stateIndex]; if (pick) selectState(pick.state_name) }
               }}
               placeholder="Start typing… e.g. MADHYA PRADESH"
-              className={cn(baseInput, "bg-gray-50")}
+              className={cn(baseInput)}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
               autoComplete="off"
               disabled={panLocked.state}
             />
             {showStateList && filteredStates.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1 z-50 bg-white border rounded-md shadow max-h-60 overflow-auto">
+              <div
+                className="absolute left-0 right-0 mt-1 z-50 rounded-md border shadow max-h-60 overflow-auto"
+                style={cardSurfaceStyle}
+              >
                 {filteredStates.map((s, idx) => (
                   <button
                     type="button" key={s.code}
                     onMouseDown={(e) => { e.preventDefault(); selectState(s.state_name) }}
-                    className={cn("w-full text-left px-3 py-2 hover:bg-gray-100", idx === stateIndex && "bg-gray-100")}
+                    className={cn("w-full text-left px-3 py-2")}
+                    style={{
+                      background: idx === stateIndex
+                        ? 'color-mix(in oklab, var(--theme-primary, #3b82f6) 12%, transparent)'
+                        : 'transparent',
+                      color: 'var(--theme-text, #1e293b)',
+                    }}
                   >
                     {s.state_name}
                   </button>
@@ -436,19 +599,52 @@ export default function LeadForm() {
           </Field>
 
           <Field label="District">
-            <input name="district" value={formData.district} onChange={handleChange} placeholder="District" className={baseInput} disabled={panLocked.district} />
+            <input
+              name="district"
+              value={formData.district}
+              onChange={handleChange}
+              placeholder="District"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+              disabled={panLocked.district}
+            />
           </Field>
 
           <Field label="City">
-            <input name="city" value={formData.city} onChange={handleChange} placeholder="City" className={cn(baseInput, "bg-gray-50")} disabled={panLocked.city} />
+            <input
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              placeholder="City"
+              className={cn(baseInput)}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+              disabled={panLocked.city}
+            />
           </Field>
 
           <Field label="Pin Code">
-            <input name="pincode" inputMode="numeric" value={formData.pincode} onChange={handleChange} placeholder="Pin Code" className={baseInput} disabled={panLocked.pincode} />
+            <input
+              name="pincode"
+              inputMode="numeric"
+              value={formData.pincode}
+              onChange={handleChange}
+              placeholder="Pin Code"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+              disabled={panLocked.pincode}
+            />
           </Field>
 
           <Field label="Address" className="md:col-span-2">
-            <textarea name="address" value={formData.address} onChange={handleChange} placeholder="Full address" className={baseArea} disabled={panLocked.address} />
+            <textarea
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="Full address"
+              className={baseArea}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+              disabled={panLocked.address}
+            />
           </Field>
         </div>
       </Section>
@@ -457,16 +653,52 @@ export default function LeadForm() {
       <Section title="Upload Documents">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="Aadhar Front">
-            <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAadharFront, setAadharFrontPreview)} className={baseInput} />
-            {aadharFrontPreview && <img src={aadharFrontPreview} alt="Aadhar Front" className="mt-2 h-28 w-36 object-cover rounded-lg border" />}
+            <input
+              type="file" accept="image/*"
+              onChange={(e) => handleFileChange(e, setAadharFront, setAadharFrontPreview)}
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
+            {aadharFrontPreview && (
+              <img
+                src={aadharFrontPreview}
+                alt="Aadhar Front"
+                className="mt-2 h-28 w-36 object-cover rounded-lg border"
+                style={{ borderColor: 'var(--theme-components-card-border, var(--theme-border))' }}
+              />
+            )}
           </Field>
           <Field label="Aadhar Back">
-            <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAadharBack, setAadharBackPreview)} className={baseInput} />
-            {aadharBackPreview && <img src={aadharBackPreview} alt="Aadhar Back" className="mt-2 h-28 w-36 object-cover rounded-lg border" />}
+            <input
+              type="file" accept="image/*"
+              onChange={(e) => handleFileChange(e, setAadharBack, setAadharBackPreview)}
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
+            {aadharBackPreview && (
+              <img
+                src={aadharBackPreview}
+                alt="Aadhar Back"
+                className="mt-2 h-28 w-36 object-cover rounded-lg border"
+                style={{ borderColor: 'var(--theme-components-card-border, var(--theme-border))' }}
+              />
+            )}
           </Field>
           <Field label="PAN Card">
-            <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setPanPic, setPanPicPreview)} className={baseInput} />
-            {panPicPreview && <img src={panPicPreview} alt="PAN Card" className="mt-2 h-28 w-36 object-cover rounded-lg border" />}
+            <input
+              type="file" accept="image/*"
+              onChange={(e) => handleFileChange(e, setPanPic, setPanPicPreview)}
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
+            {panPicPreview && (
+              <img
+                src={panPicPreview}
+                alt="PAN Card"
+                className="mt-2 h-28 w-36 object-cover rounded-lg border"
+                style={{ borderColor: 'var(--theme-components-card-border, var(--theme-border))' }}
+              />
+            )}
           </Field>
         </div>
       </Section>
@@ -481,11 +713,23 @@ export default function LeadForm() {
               onChange={(vals) => setFormData(p => ({ ...p, segment: vals }))}
               placeholder="Select segment(s)"
             />
-            <p className="mt-1 text-xs text-gray-500">You can choose multiple segments.</p>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: 'var(--theme-textSecondary, #64748b)' }}
+            >
+              You can choose multiple segments.
+            </p>
           </Field>
 
           <Field label="Experience">
-            <input name="experience" value={formData.experience} onChange={handleChange} placeholder="e.g. 2 years" className={baseInput} />
+            <input
+              name="experience"
+              value={formData.experience}
+              onChange={handleChange}
+              placeholder="e.g. 2 years"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Lead Response">
@@ -494,6 +738,7 @@ export default function LeadForm() {
               value={String(formData.lead_response_id ?? '')}
               onChange={handleChange}
               className={baseSelect}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
               required
             >
               <option value="">Select Response</option>
@@ -506,18 +751,40 @@ export default function LeadForm() {
           </Field>
 
           <Field label="Lead Source">
-            <select name="lead_source_id" value={String(formData.lead_source_id ?? '')} onChange={handleChange} className={baseSelect} required>
+            <select
+              name="lead_source_id"
+              value={String(formData.lead_source_id ?? '')}
+              onChange={handleChange}
+              className={baseSelect}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+              required
+            >
               <option value="">Select Source</option>
               {leadSources.map(s => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
             </select>
           </Field>
 
           <Field label="Call Back Date (DD-MM-YYYY)">
-            <input name="call_back_date" value={formData.call_back_date} onChange={handleChange} placeholder="DD-MM-YYYY" pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$" className={baseInput} />
+            <input
+              name="call_back_date"
+              value={formData.call_back_date}
+              onChange={handleChange}
+              placeholder="DD-MM-YYYY"
+              pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+              className={baseInput}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
 
           <Field label="Comment / Description" className="md:col-span-2">
-            <textarea name="comment" value={formData.comment} onChange={handleChange} placeholder="Notes for the team" className={baseArea} />
+            <textarea
+              name="comment"
+              value={formData.comment}
+              onChange={handleChange}
+              placeholder="Notes for the team"
+              className={baseArea}
+              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+            />
           </Field>
         </div>
       </Section>
@@ -528,9 +795,9 @@ export default function LeadForm() {
           type="submit"
           disabled={submitting}
           className={cn(
-            "w-full rounded-xl px-5 py-3 text-white text-sm font-semibold shadow-lg backdrop-blur",
-            submitting ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800"
+            "w-full rounded-xl px-5 py-3 text-sm font-semibold shadow-lg backdrop-blur hover:opacity-90 disabled:opacity-60"
           )}
+          style={primaryBtnStyle}
         >
           {submitting ? 'Saving…' : 'Save Lead'}
         </button>
@@ -540,9 +807,9 @@ export default function LeadForm() {
           type="submit"
           disabled={submitting}
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium text-white shadow-sm transition",
-            submitting ? "bg-gray-400" : "bg-blue-700 hover:bg-blue-800"
+            "inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-medium shadow-sm transition hover:opacity-90 disabled:opacity-60"
           )}
+          style={primaryBtnStyle}
         >
           {submitting ? 'Saving…' : 'Save Lead'}
         </button>

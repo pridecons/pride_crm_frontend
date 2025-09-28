@@ -42,7 +42,6 @@ export default function NewLeadsTable() {
   const [callBackLead, setCallBackLead] = useState(null);
   const [callBackDate, setCallBackDate] = useState("");
 
-  // 📌 assignment meta from /leads/assignments/my
   const [assignmentMeta, setAssignmentMeta] = useState({
     can_fetch_new: true,
     last_fetch_limit: null,
@@ -61,17 +60,15 @@ export default function NewLeadsTable() {
     setUserId(userInfo.employee_code || "Admin001");
   }, []);
 
-  // 1) On first render: check current assignments
   useEffect(() => {
     initLoad();
   }, []);
 
   const initLoad = async () => {
-    await fetchLeads();     // ← first call: /leads/assignments/my
+    await fetchLeads();
     fetchResponses();
   };
 
-  // GET /leads/assignments/my
   const fetchLeads = async () => {
     setLoading(true);
     try {
@@ -101,7 +98,6 @@ export default function NewLeadsTable() {
     }
   };
 
-  // Shows "local@….." if email is long; keeps full value for title/hover
   const shortEmail = (email) => {
     const raw = String(email || "").trim();
     if (!raw) return "";
@@ -145,20 +141,17 @@ export default function NewLeadsTable() {
 
   const handleUpdateName = async (lead, nameRaw) => {
     const name = (nameRaw || "").trim();
-
-    // add-only: if empty, or if name already existed, just exit
     if (!name) {
       setEditId(null);
       return;
     }
-    if ((lead.full_name || "").trim()) {   // already had a name -> do nothing
+    if ((lead.full_name || "").trim()) {
       setEditId(null);
       return;
     }
 
     try {
       await axiosInstance.put(`/leads/${lead.id}`, { ...lead, full_name: name });
-      // update UI immediately
       setLeads((prev) =>
         prev.map((l) => (l.id === lead.id ? { ...l, full_name: name } : l))
       );
@@ -170,8 +163,6 @@ export default function NewLeadsTable() {
     }
   };
 
-
-  // 🔁 Response change (FT / Callback / others)
   const handleResponseChange = async (lead, newResponseId) => {
     const selected = responses.find((r) => r.id == newResponseId);
     const responseName = selected?.name?.toLowerCase();
@@ -218,21 +209,26 @@ export default function NewLeadsTable() {
               autoFocus
               defaultValue={lead.full_name || ""}
               onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur(); // save on Enter
+                if (e.key === "Enter") e.currentTarget.blur();
               }}
-              onBlur={(e) => handleUpdateName(lead, e.currentTarget.value)} // <-- pass typed value
-              className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400 text-sm"
+              onBlur={(e) => handleUpdateName(lead, e.currentTarget.value)}
+              className="w-full px-2 py-1 rounded text-sm focus-visible:outline-none"
+              style={{
+                background: "var(--theme-components-input-bg)",
+                color: "var(--theme-components-input-text)",
+                border: "1px solid var(--theme-components-input-border)",
+                boxShadow: "0 0 0 0 var(--theme-components-input-focus)",
+              }}
             />
           ) : hasName ? (
-            // already has a name -> not clickable, no API
-            <span className="truncate text-gray-900" title={lead.full_name}>
+            <span className="truncate" style={{ color: "var(--theme-text)" }} title={lead.full_name}>
               {lead.full_name}
             </span>
           ) : (
-            // empty -> add-only affordance (click to start)
             <span
               onClick={() => setEditId(lead.id)}
-              className="truncate cursor-pointer text-gray-400 italic"
+              className="truncate cursor-pointer italic"
+              style={{ color: "var(--theme-textSecondary)" }}
               title="Click to add name"
             >
               — Click to add name
@@ -243,7 +239,6 @@ export default function NewLeadsTable() {
 
       { header: "Mobile", render: (lead) => lead.mobile },
 
-      // 🔹 NEW: Email column
       {
         header: "Email",
         align: "left",
@@ -251,12 +246,13 @@ export default function NewLeadsTable() {
           lead.email ? (
             <span
               className="inline-block max-w-[180px] md:max-w-[240px] truncate align-middle"
-              title={lead.email}                     // <-- hover shows full email
+              title={lead.email}
+              style={{ color: "var(--theme-text)" }}
             >
               {shortEmail(lead.email)}
             </span>
           ) : (
-            <span className="text-gray-400">—</span>
+            <span style={{ color: "var(--theme-textSecondary)" }}>—</span>
           ),
       },
 
@@ -264,7 +260,12 @@ export default function NewLeadsTable() {
         header: "Response",
         render: (lead) => (
           <select
-            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-2 py-1 rounded text-sm focus-visible:outline-none"
+            style={{
+              background: "var(--theme-components-input-bg)",
+              color: "var(--theme-components-input-text)",
+              border: "1px solid var(--theme-components-input-border)",
+            }}
             value={lead.lead_response_id || ""}
             onChange={(e) => handleResponseChange(lead, e.target.value)}
           >
@@ -277,23 +278,29 @@ export default function NewLeadsTable() {
           </select>
         ),
       },
-      {
-  header: "Source",
-  render: (lead) => {
-    const label =
-      (lead.lead_source_name || "").trim() ||
-      (lead.lead_source_id ? `ID ${lead.lead_source_id}` : "N/A");
 
-    return (
-      <span
-        className="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs font-medium rounded"
-        title={label}
-      >
-        {label}
-      </span>
-    );
-  },
-},
+      {
+        header: "Source",
+        render: (lead) => {
+          const label =
+            (lead.lead_source_name || "").trim() ||
+            (lead.lead_source_id ? `ID ${lead.lead_source_id}` : "N/A");
+          return (
+            <span
+              className="inline-block px-2 py-1 text-xs font-medium rounded border tag"
+              title={label}
+              style={{
+                background: "var(--theme-components-tag-success-bg)",
+                color: "var(--theme-components-tag-success-text)",
+                borderColor: "var(--theme-components-tag-success-border)",
+              }}
+            >
+              {label}
+            </span>
+          );
+        },
+      },
+
       {
         header: "Actions",
         render: (lead) => (
@@ -303,12 +310,10 @@ export default function NewLeadsTable() {
             <button
               onClick={() => router.push(`/lead/${lead.id}`)}
               title="Edit lead"
-              className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+              className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+              style={{ color: "var(--page-primary)" }}
             >
-              <Pencil
-                size={22}
-                className="transition-transform duration-150 group-hover:scale-110"
-              />
+              <Pencil size={22} className="transition-transform duration-150 group-hover:scale-110" />
             </button>
 
             <button
@@ -317,12 +322,10 @@ export default function NewLeadsTable() {
                 setIsStoryModalOpen(true);
               }}
               title="View Story"
-              className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-purple-500 hover:text-purple-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+              className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+              style={{ color: "var(--page-accent)" }}
             >
-              <BookOpenText
-                size={22}
-                className="transition-transform duration-150 group-hover:scale-110"
-              />
+              <BookOpenText size={22} className="transition-transform duration-150 group-hover:scale-110" />
             </button>
 
             <button
@@ -331,16 +334,14 @@ export default function NewLeadsTable() {
                 setIsCommentModalOpen(true);
               }}
               title="Comments"
-              className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-teal-500 hover:text-teal-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+              className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
+              style={{ color: "var(--page-success)" }}
             >
-              <MessageCircle
-                size={22}
-                className="transition-transform duration-150 group-hover:scale-110"
-              />
+              <MessageCircle size={22} className="transition-transform duration-150 group-hover:scale-110" />
             </button>
           </div>
         ),
-      }
+      },
     ],
     [editId, responses, router]
   );
@@ -352,16 +353,25 @@ export default function NewLeadsTable() {
   );
 
   return (
-    <div className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200
-             p-4 overflow-hidden flex flex-col">
+    <div
+      className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200 p-4 overflow-hidden flex flex-col"
+      style={{ background: "transparent" }}
+    >
       {/* Assignment status bar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end mb-4">
         <button
-          onClick={() => setShowFetchModal(true)}   // ⬅️ open modal instead
+          onClick={() => setShowFetchModal(true)}
           disabled={loading}
-          className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg shadow transition
-      ${loading ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}
-    `}
+          className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg shadow btn-primary"
+          style={
+            loading
+              ? {
+                  background: "var(--theme-border)",
+                  color: "var(--theme-textSecondary)",
+                  cursor: "not-allowed",
+                }
+              : undefined
+          }
           title={
             assignmentMeta.can_fetch_new
               ? "Fetch new leads"
@@ -372,7 +382,7 @@ export default function NewLeadsTable() {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-200 mx-2 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 mx-2 overflow-hidden flex flex-col ui-card">
         <LeadsDataTable
           leads={paginatedLeads}
           loading={loading}
@@ -406,10 +416,9 @@ export default function NewLeadsTable() {
             const ftId = responses.find((r) => r.name.toLowerCase() === "ft")?.id;
             await axiosInstance.patch(`/leads/${ftLead.id}/response`, {
               lead_response_id: ftId,
-              ...payload, // <- includes ft_from_date, ft_to_date, segment, ft_service_type
+              ...payload,
             });
             toast.success("FT response saved!");
-            // optional: reflect in table immediately
             setLeads((prev) =>
               prev.map((l) =>
                 l.id === ftLead.id ? { ...l, lead_response_id: ftId, ...payload } : l
@@ -424,7 +433,7 @@ export default function NewLeadsTable() {
         toDate={ftToDate}
         setFromDate={setFTFromDate}
         setToDate={setFTToDate}
-        serviceType={ftServiceType}              // <- pass through
+        serviceType={ftServiceType}
         setServiceType={setFTServiceType}
         serviceTypeOptions={["CALL", "SMS"]}
       />
@@ -432,9 +441,7 @@ export default function NewLeadsTable() {
       <FetchLeadsModal
         open={showFetchModal}
         onClose={() => setShowFetchModal(false)}
-        onFetched={async (result) => {
-          // result.message / result.fetched_count / result.leads / result.usage
-          // Re-load assignments so new leads appear in your table
+        onFetched={async () => {
           await fetchLeads();
           setShowFetchModal(false);
         }}

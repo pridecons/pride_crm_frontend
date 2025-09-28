@@ -78,9 +78,19 @@ export default function UsersListPage() {
   const [page, setPage] = useState(1);     // 1-based
   const [limit, setLimit] = useState(10);  // page size to ask backend
   const [total, setTotal] = useState(0);   // backend total
+  const [usersTotal, setUsersTotal] = useState(0);  // <-- TOTAL users (for card)
+  const [activeTotal, setActiveTotal] = useState(0);
   const [skip, setSkip]   = useState(0);   // NEW
 const [pages, setPages] = useState(1);  
   const [loading, setLoading] = useState(false);
+  // NEW: keep all card numbers from the /users/ response here
+const [cards, setCards] = useState({
+  total_employee: 0,
+  active_employee: 0,
+  inactive_employee: 0,
+  branches: 0,
+  roles: 0,
+});
 
   const openAdd = () => {
     setModalUser(null);
@@ -159,6 +169,20 @@ const [pages, setPages] = useState(1);
       console.log("[users] fetch", params);
       const res = await axiosInstance.get("/users/", { params, signal });
 
+// pull cards from the same response (no extra API calls)
+const card = res?.data?.card || {};
+setCards((prev) => ({
+  ...prev,
+  total_employee: Number(card.total_employee) || 0,
+  active_employee: Number(card.active_employee) || 0,
+  inactive_employee: Number(card.inactive_employee) || 0,
+  branches: Number(card.branches) || 0,
+  roles: Number(card.roles) || 0,
+}));
+
+// OPTIONAL: if you also want to base usersTotal on the card block
+setUsersTotal(Number(card.total_employee) || (Number(res?.data?.pagination?.total) || list.length));
+
       // accept either {data, total, limit} or bare array fallback
       const list =
         Array.isArray(res?.data?.data) ? res.data.data :
@@ -177,6 +201,7 @@ const [pages, setPages] = useState(1);
  const apiPage  = apiLimit ? Math.floor(apiSkip / apiLimit) + 1 : 1;
 
  setTotal(apiTotal || list.length);
+ setUsersTotal(apiTotal || 0);
  setSkip(apiSkip);
  setLimit(apiLimit);
  setPages(apiPages);
@@ -189,7 +214,8 @@ const [pages, setPages] = useState(1);
       setLoading(false);
     }
   };
-// --- replace the 3-4 fetch effects with this single one ---
+
+
 useEffect(() => {
   if (!Object.keys(roleMap).length) return; // wait until roles loaded
 
@@ -276,7 +302,12 @@ useEffect(() => {
         </div>
 
         {/* Stats */}
-        <StatsCards users={users} branches={branches} roles={roles} />
+        <StatsCards
+  totalUsers={cards.total_employee}
+  activeUsers={cards.active_employee}
+  branchesCount={cards.branches || branches.length}
+  rolesCount={cards.roles || roles.length}
+/>
 
         {/* Filters */}
         <UserFilters

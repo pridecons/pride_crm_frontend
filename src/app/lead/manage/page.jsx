@@ -145,7 +145,7 @@ const LeadManage = () => {
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
-  const [sourcesList, setSourcesList] = useState([]);
+const [allSources, setAllSources] = useState([]);
   const [responsesList, setResponsesList] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -240,6 +240,8 @@ useEffect(() => {
 
       const allBranches = bRes.data || [];
       const allEmps = uRes?.data?.data || [];
+      const allSrc = Array.isArray(sRes.data) ? sRes.data : [];
+const allResp = Array.isArray(rRes.data) ? rRes.data : [];
       setAllEmployees(allEmps)
 
       if (isSuperAdmin) {
@@ -258,8 +260,8 @@ useEffect(() => {
       }
 
       if (!cancelled) {
-       setSourcesList(sRes.data || []);
-       setResponsesList(rRes.data || []);
+       setAllSources(allSrc);
+  setResponsesList(allResp);
      }
     } catch (err) {
       console.error("Failed to load filters", err);
@@ -376,9 +378,9 @@ useEffect(() => {
   }, [canViewCards]);
 
   /* ---------- name helpers ---------- */
-  const getSourceName = (id) =>
-    sourcesList.find((s) => String(s.id) === String(id))?.name ||
-    (id == null ? "—" : id);
+const getSourceName = (id) =>
+  (allSources.find((s) => String(s.id) === String(id))?.name) ||
+  (id == null ? "—" : id);
 
   const getResponseName = (id) =>
     responsesList.find((r) => String(r.id) === String(id))?.name ||
@@ -396,10 +398,43 @@ useEffect(() => {
 };
 
   /* ---------- options ---------- */
-  const sourceOptions = useMemo(
-    () => [{ value: "All", label: "All Sources" }, ...sourcesList.map((s) => ({ value: String(s.id), label: s.name }))],
-    [sourcesList]
-  );
+const sourcesScoped = useMemo(() => {
+  const list = Array.isArray(allSources) ? allSources : [];
+
+  // SUPERADMIN + "All Branches" → show ALL sources
+  if (isSuperAdmin && branchFilter === "All") {
+    // (optional) de-duplicate by name, then sort by name
+    const seen = new Set();
+    const dedup = [];
+    for (const s of list) {
+      const key = String(s?.name ?? "").trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      dedup.push(s);
+    }
+    return dedup.sort((a, b) =>
+      String(a?.name ?? "").localeCompare(String(b?.name ?? ""), undefined, { sensitivity: "base" })
+    );
+  }
+
+  // Non-SA (locked to own branch) OR SA with a specific branch tab
+  const selectedBranchId = !isSuperAdmin
+    ? branchId
+    : (branchFilter !== "All" ? branchFilter : null);
+
+  if (!selectedBranchId) return list; // safety fallback
+
+  return list.filter(s => String(s.branch_id) === String(selectedBranchId));
+}, [allSources, isSuperAdmin, branchId, branchFilter]);
+
+const sourceOptions = useMemo(
+  () => [
+    { value: "All", label: "All Sources" },
+    ...((sourcesScoped || []).map(s => ({ value: String(s.id), label: s.name })))
+  ],
+  [sourcesScoped]
+);
+
   const responseOptions = useMemo(
     () => [{ value: "All", label: "All Responses" }, ...responsesList.map((r) => ({ value: String(r.id), label: r.name }))],
     [responsesList]
@@ -430,6 +465,7 @@ useEffect(() => {
     setEmployeeFilter("All");
     setEmployeeQuery("");
     setShowEmpDrop(false);
+    setSourceFilter("All");
     prevBranchRef.current = branchFilter;
   }
 }, [branchFilter]);

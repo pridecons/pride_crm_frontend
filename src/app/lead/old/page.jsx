@@ -160,61 +160,61 @@ export default function OldLeadsTable() {
   };
 
   const didRunOnceDev = useRef(false);
-const doFetchLeads = useCallback(async () => {
-  setLoading(true);
-  try {
-    const dateApplied = !!((fromDate && fromDate.trim()) || (toDate && toDate.trim()));
+  const doFetchLeads = useCallback(async () => {
+    setLoading(true);
+    try {
+      const dateApplied = !!((fromDate && fromDate.trim()) || (toDate && toDate.trim()));
 
-    const params = {
-      skip: dateApplied ? 0 : (page - 1) * limit,
-      limit: dateApplied ? 1000 : limit,
-      view: viewType || "self",
-    };
-    if (searchQuery?.trim()) params.search = searchQuery.trim();
-    if (responseFilterId != null) params.response_id = responseFilterId;
-
-    const { data } = await axiosInstance.get("/old-leads/my-assigned", { params });
-    const all = data.assigned_old_leads || [];
-
-    if (!dateApplied) {
-      setLeads(all);
-      const serverTotal = data.count ?? data.total ?? 0;
-      setTotal(serverTotal);
-      const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
-      if (page > maxPages) setPage(maxPages);
-    } else {
-      const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
-      const f = (fromDate || "").trim();
-      const t = (toDate || "").trim();
-      const inRange = (d) => {
-        if (!f && !t) return true;
-        if (f && !t) return d === f;
-        if (!f && t) return d === t;
-        return d >= f && d <= t;
+      const params = {
+        skip: dateApplied ? 0 : (page - 1) * limit,
+        limit: dateApplied ? 1000 : limit,
+        view: viewType || "self",
       };
-      const filtered = all.filter((l) => inRange(day(l.response_changed_at)));
-      const start = (page - 1) * limit;
-      const end = start + limit;
-      setLeads(filtered.slice(start, end));
-      setTotal(filtered.length);
-      const maxPages = Math.max(1, Math.ceil(filtered.length / limit));
-      if (page > maxPages) setPage(maxPages);
-    }
-  } catch (error) {
-    ErrorHandling({ error, defaultError: "Failed to load leads" });
-  } finally {
-    setLoading(false);
-  }
-}, [axiosInstance, page, limit, viewType, searchQuery, responseFilterId, fromDate, toDate]);
+      if (searchQuery?.trim()) params.search = searchQuery.trim();
+      if (responseFilterId != null) params.response_id = responseFilterId;
 
-useEffect(() => {
-  // DEV-ONLY: skip the first run of the double-mount, run on the second
-  if (process.env.NODE_ENV === "development" && !didRunOnceDev.current) {
-    didRunOnceDev.current = true;
-    return;
-  }
-  doFetchLeads();
-}, [doFetchLeads]);
+      const { data } = await axiosInstance.get("/old-leads/my-assigned", { params });
+      const all = data.assigned_old_leads || [];
+
+      if (!dateApplied) {
+        setLeads(all);
+        const serverTotal = data.count ?? data.total ?? 0;
+        setTotal(serverTotal);
+        const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
+        if (page > maxPages) setPage(maxPages);
+      } else {
+        const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
+        const f = (fromDate || "").trim();
+        const t = (toDate || "").trim();
+        const inRange = (d) => {
+          if (!f && !t) return true;
+          if (f && !t) return d === f;
+          if (!f && t) return d === t;
+          return d >= f && d <= t;
+        };
+        const filtered = all.filter((l) => inRange(day(l.response_changed_at)));
+        const start = (page - 1) * limit;
+        const end = start + limit;
+        setLeads(filtered.slice(start, end));
+        setTotal(filtered.length);
+        const maxPages = Math.max(1, Math.ceil(filtered.length / limit));
+        if (page > maxPages) setPage(maxPages);
+      }
+    } catch (error) {
+      ErrorHandling({ error, defaultError: "Failed to load leads" });
+    } finally {
+      setLoading(false);
+    }
+  }, [axiosInstance, page, limit, viewType, searchQuery, responseFilterId, fromDate, toDate]);
+
+  useEffect(() => {
+    // DEV-ONLY: skip the first run of the double-mount, run on the second
+    if (process.env.NODE_ENV === "development" && !didRunOnceDev.current) {
+      didRunOnceDev.current = true;
+      return;
+    }
+    doFetchLeads();
+  }, [doFetchLeads]);
 
   const handleApply = () => {
     setApplied(true);
@@ -373,7 +373,8 @@ useEffect(() => {
     return normalize(ftToDate) < today;
   };
 
-  const columns = [
+  // 🔁 build columns dynamically so we can add "Assigned User" only in team view
+  const baseColumns = [
     {
       header: "Client Name",
       render: (lead) => {
@@ -385,18 +386,16 @@ useEffect(() => {
             autoFocus
             defaultValue={lead.full_name || ""}
             onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur(); // save on Enter
+              if (e.key === "Enter") e.currentTarget.blur();
             }}
-            onBlur={(e) => handleUpdateName(lead, e.currentTarget.value)} // <-- pass typed value
-            className="w-full px-2 py-1 border border-gray-300 rounded  focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
+            onBlur={(e) => handleUpdateName(lead, e.currentTarget.value)}
+            className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm"
           />
         ) : hasName ? (
-          // already has a name -> not clickable, no API
           <span className="truncate text-gray-900" title={lead.full_name}>
             {lead.full_name}
           </span>
         ) : (
-          // empty -> add-only affordance (click to start)
           <span
             onClick={() => setEditId(lead.id)}
             className="truncate cursor-pointer text-gray-400 italic"
@@ -409,6 +408,7 @@ useEffect(() => {
     },
 
     { header: "Mobile", render: (lead) => Show(lead.mobile) },
+
     {
       header: "Email",
       align: "left",
@@ -416,7 +416,7 @@ useEffect(() => {
         lead.email ? (
           <span
             className="inline-block max-w-[180px] md:max-w-[240px] truncate align-middle"
-            title={lead.email} // <-- hover shows full email
+            title={lead.email}
           >
             {shortEmail(lead.email)}
           </span>
@@ -432,12 +432,12 @@ useEffect(() => {
 
         const editFT = () => {
           setFTLead(lead);
-          setFTFromDate(
-            lead.ft_from_date?.split("-").reverse().join("-") || ""
-          );
+          setFTFromDate(lead.ft_from_date?.split("-").reverse().join("-") || "");
           setFTToDate(lead.ft_to_date?.split("-").reverse().join("-") || "");
+          setFTServiceType(lead.ft_service_type || "CALL");
           setShowFTModal(true);
         };
+
         const editCB = () => {
           setCallBackLead(lead);
           setCallBackDate(isoToDatetimeLocal(lead.call_back_date || ""));
@@ -447,18 +447,13 @@ useEffect(() => {
         if (respName === "ft") {
           return (
             <div className="flex flex-col gap-2 text-xs text-gray-700">
-              {/* top row: dates + Edit aligned */}
               <div className="inline-flex items-center gap-2 min-w-0">
-                <span className="shrink-0 text-[11px] text-gray-600">
-                  From:
-                </span>
+                <span className="shrink-0 text-[11px] text-gray-600">From:</span>
                 <span className="truncate font-medium text-gray-900">
                   {lead.ft_from_date || "N/A"}
                 </span>
 
-                <span className="shrink-0 text-[11px] text-gray-600 ml-3">
-                  To:
-                </span>
+                <span className="shrink-0 text-[11px] text-gray-600 ml-3">To:</span>
                 <span className="truncate font-medium text-gray-900">
                   {lead.ft_to_date || "N/A"}
                 </span>
@@ -472,7 +467,6 @@ useEffect(() => {
                 </button>
               </div>
 
-              {/* response dropdown */}
               <select
                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                 value={lead.lead_response_id || ""}
@@ -486,15 +480,10 @@ useEffect(() => {
                 ))}
               </select>
 
-              {/* status line */}
               <div
-                className={`italic ${
-                  isFTOver(lead.ft_to_date) ? "text-red-600" : "text-green-600"
-                }`}
+                className={`italic ${isFTOver(lead.ft_to_date) ? "text-red-600" : "text-green-600"}`}
               >
-                {isFTOver(lead.ft_to_date)
-                  ? "FT Over"
-                  : lead.comment || "FT assigned"}
+                {isFTOver(lead.ft_to_date) ? "FT Over" : lead.comment || "FT assigned"}
               </div>
             </div>
           );
@@ -503,17 +492,11 @@ useEffect(() => {
         if (respName === "call back" || respName === "callback") {
           return (
             <div className="flex flex-col gap-2 text-xs text-gray-700">
-              {/* top row */}
               <div className="inline-flex items-center gap-2 min-w-0">
-                <span className="shrink-0 text-[11px] text-gray-600">
-                  Date & Time:
-                </span>
-
+                <span className="shrink-0 text-[11px] text-gray-600">Date & Time:</span>
                 <time
                   className="truncate font-medium text-gray-900"
-                  title={
-                    lead.call_back_date ? toIST(lead.call_back_date) : "N/A"
-                  }
+                  title={lead.call_back_date ? toIST(lead.call_back_date) : "N/A"}
                 >
                   {lead.call_back_date ? toIST(lead.call_back_date) : "N/A"}
                 </time>
@@ -527,7 +510,6 @@ useEffect(() => {
                 </button>
               </div>
 
-              {/* response dropdown */}
               <select
                 className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                 value={lead.lead_response_id || ""}
@@ -560,6 +542,7 @@ useEffect(() => {
         );
       },
     },
+
     {
       header: "Source",
       render: (lead) => (
@@ -568,7 +551,43 @@ useEffect(() => {
         </span>
       ),
     },
-    {
+  ];
+
+  // 🆕 Assigned User column (shown only on "My Team" tab)
+  const assignedUserColumn = {
+    header: "Assigned",
+    render: (lead) => {
+      const a = lead.assigned_user || {};
+      const label =
+        (a.name && a.name.trim()) ||
+        (a.employee_code && a.employee_code.trim()) ||
+        (lead.assigned_to_user && String(lead.assigned_to_user).trim()) ||
+        "—";
+
+      const titleParts = [];
+      if (a.name) titleParts.push(a.name);
+      if (a.email) titleParts.push(a.email);
+      if (a.role) titleParts.push(a.role);
+      const title = titleParts.join(" • ");
+      const isEmpty = label === "—";
+      return (
+        <span className={`truncate ${isEmpty ? "text-gray-400" : "text-blue-500"}`} title={title || label}>
+          {label}
+        </span>
+      );
+    },
+  };
+
+  // 🎯 Final columns list (insert Assigned User after Email when in team view)
+  const columns = useMemo(() => {
+    const cols = [...baseColumns];
+    if (viewType === "team") {
+      // insert after Email column (index 2)
+      cols.splice(3, 0, assignedUserColumn);
+    }
+
+    // append Actions column at the end
+    cols.push({
       header: "Actions",
       render: (lead) => (
         <div className="flex gap-2">
@@ -579,10 +598,7 @@ useEffect(() => {
             title="Edit lead"
             className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-blue-500 hover:text-blue-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
           >
-            <Pencil
-              size={22}
-              className="transition-transform duration-150 group-hover:scale-110"
-            />
+            <Pencil size={22} className="transition-transform duration-150 group-hover:scale-110" />
           </button>
 
           <button
@@ -593,10 +609,7 @@ useEffect(() => {
             title="View Story"
             className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-purple-500 hover:text-purple-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
           >
-            <BookOpenText
-              size={22}
-              className="transition-transform duration-150 group-hover:scale-110"
-            />
+            <BookOpenText size={22} className="transition-transform duration-150 group-hover:scale-110" />
           </button>
 
           <button
@@ -607,15 +620,24 @@ useEffect(() => {
             title="Comments"
             className="group w-8 h-8 inline-flex items-center justify-center rounded-full text-teal-500 hover:text-teal-700 transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
           >
-            <MessageCircle
-              size={22}
-              className="transition-transform duration-150 group-hover:scale-110"
-            />
+            <MessageCircle size={22} className="transition-transform duration-150 group-hover:scale-110" />
           </button>
         </div>
       ),
-    },
-  ];
+    });
+
+    return cols;
+    // include deps used inside renderers
+  }, [
+    viewType,
+    responses,
+    sources,
+    editId,
+    ftFromDate,
+    ftToDate,
+    ftServiceType,
+    router,
+  ]);
 
   // const filteredLeads = leads.filter((lead) => {
   //   if (responseFilterId && lead.lead_response_id !== responseFilterId) return false;
@@ -656,11 +678,10 @@ useEffect(() => {
               onClick={() => setViewType("self")}
             >
               <p
-                className={`inline-block p-4 border-b-2 rounded-t-lg ${
-                  viewType === "self"
+                className={`inline-block p-4 border-b-2 rounded-t-lg ${viewType === "self"
                     ? "text-blue-600 border-b-2 border-blue-600 active dark:text-blue-500 dark:border-blue-500"
                     : "border-transparent hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
-                }`}
+                  }`}
               >
                 Self
               </p>
@@ -670,11 +691,10 @@ useEffect(() => {
               onClick={() => setViewType("team")}
             >
               <p
-                className={`inline-block p-4 border-b-2 rounded-t-lg ${
-                  viewType === "team"
+                className={`inline-block p-4 border-b-2 rounded-t-lg ${viewType === "team"
                     ? "text-blue-600 border-b-2 border-blue-600 active dark:text-blue-500 dark:border-blue-500"
                     : "border-transparent hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
-                }`}
+                  }`}
                 aria-current="page"
               >
                 My Team
@@ -740,31 +760,7 @@ useEffect(() => {
           {/* Divider */}
           <span className="hidden sm:block h-6 w-px bg-gray-200" />
 
-          {/* Actions */}
-          {applied ? (
-            <button
-              onClick={handleClear}
-              className={BTN_SOFT}
-              title="Clear dates"
-            >
-              <RotateCcw size={16} />
-              Clear
-            </button>
-          ) : fromDate || toDate ? (
-            <button
-              onClick={handleApply}
-              className={BTN_PRIMARY}
-              title="Apply date range"
-            >
-              <Filter size={16} />
-              Apply
-              {activeFilters > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs rounded-full bg-white/20">
-                  {activeFilters}
-                </span>
-              )}
-            </button>
-          ) : null}
+
         </div>
       </div>
 

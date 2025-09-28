@@ -45,6 +45,15 @@ const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
 const INPUT_CLS =
   "w-full h-11 px-3 border rounded-xl bg-white text-gray-900 placeholder-gray-400";
 
+  // Auto-insert dashes as DD-MM-YYYY while typing/pasting
+const formatDateInput = (value) => {
+  const d = String(value || "").replace(/\D/g, "").slice(0, 8); // keep 8 digits
+  if (!d) return "";
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}-${d.slice(2)}`;
+  return `${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4)}`;
+};
+
 const dmyToDate = (s) => {
   if (!s) return null;
   const [dd, mm, yyyy] = s.split("-").map((v) => parseInt(v, 10));
@@ -1452,35 +1461,56 @@ export default function UserModal({
                     Date of Joining (DD-MM-YYYY)
                   </label>
                   <DatePicker
-                    selected={dmyToDate(formData.date_of_joining)}
-                    onChange={(date) =>
-                      setFormData((p) => ({
-                        ...p,
-                        date_of_joining: dateToDMY(date),
-                      }))
-                    }
-                    dateFormat="dd-MM-yyyy"
-                    placeholderText="DD-MM-YYYY"
-                    className={INPUT_CLS}
-                    required
-                    showPopperArrow={false}
-                  />
+  selected={dmyToDate(formData.date_of_joining)}
+  value={formData.date_of_joining}                
+  onChange={(date) =>
+    setFormData((p) => ({ ...p, date_of_joining: dateToDMY(date) }))
+  }
+  onChangeRaw={(e) => {                            // keep without preventDefault
+    const v = formatDateInput(e.target.value);
+    setFormData((p) => ({ ...p, date_of_joining: v }));
+  }}
+  onPaste={(e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData("text");
+    const v = formatDateInput(text);
+    setFormData((p) => ({ ...p, date_of_joining: v }));
+  }}
+  dateFormat="dd-MM-yyyy"
+  placeholderText="DD-MM-YYYY"
+  className={INPUT_CLS}
+  required
+  showPopperArrow={false}
+/>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Date of Birth (DD-MM-YYYY)
                   </label>
                   <DatePicker
-                    selected={dmyToDate(formData.date_of_birth)}
-                    onChange={(date) => setFormData((p) => ({ ...p, date_of_birth: dateToDMY(date) }))}
-                    dateFormat="dd-MM-yyyy"
-                    placeholderText="DD-MM-YYYY"
-                    className={`${INPUT_CLS} ${panLocked.date_of_birth ? "opacity-80 pointer-events-none bg-gray-50" : ""}`}
-                    isClearable
-                    showPopperArrow={false}
-                    disabled={panLocked.date_of_birth}
-                    title={panLocked.date_of_birth ? "DOB is locked from PAN" : undefined}
-                  />
+  selected={dmyToDate(formData.date_of_birth)}
+  value={formData.date_of_birth}                   
+  onChange={(date) =>
+    setFormData((p) => ({ ...p, date_of_birth: dateToDMY(date) }))
+  }
+  onChangeRaw={(e) => {                            // keep without preventDefault
+    const v = formatDateInput(e.target.value);
+    setFormData((p) => ({ ...p, date_of_birth: v }));
+  }}
+  onPaste={(e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData("text");
+    const v = formatDateInput(text);
+    setFormData((p) => ({ ...p, date_of_birth: v }));
+  }}
+  dateFormat="dd-MM-yyyy"
+  placeholderText="DD-MM-YYYY"
+  className={`${INPUT_CLS} ${panLocked.date_of_birth ? "opacity-80 pointer-events-none bg-gray-50" : ""}`}
+  isClearable
+  showPopperArrow={false}
+  disabled={panLocked.date_of_birth}
+  title={panLocked.date_of_birth ? "DOB is locked from PAN" : undefined}
+/>
                 </div>
               </div>
 

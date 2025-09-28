@@ -239,49 +239,48 @@ export default function BulkUploadPage() {
   };
 
   // download error rows as CSV
-  const downloadErrorsAsCSV = () => {
-    if (!uploadResult?.errors?.length) return;
+const downloadErrorsAsCSV = () => {
+  const errs = Array.isArray(uploadResult?.errors) ? uploadResult.errors : [];
+  if (!errs.length) return;
 
-    const headers = [
-      "Row",
-      "Existing Lead ID",
-      "Name",
-      "Mobile",
-      "Email",
-      "City",
-      "Address",
-      "Segment",
-      "Occupation",
-      "Investment",
-      "Errors",
+  // Decide which keys we actually have (from the first error’s data)
+  const sampleData = errs.find(e => e?.data)?.data || {};
+  const presentKeys = ERROR_DATA_KEYS.filter(k => k in sampleData);
+
+  // CSV headers aligned to present keys
+  const headers = [
+    "Row",
+    "Existing Lead ID",
+    ...presentKeys.map(k => k.charAt(0).toUpperCase() + k.slice(1)), // e.g., Mobile, Email, Pan
+    "Errors",
+  ];
+
+  const rows = errs.map((err) => {
+    const dataArr = normalizeErrorData(err?.data, presentKeys);
+    const errText = Array.isArray(err?.errors) ? err.errors.join("; ") : (err?.errors ?? "");
+    return [
+      err?.row ?? "",
+      err?.existing_lead_id ?? "",
+      ...dataArr,          // SAFE: always an array
+      errText,
     ];
-    const rows = uploadResult.errors.map((err) => [
-      err.row,
-      err.existing_lead_id || "",
-      ...(err.data || []),
-      Array.isArray(err.errors) ? err.errors.join("; ") : err.errors || "",
-    ]);
+  });
 
-    const csvContent = [headers, ...rows]
-      .map((r) =>
-        r
-          .map((v) => {
-            if (v == null) return "";
-            const s = String(v).replace(/"/g, '""');
-            return s.includes(",") ? `"${s}"` : s;
-          })
-          .join(",")
-      )
-      .join("\r\n");
+  const csv = [
+    headers.map(csvEscape).join(","),
+    ...rows.map((r) => r.map(csvEscape).join(",")),
+  ].join("\r\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "duplicate_or_error_rows.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "duplicate_or_error_rows.csv";
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+};
 
   // column mapping meta (icons instead of emojis)
   const columnFields = [
@@ -294,6 +293,28 @@ export default function BulkUploadPage() {
     { name: "occupation_column", label: "Occupation Column", Icon: Briefcase },
     { name: "investment_column", label: "Investment Column", Icon: IndianRupee },
   ];
+
+  // ---- CSV helpers ----
+function csvEscape(val) {
+  if (val == null) return "";
+  const s = String(val).replace(/"/g, '""');
+  return /[",\r\n]/.test(s) ? `"${s}"` : s;
+}
+
+// Convert err.data into an array in a stable order.
+// Adjust "order" to include any keys your backend might send.
+const ERROR_DATA_KEYS = ["name", "mobile", "email", "city", "address", "segment", "occupation", "investment", "pan"];
+
+function normalizeErrorData(data, keys = ERROR_DATA_KEYS) {
+  if (Array.isArray(data)) return data;
+
+  if (data && typeof data === "object") {
+    // Map to requested keys order; if missing, put "".
+    return keys.map((k) => data[k] ?? "");
+  }
+
+  return []; // nothing usable
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
@@ -384,7 +405,7 @@ export default function BulkUploadPage() {
 (91) 98989 89898 97979 79797
 `}
                   rows={8}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                  className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder:text-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
                   required={mode === "paste"}
                 />
                 <div className="text-sm text-gray-700">

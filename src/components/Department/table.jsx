@@ -96,27 +96,30 @@ export default function DepartmentAccordion() {
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="w-full  mt-6">
-      {/* Action Buttons */}
-      <div className="flex justify-end mb-6 pr-3">
-        <div className="flex gap-3">
-          <button
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-medium shadow-lg"
-            onClick={() => setOpenAddDeptModal(true)}
-          >
-            <Building2 className="w-4 h-4" />
-            Add Department
-          </button>
-          <button
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-200 transition-all duration-200 font-medium shadow-lg"
-            onClick={() => {
-              setSelectedDept(departments[0] || null);
-              setOpenAddProfileModal(true);
-            }}
-          >
-            <Users className="w-4 h-4" />
-            Add Profile
-          </button>
+    <div className="w-full  mt-2">
+      {/* Action Bar (Sticky) */}
+      <div className="sticky top-16 z-40 left-0 right-0 bg-white border-b border-gray-200">
+        <div className="flex justify-end px-3 py-3">
+          <div className="flex gap-3">
+            <button
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:ring-4 focus:ring-blue-200 transition-all duration-200 font-medium shadow-lg"
+              onClick={() => setOpenAddDeptModal(true)}
+            >
+              <Building2 className="w-4 h-4" />
+              Add Department
+            </button>
+
+            <button
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 focus:ring-4 focus:ring-green-200 transition-all duration-200 font-medium shadow-lg"
+              onClick={() => {
+                setSelectedDept(departments[0] || null);
+                setOpenAddProfileModal(true);
+              }}
+            >
+              <Users className="w-4 h-4" />
+              Add Profile
+            </button>
+          </div>
         </div>
       </div>
 
@@ -162,11 +165,10 @@ export default function DepartmentAccordion() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      dept.is_active 
-                        ? "bg-green-100 text-green-700 border border-green-200" 
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${dept.is_active
+                        ? "bg-green-100 text-green-700 border border-green-200"
                         : "bg-red-100 text-red-700 border border-red-200"
-                    }`}>
+                      }`}>
                       {dept.is_active ? "Active" : "Inactive"}
                     </span>
                     <button
@@ -265,16 +267,14 @@ export default function DepartmentAccordion() {
                                         {/* Active badge */}
                                         <td className="px-6 py-4 text-center">
                                           <span
-                                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                                              profile.is_active
+                                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${profile.is_active
                                                 ? "bg-green-100 text-green-700 border border-green-200"
                                                 : "bg-red-100 text-red-700 border border-red-200"
-                                            }`}
+                                              }`}
                                           >
                                             <span
-                                              className={`h-1.5 w-1.5 rounded-full ${
-                                                profile.is_active ? "bg-green-500" : "bg-red-500"
-                                              }`}
+                                              className={`h-1.5 w-1.5 rounded-full ${profile.is_active ? "bg-green-500" : "bg-red-500"
+                                                }`}
                                             />
                                             {profile.is_active ? "Active" : "Inactive"}
                                           </span>
@@ -290,7 +290,7 @@ export default function DepartmentAccordion() {
                                         {/* Permissions as chips */}
                                         <td className="px-6 py-4">
                                           {Array.isArray(profile.default_permissions) &&
-                                          profile.default_permissions.length > 0 ? (
+                                            profile.default_permissions.length > 0 ? (
                                             <div className="flex flex-wrap gap-1 max-w-xs">
                                               {profile.default_permissions.slice(0, 3).map((perm, i) => (
                                                 <span

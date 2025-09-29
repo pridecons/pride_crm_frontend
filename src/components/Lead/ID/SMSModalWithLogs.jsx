@@ -110,10 +110,11 @@ export default function SMSModalWithLogs({
           : Array.isArray(data?.items)
           ? data.items
           : [];
-        setTemplates(
+       setTemplates(
           arr.map((t) => ({
             id: t.id,
-            label: t.title || t.name || `Template #${t.id}`,
+            label: t.title || `Template #${t.id}`,
+            body: t.template || "",  
           }))
         );
       } catch {
@@ -362,14 +363,20 @@ export default function SMSModalWithLogs({
                     {templates.length > 0 ? (
                       <select
                         value={templateId}
-                        onChange={(e) => setTemplateId(e.target.value)}
-                        className="w-full rounded-xl px-3 py-2 text-sm"
-                        style={{
-                          background: "var(--theme-card)",
-                          color: "var(--theme-text)",
-                          border: "1px solid var(--theme-border)",
-                          outline: "none",
-                        }}
+                        onChange={(e) => {
+                        const selectedId = e.target.value;
+                        setTemplateId(selectedId);
+
+                        const selectedTemplate = templates.find(
+                          (t) => String(t.id) === String(selectedId)
+                        );
+
+                        if (selectedTemplate?.body) {
+                          setMessageOverride(selectedTemplate.body);
+                        } else {
+                          setMessageOverride("");
+                        }
+                      }}
                         onFocus={(e) =>
                           (e.currentTarget.style.boxShadow =
                             "0 0 0 3px var(--theme-primary-soft)")
@@ -423,6 +430,7 @@ export default function SMSModalWithLogs({
                         color: "var(--theme-text)",
                         border: "1px solid var(--theme-border)",
                         outline: "none",
+                    
                       }}
                       onFocus={(e) =>
                         (e.currentTarget.style.boxShadow =
@@ -430,6 +438,7 @@ export default function SMSModalWithLogs({
                       }
                       onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                       placeholder="10-digit mobile"
+                      disabled  
                     />
                     <p className="text-xs mt-1" style={{ color: "var(--theme-muted)" }}>
                       Lead: {leadName || "-"}
@@ -451,13 +460,14 @@ export default function SMSModalWithLogs({
                       color: "var(--theme-text)",
                       border: "1px solid var(--theme-border)",
                       outline: "none",
-                    }}
+                      }}
                     onFocus={(e) =>
                       (e.currentTarget.style.boxShadow =
                         "0 0 0 3px var(--theme-primary-soft)")
                     }
                     onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                     placeholder="Leave empty to use the template body"
+                    disabled
                   />
                 </div>
 

@@ -15,6 +15,7 @@ import { ErrorHandling } from "@/helper/ErrorHandling";
 import ShowChatCount from "./chatting/ShowChatCount";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "@/context/ThemeContext";
+import { MiniLoader } from "./LoadingState";
 
 /* ------------ helpers ------------ */
 function hexToRgba(hex = "#000000", alpha = 1) {
@@ -509,10 +510,10 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
             <div className="relative">
               <img
-                src="/pride_logo_nobg.png"
+                src="/crm.png"
                 alt="Logo"
-                width={130}
-                height={55}
+                width={128}
+                height={53}
                 className="transition-transform duration-200"
                 onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.02)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
@@ -575,16 +576,23 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                     e.currentTarget.style.backgroundColor = themeConfig.inputBackground;
                   }}
                 />
-                {query && (
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 transition"
-                    onClick={() => { setQuery(''); setSuggestions([]); setOpen(false); setHighlight(-1); if (inputRef.current) inputRef.current.focus(); }}
-                    aria-label="Clear search"
-                    style={{ color: themeConfig.textSecondary }}
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+                {/* Right-side adornment: spinner when loading, otherwise clear button */}
+           {loading ? (
+             <div className="absolute right-3 top-1/2 -translate-y-1/2">
+               <MiniLoader />
+             </div>
+           ) : (
+             query && (
+               <button
+                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                 onClick={() => setQuery('')}
+                 aria-label="Clear search"
+                 style={{ color: themeConfig.textSecondary }}
+               >
+                 <X size={16} />
+               </button>
+             )
+           )}
 
                 {open && anchorRect && portalHostRef.current && (
                   <SearchOverlay
@@ -869,8 +877,13 @@ function SearchOverlay({
 
         {/* Body */}
         <div className="max-h-[65vh] overflow-y-auto">
-          {loading && (
-            <div className="p-6 text-sm" style={{ color: themeConfig.textSecondary }}>Searching…</div>
+          {loading && visibleLeads.length === 0 && (
+            <div className="py-10 flex items-center justify-center gap-3">
+              <MiniLoader />
+              <span className="text-sm" style={{ color: themeConfig.textSecondary }}>
+                Searching…
+              </span>
+            </div>
           )}
 
           {!loading && visibleLeads.length === 0 && (

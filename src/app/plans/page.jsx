@@ -381,17 +381,17 @@ export default function ServicesPage() {
                       {/* Price block */}
                       <div className="mb-5">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-bold text-[var(--theme-text)]">
+                          <span className="text-2xl font-bold text-[var(--theme-text)] rupee">
                             ₹{displayINR(finalPrice)}
                           </span>
                           {hasDiscount && (
-                            <span className="text-sm text-[var(--theme-text-muted)] line-through">
+                            <span className="text-sm text-[var(--theme-text-muted)] line-through rupee">
                               ₹{displayINR(srv.price)}
                             </span>
                           )}
                         </div>
                         {hasDiscount && (
-                          <p className="text-sm font-medium mt-1 text-[var(--theme-success)]">
+                          <p className="text-sm font-medium mt-1 text-[var(--theme-success)] rupee">
                             You save ₹{displayINR(youSave)}
                           </p>
                         )}

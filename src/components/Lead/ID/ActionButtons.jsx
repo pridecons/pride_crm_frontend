@@ -75,7 +75,7 @@ export function ActionButtons({
       {/* Payment */}
       <button
         onClick={onPaymentClick}
-        className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100`}
+        className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100 rupee`}
       >
         ₹ Payment
       </button>

@@ -14,6 +14,8 @@ import {
   CheckCircle,
   Building,
   Users,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -61,6 +63,13 @@ const toInt = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+// NEW: helpers for breakdown
+const getPendingFromBreakdown = (breakdown = []) =>
+  breakdown.find((x) => x?.response_id == null) || { total_leads: 0, percentage: 0 };
+
+const getNonPendingBreakdown = (breakdown = []) =>
+  (breakdown || []).filter((x) => x?.response_id != null);
+
 export default function LeadSourcesPage() {
   const { hasPermission } = usePermissions();
   const router = useRouter();
@@ -90,7 +99,6 @@ export default function LeadSourcesPage() {
   const isCreate = isCreateNew && !editingId;
 
   const showBranchColumn = isSuperAdmin;
-  const tableCols = showBranchColumn ? 6 : 5; // ID, Name, Desc, (Branch?), Fetch Configs, Actions
 
   /* --------------------------- load data --------------------------- */
   const fetchBranches = async () => {
@@ -617,11 +625,6 @@ export default function LeadSourcesPage() {
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {/* Basic Information */}
               <div className="rounded-xl p-6 border border-[var(--theme-border)] bg-[var(--theme-surface)]">
-                <h3 className="text-sm font-semibold text-[var(--theme-text)] mb-4 flex items-center gap-2">
-                  <Database className="w-4 h-4 text-[var(--theme-primary)]" />
-                  Basic Information
-                </h3>
-
                 <div className={`grid grid-cols-1 ${isSuperAdmin ? "md:grid-cols-2" : ""} gap-5`}>
                   <div>
                     <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
@@ -702,134 +705,188 @@ export default function LeadSourcesPage() {
         </div>
       </div>
 
-      {/* Sources Table */}
-      <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow overflow-x-auto border border-[var(--theme-border)]">
-        <table className="min-w-full divide-y divide-[var(--theme-border)]">
-          <thead className="sticky top-0 z-10 bg-[var(--theme-surface)]">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Source Name</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Description</th>
-              {showBranchColumn && (
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Branch</th>
-              )}
-              <th className="px-6 py-3 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Fetch Configs</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-[var(--theme-text-muted)] uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--theme-border)]">
-            {filteredSources.map((src) => {
-              const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
-              const fcPreview =
-                fc
-                  .map((x) => {
-                    const rr = roles.find((r) => r.id === x.role_id);
-                    return rr
-                      ? `${rr.name} (${x.per_request_limit}/${x.daily_call_limit})`
-                      : `#${x.role_id} (${x.per_request_limit}/${x.daily_call_limit})`;
-                  })
-                  .join(", ") || "—";
+      {/* Sources Accordion (replaces old table) */}
+      <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow border border-[var(--theme-border)] divide-y divide-[var(--theme-border)]">
+        {filteredSources.map((src) => {
+          const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
+          const fcPreview =
+            fc
+              .map((x) => {
+                const rr = roles.find((r) => r.id === x.role_id);
+                return rr
+                  ? `${rr.name} (${x.per_request_limit}/${x.daily_call_limit})`
+                  : `#${x.role_id} (${x.per_request_limit}/${x.daily_call_limit})`;
+              })
+              .join(", ") || "—";
 
-              return (
-                <tr key={src.id} className="hover:bg-[var(--theme-primary-softer)]">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-medium bg-[var(--theme-primary-softer)] text-[var(--theme-primary)]">
+          const breakdown = Array.isArray(src.response_breakdown) ? src.response_breakdown : [];
+          const pending = getPendingFromBreakdown(breakdown);
+          const nonPending = getNonPendingBreakdown(breakdown);
+
+          const branchLabel =
+            branchMap[Number(src.branch_id)] ||
+            src.branch_name ||
+            src?.branch?.name ||
+            (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
+
+          return (
+            <details key={src.id} className="group">
+              {/* Header */}
+              <summary className="list-none cursor-pointer px-6 py-4 hover:bg-[var(--theme-primary-softer)] transition flex items-center gap-4">
+                <div className="rounded-full p-1 bg-[var(--theme-primary-softer)] shrink-0">
+                  <Database className="w-4 h-4 text-[var(--theme-primary)]" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-[var(--theme-text)]">{src.name}</span>
+                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-primary-softer)] text-[var(--theme-primary)]">
                       #{src.id}
                     </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-full p-1 bg-[var(--theme-primary-softer)]">
-                        <Database className="w-4 h-4 text-[var(--theme-primary)]" />
-                      </div>
-                      <span className="font-medium text-[var(--theme-text)]">{src.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p
-                      className="text-sm text-[var(--theme-text-muted)] truncate max-w-xs"
-                      title={src.description}
-                    >
+                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+                      Total: {src.total_leads ?? 0}
+                    </span>
+                    {showBranchColumn && (
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)]">
+                        {branchLabel}
+                      </span>
+                    )}
+                    {pending?.total_leads > 0 && (
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                        Pending: {pending.total_leads}
+                      </span>
+                    )}
+                  </div>
+
+                  {src.description ? (
+                    <p className="text-sm text-[var(--theme-text-muted)] mt-0.5 line-clamp-1" title={src.description}>
                       {src.description}
                     </p>
-                  </td>
-                  {showBranchColumn && (
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        <div className="rounded-full p-1 bg-[var(--theme-surface)]">
-                          <Building className="w-3 h-3 text-[var(--theme-primary)]" />
-                        </div>
-                        <span className="text-sm text-[var(--theme-text)]">
-                          {branchMap[Number(src.branch_id)] ||
-                            src.branch_name ||
-                            src?.branch?.name ||
-                            (src.branch_id != null ? `Branch-${src.branch_id}` : "—")}
-                        </span>
-                      </div>
-                    </td>
-                  )}
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-[var(--theme-text)]" title={fcPreview}>
-                      {fc.length ? (
-                        <span className="inline-flex items-center gap-2">
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-                            {fc.length} role(s)
-                          </span>
-                          <span className="hidden xl:inline text-[var(--theme-text-muted)]">{fcPreview}</span>
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {hasPermission("edit_lead") && (
-                        <button
-                          onClick={() => handleEdit(src)}
-                          className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
-                        >
-                          <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
-                        </button>
-                      )}
-                      {hasPermission("delete_lead") && (
-                        <button
-                          onClick={() => handleDelete(src.id)}
-                          className="p-2 rounded hover:bg-[var(--theme-danger-soft)]"
-                        >
-                          <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                  ) : null}
 
-            {!loading && filteredSources.length === 0 && (
-              <tr>
-                <td colSpan={tableCols} className="px-6 py-12 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <Database className="w-12 h-12 text-[var(--theme-text-muted)]" />
-                    <p className="text-[var(--theme-text-muted)]">
-                      {searchTerm
-                        ? `No sources match "${searchTerm}".`
-                        : "No sources available."}
-                    </p>
+                  <div className="text-xs text-[var(--theme-text-muted)] mt-1" title={fcPreview}>
+                    {fc.length ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+                          {fc.length} role(s)
+                        </span>
+                        <span className="hidden xl:inline">{fcPreview}</span>
+                      </span>
+                    ) : (
+                      "No fetch configs"
+                    )}
                   </div>
-                </td>
-              </tr>
-            )}
+                </div>
 
-            {loading && (
-              <tr>
-                <td colSpan={tableCols} className="px-6 py-6 text-center text-[var(--theme-text-muted)]">
-                  Loading...
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                <div className="ml-2 flex items-center gap-1">
+                  {hasPermission("edit_lead") && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleEdit(src);
+                      }}
+                      className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
+                      title="Edit source"
+                    >
+                      <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
+                    </button>
+                  )}
+                  {hasPermission("delete_lead") && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(src.id);
+                      }}
+                      className="p-2 rounded hover:bg-[var(--theme-danger-soft)]"
+                      title="Delete source"
+                    >
+                      <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
+                    </button>
+                  )}
+
+                  {/* Chevron */}
+                  <ChevronRight className="w-4 h-4 text-[var(--theme-text-muted)] group-open:hidden" />
+                  <ChevronDown className="w-4 h-4 text-[var(--theme-text-muted)] hidden group-open:block" />
+                </div>
+              </summary>
+
+              {/* Panel */}
+              <div className="px-6 pb-6 pt-2 bg-[var(--theme-surface)] border-t border-[var(--theme-border)]">
+                {/* Response breakdown pills + bars */}
+                {/* Response breakdown pills + bars (exclude "No Response") */}
+{/* <div className="mb-4">
+  <h4 className="text-sm font-semibold text-[var(--theme-text)] mb-2">Response Breakdown</h4>
+
+  {nonPending.length === 0 ? (
+    <p className="text-sm text-[var(--theme-text-muted)]">
+      No responses yet (excluding pending).
+    </p>
+  ) : (
+    <div className="space-y-3">
+      {nonPending.map((b, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-primary-softer)] text-[var(--theme-primary)]">
+            {b.response_name}
+          </span>
+          <div className="flex-1 h-2 rounded bg-[var(--theme-border)] overflow-hidden">
+            <div
+              className="h-full bg-[var(--theme-primary)]/80"
+              style={{ width: `${Math.min(100, Number(b.percentage || 0))}%` }}
+            />
+          </div>
+          <span className="text-xs text-[var(--theme-text-muted)] w-28 text-right">
+            {b.total_leads} ({(Number(b.percentage) || 0).toFixed(1)}%)
+          </span>
+        </div>
+      ))}
+    </div>
+  )}
+</div> */}
+{/* Response Breakdown — plain text (3 per row), excludes "No Response" */}
+<div className="mb-4">
+  <h4 className="text-sm font-semibold text-[var(--theme-text)] mb-2">Response Breakdown</h4>
+
+  {nonPending.length === 0 ? (
+    <p className="text-sm text-[var(--theme-text-muted)]">No responses yet (excluding pending).</p>
+  ) : (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
+      {nonPending.map((b, i) => (
+        <div key={i} className="text-sm text-[var(--theme-text)]">
+          <span className="font-medium">{b.response_name}</span>
+          <span className="mx-1">-</span>
+          <span>{b.total_leads}</span>
+          <span className="text-[var(--theme-text-muted)]">
+            {" "}
+            ({(Number(b.percentage) || 0).toFixed(1)}%)
+          </span>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+              </div>
+            </details>
+          );
+        })}
+
+        {!loading && filteredSources.length === 0 && (
+          <div className="px-6 py-12 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <Database className="w-12 h-12 text-[var(--theme-text-muted)]" />
+              <p className="text-[var(--theme-text-muted)]">
+                {searchTerm ? `No sources match "${searchTerm}".` : "No sources available."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="px-6 py-6 text-center text-[var(--theme-text-muted)]">
+            Loading...
+          </div>
+        )}
       </div>
     </div>
   );

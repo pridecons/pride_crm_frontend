@@ -602,8 +602,8 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} themeConfig={themeConfig} />
               <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} themeConfig={themeConfig} />
-              <Card title="Today Payment" value={inr(data?.cards?.payments?.weekly_paid)} icon={<CalendarCheck className="h-5 w-5" />} themeConfig={themeConfig} />
-              <Card title="Running FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
+              <Card title="Running FT Leads" value={inr(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
+              <Card title="Total FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
             </div>
 
             <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
@@ -1369,8 +1369,8 @@ function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }
   if (!data) return <p className="text-center py-10" style={{ color: themeConfig.textSecondary }}>No lead data available.</p>;
 
   const ageData = [
-    { name: 'Fresh', value: N(data?.cards?.leads?.fresh_leads) },
-    { name: 'Old', value: N(data?.cards?.leads?.old_leads) },
+    { name: 'No Response', value: N(data?.cards?.leads?.fresh_leads) },
+    { name: 'Old Leads', value: N(data?.cards?.leads?.old_leads) },
   ];
 
   const outcomeData = (() => {

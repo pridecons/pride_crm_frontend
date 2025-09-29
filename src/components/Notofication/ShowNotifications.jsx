@@ -70,6 +70,25 @@ function buildHttpRoot(base) {
   }
 }
 
+function formatDateTimeDDMMYYYY(dt) {
+  try {
+    const d = new Date(dt);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+
+    let h = d.getHours();
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    const min = String(d.getMinutes()).padStart(2, "0");
+    const sec = String(d.getSeconds()).padStart(2, "0");
+
+    return `${dd}/${mm}/${yyyy} ${h}:${min}:${sec} ${ampm}`;
+  } catch {
+    return "";
+  }
+}
+
 function formatTime(dateLike) {
   try {
     var date = new Date(dateLike);
@@ -80,6 +99,17 @@ function formatTime(dateLike) {
     hours = hours % 12 || 12;
     return String(hours) + ":" + String(minutes) + " " + ampm;
   } catch (e) {
+    return "";
+  }
+}
+function formatDateDDMMYYYY(dt) {
+  try {
+    const d = new Date(dt);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  } catch {
     return "";
   }
 }
@@ -134,7 +164,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
     try {
       const stored = window.localStorage?.getItem(SOUND_PREF_KEY);
       if (stored === "0") setSoundEnabled(false);
-    } catch {}
+    } catch { }
     try {
       const el = new Audio(AUDIO_URL);
       el.preload = "auto";
@@ -154,9 +184,9 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
             p.then(() => {
               a.pause();
               a.currentTime = 0;
-            }).catch(() => {});
+            }).catch(() => { });
           }
-        } catch {}
+        } catch { }
       }
       window.removeEventListener("click", markInteraction);
       window.removeEventListener("keydown", markInteraction);
@@ -176,7 +206,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
     if (typeof window === "undefined") return;
     try {
       window.localStorage?.setItem(SOUND_PREF_KEY, soundEnabled ? "1" : "0");
-    } catch {}
+    } catch { }
   }, [soundEnabled]);
 
   function playSound() {
@@ -187,8 +217,8 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       el.pause();
       el.currentTime = 0;
       const p = el.play?.();
-      p?.catch(() => {});
-    } catch {}
+      p?.catch(() => { });
+    } catch { }
   }
 
   /* ---------------- message handler (WS/SSE/Poll reuse) ---------------- */
@@ -276,7 +306,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
   function stopSSE() {
     try {
       sseRef.current?.close?.();
-    } catch {}
+    } catch { }
     sseRef.current = null;
   }
   function stopPolling() {
@@ -301,7 +331,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       es.onmessage = (e) => {
         try {
           handleIncoming(JSON.parse(e.data));
-        } catch {}
+        } catch { }
       };
       es.onerror = () => {
         stopSSE();
@@ -329,7 +359,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
         if (Array.isArray(arr)) {
           for (const m of arr) handleIncoming(m);
         }
-      } catch {}
+      } catch { }
     }
 
     pollOnce(); // immediate
@@ -391,7 +421,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
           data?.type === "connection_confirmed" ||
           data?.type === "ping" ||
           data?.type === "pong"
-        ){
+        ) {
           return;
         } else if (data?.type === "rational") {
           // Keep for modal + show NEW badge until user opens modal
@@ -411,7 +441,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       socket.onerror = () => {
         try {
           socket.close();
-        } catch {}
+        } catch { }
       };
 
       socket.onclose = () => {
@@ -434,7 +464,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       allowReconnectRef.current = false;
       try {
         socketRef.current?.close();
-      } catch {}
+      } catch { }
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
@@ -698,21 +728,21 @@ function RationalModal({ open, onClose, wsRational, rationalUnread, onSeenRation
   // synthesize a top “NEW” card from wsRational (still show even if it’s no longer unread)
   const wsItem = wsRational
     ? {
-        id: "ws-" + (wsRational.id || wsRational.timestamp || Date.now()),
-        stock_name: wsRational.title || "Recommendation",
-        rational: wsRational.message || "",
-        status: "NEW",
-        recommendation_type: ["LIVE"],
-        entry_price: null,
-        stop_loss: null,
-        targets: null,
-        targets2: null,
-        targets3: null,
-        user_id: "system",
-        created_at: wsRational.timestamp || new Date().toISOString(),
-        pdf: null,
-        __is_ws: true,
-      }
+      id: "ws-" + (wsRational.id || wsRational.timestamp || Date.now()),
+      stock_name: wsRational.title || "Recommendation",
+      rational: wsRational.message || "",
+      status: "NEW",
+      recommendation_type: ["LIVE"],
+      entry_price: null,
+      stop_loss: null,
+      targets: null,
+      targets2: null,
+      targets3: null,
+      user_id: "system",
+      created_at: wsRational.timestamp || new Date().toISOString(),
+      pdf: null,
+      __is_ws: true,
+    }
     : null;
 
   const combinedList = wsItem ? [wsItem, ...list] : list;
@@ -778,60 +808,65 @@ function RationalModal({ open, onClose, wsRational, rationalUnread, onSeenRation
                   <li
                     key={r.id}
                     className={
-                      "border rounded-xl p-3 shadow-sm " +
+                      "relative border rounded-xl p-3 shadow-sm " +
                       (r.__is_ws ? "bg-amber-50 border-amber-200" : "bg-white")
                     }
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
-                            {r.stock_name || "—"}
-                          </p>
-                          {types.map((t, i) => (
-                            <Badge key={i} tone="purple">{t}</Badge>
-                          ))}
-                          <Badge tone={statusTone}>{status || "—"}</Badge>
-                          {r.__is_ws ? <Badge tone="amber">NEW</Badge> : null}
+                        {/* top row: name + type + OPEN + Entry  |  date (dd/mm/yyyy) */}
+                        {/* top row: name + type + OPEN + Entry  |  date+time (dd/mm/yyyy hh:mm:ss AM/PM) */}
+                        {/* top row: left content + absolute date/time on the right */}
+                        <div className="flex items-center gap-2 pr-24">
+                          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {r.stock_name || "—"}
+                            </p>
+                            {types.map((t, i) => (
+                              <Badge key={i} tone="purple">{t}</Badge>
+                            ))}
+                            <Badge tone={statusTone}>{status || "—"}</Badge>
+
+                            {/* Entry next to OPEN */}
+                            {r?.entry_price != null && r?.entry_price !== "" ? (
+                              <Badge tone="gray">Entry: {r.entry_price}</Badge>
+                            ) : null}
+
+                            {r.__is_ws ? <Badge tone="amber">NEW</Badge> : null}
+                          </div>
+
+                          {/* true top-right */}
+                          <span className="absolute right-3 top-3 text-[11px] text-gray-500 whitespace-nowrap">
+                            {r?.created_at ? formatDateTimeDDMMYYYY(r.created_at) : "—"}
+                          </span>
                         </div>
+
+
 
                         {r.rational ? (
                           <div className="mt-2 text-xs text-gray-700 whitespace-pre-wrap">
                             {r.rational}
                           </div>
-                        ) : 
-                                                <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[12px] text-gray-600">
-                          <p>
-                            <span className="text-gray-500">Entry:</span>{" "}
-                            <span className="font-medium">{r.entry_price ?? "—"}</span>
-                          </p>
-                          <p>
-                            <span className="text-gray-500">SL:</span>{" "}
-                            <span className="font-medium">{r.stop_loss ?? "—"}</span>
-                          </p>
-                          <p>
-                            <span className="text-gray-500">T1:</span>{" "}
-                            <span className="font-medium">{r.targets ?? "—"}</span>
-                          </p>
-                          <p>
-                            <span className="text-gray-500">T2:</span>{" "}
-                            <span className="font-medium">{r.targets2 ?? "—"}</span>
-                          </p>
-                          <p>
-                            <span className="text-gray-500">T3:</span>{" "}
-                            <span className="font-medium">{r.targets3 ?? "—"}</span>
-                          </p>
-                          <p className="col-span-2 sm:col-span-1">
-                            <span className="text-gray-500">By:</span>{" "}
-                            <span className="font-medium">{r.user_id || "—"}</span>
-                          </p>
-                          <p className="col-span-2 sm:col-span-1">
-                            <span className="text-gray-500">At:</span>{" "}
-                            <span className="font-medium">
-                              {r.created_at ? formatDateTime(r.created_at) : "—"}
-                            </span>
-                          </p>
-                        </div>
+                        ) :
+                          <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[12px] text-gray-600">
+
+                            <p>
+                              <span className="text-gray-500">T1:</span>{" "}
+                              <span className="font-medium">{r.targets ?? "—"}</span>
+                            </p>
+                            <p>
+                              <span className="text-gray-500">T2:</span>{" "}
+                              <span className="font-medium">{r.targets2 ?? "—"}</span>
+                            </p>
+                            <p>
+                              <span className="text-gray-500">T3:</span>{" "}
+                              <span className="font-medium">{r.targets3 ?? "—"}</span>
+                            </p>
+                            <p>
+                              <span className="text-gray-500">SL:</span>{" "}
+                              <span className="font-medium">{r.stop_loss ?? "—"}</span>
+                            </p>
+                          </div>
                         }
                       </div>
                     </div>

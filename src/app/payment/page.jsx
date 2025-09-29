@@ -8,9 +8,32 @@ import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
 
-// --- Pagination helpers (based on endpoint's limit/offset/total) ---
+/* -------------------- Pure helpers (safe at module top) -------------------- */
+const DAY_OPTIONS = [
+  { value: 1, label: "Today" },
+  { value: 7, label: "Last 7 days" },
+  { value: 15, label: "Last 15 days" },
+  { value: 30, label: "Last 30 days" },
+  { value: 60, label: "Last 60 days" },
+  { value: 90, label: "Last 90 days" },
+  { value: 180, label: "Last 180 days" },
+  { value: 365, label: "Last 365 days" },
+];
 
+function ymd(d) {
+  const z = new Date(d);
+  const off = z.getTimezoneOffset();
+  z.setMinutes(z.getMinutes() - off);
+  return z.toISOString().slice(0, 10);
+}
+function daysToRange(days) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - (Number(days || 1) - 1));
+  return { from: ymd(start), to: ymd(end) };
+}
 
+/* -------------------- Display + general helpers -------------------- */
 const invoiceChipBase =
   "inline-flex items-center gap-1.5 min-w-[92px] h-7 px-3 rounded-full text-xs font-bold tracking-wide select-none whitespace-nowrap";
 
@@ -88,9 +111,7 @@ export default function PaymentHistoryPage() {
   const [selectedUserName, setSelectedUserName] = useState("");
   const [userHL, setUserHL] = useState(0);
 
-  // ---- Date filter (draft vs applied) ----
-  const [dateFromDraft, setDateFromDraft] = useState("");
-  const [dateToDraft, setDateToDraft] = useState("");
+  // ---- Applied date range (single source of truth) ----
   const [date_from, setDateFromApplied] = useState("");
   const [date_to, setDateToApplied] = useState("");
 
@@ -107,7 +128,11 @@ export default function PaymentHistoryPage() {
   // View scope for non-managers
   const [myView, setMyView] = useState("self");
 
-  // Pagination derived values (use state inside component)
+const isFirstLoadRef = React.useRef(true);
+const [refreshing, setRefreshing] = useState(false);
+const fetchAbortRef = React.useRef(null);
+
+  // Pagination derived values
   const page = Math.floor(offset / (limit || 1)) + 1;
   const pageCount = Math.max(1, Math.ceil((total || 0) / (limit || 1)));
 
@@ -169,7 +194,7 @@ export default function PaymentHistoryPage() {
     axiosInstance
       .get("/profile-role/recommendation-type/")
       .then((res) => setServices(res.data))
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   // Plans (by service)
@@ -183,13 +208,109 @@ export default function PaymentHistoryPage() {
     setOffset(0);
   }, [service]);
 
-  /* ---------------- Permissions helpers for filters ---------------- */
+  /* ---------------- Permissions + slide-over draft (INSIDE component) ---------------- */
   const canPickBranch = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
   const canSearchEmployees = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
   const isManagerOnly = role === "BRANCH_MANAGER";
   const isNonManager = !(role === "SUPERADMIN" || role === "BRANCH_MANAGER");
+  const isEmployeeOnly = !(role === "SUPERADMIN" || role === "BRANCH_MANAGER");
 
-  // Employee (raised_by) suggestions
+  // Draft panel state
+  const baseDefaults = React.useMemo(
+    () => ({
+      days: 30,
+      fromDate: "",
+      toDate: "",
+      view: canPickBranch ? "all" : "self",
+      branchId: canPickBranch ? (branchId || "") : "",
+      service: service || "",
+      planId: plan || "",
+      employeeId: selectedUserId || "",
+      clientText: clientQuery || "",
+    }),
+    [canPickBranch, branchId, service, plan, selectedUserId, clientQuery]
+  );
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draft, setDraft] = useState(baseDefaults);
+
+  useEffect(() => {
+    setDraft(baseDefaults);
+  }, [baseDefaults]);
+
+  const openFilters = () => {
+    setDraft({
+      days: date_from && date_to ? null : 30,
+      fromDate: date_from || "",
+      toDate: date_to || "",
+      view: isEmployeeOnly ? "self" : myView,
+      branchId: canPickBranch ? branchId || "" : "",
+      service: service || "",
+      planId: plan || "",
+      employeeId: selectedUserId || "",
+      clientText: clientQuery || "",
+    });
+    setFiltersOpen(true);
+  };
+
+// Reset everything to truly blank defaults (no date range)
+const resetAll = () => {
+  // 1) Dates — clear to remove chips & constraints
+  setDateFromApplied("");
+  setDateToApplied("");
+
+  // 2) Filters
+  setService("");
+  setPlan("");
+
+  // 3) Employee (raised_by)
+  setSelectedUserId("");
+  setSelectedUserName("");
+  setUserSearch("");
+  setShowUserDropdown(false);
+  setUserSuggestions([]);
+
+  // 4) Client filter + UI
+  setClientFilter({ name: "", email: "", phone_number: "" });
+  setClientQuery("");
+  setShowClientDropdown(false);
+  setClientSuggestions([]);
+
+  // 5) Branch + scope
+  if (canPickBranch) setBranchId("");     // SUPERADMIN can go back to all branches
+  setMyView(canPickBranch ? "all" : "self");
+
+  // 6) Paging
+  setOffset(0);
+};
+
+  const hasActive = React.useMemo(() => {
+    const isCustomDate = !!date_from || !!date_to;
+    const notBaseView = isEmployeeOnly ? myView !== "self" : myView !== "all";
+    const branchMoved = canPickBranch && String(branchId) !== "";
+    return (
+      isCustomDate ||
+      service ||
+      plan ||
+      selectedUserId ||
+      clientQuery ||
+      notBaseView ||
+      branchMoved
+    );
+  }, [
+    date_from,
+    date_to,
+    isEmployeeOnly,
+    myView,
+    canPickBranch,
+    branchId,
+    service,
+    plan,
+    selectedUserId,
+    clientQuery,
+  ]);
+
+  /* ---------------- Employee (raised_by) suggestions ---------------- */
   useEffect(() => {
     if (!canSearchEmployees) {
       setUserSuggestions([]);
@@ -244,7 +365,7 @@ export default function PaymentHistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userSearch, role, branchId]);
 
-  // Global Client Suggestions (name/email/phone) with role restrictions
+  /* ---------------- Client suggestions with role restrictions ---------------- */
   useEffect(() => {
     const q = debouncedClientQuery.trim();
     if (!q) {
@@ -281,8 +402,8 @@ export default function PaymentHistoryPage() {
           let list = Array.isArray(res?.data?.payments)
             ? res.data.payments
             : Array.isArray(res?.data?.data)
-              ? res.data.data
-              : [];
+            ? res.data.data
+            : [];
 
           // broader pass if searching short mobile
           if (list.length === 0 && shortPhone) {
@@ -293,8 +414,8 @@ export default function PaymentHistoryPage() {
             list = Array.isArray(res2?.data?.payments)
               ? res2.data.payments
               : Array.isArray(res2?.data?.data)
-                ? res2.data.data
-                : [];
+              ? res2.data.data
+              : [];
           }
 
           const seen = new Set();
@@ -344,7 +465,7 @@ export default function PaymentHistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedClientQuery, role, branchId, myView]);
 
-  // Handlers
+  /* ---------------- Handlers ---------------- */
   const handleUserSelect = (user) => {
     setSelectedUserId(user.id || user.employee_code || user.user_id || "");
     setSelectedUserName(user.name || "");
@@ -380,93 +501,156 @@ export default function PaymentHistoryPage() {
     setOffset(0);
   };
 
-  // Apply/Clear for dates
-  const applyDateFilter = () => {
-    if (dateFromDraft && !dateToDraft) {
-      setDateFromApplied(dateFromDraft);
-      setDateToApplied(dateFromDraft);
-    } else if (!dateFromDraft && dateToDraft) {
-      setDateFromApplied(dateToDraft);
-      setDateToApplied(dateToDraft);
-    } else {
-      setDateFromApplied(dateFromDraft || "");
-      setDateToApplied(dateToDraft || "");
-    }
-    setOffset(0);
-  };
+  /* ---------------- Fetch payments with ALL filters ---------------- */
+const fetchPayments = async () => {
+  // decide whether to block UI or just show a light refresh
+  const blockUI = isFirstLoadRef.current || payments.length === 0;
+  if (blockUI) setLoading(true); else setRefreshing(true);
+  setError("");
 
-  const clearDateFilter = () => {
-    setDateFromDraft("");
-    setDateToDraft("");
-    setDateFromApplied("");
-    setDateToApplied("");
-    setOffset(0);
-  };
+  // abort any in-flight request
+  try { fetchAbortRef.current?.abort?.(); } catch {}
+  const controller = new AbortController();
+  fetchAbortRef.current = controller;
 
-  // Fetch payments with ALL filters
-  const fetchPayments = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const branchParam =
-        canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
-          ? Number(branchId)
-          : undefined;
+  try {
+    const branchParam =
+      canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
+        ? Number(branchId)
+        : undefined;
 
-      const raisedByParam = canSearchEmployees ? selectedUserId || undefined : undefined;
+    const raisedByParam = canSearchEmployees ? selectedUserId || undefined : undefined;
 
-      const parsed =
-        clientFilter.name || clientFilter.email || clientFilter.phone_number
-          ? clientFilter
-          : parseClientQuery(clientQuery);
+    const parsed =
+      clientFilter.name || clientFilter.email || clientFilter.phone_number
+        ? clientFilter
+        : parseClientQuery(clientQuery);
 
-      const params = {
-        service: service || undefined,
-        plan_id: plan || undefined,
-        name: parsed.name || undefined,
-        email: parsed.email || undefined,
-        phone_number: parsed.phone_number || undefined,
-        branch_id: branchParam,
-        branch: branchParam,
-        date_from: date_from || undefined,
-        date_to: date_to || undefined,
-        limit,
-        offset,
-        user_id: raisedByParam,
-        raised_by: raisedByParam,
-        view: canPickBranch ? "all" : myView,
-      };
+    const params = {
+      service: service || undefined,
+      plan_id: plan || undefined,
+      name: parsed.name || undefined,
+      email: parsed.email || undefined,
+      phone_number: parsed.phone_number || undefined,
+      branch_id: branchParam,
+      branch: branchParam,
+      date_from: date_from || undefined,
+      date_to: date_to || undefined,
+      limit,
+      offset,
+      user_id: raisedByParam,
+      raised_by: raisedByParam,
+      view: canPickBranch ? "all" : myView,
+    };
+    Object.keys(params).forEach((k) => {
+      if (params[k] === "" || params[k] === null) delete params[k];
+    });
 
-      Object.keys(params).forEach((k) => {
-        if (params[k] === "" || params[k] === null) delete params[k];
-      });
+    const { data } = await axiosInstance.get("/payment/all/employee/history", {
+      params,
+      signal: controller.signal,
+    });
 
-      const { data } = await axiosInstance.get("/payment/all/employee/history", { params });
-      setPayments(data.payments || []);
-      setTotal(data.total || 0);
-    } catch (err) {
+    setPayments(data.payments || []);
+    setTotal(data.total || 0);
+  } catch (err) {
+    if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
       const msg =
         err?.response?.data?.detail?.message ||
         err?.response?.data?.detail ||
         err?.message ||
         "Failed to fetch payment history.";
       setError(msg);
-    } finally {
-      setLoading(false);
     }
-  };
+  } finally {
+    if (blockUI) setLoading(false); else setRefreshing(false);
+    isFirstLoadRef.current = false;
+    fetchAbortRef.current = null;
+  }
+};
 
-  // Auto-fetch when filters (except draft dates) change
+  // Auto-fetch when applied filters change
   useEffect(() => {
     if (role) fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, branchId, service, plan, clientFilter, selectedUserId, date_from, date_to, limit, offset, myView]);
+  }, [
+    role,
+    branchId,
+    service,
+    plan,
+    clientFilter,
+    selectedUserId,
+    date_from,
+    date_to,
+    limit,
+    offset,
+    myView,
+  ]);
 
-  if (loading) return <LoadingState message="Fetching payments..." />;
+// Block UI only when truly loading the very first time AND there’s no data yet
+{loading && payments.length === 0 && <LoadingState message="Fetching payments..." />}
 
   return (
     <div className="mx-2 px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6">All Employee Payment History</h2>
+      {/* Toolbar (applied chips) */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">All Employee Payment History</h2>
+
+        <div className="flex items-center gap-2">
+          {date_from && (
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-blue-50 text-blue-700 text-xs">
+              From: {date_from}
+            </span>
+          )}
+          {date_to && (
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-blue-50 text-blue-700 text-xs">
+              To: {date_to}
+            </span>
+          )}
+          {service && (
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-indigo-50 text-indigo-700 text-xs">
+              Service: {service}
+            </span>
+          )}
+          {plan && (
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-indigo-50 text-indigo-700 text-xs">
+              Plan: {plan}
+            </span>
+          )}
+          {selectedUserId && (
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-emerald-50 text-emerald-700 text-xs">
+              Raised by: {selectedUserName || selectedUserId}
+            </span>
+          )}
+          {clientQuery && (
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-purple-50 text-purple-700 text-xs">
+              Client: {clientQuery}
+            </span>
+          )}
+
+          {hasActive && (
+            <button
+              onClick={resetAll}
+              className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs font-medium bg-white hover:bg-gray-50"
+            >
+              Reset
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={openFilters}
+            className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+            title="Open filters"
+          >
+            Filters
+          </button>
+          {refreshing && (
+<LoadingState message="Loading..." />
+)}
+
+        </div>
+      </div>
 
       {/* Scope toggle for non-managers */}
       {!(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
@@ -476,10 +660,11 @@ export default function PaymentHistoryPage() {
               key={v}
               type="button"
               onClick={() => setMyView(v)}
-              className={`px-4 py-2 text-sm font-medium border transition ${myView === v
-                ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+              className={`px-4 py-2 text-sm font-medium border transition ${
+                myView === v
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+              } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
             >
               {v === "self" ? "My Payments" : "Team Payments"}
             </button>
@@ -497,8 +682,9 @@ export default function PaymentHistoryPage() {
                   setBranchId("");
                   setOffset(0);
                 }}
-                className={`px-4 py-2 rounded ${branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                  }`}
+                className={`px-4 py-2 rounded ${
+                  branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                }`}
               >
                 All Branches
               </button>
@@ -517,8 +703,9 @@ export default function PaymentHistoryPage() {
                     setOffset(0);
                   }}
                   disabled={role === "BRANCH_MANAGER"}
-                  className={`px-4 py-2 rounded ${isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                    } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
+                  className={`px-4 py-2 rounded ${
+                    isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+                  } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   {b.name || b.branch_name || `Branch ${bid}`}
                 </button>
@@ -528,7 +715,7 @@ export default function PaymentHistoryPage() {
         )}
       </div>
 
-      {/* Filters */}
+      {/* Filters (keep service/plan/client/employee inline for convenience) */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <select
           className={inputClass}
@@ -671,8 +858,9 @@ export default function PaymentHistoryPage() {
                   key={u.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleUserSelect(u)}
-                  className={`px-3 py-2 cursor-pointer ${idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"
-                    }`}
+                  className={`px-3 py-2 cursor-pointer ${
+                    idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"
+                  }`}
                 >
                   <div className="flex justify-between">
                     <span className="font-medium">{u.name || "Unknown"}</span>
@@ -686,51 +874,6 @@ export default function PaymentHistoryPage() {
             </ul>
           )}
         </div>
-
-        {/* Date filter */}
-        <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-          <input
-            className={inputClass}
-            type="date"
-            value={dateFromDraft}
-            onChange={(e) => setDateFromDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyDateFilter()}
-            placeholder="From"
-          />
-          <input
-            className={inputClass}
-            type="date"
-            value={dateToDraft}
-            onChange={(e) => setDateToDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyDateFilter()}
-            placeholder="To"
-          />
-          <button
-            type="button"
-            onClick={applyDateFilter}
-            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            onClick={clearDateFilter}
-            className="px-3 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300 transition"
-          >
-            Clear
-          </button>
-          {(date_from || date_to) && (
-            <span className="text-xs text-gray-600">
-              Applied: {date_from}
-              {date_to && date_to !== date_from ? ` → ${date_to}` : ""}
-            </span>
-          )}
-        </div>
-
-        <p className="md:col-span-2 text-xs text-gray-500 mt-1">
-          Tip: Leave one side empty for a single-day filter — we’ll apply that same date as both{" "}
-          <code className="px-1">from</code> and <code className="px-1">to</code>.
-        </p>
       </div>
 
       {/* Results */}
@@ -757,7 +900,9 @@ export default function PaymentHistoryPage() {
           }}
         >
           {[25, 50, 100, 200].map((n) => (
-            <option key={n} value={n}>{n}</option>
+            <option key={n} value={n}>
+              {n}
+            </option>
           ))}
         </select>
       </div>
@@ -766,23 +911,26 @@ export default function PaymentHistoryPage() {
         <div className="relative max-h-[70vh] overflow-auto rounded-lg shadow">
           <table className="min-w-full bg-white text-sm">
             <thead className="sticky top-0 z-10 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600">
-              <tr>
-                {[
-                  "Name",
-                  "Email",
-                  "Phone",
-                  "Amount",
-                  "Status",
-                  "Date (MM/DD/YYYY)",
-                  "Send Invoice",
-                  "Invoice",
-                ].map((h) => (
-                  <th key={h} className={`${thBase} py-2 px-3 font-semibold text-center`}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+  <tr>
+    {[
+      { label: "Name", align: "left" },
+      { label: "Email", align: "center" },
+      { label: "Phone", align: "center" },
+      { label: "Amount", align: "center" },
+      { label: "Status", align: "center" },
+      { label: "Date (MM/DD/YYYY)", align: "center" },
+      { label: "Send Invoice", align: "center" },
+      { label: "Invoice", align: "center" },
+    ].map(({ label, align }) => (
+      <th
+        key={label}
+        className={`${thBase} py-2 px-3 font-semibold ${align === "left" ? "text-left" : "text-center"}`}
+      >
+        {label}
+      </th>
+    ))}
+  </tr>
+</thead>
             <tbody>
               {payments.map((p) => (
                 <React.Fragment key={p.id}>
@@ -791,19 +939,20 @@ export default function PaymentHistoryPage() {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => setOpenRowId(openRowId === p.id ? null : p.id)}
                   >
-                    <td className="py-2 px-3 text-center">{show(p.name)}</td>
+                    <td className="py-2 px-3 text-left">{show(p.name)}</td>
                     <td className="py-2 px-3 text-center">{show(p.email)}</td>
                     <td className="py-2 px-3 text-center">{show(p.phone_number)}</td>
                     <td className="py-2 px-3 font-semibold text-center">{showINR(p.paid_amount)}</td>
                     <td className="py-2 px-3">
                       <div className="flex justify-center">
                         <span
-                          className={`${badgeBase} ${p.status === "PAID"
-                            ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow"
-                            : p.status === "ACTIVE" || p.status === "PENDING"
+                          className={`${badgeBase} ${
+                            p.status === "PAID"
+                              ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow"
+                              : p.status === "ACTIVE" || p.status === "PENDING"
                               ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow"
                               : "bg-gradient-to-br from-gray-400 to-gray-600 text-white"
-                            }`}
+                          }`}
                         >
                           {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
                         </span>
@@ -854,7 +1003,8 @@ export default function PaymentHistoryPage() {
                           <div>
                             <p className="text-gray-500">Raised By</p>
                             <p className="font-medium">
-                              {show(p.raised_by)} {show(p.raised_by_role) !== DASH ? `(${p.raised_by_role})` : ""}
+                              {show(p.raised_by)}{" "}
+                              {show(p.raised_by_role) !== DASH ? `(${p.raised_by_role})` : ""}
                             </p>
                             {(p.raised_by_phone || p.raised_by_email) && (
                               <div className="mt-1 space-y-0.5 text-xs text-gray-600">
@@ -876,8 +1026,10 @@ export default function PaymentHistoryPage() {
                             <div>
                               {toArray(p.Service).length
                                 ? toArray(p.Service).map((s, i) => (
-                                  <span key={i} className="block">{show(s)}</span>
-                                ))
+                                    <span key={i} className="block">
+                                      {show(s)}
+                                    </span>
+                                  ))
                                 : DASH}
                             </div>
                           </div>
@@ -906,7 +1058,10 @@ export default function PaymentHistoryPage() {
                                       {show(pl.description)}
                                     </div>
                                     <div className="text-xs mt-1">
-                                      Price: {showINR(pl.price)}{pl.discounted_price ? ` • Discounted: ${showINR(pl.discounted_price)}` : ""}
+                                      Price: {showINR(pl.price)}
+                                      {pl.discounted_price
+                                        ? ` • Discounted: ${showINR(pl.discounted_price)}`
+                                        : ""}
                                     </div>
                                   </div>
                                 ))
@@ -937,11 +1092,8 @@ export default function PaymentHistoryPage() {
             <span className="text-gray-600">
               Showing {total === 0 ? 0 : offset + 1}
               {"-"}
-              {Math.min(offset + payments.length, total)} of {total}
-              {"  "}
-              <span className="text-gray-500">
-                (Page {page} of {pageCount})
-              </span>
+              {Math.min(offset + payments.length, total)} of {total}{" "}
+              <span className="text-gray-500">(Page {page} of {pageCount})</span>
             </span>
 
             {/* Right: controls */}
@@ -979,10 +1131,9 @@ export default function PaymentHistoryPage() {
                 <button
                   key={n}
                   onClick={() => goToPage(n)}
-                  className={`px-3 py-1 rounded ${n === page
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                  className={`px-3 py-1 rounded ${
+                    n === page ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
                   {n}
                 </button>
@@ -1019,6 +1170,172 @@ export default function PaymentHistoryPage() {
           </div>
         </div>
       )}
+
+      {/* Slide-over Filters Panel */}
+      {filtersOpen && (
+        <div
+          className="fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={(e) => e.key === "Escape" && setFiltersOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/40" onClick={() => setFiltersOpen(false)} />
+
+          <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-white flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="font-semibold">Filters</h3>
+              <button className="text-gray-500" onClick={() => setFiltersOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              {/* Time Period (days) */}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Time Period</label>
+                <select
+                  className={inputClass}
+                  value={draft.days ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, days: Number(e.target.value) }))}
+                >
+                  <option value="">Custom range</option>
+                  {DAY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* From / To */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">From Date</label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={draft.fromDate}
+                    onChange={(e) => setDraft((d) => ({ ...d, fromDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">To Date</label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={draft.toDate}
+                    onChange={(e) => setDraft((d) => ({ ...d, toDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* View */}
+              {isEmployeeOnly ? (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">View</label>
+                  <select className={inputClass} value="self" disabled>
+                    <option value="self">Self</option>
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">View</label>
+                  <select
+                    className={inputClass}
+                    value={draft.view}
+                    onChange={(e) => setDraft((d) => ({ ...d, view: e.target.value }))}
+                  >
+                    <option value="all">All</option>
+                    <option value="self">Self</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Branch (managers) */}
+              {canPickBranch && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Branch</label>
+                  <select
+                    className={inputClass}
+                    value={draft.branchId}
+                    onChange={(e) => setDraft((d) => ({ ...d, branchId: e.target.value }))}
+                  >
+                    <option value="">All Branches</option>
+                    {branches.map((b) => {
+                      const bid = b.id ?? b.branch_id;
+                      return (
+                        <option key={bid} value={String(bid)}>
+                          {b.name || b.branch_name || `Branch ${bid}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t flex items-center justify-between">
+              <button
+                className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200"
+                onClick={() => setDraft(baseDefaults)}
+              >
+                Reset (Draft)
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button className="px-4 py-2 rounded border" onClick={() => setFiltersOpen(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => {
+                    // 1) Branch + view
+                    if (canPickBranch) setBranchId(draft.branchId || "");
+                    setMyView(isEmployeeOnly ? "self" : draft.view || "all");
+
+                    // 2) Service/Plan
+                    setService(draft.service || "");
+                    setPlan(draft.planId || "");
+
+                    // 3) Raised by
+                    setSelectedUserId(draft.employeeId || "");
+                    setSelectedUserName(""); // optional: resolve later by id
+
+                    // 4) Client
+                    setClientFilter({ name: "", email: "", phone_number: "" }); // clear locked filter
+                    setClientQuery(draft.clientText || ""); // drives suggestions/parse
+
+                    // 5) Dates: explicit > days > none
+                    let nextFrom = draft.fromDate;
+                    let nextTo = draft.toDate;
+                    if (!nextFrom && !nextTo && draft.days) {
+                      const r = daysToRange(draft.days);
+                      nextFrom = r.from;
+                      nextTo = r.to;
+                    }
+                    if (nextFrom && !nextTo) nextTo = nextFrom;
+                    if (!nextFrom && nextTo) nextFrom = nextTo;
+
+                    setDateFromApplied(nextFrom || "");
+                    setDateToApplied(nextTo || "");
+
+                    // 6) Start from first page
+                    setOffset(0);
+
+                    // 7) Close
+                    setFiltersOpen(false);
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+} 

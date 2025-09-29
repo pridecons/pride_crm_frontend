@@ -119,8 +119,8 @@ export default function SMSTemplatesSimplePage() {
   };
 
   return (
-    <div className="min-h-screen py-10 px-5">
-      <div className="max-w-screen-xl mx-auto font-sans">
+    <div className="py-10 px-5">
+      <div className="mx-auto font-sans">
         {/* Header */}
         <div className="bg-white/95 backdrop-blur-lg rounded-2xl px-10 py-4 mb-8 shadow-lg border border-white/20">
           <div className="flex flex-wrap justify-between items-center gap-5">
@@ -372,9 +372,7 @@ export default function SMSTemplatesSimplePage() {
                   editingTemplate.message_type || "TRANSACTIONAL"
                 ).toUpperCase(),
                 sourceAddress: (editingTemplate.source_address || []).join(", "),
-                allowedRoles: (editingTemplate.allowed_roles || []).filter(
-                  (r) => r !== "SUPERADMIN"
-                ), // ids/names depending on your API
+                allowedRoles: (editingTemplate.allowed_roles || []).map(id => String(id)), // ids/names depending on your API
               }
               : emptyForm
           }

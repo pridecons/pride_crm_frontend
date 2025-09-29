@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { Modal } from "./ID/Modal";
-import { BookOpenText, Clock } from "lucide-react";
+import { BookOpenText, Clock, X } from "lucide-react";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 const StoryModal = ({ isOpen, onClose, leadId }) => {
@@ -28,52 +28,28 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
     // eslint-disable-next-line
   }, [isOpen, leadId]);
 
-  // Themed button styles
-  const secondaryBtnBase = {
-    background: "var(--theme-components-button-secondary-bg)",
-    color: "var(--theme-components-button-secondary-text)",
-    border: "1px solid var(--theme-components-button-secondary-border)",
-    boxShadow:
-      "0 1px 0 0 var(--theme-components-button-secondary-shadow, transparent)",
-  };
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title=""
-      contentClassName="w-[42rem] max-w-2xl"
-      actions={[
-        <button
-          key="close"
-          onClick={onClose}
-          className="px-4 py-2 rounded-xl transition-colors"
-          style={secondaryBtnBase}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background =
-              "var(--theme-components-button-secondary-hoverBg)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background =
-              "var(--theme-components-button-secondary-bg)")
-          }
-        >
-          Close
-        </button>,
-      ]}
+      title=""                      // keep Modal header empty
+      actions={[]}                  // remove footer actions
+      /* Single internal scroll area only */
+      contentClassName="w-[42rem] max-w-2xl p-0 overflow-hidden"
     >
+      {/* Card Shell */}
       <div
-        className="rounded-2xl overflow-hidden"
+        className="rounded-2xl flex flex-col"
         style={{
           background: "var(--theme-components-card-bg)",
           color: "var(--theme-components-card-text)",
-          // border: "1px solid var(--theme-components-card-border)",
           boxShadow: "0 8px 24px -12px var(--theme-components-card-shadow)",
+          maxHeight: "75vh",           // limits total height
         }}
       >
-        {/* Header */}
+        {/* Header with CLOSE at top-right */}
         <div
-          className="px-5 py-4"
+          className="px-5 py-4 relative"
           style={{
             background:
               "var(--theme-components-modal-headerBg, linear-gradient(90deg, var(--theme-primary), var(--theme-primaryHover)))",
@@ -97,11 +73,35 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
               </p>
             </div>
           </div>
+
+          {/* Close (moved from footer) */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute right-3 top-3 inline-flex items-center justify-center h-9 w-9 rounded-lg transition-colors"
+            style={{
+              background: "var(--theme-components-button-secondary-bg)",
+              color: "var(--theme-components-button-secondary-text)",
+              border: "1px solid var(--theme-components-button-secondary-border)",
+              boxShadow:
+                "0 1px 0 0 var(--theme-components-button-secondary-shadow, transparent)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background =
+                "var(--theme-components-button-secondary-hoverBg)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background =
+                "var(--theme-components-button-secondary-bg)")
+            }
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Body */}
+        {/* Body: single scroll region */}
         <div
-          className="p-5"
+          className="p-5 flex-1 overflow-y-auto"
           style={{ background: "var(--theme-cardBackground)" }}
         >
           {loading ? (
@@ -122,35 +122,32 @@ const StoryModal = ({ isOpen, onClose, leadId }) => {
               No story available for this lead.
             </p>
           ) : (
-            <div className="max-h-96 overflow-y-auto pl-4">
-              <ol
-                className="relative"
-                style={{ borderLeft: "1px solid var(--theme-border)" }}
-              >
-                {stories.map((s) => (
-                  <li key={s.id} className="ms-4 py-3 relative">
-                    <span
-                      className="absolute -start-1.5 inline-flex h-3 w-3 rounded-full"
-                      style={{
-                        background: "var(--theme-primary)",
-                        boxShadow:
-                          "0 0 0 4px var(--theme-cardBackground)", // ring effect
-                      }}
-                    />
-                    <p className="text-sm" style={{ color: "var(--theme-text)" }}>
-                      {s.msg}
-                    </p>
-                    <p
-                      className="mt-1 text-xs inline-flex items-center gap-1"
-                      style={{ color: "var(--theme-textSecondary)" }}
-                    >
-                      <Clock size={12} />
-                      {new Date(s.timestamp).toLocaleString()} • {s.user_id}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <ol
+              className="relative pl-6"
+              style={{ borderLeft: "1px solid var(--theme-border)" }}
+            >
+              {stories.map((s) => (
+                <li key={s.id} className="ms-4 py-3 relative pl-4">
+                  <span
+                    className="absolute -start-1.5 inline-flex h-3 w-3 rounded-full"
+                    style={{
+                      background: "var(--theme-primary)",
+                      boxShadow: "0 0 0 4px var(--theme-cardBackground)",
+                    }}
+                  />
+                  <p className="text-sm" style={{ color: "var(--theme-text)" }}>
+                    {s.msg}
+                  </p>
+                  <p
+                    className="mt-1 text-xs inline-flex items-center gap-1"
+                    style={{ color: "var(--theme-textSecondary)" }}
+                  >
+                    <Clock size={12} />
+                    {new Date(s.timestamp).toLocaleString()} • {s.user_id}
+                  </p>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
       </div>

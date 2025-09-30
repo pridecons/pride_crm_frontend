@@ -255,7 +255,7 @@ export default function Dashboard() {
   const [errMsg, setErrMsg] = useState('');
   const [data, setData] = useState(null);
   const [employeesTable, setEmployeesTable] = useState([]);
-
+ const [loadingapi, setLoadingapi] = useState(false);
   // Accordion state for Employee table
   const [expandedEmp, setExpandedEmp] = useState(() => new Set());
   const toggleEmp = (code) => {
@@ -296,7 +296,7 @@ export default function Dashboard() {
     } catch (e) {
       setErrMsg(e?.response?.data?.detail || e?.message || 'Failed to load dashboard');
     } finally {
-      setLoading(false);
+      setLoadingapi(false);
     }
   };
 

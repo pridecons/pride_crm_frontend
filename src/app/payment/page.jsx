@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
+import { useTheme } from "@/context/ThemeContext";
 
 /* -------------------- Pure helpers (safe at module top) -------------------- */
 const DAY_OPTIONS = [
@@ -66,15 +67,23 @@ function parseClientQuery(q = "") {
 
 /* -------------------- Reusable Tailwind classnames -------------------- */
 const inputClass =
-  "px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full";
-const badgeBase =
+  "px-3 py-2 border rounded-md w-full outline-none transition " +
+  "border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)] " +
+  "placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent";
+  "inline-flex items-center justify-center w-24 h-6 px-2.5 rounded-full text-xs font-semibold uppercase tracking-wide whitespace-nowrap";
+  const badgeBase =
   "inline-flex items-center justify-center w-24 h-6 px-2.5 rounded-full text-xs font-semibold uppercase tracking-wide whitespace-nowrap";
 const thBase =
-  "bg-transparent text-white uppercase tracking-wider " +
-  "shadow-[inset_0_-1px_0_rgba(255,255,255,0.15),0_1px_0_rgba(0,0,0,0.03)]";
+  "bg-transparent uppercase tracking-wider font-semibold text-[var(--theme-primary-contrast)]";
+
+  const btnPrimary =
+  "px-3 py-1.5 rounded bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] hover:bg-[var(--theme-primary-hover)]";
+const btnSecondary =
+  "px-3 py-1.5 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]";
 
 /* =========================== Component =========================== */
 export default function PaymentHistoryPage() {
+  const { theme } = useTheme();
   // Role/branch state
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState("");
@@ -591,19 +600,21 @@ const fetchPayments = async () => {
 {loading && payments.length === 0 && <LoadingState message="Fetching payments..." />}
 
   return (
-    <div className="mx-2 px-4 py-8">
+   <div className="mx-2 px-4 py-8 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
       {/* Toolbar (applied chips) */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">All Employee Payment History</h2>
 
         <div className="flex items-center gap-2">
           {date_from && (
-            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-blue-50 text-blue-700 text-xs">
+           <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
+     style={{ background: "var(--theme-components-tag-info-bg)", color: "var(--theme-components-tag-info-text)", borderColor: "var(--theme-components-tag-info-border)" }}>
               From: {date_from}
             </span>
           )}
           {date_to && (
-            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-blue-50 text-blue-700 text-xs">
+           <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
+     style={{ background: "var(--theme-components-tag-info-bg)", color: "var(--theme-components-tag-info-text)", borderColor: "var(--theme-components-tag-info-border)" }}>
               To: {date_to}
             </span>
           )}
@@ -631,7 +642,7 @@ const fetchPayments = async () => {
           {hasActive && (
             <button
               onClick={resetAll}
-              className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs font-medium bg-white hover:bg-gray-50"
+              className={`hidden md:inline-flex ${btnSecondary} text-xs font-medium`}
             >
               Reset
             </button>
@@ -640,7 +651,7 @@ const fetchPayments = async () => {
           <button
             type="button"
             onClick={openFilters}
-            className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+           className={`${btnPrimary} text-sm`}
             title="Open filters"
           >
             Filters
@@ -660,11 +671,11 @@ const fetchPayments = async () => {
               key={v}
               type="button"
               onClick={() => setMyView(v)}
-              className={`px-4 py-2 text-sm font-medium border transition ${
-                myView === v
-                  ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-              } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+              className={`px-4 py-2 text-sm font-medium transition border-[var(--theme-border)] ${
+           myView === v
+             ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] shadow-md"
+             : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+         } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
             >
               {v === "self" ? "My Payments" : "Team Payments"}
             </button>
@@ -673,7 +684,7 @@ const fetchPayments = async () => {
       )}
 
       {/* Branch chips */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6 gap-4">
+      <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 gap-4">
         {(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
           <div className="flex space-x-2 overflow-x-auto">
             {role === "SUPERADMIN" && (
@@ -682,9 +693,11 @@ const fetchPayments = async () => {
                   setBranchId("");
                   setOffset(0);
                 }}
-                className={`px-4 py-2 rounded ${
-                  branchId === "" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                }`}
+                className={`px-4 py-2 rounded border border-[var(--theme-border)] ${
+                  branchId === "" 
+     ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+     : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+ }`}
               >
                 All Branches
               </button>
@@ -716,7 +729,7 @@ const fetchPayments = async () => {
       </div>
 
       {/* Filters (keep service/plan/client/employee inline for convenience) */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <select
           className={inputClass}
           value={service}
@@ -784,15 +797,15 @@ const fetchPayments = async () => {
             </div>
           )}
           {showClientDropdown && clientSuggestions.length > 0 && (
-            <ul className="absolute z-20 bg-white border border-gray-200 w-full max-h-56 overflow-y-auto rounded shadow">
+            <ul className="absolute z-20 bg-[var(--theme-card-bg)] border border-[var(--theme-border)] w-full max-h-56 overflow-y-auto rounded shadow">
               {clientSuggestions.map((c, idx) => (
                 <li
                   key={`${c.id}-${idx}`}
                   onClick={() => handleClientSelect(c)}
-                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                  className="px-3 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
                 >
                   <div className="font-medium">{c.name || "(No name)"}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-[var(--theme-text-muted)]">
                     {show(c.email)} • {show(c.phone_number)}
                   </div>
                 </li>
@@ -866,7 +879,7 @@ const fetchPayments = async () => {
                     <span className="font-medium">{u.name || "Unknown"}</span>
                     {u.role ? <span className="text-xs text-gray-500">{u.role}</span> : null}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-[var(--theme-text-muted)]">
                     {u.email || "—"} • {u.phone || "—"}
                   </div>
                 </li>
@@ -908,9 +921,12 @@ const fetchPayments = async () => {
       </div>
 
       {!loading && !error && payments.length > 0 && (
-        <div className="relative max-h-[70vh] overflow-auto rounded-lg shadow">
-          <table className="min-w-full bg-white text-sm">
-            <thead className="sticky top-0 z-10 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600">
+        <div className="relative max-h-[70vh] overflow-auto rounded-lg shadow border border-[var(--theme-border)]">
+          <table className="min-w-full bg-[var(--theme-card-bg)] text-sm text-[var(--theme-text)]">
+            <thead
+  className="sticky top-0 z-10"
+  style={{ backgroundImage: "linear-gradient(to right, var(--theme-primary), var(--theme-primary-hover))" }}
+>
   <tr>
     {[
       { label: "Name", align: "left" },
@@ -924,7 +940,7 @@ const fetchPayments = async () => {
     ].map(({ label, align }) => (
       <th
         key={label}
-        className={`${thBase} py-2 px-3 font-semibold ${align === "left" ? "text-left" : "text-center"}`}
+        className={`${thBase} py-2 px-3 ${align === "left" ? "text-left" : "text-center"}`}
       >
         {label}
       </th>
@@ -936,7 +952,7 @@ const fetchPayments = async () => {
                 <React.Fragment key={p.id}>
                   {/* Main Row */}
                   <tr
-                    className="hover:bg-gray-50 cursor-pointer"
+                    className="hover:bg-[var(--theme-primary-softer)] cursor-pointer"
                     onClick={() => setOpenRowId(openRowId === p.id ? null : p.id)}
                   >
                     <td className="py-2 px-3 text-left">{show(p.name)}</td>
@@ -946,28 +962,39 @@ const fetchPayments = async () => {
                     <td className="py-2 px-3">
                       <div className="flex justify-center">
                         <span
-                          className={`${badgeBase} ${
-                            p.status === "PAID"
-                              ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow"
-                              : p.status === "ACTIVE" || p.status === "PENDING"
-                              ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow"
-                              : "bg-gradient-to-br from-gray-400 to-gray-600 text-white"
-                          }`}
-                        >
-                          {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
-                        </span>
+  className={`${badgeBase} border`}
+  style={{
+    background: p.status === "PAID"
+      ? "var(--theme-components-tag-success-bg)"
+      : (p.status === "ACTIVE" || p.status === "PENDING")
+      ? "var(--theme-components-tag-warning-bg)"
+      : "var(--theme-components-tag-neutral-bg)",
+    color: p.status === "PAID"
+      ? "var(--theme-components-tag-success-text)"
+      : (p.status === "ACTIVE" || p.status === "PENDING")
+      ? "var(--theme-components-tag-warning-text)"
+      : "var(--theme-components-tag-neutral-text)",
+    borderColor: p.status === "PAID"
+      ? "var(--theme-components-tag-success-border)"
+      : (p.status === "ACTIVE" || p.status === "PENDING")
+      ? "var(--theme-components-tag-warning-border)"
+      : "var(--theme-components-tag-neutral-border)",
+  }}
+>
+  {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
+</span>
                       </div>
                     </td>
                     <td className="py-2 px-3 text-center">{showDateTime(p.created_at)}</td>
                     <td className="py-2 px-3">
                       <div className="flex justify-center">
                         {p.is_send_invoice ? (
-                          <span className={`${invoiceChipBase} text-green-500`}>
+                          <span className={invoiceChipBase} style={{ color: "var(--theme-success)" }}>
                             <CheckCircle className="w-4 h-4" />
                             Done
                           </span>
                         ) : (
-                          <span className={`${invoiceChipBase} text-amber-500`}>
+                          <span className={invoiceChipBase} style={{ color: "var(--theme-warning)" }}>
                             <Clock className="w-4 h-4" />
                             Pending
                           </span>
@@ -996,12 +1023,12 @@ const fetchPayments = async () => {
 
                   {/* Accordion Row */}
                   {openRowId === p.id && (
-                    <tr className="bg-gray-50">
+                    <tr className="bg-[var(--theme-surface)]">
                       <td colSpan={8} className="py-2 px-3">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           {/* Raised By */}
                           <div>
-                            <p className="text-gray-500">Raised By</p>
+                            <p className="text-[var(--theme-text-muted)]">Raised By</p>
                             <p className="font-medium">
                               {show(p.raised_by)}{" "}
                               {show(p.raised_by_role) !== DASH ? `(${p.raised_by_role})` : ""}
@@ -1089,7 +1116,7 @@ const fetchPayments = async () => {
           {/* Pagination */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-4 px-2">
             {/* Left: range + page info */}
-            <span className="text-gray-600">
+            <span className="text-[var(--theme-text-muted)]">
               Showing {total === 0 ? 0 : offset + 1}
               {"-"}
               {Math.min(offset + payments.length, total)} of {total}{" "}
@@ -1102,7 +1129,7 @@ const fetchPayments = async () => {
               <button
                 onClick={() => goToPage(1)}
                 disabled={page <= 1}
-                className="px-2 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+                className="px-2 py-1 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-60 hover:bg-[var(--theme-primary-softer)]"
                 title="First"
               >
                 «
@@ -1131,9 +1158,11 @@ const fetchPayments = async () => {
                 <button
                   key={n}
                   onClick={() => goToPage(n)}
-                  className={`px-3 py-1 rounded ${
-                    n === page ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  className={`px-3 py-1 rounded border border-[var(--theme-border)] ${
+   n === page
+     ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+     : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+ }`}
                 >
                   {n}
                 </button>
@@ -1161,7 +1190,7 @@ const fetchPayments = async () => {
               <button
                 onClick={() => goToPage(pageCount)}
                 disabled={page >= pageCount}
-                className="px-2 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+                className="px-2 py-1 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-60 hover:bg-[var(--theme-primary-softer)]"
                 title="Last"
               >
                 »
@@ -1179,11 +1208,11 @@ const fetchPayments = async () => {
           aria-modal="true"
           onKeyDown={(e) => e.key === "Escape" && setFiltersOpen(false)}
         >
-          <div className="absolute inset-0 bg-black/40" onClick={() => setFiltersOpen(false)} />
+          <div className="absolute inset-0 bg-[var(--theme-backdrop)]" onClick={() => setFiltersOpen(false)} />
 
-          <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-white flex flex-col shadow-2xl">
+          <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-l border-[var(--theme-border)] flex flex-col shadow-2xl">
             {/* Header */}
-            <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-[var(--theme-border)] flex items-center justify-between">
               <h3 className="font-semibold">Filters</h3>
               <button className="text-gray-500" onClick={() => setFiltersOpen(false)}>
                 ✕
@@ -1279,18 +1308,18 @@ const fetchPayments = async () => {
             {/* Footer */}
             <div className="p-4 border-t flex items-center justify-between">
               <button
-                className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200"
+                className={`${btnSecondary}`}
                 onClick={() => setDraft(baseDefaults)}
               >
                 Reset (Draft)
               </button>
 
               <div className="flex items-center gap-2">
-                <button className="px-4 py-2 rounded border" onClick={() => setFiltersOpen(false)}>
+                <button className="px-4 py-2 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]" onClick={() => setFiltersOpen(false)}>
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                  className={`${btnPrimary}`}
                   onClick={() => {
                     // 1) Branch + view
                     if (canPickBranch) setBranchId(draft.branchId || "");

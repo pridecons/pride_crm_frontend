@@ -186,7 +186,7 @@ export default function InternalMailingForm() {
       }}
     >
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="mx-2 p-4">
         {/* Compose Card */}
         <div
           className="rounded-lg shadow-md border"
@@ -481,7 +481,7 @@ export default function InternalMailingForm() {
                   )}
                 </button>
 
-                <label
+                {/* <label
                   className="px-3 py-2 rounded cursor-pointer flex items-center gap-2 transition"
                   style={{
                     color: "var(--theme-text)",
@@ -516,7 +516,7 @@ export default function InternalMailingForm() {
                       Attach
                     </span>
                   )}
-                </label>
+                </label> */}
               </div>
 
               <button

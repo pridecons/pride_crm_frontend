@@ -362,7 +362,7 @@ export default function BulkUploadPage() {
                     ${
                       selectedFile
                         ? "border-[var(--theme-success)] bg-[color:rgb(34_197_94_/0.08)] text-[var(--theme-success)]"
-                        : "border-[var(--theme-danger)] bg-[color:rgb(239_68_68_/0.08)] text-[var(--theme-danger)]"
+                        : "border-[var(--theme-info,#3b82f6)] bg-[color:rgb(59_130_246_/0.08)] text-[var(--theme-info,#3b82f6)]"
                     }`}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
@@ -373,8 +373,8 @@ export default function BulkUploadPage() {
                       </>
                     ) : (
                       <>
-                        <CircleX className="w-4 h-4" />
-                        No file chosen
+                        
+                        Choose a file
                       </>
                     )}
                   </span>

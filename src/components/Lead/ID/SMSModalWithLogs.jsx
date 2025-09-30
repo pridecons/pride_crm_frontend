@@ -209,21 +209,21 @@ export default function SMSModalWithLogs({
     fetchLogs(p);
   };
 
-  const handleResend = async (row) => {
-    try {
-      await axiosInstance.post("/sms-templates/send-sms", {
-        template_id: row.template_id,
-        phone_number: row.recipient_phone_number.startsWith("91")
-          ? row.recipient_phone_number.slice(2)
-          : row.recipient_phone_number,
-        message_override: row.body,
-      });
-      toast.success("Re-sent");
-      fetchLogs();
-    } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Failed to resend" });
-    }
-  };
+  // const handleResend = async (row) => {
+  //   try {
+  //     await axiosInstance.post("/sms-templates/send-sms", {
+  //       template_id: row.template_id,
+  //       phone_number: row.recipient_phone_number.startsWith("91")
+  //         ? row.recipient_phone_number.slice(2)
+  //         : row.recipient_phone_number,
+  //       message_override: row.body,
+  //     });
+  //     toast.success("Re-sent");
+  //     fetchLogs();
+  //   } catch (err) {
+  //     ErrorHandling({ error: err, defaultError: "Failed to resend" });
+  //   }
+  // };
 
   const TitleTabs = (
     <div className="flex items-center gap-2">
@@ -616,14 +616,14 @@ export default function SMSModalWithLogs({
                           <th className="text-left p-2">Body</th>
                           <th className="text-left p-2">Sent At</th>
                           <th className="text-left p-2">User</th>
-                          <th className="text-left p-2">Action</th>
+                          {/* <th className="text-left p-2">Action</th> */}
                         </tr>
                       </thead>
                       <tbody>
                         {loadingLogs ? (
                           <tr>
                             <td
-                              colSpan={7}
+                              colSpan={6}
                               className="p-4 text-center"
                               style={{ color: "var(--theme-muted)" }}
                             >
@@ -633,7 +633,7 @@ export default function SMSModalWithLogs({
                         ) : logs.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={7}
+                              colSpan={6}
                               className="p-4 text-center"
                               style={{ color: "var(--theme-muted)" }}
                             >
@@ -660,7 +660,7 @@ export default function SMSModalWithLogs({
 
                               <td className="p-2">{fmtDateTime(row.sent_at)}</td>
                               <td className="p-2">{row.user_id}</td>
-                              <td className="p-2">
+                              {/* <td className="p-2">
                                 <button
                                   onClick={() => handleResend(row)}
                                   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
@@ -672,7 +672,7 @@ export default function SMSModalWithLogs({
                                 >
                                   <RefreshCcw size={16} />
                                 </button>
-                              </td>
+                              </td> */}
                             </tr>
                           ))
                         )}

@@ -628,7 +628,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           {/* -------- /Global Search -------- */}
 
           {/* Right cluster */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <ThemeToggle/>
             <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
@@ -636,7 +636,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
             {/* Clock */}
             <div
-              className="hidden md:flex items-center gap-2 px-5 py-1 rounded-xl border shadow-sm"
+              className="hidden md:flex items-center gap-2 px-2 py-1 rounded-xl border shadow-sm"
               style={{
                 background: themeConfig.surface,
                 borderColor: themeConfig.border,

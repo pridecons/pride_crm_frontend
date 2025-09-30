@@ -541,7 +541,7 @@ export default function LeadSourcesPage() {
               if (isSuperAdmin && branches.length === 0) {
                 try {
                   await fetchBranches();
-                } catch {}
+                } catch { }
               }
               setForm({
                 name: "",
@@ -682,8 +682,8 @@ export default function LeadSourcesPage() {
                       ? "Updating..."
                       : "Creating..."
                     : editingId
-                    ? "Update Source"
-                    : "Create Source"}
+                      ? "Update Source"
+                      : "Create Source"}
                 </button>
               </div>
             </form>
@@ -732,140 +732,158 @@ export default function LeadSourcesPage() {
           return (
             <details key={src.id} className="group">
               {/* Header */}
-              <summary className="list-none cursor-pointer px-6 py-4 hover:bg-[var(--theme-primary-softer)] transition flex items-center gap-4">
-                <div className="rounded-full p-1 bg-[var(--theme-primary-softer)] shrink-0">
-                  <Database className="w-4 h-4 text-[var(--theme-primary)]" />
-                </div>
+              <summary className="list-none cursor-pointer px-6 py-4 hover:bg-[var(--theme-primary-softer)] transition flex items-start gap-4">
+  {/* LEFT COLUMN: ID ABOVE ICON */}
+  <div className="flex flex-col items-center gap-1 shrink-0">
+    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] bg-[var(--theme-primary-softer)] text-[var(--theme-primary)] leading-none">
+      #{src.id}
+    </span>
+    <div className="rounded-full p-1 bg-[var(--theme-primary-softer)]">
+      <Database className="w-4 h-4 text-[var(--theme-primary)]" />
+    </div>
+  </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-[var(--theme-text)]">{src.name}</span>
-                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-primary-softer)] text-[var(--theme-primary)]">
-                      #{src.id}
-                    </span>
-                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-                      Total: {src.total_leads ?? 0}
-                    </span>
-                    {showBranchColumn && (
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)]">
-                        {branchLabel}
-                      </span>
-                    )}
-                    {pending?.total_leads > 0 && (
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                        Pending: {pending.total_leads}
-                      </span>
-                    )}
-                  </div>
+  {/* RIGHT COLUMN: NAME, TOTAL, PENDING, BRANCH, DESCRIPTION */}
+  <div className="min-w-0 flex-1">
+    <div className="flex flex-wrap items-center gap-2">
+      {/* name */}
+      <span className="font-semibold text-[var(--theme-text)]">{src.name}</span>
 
-                  {src.description ? (
-                    <p className="text-sm text-[var(--theme-text-muted)] mt-0.5 line-clamp-1" title={src.description}>
-                      {src.description}
-                    </p>
-                  ) : null}
+      {/* total */}
+      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+        Total: {src.total_leads ?? 0}
+      </span>
 
-                  <div className="text-xs text-[var(--theme-text-muted)] mt-1" title={fcPreview}>
-                    {fc.length ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-                          {fc.length} role(s)
-                        </span>
-                        <span className="hidden xl:inline">{fcPreview}</span>
-                      </span>
-                    ) : (
-                      "No fetch configs"
-                    )}
-                  </div>
-                </div>
+      {/* pending */}
+      {pending?.total_leads > 0 && (
+        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+          Pending: {pending.total_leads}
+        </span>
+      )}
 
-                <div className="ml-2 flex items-center gap-1">
-                  {hasPermission("edit_lead") && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleEdit(src);
-                      }}
-                      className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
-                      title="Edit source"
-                    >
-                      <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
-                    </button>
-                  )}
-                  {hasPermission("delete_lead") && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleDelete(src.id);
-                      }}
-                      className="p-2 rounded hover:bg-[var(--theme-danger-soft)]"
-                      title="Delete source"
-                    >
-                      <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
-                    </button>
-                  )}
+      {/* branch */}
+      {showBranchColumn && (
+        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)]">
+          {branchMap[Number(src.branch_id)] ||
+            src.branch_name ||
+            src?.branch?.name ||
+            (src.branch_id != null ? `Branch-${src.branch_id}` : "—")}
+        </span>
+      )}
+    </div>
 
-                  {/* Chevron */}
-                  <ChevronRight className="w-4 h-4 text-[var(--theme-text-muted)] group-open:hidden" />
-                  <ChevronDown className="w-4 h-4 text-[var(--theme-text-muted)] hidden group-open:block" />
-                </div>
-              </summary>
+    {/* description (unchanged) */}
+    {src.description ? (
+      <p
+        className="text-sm text-[var(--theme-text-muted)] mt-0.5 line-clamp-1"
+        title={src.description}
+      >
+        {src.description}
+      </p>
+    ) : null}
+
+    {/* fetch config preview (unchanged) */}
+    <div className="text-xs text-[var(--theme-text-muted)] mt-1" title={fcPreview}>
+      {fc.length ? (
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+            {fc.length} role(s)
+          </span>
+          <span className="hidden xl:inline">{fcPreview}</span>
+        </span>
+      ) : (
+        "No fetch configs"
+      )}
+    </div>
+  </div>
+
+  {/* ACTIONS + CHEVRON */}
+  <div className="ml-2 flex items-center gap-1">
+    {hasPermission("edit_lead") && (
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleEdit(src);
+        }}
+        className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
+        title="Edit source"
+      >
+        <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
+      </button>
+    )}
+    {hasPermission("delete_lead") && (
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleDelete(src.id);
+        }}
+        className="p-2 rounded hover:bg-[var(--theme-danger-soft)]"
+        title="Delete source"
+      >
+        <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
+      </button>
+    )}
+
+    <ChevronRight className="w-4 h-4 text-[var(--theme-text-muted)] group-open:hidden" />
+    <ChevronDown className="w-4 h-4 text-[var(--theme-text-muted)] hidden group-open:block" />
+  </div>
+</summary>
 
               {/* Panel */}
               <div className="px-6 pb-6 pt-2 bg-[var(--theme-surface)] border-t border-[var(--theme-border)]">
-                {/* Response breakdown pills + bars */}
-                {/* Response breakdown pills + bars (exclude "No Response") */}
-{/* <div className="mb-4">
-  <h4 className="text-sm font-semibold text-[var(--theme-text)] mb-2">Response Breakdown</h4>
+
+                {/* Response Breakdown — plain text (3 per row), excludes "No Response" */}
+               {/* Response Distribution (cards like screenshot) */}
+<div className="mb-4">
+  <h4 className="text-sm font-semibold text-[var(--theme-text)] mb-3">
+    RESPONSE DISTRIBUTION
+  </h4>
 
   {nonPending.length === 0 ? (
     <p className="text-sm text-[var(--theme-text-muted)]">
       No responses yet (excluding pending).
     </p>
   ) : (
-    <div className="space-y-3">
-      {nonPending.map((b, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-primary-softer)] text-[var(--theme-primary)]">
-            {b.response_name}
-          </span>
-          <div className="flex-1 h-2 rounded bg-[var(--theme-border)] overflow-hidden">
-            <div
-              className="h-full bg-[var(--theme-primary)]/80"
-              style={{ width: `${Math.min(100, Number(b.percentage || 0))}%` }}
-            />
-          </div>
-          <span className="text-xs text-[var(--theme-text-muted)] w-28 text-right">
-            {b.total_leads} ({(Number(b.percentage) || 0).toFixed(1)}%)
-          </span>
-        </div>
-      ))}
-    </div>
-  )}
-</div> */}
-{/* Response Breakdown — plain text (3 per row), excludes "No Response" */}
-<div className="mb-4">
-  <h4 className="text-sm font-semibold text-[var(--theme-text)] mb-2">Response Breakdown</h4>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {([...nonPending].sort((a,b) => (b.total_leads||0) - (a.total_leads||0))).map((b, i) => {
+        const pct = Math.max(0, Math.min(100, Number(b.percentage) || 0));
+        const count = Number(b.total_leads) || 0;
+        return (
+          <div
+            key={i}
+            className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-3"
+          >
+            {/* Title */}
+            <div className="text-xs font-extrabold tracking-wide text-[var(--theme-text)] uppercase">
+              {b.response_name || "—"}
+            </div>
 
-  {nonPending.length === 0 ? (
-    <p className="text-sm text-[var(--theme-text-muted)]">No responses yet (excluding pending).</p>
-  ) : (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
-      {nonPending.map((b, i) => (
-        <div key={i} className="text-sm text-[var(--theme-text)]">
-          <span className="font-medium">{b.response_name}</span>
-          <span className="mx-1">-</span>
-          <span>{b.total_leads}</span>
-          <span className="text-[var(--theme-text-muted)]">
-            {" "}
-            ({(Number(b.percentage) || 0).toFixed(1)}%)
-          </span>
-        </div>
-      ))}
+            {/* Count + % */}
+            <div className="mt-1 flex items-center justify-between text-xs">
+              <span className="text-[var(--theme-text-muted)]">
+                {count} {count === 1 ? "lead" : "leads"}
+              </span>
+              <span className="font-semibold text-[var(--theme-text)]">
+                {pct.toFixed(2)}%
+              </span>
+            </div>
+
+            {/* Progress */}
+            <div className="mt-2 h-1.5 rounded bg-[var(--theme-border)] overflow-hidden">
+              <div
+                className="h-full bg-[var(--theme-primary)]"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   )}
 </div>
+
               </div>
             </details>
           );

@@ -2,39 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
+import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from '@/api/Axios';
-import {
-  PhoneCall,
-  PhoneIncoming,
-  Clock3,
-  PhoneOff
-} from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-
-import {
-  Building2,
-  Store,
-  CalendarDays,
-  Calendar,
-  Eye,
-  User,
-  Users,
-  Search,
-  CheckCircle2,
-  Info,
-  BarChart3,
-  Briefcase,
-  AlertTriangle,
-  LineChart,
-  IndianRupee,
-  CalendarCheck,
-  Target,
-  SlidersHorizontal,
-} from 'lucide-react';
-
+import {Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal,} from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-
-/* ----------------------------- Helpers ----------------------------- */
+import DashboardSkeleton from '@/components/common/skeletonloader';
 
 const DAY_OPTIONS = [
   { value: 1, label: 'Today' },
@@ -107,7 +80,6 @@ function getGreeting() {
   return 'Hello';
 }
 
-/* ----------------------------- Component ----------------------------- */
 export default function Dashboard() {
   const { themeConfig } = useTheme();
 
@@ -132,8 +104,6 @@ export default function Dashboard() {
     return getFirstName(nm, un);
   }, [user]);
 
-  /* ----------------------------- Filters (from FIRST) ----------------------------- */
-  // DRAFT: edited in UI (panel + inline)
   const defaultDraft = {
     days: 1,
     fromDate: '',
@@ -144,11 +114,7 @@ export default function Dashboard() {
     employeeCode: '',
   };
   const [draftFilters, setDraftFilters] = useState(defaultDraft);
-
-  // APPLIED: used for API calls
   const [appliedFilters, setAppliedFilters] = useState(defaultDraft);
-
-  // Keep “view” sane for employees (no 'all')
   useEffect(() => {
     if (isEmployee && draftFilters.view === 'all') {
       setDraftFilters((d) => ({ ...d, view: 'self' }));
@@ -159,16 +125,10 @@ export default function Dashboard() {
       setAppliedFilters((d) => ({ ...d, view: 'self' }));
     }
   }, [isEmployee, appliedFilters.view]);
-
-  // Users autocomplete (draft)
   const [userSearch, setUserSearch] = useState('');
   const debUserSearch = useDebouncedValue(userSearch, 200);
-
-  // Branch tabs: SA can change; others are locked
   const [branches, setBranches] = useState([]); // [{id, name}]
   const [branchTabId, setBranchTabId] = useState(''); // '' means All for SA
-
-  // role-aware baseline for "no filters"
   const baseDefaults = useMemo(
     () => ({
       days: 1,
@@ -181,8 +141,6 @@ export default function Dashboard() {
     }),
     [isEmployee]
   );
-
-  // whether anything is applied (or SA switched branch)
   const hasActiveFilters = useMemo(() => {
     const a = appliedFilters;
     if (!a) return false;
@@ -315,6 +273,7 @@ export default function Dashboard() {
   useEffect(() => {
     setEmpPage(1);
   }, [appliedFilters, effectiveBranchId, employeesTable]);
+  
 
   const queryParams = useMemo(() => {
     const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedFilters;
@@ -330,7 +289,7 @@ export default function Dashboard() {
 
   const fetchDashboard = async () => {
     try {
-      setLoading(true);
+      setLoadingapi(true);
       setErrMsg('');
       const res = await axiosInstance.get('/analytics/leads/dashboard', { params: queryParams });
       setData(res.data || {});
@@ -419,13 +378,21 @@ export default function Dashboard() {
     []
   );
 
+
   /* --- Theme-driven chart colors --- */
   const COLORS_AGE = [themeConfig.error, themeConfig.warning];
   const COLORS_OUT = [themeConfig.accent, themeConfig.primary, themeConfig.secondary];
   const COLORS_PER = [themeConfig.accent, themeConfig.primaryHover || themeConfig.primary, themeConfig.success];
 
+
+  
+
   /* ----------------------------- Render ----------------------------- */
   return (
+      <>
+    {loading ? (
+      <DashboardSkeleton themeConfig={themeConfig} />
+    ) : (
     <div
       className="min-h-screen"
       style={{
@@ -1181,6 +1148,8 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+     )}
+    </>
   );
 }
 

@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from "@/api/Axios";
+import { useTheme } from "@/context/ThemeContext";
+import {Mail} from "lucide-react";
 
 export default function InternalMailingForm() {
   const [subject, setSubject] = useState("");
@@ -21,7 +23,7 @@ export default function InternalMailingForm() {
   const [loading, setLoading] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [myBranchId, setMyBranchId] = useState("");
-
+  const { themeConfig } = useTheme();
   // Shared field styles (theme-driven)
   const fieldBase = "w-full rounded-lg outline-none transition";
   const fieldStyle = {
@@ -204,7 +206,12 @@ export default function InternalMailingForm() {
               borderColor: "var(--theme-border)",
             }}
           >
-            <h2 className="text-sm font-medium">Internal Mail</h2>
+            <h2 className="text-sm font-medium text-white"
+            >
+              <span>
+                <Mail className="inline-block mr-2" size={16} />
+              </span>
+              Mailing</h2>
           </div>
 
           <form onSubmit={handleSubmit}>

@@ -20,8 +20,16 @@ import {
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import { useTheme } from "@/context/ThemeContext";
 
 /* --------------------------- helpers --------------------------- */
+const btnPrimary =
+  "px-4 py-2 rounded-lg bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] hover:bg-[var(--theme-primary-hover)] transition";
+const btnSecondary =
+  "px-4 py-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)] transition";
+const btnDangerGhost =
+  "p-2 rounded hover:bg-[var(--theme-danger-soft)] text-[var(--theme-danger)]";
+
 const getUserMeta = () => {
   try {
     const raw = Cookies.get("user_info");
@@ -71,6 +79,7 @@ const getNonPendingBreakdown = (breakdown = []) =>
   (breakdown || []).filter((x) => x?.response_id != null);
 
 export default function LeadSourcesPage() {
+  const { theme, toggleTheme } = useTheme();
   const { hasPermission } = usePermissions();
   const router = useRouter();
 
@@ -95,6 +104,18 @@ export default function LeadSourcesPage() {
     branch_id: isSuperAdmin ? "" : userBranchId || "",
     fetch_configs: [], // [{ role_id, per_request_limit, daily_call_limit }]
   });
+
+  // add this near your other useState hooks
+  const [openRows, setOpenRows] = useState(new Set());
+
+  // helper to toggle one row open/closed
+  const toggleRow = (id) => {
+    setOpenRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const isCreate = isCreateNew && !editingId;
 
@@ -531,7 +552,7 @@ export default function LeadSourcesPage() {
   };
 
   return (
-    <div className="p-6 bg-[var(--theme-background)]">
+    <div className="p-6 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-end mb-6">
         {!isCreateNew && hasPermission("create_lead") && (
@@ -551,10 +572,10 @@ export default function LeadSourcesPage() {
               });
               setIsCreateNew(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--theme-success)] text-[var(--theme-background)] rounded-lg hover:opacity-90 transition"
+            className={`flex items-center gap-1 ${btnPrimary}`}
           >
             <Plus className="w-5 h-5" />
-            Create New Source
+            Add
           </button>
         )}
       </div>
@@ -668,14 +689,14 @@ export default function LeadSourcesPage() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-6 py-2.5 bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)] rounded-lg hover:bg-[var(--theme-primary-softer)] transition-colors font-medium"
+                  className={`${btnSecondary} font-medium`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-[var(--theme-success)] text-[var(--theme-background)] rounded-lg hover:opacity-90 disabled:opacity-50 transition-all font-medium shadow-lg"
+                  className={`${btnPrimary} disabled:opacity-50 font-medium shadow-lg`}
                 >
                   {isSubmitting
                     ? editingId
@@ -705,207 +726,250 @@ export default function LeadSourcesPage() {
         </div>
       </div>
 
-      {/* Sources Accordion (replaces old table) */}
-      <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow border border-[var(--theme-border)] divide-y divide-[var(--theme-border)]">
-        {filteredSources.map((src) => {
-          const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
-          const fcPreview =
-            fc
-              .map((x) => {
-                const rr = roles.find((r) => r.id === x.role_id);
-                return rr
-                  ? `${rr.name} (${x.per_request_limit}/${x.daily_call_limit})`
-                  : `#${x.role_id} (${x.per_request_limit}/${x.daily_call_limit})`;
-              })
-              .join(", ") || "—";
+      {/* Sources Table (full width) */}
+      <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            {/* Header */}
+            <thead className="bg-[var(--theme-surface)]">
+              <tr className="text-[var(--theme-text-muted)]">
+                <th className="px-4 py-3 text-left font-semibold">Source</th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total</th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Pending</th>
+                <th className="px-4 py-3 text-left font-semibold">Roles (per/daily)</th>
+                {showBranchColumn && (
+                  <th className="px-4 py-3 text-left font-semibold">Branch</th>
+                )}
+                <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">
+                  Description
+                </th>
+                <th className="px-4 py-3 text-right font-semibold w-[150px]">Actions</th>
+              </tr>
+            </thead>
 
-          const breakdown = Array.isArray(src.response_breakdown) ? src.response_breakdown : [];
-          const pending = getPendingFromBreakdown(breakdown);
-          const nonPending = getNonPendingBreakdown(breakdown);
+            {/* Body */}
+            <tbody className="divide-y divide-[var(--theme-border)] text-[var(--theme-text)]">
+              {filteredSources.map((src) => {
+                const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
+                const fcPreview =
+                  fc
+                    .map((x) => {
+                      const rr = roles.find((r) => r.id === x.role_id);
+                      const name = rr?.name || `#${x.role_id}`;
+                      return `${name} (${x.per_request_limit}/${x.daily_call_limit})`;
+                    })
+                    .join(", ") || "—";
 
-          const branchLabel =
-            branchMap[Number(src.branch_id)] ||
-            src.branch_name ||
-            src?.branch?.name ||
-            (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
+                const breakdown = Array.isArray(src.response_breakdown) ? src.response_breakdown : [];
+                const pending = getPendingFromBreakdown(breakdown);
+                const nonPending = getNonPendingBreakdown(breakdown);
+                const branchLabel =
+                  branchMap[Number(src.branch_id)] ||
+                  src.branch_name ||
+                  src?.branch?.name ||
+                  (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
 
-          return (
-            <details key={src.id} className="group">
-              {/* Header */}
-              <summary className="list-none cursor-pointer px-6 py-4 hover:bg-[var(--theme-primary-softer)] transition flex items-start gap-4">
-  {/* LEFT COLUMN: ID ABOVE ICON */}
-  <div className="flex flex-col items-center gap-1 shrink-0">
-    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] bg-[var(--theme-primary-softer)] text-[var(--theme-primary)] leading-none">
-      #{src.id}
-    </span>
-    <div className="rounded-full p-1 bg-[var(--theme-primary-softer)]">
-      <Database className="w-4 h-4 text-[var(--theme-primary)]" />
-    </div>
-  </div>
+                const isOpen = openRows.has(src.id);
+                const COLS = showBranchColumn ? 7 : 6; // (Source, Total, Pending, Roles, [Branch], Description, Actions)
 
-  {/* RIGHT COLUMN: NAME, TOTAL, PENDING, BRANCH, DESCRIPTION */}
-  <div className="min-w-0 flex-1">
-    <div className="flex flex-wrap items-center gap-2">
-      {/* name */}
-      <span className="font-semibold text-[var(--theme-text)]">{src.name}</span>
+                return (
+                  <React.Fragment key={src.id}>
+                    {/* CLICKABLE DATA ROW */}
+                    <tr
+                      className={`hover:bg-[var(--theme-primary-softer)]/60 cursor-pointer ${isOpen ? "bg-[var(--theme-primary-softer)]/50" : ""}`}
+                      onClick={() => toggleRow(src.id)}
+                      aria-expanded={isOpen}
+                    >
+                      <td className="px-4 py-3 align-top">
+                        <div className="font-semibold">{src.name}</div>
+                        <div className="text-xs text-[var(--theme-text-muted)] truncate">
+                          {(src.alias || src.code || "").toString()}
+                        </div>
+                      </td>
 
-      {/* total */}
-      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-        Total: {src.total_leads ?? 0}
-      </span>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        {src.total_leads ?? 0}
+                      </td>
 
-      {/* pending */}
-      {pending?.total_leads > 0 && (
-        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-          Pending: {pending.total_leads}
-        </span>
-      )}
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        {(pending?.total_leads ?? 0) > 0 ? (
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-xs border"
+                            style={{
+                              background: "var(--theme-components-tag-warning-bg)",
+                              color: "var(--theme-components-tag-warning-text)",
+                              borderColor: "var(--theme-components-tag-warning-border)",
+                            }}
+                          >
+                            {pending.total_leads}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--theme-text-muted)]">0</span>
+                        )}
+                      </td>
 
-      {/* branch */}
-      {showBranchColumn && (
-        <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)]">
-          {branchMap[Number(src.branch_id)] ||
-            src.branch_name ||
-            src?.branch?.name ||
-            (src.branch_id != null ? `Branch-${src.branch_id}` : "—")}
-        </span>
-      )}
-    </div>
+                      <td className="px-4 py-3 align-top max-w-[520px]">
+                        <div className="text-xs text-[var(--theme-text)] truncate" title={fcPreview}>
+                          {fc.length ? (
+                            <>
+                              <span className="inline-flex px-2 py-0.5 mr-2 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+                                {fc.length} role{fc.length > 1 ? "s" : ""}
+                              </span>
+                              <span className="align-middle hidden xl:inline">{fcPreview}</span>
+                              <span className="align-middle xl:hidden text-[var(--theme-text-muted)]">
+                                (details on wide screens)
+                              </span>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </div>
+                      </td>
 
-    {/* description (unchanged) */}
-    {src.description ? (
-      <p
-        className="text-sm text-[var(--theme-text-muted)] mt-0.5 line-clamp-1"
-        title={src.description}
-      >
-        {src.description}
-      </p>
-    ) : null}
+                      {showBranchColumn && (
+                        <td className="px-4 py-3 align-top">
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+                            {branchLabel}
+                          </span>
+                        </td>
+                      )}
 
-    {/* fetch config preview (unchanged) */}
-    <div className="text-xs text-[var(--theme-text-muted)] mt-1" title={fcPreview}>
-      {fc.length ? (
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-            {fc.length} role(s)
-          </span>
-          <span className="hidden xl:inline">{fcPreview}</span>
-        </span>
+                      <td className="px-4 py-3 align-top hidden lg:table-cell">
+                        <div
+                          className="text-sm text-[var(--theme-text-muted)] line-clamp-2"
+                          title={src.description || ""}
+                        >
+                          {src.description || "—"}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center justify-end gap-1"
+                          onClick={(e) => e.stopPropagation() /* prevent row toggle */}>
+                          {hasPermission("edit_lead") && (
+                            <button
+                              onClick={() => handleEdit(src)}
+                              className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
+                              title="Edit source"
+                            >
+                              <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
+                            </button>
+                          )}
+                          {hasPermission("delete_lead") && (
+                            <button
+                              onClick={() => handleDelete(src.id)}
+                              className={btnDangerGhost}
+                              title="Delete source"
+                            >
+                              <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
+                            </button>
+                          )}
+                          <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleRow(src.id);
+      }}
+      aria-label={isOpen ? "Collapse details" : "Expand details"}
+      aria-expanded={isOpen}
+      aria-controls={`panel-${src.id}`}
+      className="p-2 rounded hover:bg-[var(--theme-primary-softer)] transition"
+      title={isOpen ? "Collapse" : "Expand"}
+    >
+      {isOpen ? (
+        <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" />
       ) : (
-        "No fetch configs"
+        <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" />
       )}
-    </div>
-  </div>
+    </button>
+                        </div>
+                      </td>
+                    </tr>
 
-  {/* ACTIONS + CHEVRON */}
-  <div className="ml-2 flex items-center gap-1">
-    {hasPermission("edit_lead") && (
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleEdit(src);
-        }}
-        className="p-2 rounded hover:bg-[var(--theme-primary-softer)]"
-        title="Edit source"
-      >
-        <Edit className="w-4 h-4 text-[var(--theme-primary)]" />
-      </button>
-    )}
-    {hasPermission("delete_lead") && (
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleDelete(src.id);
-        }}
-        className="p-2 rounded hover:bg-[var(--theme-danger-soft)]"
-        title="Delete source"
-      >
-        <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
-      </button>
-    )}
+                    {/* EXPANDED PANEL ROW */}
+                    {isOpen && (
+                      <tr className="bg-[var(--theme-surface)]">
+                        <td className="px-0 py-0" colSpan={COLS}>
+                          <div className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]">
+                            {/* Put the “accordion panel” content here (same as earlier) */}
+                            <div className="mb-3">
+                              <h4 className="text-sm font-semibold text-[var(--theme-text)]">
+                                RESPONSE DISTRIBUTION
+                              </h4>
+                            </div>
 
-    <ChevronRight className="w-4 h-4 text-[var(--theme-text-muted)] group-open:hidden" />
-    <ChevronDown className="w-4 h-4 text-[var(--theme-text-muted)] hidden group-open:block" />
-  </div>
-</summary>
+                            {nonPending.length === 0 ? (
+                              <p className="text-sm text-[var(--theme-text-muted)]">
+                                No responses yet (excluding pending).
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                {[...nonPending]
+                                  .sort((a, b) => (b.total_leads || 0) - (a.total_leads || 0))
+                                  .map((b, i) => {
+                                    const pct = Math.max(0, Math.min(100, Number(b.percentage) || 0));
+                                    const count = Number(b.total_leads) || 0;
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-3"
+                                      >
+                                        <div className="text-xs font-extrabold tracking-wide text-[var(--theme-text)] uppercase">
+                                          {b.response_name || "—"}
+                                        </div>
+                                        <div className="mt-1 flex items-center justify-between text-xs">
+                                          <span className="text-[var(--theme-text-muted)]">
+                                            {count} {count === 1 ? "lead" : "leads"}
+                                          </span>
+                                          <span className="font-semibold text-[var(--theme-text)]">
+                                            {pct.toFixed(2)}%
+                                          </span>
+                                        </div>
+                                        <div className="mt-2 h-1.5 rounded bg-[var(--theme-border)] overflow-hidden">
+                                          <div
+                                            className="h-full bg-[var(--theme-primary)]"
+                                            style={{ width: `${pct}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
 
-              {/* Panel */}
-              <div className="px-6 pb-6 pt-2 bg-[var(--theme-surface)] border-t border-[var(--theme-border)]">
-
-                {/* Response Breakdown — plain text (3 per row), excludes "No Response" */}
-               {/* Response Distribution (cards like screenshot) */}
-<div className="mb-4">
-  <h4 className="text-sm font-semibold text-[var(--theme-text)] mb-3">
-    RESPONSE DISTRIBUTION
-  </h4>
-
-  {nonPending.length === 0 ? (
-    <p className="text-sm text-[var(--theme-text-muted)]">
-      No responses yet (excluding pending).
-    </p>
-  ) : (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {([...nonPending].sort((a,b) => (b.total_leads||0) - (a.total_leads||0))).map((b, i) => {
-        const pct = Math.max(0, Math.min(100, Number(b.percentage) || 0));
-        const count = Number(b.total_leads) || 0;
-        return (
-          <div
-            key={i}
-            className="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-3"
-          >
-            {/* Title */}
-            <div className="text-xs font-extrabold tracking-wide text-[var(--theme-text)] uppercase">
-              {b.response_name || "—"}
-            </div>
-
-            {/* Count + % */}
-            <div className="mt-1 flex items-center justify-between text-xs">
-              <span className="text-[var(--theme-text-muted)]">
-                {count} {count === 1 ? "lead" : "leads"}
-              </span>
-              <span className="font-semibold text-[var(--theme-text)]">
-                {pct.toFixed(2)}%
-              </span>
-            </div>
-
-            {/* Progress */}
-            <div className="mt-2 h-1.5 rounded bg-[var(--theme-border)] overflow-hidden">
-              <div
-                className="h-full bg-[var(--theme-primary)]"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  )}
-</div>
-
-              </div>
-            </details>
-          );
-        })}
-
-        {!loading && filteredSources.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <div className="flex flex-col items-center gap-2">
-              <Database className="w-12 h-12 text-[var(--theme-text-muted)]" />
-              <p className="text-[var(--theme-text-muted)]">
-                {searchTerm ? `No sources match "${searchTerm}".` : "No sources available."}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {loading && (
-          <div className="px-6 py-6 text-center text-[var(--theme-text-muted)]">
-            Loading...
-          </div>
-        )}
+              {/* Empty & Loading states */}
+              {!loading && filteredSources.length === 0 && (
+                <tr>
+                  <td
+                    className="px-4 py-10 text-center text-[var(--theme-text-muted)]"
+                    colSpan={showBranchColumn ? 8 : 7}
+                  >
+                    No sources {searchTerm ? `matching “${searchTerm}”` : "available"}.
+                  </td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td
+                    className="px-4 py-6 text-center text-[var(--theme-text-muted)]"
+                    colSpan={showBranchColumn ? 8 : 7}
+                  >
+                    Loading…
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
     </div>
   );
 }

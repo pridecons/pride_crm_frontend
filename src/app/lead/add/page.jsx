@@ -87,6 +87,23 @@ const Section = ({ title, children, className }) => (
   </section>
 )
 
+// --- Date helpers (same as in the other page) ---
+const formatDateInput = (value) => {
+  const d = String(value || "").replace(/\D/g, "").slice(0, 8); // keep 8 digits
+  if (!d) return "";
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}-${d.slice(2)}`;
+  return `${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4)}`;
+};
+
+// optional: keep if you need ISO later
+const normalizeDate = (dmy) => {
+  if (!dmy) return undefined;
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(dmy)) return undefined;
+  const [dd, mm, yyyy] = dmy.split("-");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 export default function LeadForm() {
   const [formData, setFormData] = useState({
     full_name: '', father_name: '', email: '', mobile: '', alternate_mobile: '',
@@ -194,11 +211,10 @@ export default function LeadForm() {
     }
 
     if (name === 'call_back_date' || name === 'dob') {
-      if (/^\d{0,2}-?\d{0,2}-?\d{0,4}$/.test(value)) {
-        setFormData(p => ({ ...p, [name]: value }))
-      }
-      return
-    }
+  const v = formatDateInput(value);     // ← auto-places dashes while typing
+  setFormData(p => ({ ...p, [name]: v }));
+  return;
+}
 
     // Small UX hygiene (doesn't change your backend logic)
     if (name === 'pan' || name === 'gstin') {
@@ -507,17 +523,30 @@ export default function LeadForm() {
           </Field>
 
           <Field label="Date of Birth (DD-MM-YYYY)">
-            <input
-              name="dob"
-              value={formData.dob}
-              onChange={handleChange}
-              placeholder="DD-MM-YYYY"
-              pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
-              disabled={panLocked.dob}
-              className={baseInput}
-              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
-            />
-          </Field>
+  <input
+    name="dob"
+    value={formData.dob}
+    onChange={handleChange}
+    onPaste={(e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      const v = formatDateInput(text);
+      setFormData(p => ({ ...p, dob: v }));
+    }}
+    onBlur={() => {
+      // optional: clear if pattern not satisfied on blur
+      if (formData.dob && !/^\d{2}-\d{2}-\d{4}$/.test(formData.dob)) {
+        setFormData(p => ({ ...p, dob: '' }));
+      }
+    }}
+    placeholder="DD-MM-YYYY"
+    inputMode="numeric"
+    pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+    disabled={panLocked.dob}
+    className={baseInput}
+    style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+  />
+</Field>
 
           <Field label="Aadhaar Number">
             <input
@@ -765,16 +794,29 @@ export default function LeadForm() {
           </Field>
 
           <Field label="Call Back Date (DD-MM-YYYY)">
-            <input
-              name="call_back_date"
-              value={formData.call_back_date}
-              onChange={handleChange}
-              placeholder="DD-MM-YYYY"
-              pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
-              className={baseInput}
-              style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
-            />
-          </Field>
+  <input
+    name="call_back_date"
+    value={formData.call_back_date}
+    onChange={handleChange}
+    onPaste={(e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      const v = formatDateInput(text);
+      setFormData(p => ({ ...p, call_back_date: v }));
+    }}
+    onBlur={() => {
+      // optional: clear if pattern not satisfied on blur
+      if (formData.call_back_date && !/^\d{2}-\d{2}-\d{4}$/.test(formData.call_back_date)) {
+        setFormData(p => ({ ...p, call_back_date: '' }));
+      }
+    }}
+    placeholder="DD-MM-YYYY"
+    inputMode="numeric"
+    pattern="^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+    className={baseInput}
+    style={{ ...inputSurfaceStyle, ...ringFocusStyle }}
+  />
+</Field>
 
           <Field label="Comment / Description" className="md:col-span-2">
             <textarea

@@ -70,6 +70,36 @@ const hasAnyImage = apiHasGraph || localHasFile;
     };
   }, []);
 
+  // Auto-select template from prefilled formData.templateId (for correction/create prefill)
+useEffect(() => {
+  if (!templates || templates.length === 0) return;
+  if (!formData?.templateId) return;
+
+  // Find by DLT template id (backend) OR numeric id fallback
+  const t = templates.find(
+    (x) =>
+      String(x?.dlt_template_id) === String(formData.templateId) ||
+      String(x?.id) === String(formData.templateId)
+  );
+
+  if (t) {
+    setSelectedTemplateId(t.id);
+    setSelectedTemplate(t.template || "");
+
+    // Initialize message once (your other effect will live-update placeholders)
+    if (!formData.message) {
+      setFormData((prev) => ({
+        ...prev,
+        message: t.template || "",
+      }));
+    }
+
+    // Clear any template validation error
+    setErrors((prev) => ({ ...prev, smsTemplate: undefined }));
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [templates, formData?.templateId]);
+
   useEffect(() => {
     fetchPlanTypeOptions();
   }, []);

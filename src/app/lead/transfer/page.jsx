@@ -84,66 +84,76 @@ export default function SourceToolsPage() {
     return () => { isMounted = false; };
   }, []);
 
-  // ---------- helpers ----------
-  function parseCsvInts(csv) {
-    return (csv || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map(Number)
-      .filter((n) => !Number.isNaN(n));
-  }
+// ---------- helpers ----------
+function parseCsvInts(csv) {
+  return (csv || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+    .filter((n) => !Number.isNaN(n));
+}
 
-  const transferPayload = useMemo(() => {
-    const p = {
-      scope,
-      target_source_id: targetSourceId ? Number(targetSourceId) : undefined,
-      clear_assigned: clearAssigned,
-      clear_response: clearResponse,
-      clear_response_dates: clearDates,
+/* ✅ MOVE THIS UP — it must come before transferPayload & deleteLeadsPayload */
+const fromSourceIdNum = useMemo(
+  () => (sourceId ? Number(sourceId) : undefined),
+  [sourceId]
+);
 
-      // NEW: extra clear flags
-      clear_sms_logs: clearSmsLogs,
-      clear_email_logs: clearEmailLogs,
-      clear_comments: clearComments,
-      clear_stories: clearStories,
-      clear_recordings: clearRecordings,
-    };
-    if (scope === "by_response") p.response_ids = responseIds;
-    if (scope === "lead_ids") {
-      p.lead_ids =
-        selectedLeadIds.length > 0
-          ? selectedLeadIds
-          : parseCsvInts(leadIdsText);
-    }
-    return p;
-  }, [
+/* now it's safe to compute transferPayload */
+const transferPayload = useMemo(() => {
+  const p = {
+    from_source_id: fromSourceIdNum,
     scope,
-    targetSourceId,
-    clearAssigned,
-    clearResponse,
-    clearDates,
-    responseIds,
-    leadIdsText,
-    selectedLeadIds,
-    clearSmsLogs,
-    clearEmailLogs,
-    clearComments,
-    clearStories,
-    clearRecordings,
-  ]);
+    target_source_id: targetSourceId ? Number(targetSourceId) : undefined,
+    clear_assigned: clearAssigned,
+    clear_response: clearResponse,
+    clear_response_dates: clearDates,
 
-  const deleteLeadsPayload = useMemo(() => {
-    const p = { scope: delScope, mode: delMode };
-    if (delScope === "by_response") p.response_ids = delResponseIds;
-    if (delScope === "lead_ids") {
-      p.lead_ids =
-        delSelectedLeadIds.length > 0
-          ? delSelectedLeadIds
-          : parseCsvInts(delLeadIdsText);
-    }
-    return p;
-  }, [delScope, delMode, delResponseIds, delLeadIdsText, delSelectedLeadIds]);
+    // extra clear flags
+    clear_sms_logs: clearSmsLogs,
+    clear_email_logs: clearEmailLogs,
+    clear_comments: clearComments,
+    clear_stories: clearStories,
+    clear_recordings: clearRecordings,
+  };
+  if (scope === "by_response") p.response_ids = responseIds;
+  if (scope === "lead_ids") {
+    p.lead_ids =
+      selectedLeadIds.length > 0
+        ? selectedLeadIds
+        : parseCsvInts(leadIdsText);
+  }
+  return p;
+}, [
+  fromSourceIdNum,
+  scope,
+  targetSourceId,
+  clearAssigned,
+  clearResponse,
+  clearDates,
+  responseIds,
+  leadIdsText,
+  selectedLeadIds,
+  clearSmsLogs,
+  clearEmailLogs,
+  clearComments,
+  clearStories,
+  clearRecordings,
+]);
+
+/* and deleteLeadsPayload can stay after that */
+const deleteLeadsPayload = useMemo(() => {
+  const p = { from_source_id: fromSourceIdNum, scope: delScope, mode: delMode };
+  if (delScope === "by_response") p.response_ids = delResponseIds;
+  if (delScope === "lead_ids") {
+    p.lead_ids =
+      delSelectedLeadIds.length > 0
+        ? delSelectedLeadIds
+        : parseCsvInts(delLeadIdsText);
+  }
+  return p;
+}, [fromSourceIdNum, delScope, delMode, delResponseIds, delLeadIdsText, delSelectedLeadIds]);
 
   // ---------- actions ----------
   async function doTransfer(e) {
@@ -194,7 +204,7 @@ export default function SourceToolsPage() {
     setError(""); setResult(null);
 
     if (!sourceId) return setError("Source is required.");
-    const payload = { mode: srcDeleteMode, on_leads: onLeads, archive_prefix: archivePrefix };
+    const payload = { source_id: fromSourceIdNum, mode: srcDeleteMode, on_leads: onLeads, archive_prefix: archivePrefix };
 
     setLoading(true);
     try {
@@ -441,7 +451,7 @@ function ScopePicker({ value, onChange }) {
 
 <main className="mx-2 px-4 py-6 space-y-6">
   {/* Sticky Tabs — inside the SAME scrolling container */}
-  <div className="sticky top-[64px] z-50 bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 shadow-lg border-b border-white/20 rounded-b-2xl [overflow-anchor:none]">
+  <div className="sticky top-[64px] bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 shadow-lg border-b border-white/20 rounded-b-2xl [overflow-anchor:none]">
     <div className="px-2 sm:px-4">
       <div className="flex gap-2 overflow-x-auto py-3">
         {tabs.map((t) => {

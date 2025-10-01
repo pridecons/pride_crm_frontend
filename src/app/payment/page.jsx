@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
-import { CheckCircle, Clock, FileText } from "lucide-react";
+import { CheckCircle, Clock, FileText, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
@@ -35,6 +35,17 @@ function daysToRange(days) {
 }
 
 /* -------------------- Display + general helpers -------------------- */
+/* ---------- tiny inline spinner for toolbar ---------- */
+const InlineSpinner = ({ label = "Loading..." }) => (
+  <span className="inline-flex items-center gap-2 text-sm text-[var(--theme-text-muted)]">
+    <span
+      aria-hidden
+      className="h-4 w-4 inline-block animate-spin rounded-full border-2 border-current border-t-transparent"
+    />
+    {label}
+  </span>
+);
+
 const invoiceChipBase =
   "inline-flex items-center gap-1.5 min-w-[92px] h-7 px-3 rounded-full text-xs font-bold tracking-wide select-none whitespace-nowrap";
 
@@ -70,7 +81,6 @@ const inputClass =
   "px-3 py-2 border rounded-md w-full outline-none transition " +
   "border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)] " +
   "placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent";
-  "inline-flex items-center justify-center w-24 h-6 px-2.5 rounded-full text-xs font-semibold uppercase tracking-wide whitespace-nowrap";
   const badgeBase =
   "inline-flex items-center justify-center w-24 h-6 px-2.5 rounded-full text-xs font-semibold uppercase tracking-wide whitespace-nowrap";
 const thBase =
@@ -83,7 +93,7 @@ const btnSecondary =
 
 /* =========================== Component =========================== */
 export default function PaymentHistoryPage() {
-  const { theme } = useTheme();
+  const { theme, themeConfig, toggleTheme } = useTheme();
   // Role/branch state
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState("");
@@ -596,8 +606,14 @@ const fetchPayments = async () => {
     myView,
   ]);
 
-// Block UI only when truly loading the very first time AND there’s no data yet
-{loading && payments.length === 0 && <LoadingState message="Fetching payments..." />}
+  // Full-screen first load
+if (loading && payments.length === 0) {
+  return (
+    <div className="min-h-screen grid place-items-center bg-[var(--theme-background)] text-[var(--theme-text)]">
+      <LoadingState message="Fetching payments..." />
+    </div>
+  );
+}
 
   return (
    <div className="mx-2 px-4 py-8 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
@@ -619,12 +635,18 @@ const fetchPayments = async () => {
             </span>
           )}
           {service && (
-            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-indigo-50 text-indigo-700 text-xs">
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
+      style={{background:"var(--theme-components-tag-accent-bg)",
+              color:"var(--theme-components-tag-accent-text)",
+              borderColor:"var(--theme-components-tag-accent-border)"}}>
               Service: {service}
             </span>
           )}
           {plan && (
-            <span className="hidden md:inline-flex px-3 py-1.5 rounded bg-indigo-50 text-indigo-700 text-xs">
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
+      style={{background:"var(--theme-components-tag-accent-bg)",
+              color:"var(--theme-components-tag-accent-text)",
+              borderColor:"var(--theme-components-tag-accent-border)"}}>
               Plan: {plan}
             </span>
           )}
@@ -654,11 +676,9 @@ const fetchPayments = async () => {
            className={`${btnPrimary} text-sm`}
             title="Open filters"
           >
-            Filters
+            <SlidersHorizontal className="h-6 w-5"/>
           </button>
-          {refreshing && (
-<LoadingState message="Loading..." />
-)}
+          {refreshing && <InlineSpinner />}
 
         </div>
       </div>
@@ -684,49 +704,48 @@ const fetchPayments = async () => {
       )}
 
       {/* Branch chips */}
-      <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 gap-4">
-        {(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
-          <div className="flex space-x-2 overflow-x-auto">
-            {role === "SUPERADMIN" && (
-              <button
-                onClick={() => {
-                  setBranchId("");
-                  setOffset(0);
-                }}
-                className={`px-4 py-2 rounded border border-[var(--theme-border)] ${
-                  branchId === "" 
+      {/* Branch chips — visible only to SUPERADMIN */}
+{role === "SUPERADMIN" && (
+  <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 gap-4">
+    <div className="flex space-x-2 overflow-x-auto">
+      <button
+        onClick={() => {
+          setBranchId("");
+          setOffset(0);
+        }}
+        className={`px-4 py-2 rounded border border-[var(--theme-border)] ${
+          branchId === ""
+            ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+            : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+        }`}
+      >
+        All Branches
+      </button>
+
+      {branches.map((b) => {
+        const bid = b.id ?? b.branch_id;
+        const isActive = String(branchId) === String(bid);
+        return (
+          <button
+            key={bid}
+            onClick={() => {
+              setBranchId(String(bid));
+              setOffset(0);
+            }}
+            className={`px-4 py-2 rounded border border-[var(--theme-border)] ${
+   isActive
      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
      : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
  }`}
-              >
-                All Branches
-              </button>
-            )}
-            {(role === "SUPERADMIN"
-              ? branches
-              : branches.filter((b) => String(b.id ?? b.branch_id) === String(branchId))
-            ).map((b) => {
-              const bid = b.id ?? b.branch_id;
-              const isActive = String(branchId) === String(bid);
-              return (
-                <button
-                  key={bid}
-                  onClick={() => {
-                    setBranchId(String(bid));
-                    setOffset(0);
-                  }}
-                  disabled={role === "BRANCH_MANAGER"}
-                  className={`px-4 py-2 rounded ${
-                    isActive ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-                  } ${role === "BRANCH_MANAGER" ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  {b.name || b.branch_name || `Branch ${bid}`}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+          >
+            {b.name || b.branch_name || `Branch ${bid}`}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+)}
+
 
       {/* Filters (keep service/plan/client/employee inline for convenience) */}
       <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -783,7 +802,14 @@ const fetchPayments = async () => {
             }}
           />
           {(clientFilter.name || clientFilter.email || clientFilter.phone_number) && (
-            <div className="mt-1 inline-flex items-center text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded">
+            <div
+   className="mt-1 inline-flex items-center text-xs px-2 py-1 rounded border"
+   style={{
+     background: "var(--theme-components-tag-info-bg)",
+     color: "var(--theme-components-tag-info-text)",
+     borderColor: "var(--theme-components-tag-info-border)"
+   }}
+ >
               {[clientFilter.name, clientFilter.email, clientFilter.phone_number]
                 .filter(Boolean)
                 .join(" • ")}
@@ -865,15 +891,15 @@ const fetchPayments = async () => {
           )}
 
           {canSearchEmployees && showUserDropdown && userSuggestions.length > 0 && (
-            <ul className="absolute z-10 bg-white border border-gray-200 w-full max-h-48 overflow-y-auto rounded shadow">
+            <ul className="absolute z-10 bg-[var(--theme-card-bg)] border border-[var(--theme-border)] w-full max-h-48 overflow-y-auto rounded shadow">
               {userSuggestions.map((u, idx) => (
                 <li
                   key={u.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleUserSelect(u)}
                   className={`px-3 py-2 cursor-pointer ${
-                    idx === userHL ? "bg-blue-50" : "hover:bg-gray-100"
-                  }`}
+   idx === userHL ? "bg-[var(--theme-primary-softer)]" : "hover:bg-[var(--theme-primary-softer)]"
+ }`}
                 >
                   <div className="flex justify-between">
                     <span className="font-medium">{u.name || "Unknown"}</span>
@@ -890,38 +916,54 @@ const fetchPayments = async () => {
       </div>
 
       {/* Results */}
-      {loading && <LoadingState message="Fetching payments..." />}
       {error && (
-        <div className="bg-red-100 border border-red-300 text-red-700 rounded px-4 py-2 mb-4">
+        <div className="rounded px-4 py-2 mb-4 border"
+     style={{
+       background: "var(--theme-components-tag-error-bg)",
+       color: "var(--theme-components-tag-error-text)",
+       borderColor: "var(--theme-components-tag-error-border)",
+     }}
+>
           {error}
         </div>
       )}
       {!loading && !error && payments.length === 0 && (
-        <div className="text-gray-500 text-center py-10">No records found.</div>
+       <div className="text-center py-10 text-[var(--theme-text-muted)]">No records found.</div>
       )}
 
       {/* Page size */}
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-gray-600">Payments per page:</span>
-        <select
-          className="px-2 py-1"
-          value={limit}
-          onChange={(e) => {
-            const v = Number(e.target.value) || DEFAULT_LIMIT;
-            setLimit(v);
-            setOffset(0); // jump to first page on size change
-          }}
-        >
-          {[25, 50, 100, 200].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Page size — show only when there are results */}
+{!loading && !error && total > 0 && (
+  <div className="flex items-center gap-2 text-sm mb-2">
+    <span className="text-[var(--theme-text-muted)]">Payments per page:</span>
+    <select
+      className="px-2 py-1 border rounded"
+      style={{
+         background: "var(--theme-input-background)",
+         color: "var(--theme-text)",
+         borderColor: "var(--theme-input-border)"
+       }}
+      value={limit}
+      onChange={(e) => {
+        const v = Number(e.target.value) || DEFAULT_LIMIT;
+        setLimit(v);
+        setOffset(0);
+      }}
+    >
+      {[25, 50, 100, 200].map((n) => (
+        <option key={n} value={n}>{n}</option>
+      ))}
+    </select>
+  </div>
+)}
 
       {!loading && !error && payments.length > 0 && (
         <div className="relative max-h-[70vh] overflow-auto rounded-lg shadow border border-[var(--theme-border)]">
+          {loading && payments.length > 0 && (
+  <div className="absolute inset-0 z-20 grid place-items-center bg-black/5 backdrop-blur-[1px]">
+    <InlineSpinner label="Updating..." />
+  </div>
+)}
           <table className="min-w-full bg-[var(--theme-card-bg)] text-sm text-[var(--theme-text)]">
             <thead
   className="sticky top-0 z-10"
@@ -1138,7 +1180,7 @@ const fetchPayments = async () => {
               <button
                 onClick={() => goToPage(page - 1)}
                 disabled={page <= 1}
-                className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+                className="px-3 py-1 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-60 hover:bg-[var(--theme-primary-softer)]"
               >
                 Prev
               </button>
@@ -1182,7 +1224,7 @@ const fetchPayments = async () => {
               <button
                 onClick={() => goToPage(page + 1)}
                 disabled={page >= pageCount}
-                className="px-3 py-1 rounded bg-gray-200 text-gray-700 disabled:opacity-60"
+                className="px-3 py-1 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-60 hover:bg-[var(--theme-primary-softer)]"
               >
                 Next
               </button>
@@ -1213,7 +1255,7 @@ const fetchPayments = async () => {
           <div className="absolute inset-y-0 right-0 w-full sm:w-[420px] bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-l border-[var(--theme-border)] flex flex-col shadow-2xl">
             {/* Header */}
             <div className="px-4 py-3 border-b border-[var(--theme-border)] flex items-center justify-between">
-              <h3 className="font-semibold">Filters</h3>
+              <SlidersHorizontal className="h-6 w-5" />
               <button className="text-gray-500" onClick={() => setFiltersOpen(false)}>
                 ✕
               </button>

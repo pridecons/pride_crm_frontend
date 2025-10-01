@@ -11,7 +11,8 @@ import {
   ClipboardList, CreditCard, Mail, MessageCircle, MessageSquare, CalendarCheck,
   ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal, PhoneCall,
   PlusCircle, MessagesSquare, ClipboardCheck, FileSearch, StickyNote,
-  PieChart, UserCog, MailOpen, MessageSquareText
+  PieChart, UserCog, MailOpen, MessageSquareText,
+  Share
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -228,7 +229,7 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
           { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
           { href: "/lead/manage/response", icon: MessagesSquare, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
           { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
-          { href: "/lead/manage/analytics", icon: BarChart3, label: "Lead Analytics", access: "lead_analytics_page", activeMatch: "exact" },
+          { href: "/lead/transfer", icon: Share, label: "Lead Transfer", access: "lead_transfer_page", activeMatch: "exact"},
         ],
       },
       {

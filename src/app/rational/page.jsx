@@ -143,9 +143,9 @@ const openModal = (item = null) => {
       graph: item.graph || null,
       status: item.status || 'OPEN',
       message: item.message || '',
-      templateId: item.templateId || '',
+      templateId: item?.template_id ? String(item.template_id) : '',
       sent_on_msg: {"SMS":true, "whatsapp":true, "Email":false },
-      planType: item?.planType || ""
+      planType: item?.plan_type ? String(item.plan_type) : '',
     });
   } else {
     setEditId(null);
@@ -403,9 +403,9 @@ const handleSubmit = async (e) => {
     graph: item.graph || null,
     status: item.status || "OPEN", // status is shown in create mode; prefill from row
     message: "",                   // fresh message/template in create
-    templateId: "",
+    templateId: item?.template_id ? String(item.template_id) : "",
     sent_on_msg: { SMS: true, whatsapp: true, Email: false },
-    planType: item?.planType || "",
+    planType: item?.plan_type ? String(item.plan_type) : "",
   });
 
   setImageError("");

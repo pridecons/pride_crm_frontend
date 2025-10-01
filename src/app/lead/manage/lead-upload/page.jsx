@@ -26,11 +26,12 @@ import {
   Briefcase,
   IndianRupee,
   CheckCircle2,
-  CircleX,
 } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function BulkUploadPage() {
   const router = useRouter();
+  const { theme, themeConfig, toggleTheme } = useTheme();
 
   // mode: "file" | "paste"
   const [mode, setMode] = useState("file");
@@ -357,13 +358,13 @@ export default function BulkUploadPage() {
                   Select File
                 </h2>
 
-                <label
-                  className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition
-                    ${
-                      selectedFile
-                        ? "border-[var(--theme-success)] bg-[color:rgb(34_197_94_/0.08)] text-[var(--theme-success)]"
-                        : "border-[var(--theme-info,#3b82f6)] bg-[color:rgb(59_130_246_/0.08)] text-[var(--theme-info,#3b82f6)]"
-                    }`}
+                <label htmlFor="upload_file"
+                 className={`flex items-center justify-between px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition
+   ${
+     selectedFile
+       ? "border-[var(--theme-components-tag-success-border)] bg-[var(--theme-components-tag-success-bg)] text-[var(--theme-components-tag-success-text)]"
+       : "border-[var(--theme-components-tag-info-border)] bg-[var(--theme-components-tag-info-bg)] text-[var(--theme-components-tag-info-text)]"
+   }`}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
                     {selectedFile ? (
@@ -379,12 +380,13 @@ export default function BulkUploadPage() {
                     )}
                   </span>
                   <input
+                  id="upload_file"
                     type="file"
                     name="upload_file"
                     accept=".csv,.xlsx"
                     required={mode === "file"}
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                    className="hidden"
+                    className="sr-only" 
                   />
                 </label>
               </section>
@@ -410,7 +412,6 @@ export default function BulkUploadPage() {
                   className="w-full px-4 py-3 rounded-lg transition
                              bg-[var(--theme-components-input-bg)]
                              text-[var(--theme-components-input-text)]
-                             placeholder:text-[var(--theme-components-input-placeholder)]
                              border border-[var(--theme-components-input-border)]
                              focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                   required={mode === "paste"}
@@ -536,7 +537,7 @@ export default function BulkUploadPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={uploading}
+              disabled={uploading || (mode === "paste" && pastedMobiles.length === 0)}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-lg transition shadow-sm
                          text-[var(--theme-components-button-primary-text)]
                          bg-[var(--theme-components-button-primary-bg)]
@@ -582,9 +583,13 @@ export default function BulkUploadPage() {
             <BarChart3 className="text-[var(--theme-primary)] w-5 h-5" />
             Upload Summary
           </h2>
+          <div aria-live="polite" className="sr-only">
+  {uploading ? "Uploading..." : uploadResult ? "Upload complete." : ""}
+  {uploadResult?.errors?.length ? "Some rows had errors." : ""}
+</div>
 
           {!uploadResult ? (
-            <div className="text-center text-[var(--theme-text-muted)] mt-12">
+            <div className="text-center mt-12 text-[var(--theme-text-muted)]">
               <Database className="mx-auto mb-4 w-16 h-16 text-[var(--theme-border)]" />
               <p className="font-medium text-[var(--theme-text)]">No upload results yet</p>
               <p className="text-sm">Submit a file or paste mobiles to see the summary here</p>
@@ -592,15 +597,19 @@ export default function BulkUploadPage() {
           ) : (
             <div className="space-y-6">
               {/* Stats */}
-              <div className="rounded-xl p-4 border bg-[color:rgb(22_163_74_/0.08)] border-[color:rgb(22_163_74_/0.25)]">
+              <div className="rounded-xl p-4 border
+                bg-[var(--theme-components-tag-success-bg)]
+                border-[var(--theme-components-tag-success-border)]">
                 <div className="flex justify-between mb-3">
-                  <span className="font-semibold text-[var(--theme-success)]">Success Rate</span>
-                  <span className="text-2xl font-bold text-[var(--theme-success)]">
-                    {uploadResult.total_rows
-                      ? Math.round(
-                          (uploadResult.successful_uploads / uploadResult.total_rows) * 100
-                        )
-                      : 0}
+                  <span className="font-semibold text-[var(--theme-components-tag-success-text)]">Success Rate</span>
+<span className="text-2xl font-bold text-[var(--theme-components-tag-success-text)]">
+                    {Math.max(0,
+   Number.isFinite(
+     (uploadResult?.successful_uploads ?? 0) / (uploadResult?.total_rows || 0)
+   )
+     ? Math.round(((uploadResult?.successful_uploads ?? 0) / (uploadResult?.total_rows || 1)) * 100)
+     : 0
+ )}
                     %
                   </span>
                 </div>
@@ -619,15 +628,18 @@ export default function BulkUploadPage() {
 
               {/* Errors */}
               {uploadResult.errors?.length > 0 && (
-                <div className="rounded-xl p-4 border bg-[color:rgb(239_68_68_/0.08)] border-[color:rgb(239_68_68_/0.25)]">
-                  <h3 className="flex items-center gap-2 font-semibold text-[var(--theme-danger)] mb-2">
+  <div className="rounded-xl p-4 border
+                   bg-[var(--theme-components-tag-error-bg)]
+                  border-[var(--theme-components-tag-error-border)]">
+                  <h3 className="flex items-center gap-2 font-semibold
+                 text-[var(--theme-components-tag-error-text)] mb-2">
                     <AlertTriangle className="w-5 h-5" />
                     Error Details
                   </h3>
                   <ul className="max-h-48 overflow-y-auto space-y-2 text-sm text-[var(--theme-text)]">
                     {uploadResult.errors.map((err) => (
                       <li key={err.row} className="flex gap-2">
-                        <span className="font-semibold text-[var(--theme-danger)]">
+                        <span className="font-semibold text-[var(--theme-error)]">
                           Row {err.row}:
                         </span>
                         <span>
@@ -640,8 +652,10 @@ export default function BulkUploadPage() {
                   </ul>
                   <button
                     onClick={downloadErrorsAsCSV}
-                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-lg transition
-                               text-[var(--theme-text)] bg-[var(--theme-warning, #f59e0b)]/80 hover:bg-[var(--theme-warning, #f59e0b)]"
+                    className="mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-lg transition shadow-sm
+            text-[var(--theme-components-button-secondary-text)]
+            bg-[var(--theme-components-button-secondary-bg)]
+            hover:bg-[var(--theme-components-button-secondary-hoverBg)]"
                   >
                     <ArrowDownToLine className="w-5 h-5" />
                     Download Errors file

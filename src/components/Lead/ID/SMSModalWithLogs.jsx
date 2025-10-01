@@ -3,67 +3,91 @@ import React, { useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import toast from "react-hot-toast";
 import { Modal } from "@/components/Lead/ID/Modal";
-import { Send, RefreshCcw, Search, MessageSquare, X } from "lucide-react";
+import { Send, Search, MessageSquare, X } from "lucide-react";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import { usePermissions } from "@/context/PermissionsContext";
 
 /* ================================
-   THEME (colors only) + dark mode
-   — no logic changes
+   THEME (colors only)
    ================================ */
 const ThemeStyles = () => (
   <style
-    // You can move these vars to a global CSS once.
     dangerouslySetInnerHTML={{
       __html: `
 :root{
-  --theme-primary:#4f46e5;     /* indigo-600 */
-  --theme-primary-500:#6366f1;  /* indigo-500 */
+  --theme-primary:#4f46e5;
+  --theme-primary-500:#6366f1;
   --theme-on-primary:#ffffff;
-
-  --theme-accent:#6366f1;       /* indigo-500 */
-  --theme-success:#16a34a;      /* green-600 */
-  --theme-danger:#dc2626;       /* red-600 */
-
+  --theme-accent:#6366f1;
+  --theme-success:#16a34a;
+  --theme-danger:#dc2626;
   --theme-card:#ffffff;
-  --theme-panel:#f8fafc;        /* slate-50 */
-  --theme-border:#e5e7eb;       /* gray-200 */
-
-  --theme-text:#0f172a;         /* slate-900 */
-  --theme-muted:#64748b;        /* slate-500 */
-  --theme-muted-ink:#94a3b8;    /* slate-400 */
-
+  --theme-panel:#f8fafc;
+  --theme-border:#e5e7eb;
+  --theme-text:#0f172a;
+  --theme-muted:#64748b;
+  --theme-muted-ink:#94a3b8;
   --theme-backdrop:rgba(11,18,32,.45);
-
   --theme-primary-soft:rgba(79,70,229,.07);
   --theme-primary-softer:rgba(79,70,229,.05);
   --theme-success-soft:rgba(22,163,74,.10);
   --theme-danger-soft:rgba(220,38,38,.10);
 }
-
 .dark{
-  --theme-primary:#818cf8;      /* indigo-400 */
+  --theme-primary:#818cf8;
   --theme-primary-500:#a5b4fc;
   --theme-on-primary:#0b1220;
-
-  --theme-accent:#a78bfa;       /* violet-400 */
-  --theme-success:#22c55e;      /* green-500 */
-  --theme-danger:#ef4444;       /* red-500 */
-
-  --theme-card:#0f172a;         /* slate-900 */
-  --theme-panel:#0b1220;        /* deep */
-  --theme-border:#1f2937;       /* gray-800 */
-
-  --theme-text:#e5e7eb;         /* gray-200 */
-  --theme-muted:#9ca3af;        /* gray-400 */
-  --theme-muted-ink:#6b7280;    /* gray-500 */
-
+  --theme-accent:#a78bfa;
+  --theme-success:#22c55e;
+  --theme-danger:#ef4444;
+  --theme-card:#0f172a;
+  --theme-panel:#0b1220;
+  --theme-border:#1f2937;
+  --theme-text:#e5e7eb;
+  --theme-muted:#9ca3af;
+  --theme-muted-ink:#6b7280;
   --theme-backdrop:rgba(0,0,0,.55);
-
   --theme-primary-soft:rgba(129,140,248,.16);
   --theme-primary-softer:rgba(129,140,248,.10);
   --theme-success-soft:rgba(34,197,94,.14);
   --theme-danger-soft:rgba(239,68,68,.14);
 }
+  .bodyClamp{
+  display:-webkit-box;
+  -webkit-line-clamp:2;       /* show only 2 lines */
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+  .btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  height:40px; padding:0 .875rem; border-radius:12px;
+  font-size:14px; font-weight:600; line-height:1; letter-spacing:.2px;
+  border:1px solid var(--theme-border);
+  background:var(--theme-card); color:var(--theme-text);
+  transition:transform .06s ease, box-shadow .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+}
+.btn:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(15,23,42,.08); }
+.btn:active{ transform:translateY(0); box-shadow:none; }
+.btn:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--theme-primary-soft); }
+.btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-primary{
+  background:var(--theme-primary); color:var(--theme-on-primary);
+  border-color:transparent;
+}
+.btn-primary:hover{ filter:brightness(1.03); }
+.btn-outline{
+  background:var(--theme-panel); color:var(--theme-text);
+  border-color:var(--theme-border);
+}
+.btn-ghost{
+  background:transparent; color:var(--theme-text);
+  border-color:transparent;
+}
+.btn-icon{ width:40px; padding:0; }
+
+.btn-group{ display:flex; align-items:center; gap:.5rem; }
 `,
     }}
   />
@@ -78,12 +102,28 @@ const cleanParams = (obj) =>
     )
   );
 
+const BodyPreview = ({ text = "" }) => {
+  if (!text) return <span className="text-xs opacity-60">—</span>;
+
+  return (
+    // keep title so the native black tooltip shows the full message
+    <div className="max-w-[420px]" title={text}>
+      <pre className="bodyClamp text-[13px] leading-5 m-0">
+        {text}
+      </pre>
+    </div>
+  );
+};
+
+
 export default function SMSModalWithLogs({
   open,
   onClose,
   leadMobile = "",
   leadName = "",
+  leadId = null, // <-- pass the lead_id here
 }) {
+  const { hasPermission } = usePermissions();
   const [tab, setTab] = useState("send"); // 'send' | 'logs'
 
   // ---- SEND TAB ----
@@ -94,6 +134,64 @@ export default function SMSModalWithLogs({
   const [messageOverride, setMessageOverride] = useState("");
   const [sending, setSending] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
+  // add with other useState hooks
+  const [exporting, setExporting] = useState(false);
+
+  // small helper to trigger a browser download
+  const downloadBlob = (blob, filename = "sms_logs.xlsx") => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // export handler (re-use current filters)
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+
+      // Build params for the export endpoint
+      const params = cleanParams({
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+        lead_id: filters.lead_id || leadId || undefined,
+        // backend supports a large cap via max_rows
+        max_rows: 100000,
+        // (optional extras; backend can ignore if not supported)
+        status: filters.status || undefined,
+        sms_type: filters.sms_type || undefined,
+        template_id: filters.template_id || undefined,
+        search: filters.search || undefined,
+      });
+
+      // NOTE: responseType 'blob' is required for files
+      const res = await axiosInstance.get("/reports/sms/export.xlsx", {
+        params,
+        responseType: "blob",
+      });
+
+      // file name suggestion
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      const nameParts = [
+        "sms_logs",
+        filters.lead_id || leadId ? `lead-${filters.lead_id || leadId}` : null,
+        filters.date_from ? `from-${filters.date_from}` : null,
+        filters.date_to ? `to-${filters.date_to}` : null,
+        ts
+      ].filter(Boolean).join("_") + ".xlsx";
+
+      downloadBlob(res.data, nameParts);
+      toast.success("Export generated");
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Export failed" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -102,19 +200,17 @@ export default function SMSModalWithLogs({
     (async () => {
       try {
         setLoadingTemplates(true);
-        const { data } = await axiosInstance.get(
-          "/sms-templates/?skip=0&limit=200"
-        );
+        const { data } = await axiosInstance.get("/sms-templates/?skip=0&limit=200");
         const arr = Array.isArray(data)
           ? data
           : Array.isArray(data?.items)
-          ? data.items
-          : [];
-       setTemplates(
+            ? data.items
+            : [];
+        setTemplates(
           arr.map((t) => ({
             id: t.id,
             label: t.title || `Template #${t.id}`,
-            body: t.template || "",  
+            body: t.template || "",
           }))
         );
       } catch {
@@ -145,15 +241,25 @@ export default function SMSModalWithLogs({
       if (messageOverride && messageOverride.trim()) {
         payload.message_override = messageOverride.trim();
       }
-      const { data } = await axiosInstance.post(
-        "/sms-templates/send-sms",
-        payload
-      );
+      const { data } = await axiosInstance.post("/sms-templates/send-sms", payload);
       setLastResponse(data);
       toast.success("SMS sent successfully");
       setTab("logs");
-      setFilters((prev) => ({ ...prev, phone: payload.phone_number, offset: 0 }));
-      await fetchLogs({ ...filters, phone: payload.phone_number, offset: 0 });
+
+      // refresh logs for this lead if we have one
+      setFilters((prev) => ({
+        ...prev,
+        // keep dates as-is, always show this lead when provided
+        lead_id: leadId ?? prev.lead_id,
+        skip: 0,
+        offset: 0, // keep local offset in sync
+      }));
+      await fetchLogs({
+        ...filters,
+        lead_id: leadId ?? filters.lead_id,
+        skip: 0,
+        offset: 0,
+      });
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Failed to send SMS" });
     } finally {
@@ -161,28 +267,70 @@ export default function SMSModalWithLogs({
     }
   };
 
-  // ---- LOGS TAB ----
+  // ---- LOGS TAB (Reports endpoint) ----
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loadingLogs, setLoadingLogs] = useState(false);
+
+  /**
+   * Filters mapped to /api/v1/reports/sms:
+   * - date_from  (string, YYYY-MM-DD)
+   * - date_to    (string, YYYY-MM-DD)
+   * - lead_id    (number)
+   * - status     (string | null)          // optional
+   * - sms_type   (string | null)          // optional
+   * - template_id(number | null)          // optional
+   * - search     (string | null)          // optional
+   * - skip       (number)
+   * - limit      (number)
+   *
+   * We keep local `offset` for UI but send `skip` to API.
+   */
   const [filters, setFilters] = useState({
-    user_id: "",
+    date_from: "",     // maps from your old "start_date"
+    date_to: "",       // maps from your old "end_date"
+    lead_id: leadId ?? "", // prefer explicit lead_id
+    status: "",
+    sms_type: "",
     template_id: "",
-    phone: leadMobile || "",
-    start_date: "",
-    end_date: "",
+    search: "",
     limit: 50,
-    offset: 0,
+    skip: 0,
+    offset: 0, // local-only helper to compute pages
   });
 
   const fetchLogs = async (params = filters) => {
     try {
       setLoadingLogs(true);
-      const { data } = await axiosInstance.get("/sms-templates/logs", {
-        params: cleanParams(params),
+      // Build query object for the reports endpoint
+      const query = {
+        date_from: params.date_from || undefined,
+        date_to: params.date_to || undefined,
+        lead_id: params.lead_id || undefined,
+        status: params.status || undefined,
+        sms_type: params.sms_type || undefined,
+        template_id: params.template_id || undefined,
+        search: params.search || undefined,
+        limit: params.limit ?? 50,
+        skip: params.skip ?? params.offset ?? 0,
+      };
+
+      const { data } = await axiosInstance.get("/reports/sms", {
+        params: cleanParams(query),
       });
-      setLogs(data.logs || []);
-      setTotal(data.total || 0);
+
+      // Response shape:
+      // { ok, total, skip, limit, items: [...] }
+      setLogs(Array.isArray(data?.items) ? data.items : []);
+      setTotal(Number(data?.total ?? 0));
+
+      // Keep local skip/offset in sync with server
+      setFilters((p) => ({
+        ...p,
+        skip: Number(data?.skip ?? query.skip ?? 0),
+        offset: Number(data?.skip ?? query.skip ?? 0),
+        limit: Number(data?.limit ?? query.limit ?? 50),
+      }));
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Failed to load SMS logs" });
     } finally {
@@ -191,63 +339,49 @@ export default function SMSModalWithLogs({
   };
 
   useEffect(() => {
-    if (open && tab === "logs") fetchLogs();
+    if (!open) return;
+    if (tab === "logs") {
+      // initialize lead_id if provided
+      const init = {
+        ...filters,
+        lead_id: leadId ?? filters.lead_id,
+      };
+      setFilters(init);
+      fetchLogs(init);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab]);
+  }, [open, tab, leadId]);
 
   const nextPage = () => {
-    const newOffset = (filters.offset || 0) + (filters.limit || 50);
-    if (newOffset >= total) return;
-    const p = { ...filters, offset: newOffset };
-    setFilters(p);
-    fetchLogs(p);
-  };
-  const prevPage = () => {
-    const newOffset = Math.max(0, (filters.offset || 0) - (filters.limit || 50));
-    const p = { ...filters, offset: newOffset };
+    const pageSize = filters.limit || 50;
+    const newSkip = (filters.skip || 0) + pageSize;
+    if (newSkip >= total) return;
+    const p = { ...filters, skip: newSkip, offset: newSkip };
     setFilters(p);
     fetchLogs(p);
   };
 
-  // const handleResend = async (row) => {
-  //   try {
-  //     await axiosInstance.post("/sms-templates/send-sms", {
-  //       template_id: row.template_id,
-  //       phone_number: row.recipient_phone_number.startsWith("91")
-  //         ? row.recipient_phone_number.slice(2)
-  //         : row.recipient_phone_number,
-  //       message_override: row.body,
-  //     });
-  //     toast.success("Re-sent");
-  //     fetchLogs();
-  //   } catch (err) {
-  //     ErrorHandling({ error: err, defaultError: "Failed to resend" });
-  //   }
-  // };
+  const prevPage = () => {
+    const pageSize = filters.limit || 50;
+    const newSkip = Math.max(0, (filters.skip || 0) - pageSize);
+    const p = { ...filters, skip: newSkip, offset: newSkip };
+    setFilters(p);
+    fetchLogs(p);
+  };
 
   const TitleTabs = (
-    <div className="flex items-center gap-2">
+    <div className="btn-group">
       <button
         onClick={() => setTab("send")}
-        className="px-3 py-1 rounded-full text-sm border transition"
-        style={{
-          background: tab === "send" ? "var(--theme-card)" : "transparent",
-          color: tab === "send" ? "var(--theme-primary)" : "var(--theme-on-primary)",
-          borderColor:
-            tab === "send" ? "var(--theme-card)" : "rgba(255,255,255,.35)",
-        }}
+        className={`btn ${tab === "send" ? "btn-primary" : "btn-outline"}`}
+        style={{ height: 36 }}
       >
         Send
       </button>
       <button
         onClick={() => setTab("logs")}
-        className="px-3 py-1 rounded-full text-sm border transition"
-        style={{
-          background: tab === "logs" ? "var(--theme-card)" : "transparent",
-          color: tab === "logs" ? "var(--theme-primary)" : "var(--theme-on-primary)",
-          borderColor:
-            tab === "logs" ? "var(--theme-card)" : "rgba(255,255,255,.35)",
-        }}
+        className={`btn ${tab === "logs" ? "btn-primary" : "btn-outline"}`}
+        style={{ height: 36 }}
       >
         Logs
       </button>
@@ -257,46 +391,37 @@ export default function SMSModalWithLogs({
   const actions =
     tab === "send"
       ? [
-          <button
-            key="close"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl"
-            style={{
-              background: "var(--theme-card)",
-              color: "var(--theme-text)",
-              border: "1px solid var(--theme-border)",
-            }}
-          >
-            Close
-          </button>,
-          <button
-            key="send"
-            onClick={handleSend}
-            disabled={!canSend}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50"
-            style={{
-              background: "var(--theme-primary)",
-              color: "var(--theme-on-primary)",
-            }}
-          >
-            <Send size={16} />
-            {sending ? "Sending..." : "Send SMS"}
-          </button>,
-        ]
+        <button
+          key="close"
+          onClick={onClose}
+          className="btn btn-outline"
+        >
+          Close
+        </button>,
+        <button
+          key="send"
+          onClick={handleSend}
+          disabled={!canSend}
+          className="btn btn-primary"
+        >
+          <Send size={16} />
+          {sending ? "Sending..." : "Send SMS"}
+        </button>,
+      ]
       : [
-          <button
-            key="close"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl"
-            style={{
-              background: "var(--theme-card)",
-              color: "var(--theme-text)",
-              border: "1px solid var(--theme-border)",
-            }}
-          >
-            Close
-          </button>,
-        ];
+        <button
+          key="close"
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl"
+          style={{
+            background: "var(--theme-card)",
+            color: "var(--theme-text)",
+            border: "1px solid var(--theme-border)",
+          }}
+        >
+          Close
+        </button>,
+      ];
 
   return (
     <>
@@ -357,29 +482,25 @@ export default function SMSModalWithLogs({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Template
-                    </label>
+                    <label className="block text-sm font-medium mb-1">Template</label>
                     {templates.length > 0 ? (
                       <select
                         value={templateId}
                         onChange={(e) => {
-                        const selectedId = e.target.value;
-                        setTemplateId(selectedId);
-
-                        const selectedTemplate = templates.find(
-                          (t) => String(t.id) === String(selectedId)
-                        );
-
-                        if (selectedTemplate?.body) {
-                          setMessageOverride(selectedTemplate.body);
-                        } else {
-                          setMessageOverride("");
-                        }
-                      }}
+                          const selectedId = e.target.value;
+                          setTemplateId(selectedId);
+                          const selectedTemplate = templates.find(
+                            (t) => String(t.id) === String(selectedId)
+                          );
+                          if (selectedTemplate?.body) {
+                            setMessageOverride(selectedTemplate.body);
+                          } else {
+                            setMessageOverride("");
+                          }
+                        }}
                         onFocus={(e) =>
-                          (e.currentTarget.style.boxShadow =
-                            "0 0 0 3px var(--theme-primary-soft)")
+                        (e.currentTarget.style.boxShadow =
+                          "0 0 0 3px var(--theme-primary-soft)")
                         }
                         onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                       >
@@ -403,8 +524,8 @@ export default function SMSModalWithLogs({
                           outline: "none",
                         }}
                         onFocus={(e) =>
-                          (e.currentTarget.style.boxShadow =
-                            "0 0 0 3px var(--theme-primary-soft)")
+                        (e.currentTarget.style.boxShadow =
+                          "0 0 0 3px var(--theme-primary-soft)")
                         }
                         onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                         placeholder="Template ID (e.g., 1)"
@@ -418,9 +539,7 @@ export default function SMSModalWithLogs({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Recipient Phone
-                    </label>
+                    <label className="block text-sm font-medium mb-1">Recipient Phone</label>
                     <input
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -430,15 +549,14 @@ export default function SMSModalWithLogs({
                         color: "var(--theme-text)",
                         border: "1px solid var(--theme-border)",
                         outline: "none",
-                    
                       }}
                       onFocus={(e) =>
-                        (e.currentTarget.style.boxShadow =
-                          "0 0 0 3px var(--theme-primary-soft)")
+                      (e.currentTarget.style.boxShadow =
+                        "0 0 0 3px var(--theme-primary-soft)")
                       }
                       onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                       placeholder="10-digit mobile"
-                      disabled  
+                      disabled
                     />
                     <p className="text-xs mt-1" style={{ color: "var(--theme-muted)" }}>
                       Lead: {leadName || "-"}
@@ -460,10 +578,10 @@ export default function SMSModalWithLogs({
                       color: "var(--theme-text)",
                       border: "1px solid var(--theme-border)",
                       outline: "none",
-                      }}
+                    }}
                     onFocus={(e) =>
-                      (e.currentTarget.style.boxShadow =
-                        "0 0 0 3px var(--theme-primary-soft)")
+                    (e.currentTarget.style.boxShadow =
+                      "0 0 0 3px var(--theme-primary-soft)")
                     }
                     onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                     placeholder="Leave empty to use the template body"
@@ -479,16 +597,14 @@ export default function SMSModalWithLogs({
                       border: "1px solid var(--theme-border)",
                     }}
                   >
-                    <div className="text-sm font-semibold mb-1">
-                      Last Response Summary
-                    </div>
+                    <div className="text-sm font-semibold mb-1">Last Response Summary</div>
                     <div className="text-sm space-y-1" style={{ color: "var(--theme-text)" }}>
                       <div>
                         <strong>Message:</strong>{" "}
                         {lastResponse.gateway_response?.message || "-"}
                       </div>
                       <div>
-                        <strong>Template:</strong> {lastResponse.template_title} (#{templateId})
+                        <strong>Template:</strong> #{templateId}
                       </div>
                       <div>
                         <strong>Recipients:</strong>{" "}
@@ -504,16 +620,14 @@ export default function SMSModalWithLogs({
             {tab === "logs" && (
               <div className="space-y-4">
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                   <div className="md:col-span-1">
-                    <label className="block text-sm font-medium mb-1">
-                      Start Date
-                    </label>
+                    <label className="block text-sm font-medium mb-1">Start Date</label>
                     <input
                       type="date"
-                      value={filters.start_date}
+                      value={filters.date_from}
                       onChange={(e) =>
-                        setFilters((p) => ({ ...p, start_date: e.target.value }))
+                        setFilters((p) => ({ ...p, date_from: e.target.value }))
                       }
                       className="w-full rounded-xl px-3 py-2 text-sm"
                       style={{
@@ -523,21 +637,19 @@ export default function SMSModalWithLogs({
                         outline: "none",
                       }}
                       onFocus={(e) =>
-                        (e.currentTarget.style.boxShadow =
-                          "0 0 0 3px var(--theme-primary-soft)")
+                      (e.currentTarget.style.boxShadow =
+                        "0 0 0 3px var(--theme-primary-soft)")
                       }
                       onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                     />
                   </div>
                   <div className="md:col-span-1">
-                    <label className="block text-sm font-medium mb-1">
-                      End Date
-                    </label>
+                    <label className="block text-sm font-medium mb-1">End Date</label>
                     <input
                       type="date"
-                      value={filters.end_date}
+                      value={filters.date_to}
                       onChange={(e) =>
-                        setFilters((p) => ({ ...p, end_date: e.target.value }))
+                        setFilters((p) => ({ ...p, date_to: e.target.value }))
                       }
                       className="w-full rounded-xl px-3 py-2 text-sm"
                       style={{
@@ -547,52 +659,54 @@ export default function SMSModalWithLogs({
                         outline: "none",
                       }}
                       onFocus={(e) =>
-                        (e.currentTarget.style.boxShadow =
-                          "0 0 0 3px var(--theme-primary-soft)")
+                      (e.currentTarget.style.boxShadow =
+                        "0 0 0 3px var(--theme-primary-soft)")
                       }
                       onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                     />
                   </div>
-                  <div className="md:col-span-1 flex gap-2">
-                    <button
-                      onClick={() => {
-                        const p = { ...filters, offset: 0 };
-                        setFilters(p);
-                        fetchLogs(p);
-                      }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl"
-                      style={{
-                        background: "var(--theme-primary)",
-                        color: "var(--theme-on-primary)",
-                      }}
-                    >
-                      <Search size={16} /> Search
-                    </button>
-                    <button
-                      onClick={() => {
-                        const p = {
-                          user_id: "",
-                          template_id: "",
-                          phone: leadMobile || "",
-                          start_date: "",
-                          end_date: "",
-                          limit: 50,
-                          offset: 0,
-                        };
-                        setFilters(p);
-                        fetchLogs(p);
-                      }}
-                      className="px-3 py-2 rounded-xl"
-                      style={{
-                        background: "var(--theme-panel)",
-                        color: "var(--theme-text)",
-                        border: "1px solid var(--theme-border)",
-                      }}
-                      title="Reset"
-                    >
-                      Reset
-                    </button>
+
+
+
+                  <div className="md:col-span-1">
+                    <div className="btn-group">
+                      <button
+                        onClick={() => {
+                          const p = { ...filters, skip: 0, offset: 0 };
+                          setFilters(p); fetchLogs(p);
+                        }}
+                        className="btn btn-primary"
+                        title="Search"
+                      >
+                        <Search size={16} /> Search
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const p = {
+                            date_from: "", date_to: "", lead_id: leadId ?? "",
+                            status: "", sms_type: "", template_id: "", search: "",
+                            limit: 50, skip: 0, offset: 0,
+                          };
+                          setFilters(p); fetchLogs(p);
+                        }}
+                        className="btn btn-outline"
+                        title="Reset filters"
+                      >
+                        Reset
+                      </button>
+
+                      {hasPermission("sms_logs_export") && <button
+                        onClick={handleExport}
+                        disabled={exporting}
+                        className="btn btn-primary"
+                        title="Download Excel"
+                      >
+                        {exporting ? "Exporting…" : "Export(.xlsx)"}
+                      </button>}
+                    </div>
                   </div>
+
                 </div>
 
                 {/* Table */}
@@ -604,39 +718,28 @@ export default function SMSModalWithLogs({
                     <table className="min-w-full text-sm" style={{ color: "var(--theme-text)" }}>
                       <thead
                         className="sticky top-0"
-                        style={{
-                          background: "var(--theme-panel)",
-                          color: "var(--theme-text)",
-                        }}
+                        style={{ background: "var(--theme-panel)", color: "var(--theme-text)" }}
                       >
                         <tr>
                           <th className="text-left p-2">ID</th>
-                          <th className="text-left p-2">Template</th>
+                          <th className="text-left p-2">Template ID</th>
                           <th className="text-left p-2">Phone</th>
+                          <th className="text-left p-2">Status</th>
                           <th className="text-left p-2">Body</th>
                           <th className="text-left p-2">Sent At</th>
                           <th className="text-left p-2">User</th>
-                          {/* <th className="text-left p-2">Action</th> */}
                         </tr>
                       </thead>
                       <tbody>
                         {loadingLogs ? (
                           <tr>
-                            <td
-                              colSpan={6}
-                              className="p-4 text-center"
-                              style={{ color: "var(--theme-muted)" }}
-                            >
+                            <td colSpan={7} className="p-4 text-center" style={{ color: "var(--theme-muted)" }}>
                               Loading…
                             </td>
                           </tr>
                         ) : logs.length === 0 ? (
                           <tr>
-                            <td
-                              colSpan={6}
-                              className="p-4 text-center"
-                              style={{ color: "var(--theme-muted)" }}
-                            >
+                            <td colSpan={7} className="p-4 text-center" style={{ color: "var(--theme-muted)" }}>
                               No logs found
                             </td>
                           </tr>
@@ -644,35 +747,15 @@ export default function SMSModalWithLogs({
                           logs.map((row) => (
                             <tr key={row.id} style={{ borderTop: `1px solid var(--theme-border)` }}>
                               <td className="p-2">{row.id}</td>
-                              <td className="p-2">
-                                {row.template_title} (#{row.template_id})
-                              </td>
+                              <td className="p-2">#{row.template_id}</td>
                               <td className="p-2">{row.recipient_phone_number}</td>
-                              <td className="p-2">
-                                <pre className="whitespace-pre-wrap break-words">
-                                  {row.body
-                                    ?.split(" ")
-                                    .slice(0, 2)
-                                    .join(" ") +
-                                    (row.body?.split(" ").length > 2 ? "..." : "")}
-                                </pre>
+                              <td className="p-2">{row.status ?? "—"}</td>
+                              <td className="p-2 align-top">
+                                <BodyPreview text={row.body} />
                               </td>
 
                               <td className="p-2">{fmtDateTime(row.sent_at)}</td>
                               <td className="p-2">{row.user_id}</td>
-                              {/* <td className="p-2">
-                                <button
-                                  onClick={() => handleResend(row)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg"
-                                  style={{
-                                    color: "var(--theme-primary)",
-                                    background: "var(--theme-primary-softer)",
-                                  }}
-                                  title="Resend same SMS"
-                                >
-                                  <RefreshCcw size={16} />
-                                </button>
-                              </td> */}
                             </tr>
                           ))
                         )}
@@ -682,7 +765,7 @@ export default function SMSModalWithLogs({
 
                   {/* Pagination */}
                   <div
-                    className="flex items-center justify-between p-2"
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-2"
                     style={{
                       background: "var(--theme-panel)",
                       color: "var(--theme-text)",
@@ -692,24 +775,21 @@ export default function SMSModalWithLogs({
                     <div className="text-xs" style={{ color: "var(--theme-muted)" }}>
                       Showing {logs.length} / {total}
                     </div>
-                    <div className="flex gap-2">
+
+                    <div className="flex items-center gap-2">
+
+
+                      {/* Pagination */}
                       <button
                         onClick={prevPage}
-                        disabled={filters.offset <= 0}
-                        className="px-3 py-1 rounded-lg disabled:opacity-50"
-                        style={{
-                          background: "var(--theme-panel)",
-                          color: "var(--theme-text)",
-                          border: "1px solid var(--theme-border)",
-                        }}
+                        disabled={(filters.skip || 0) <= 0}
+                        className="btn btn-outline"
                       >
                         Prev
                       </button>
                       <button
                         onClick={nextPage}
-                        disabled={
-                          (filters.offset || 0) + (filters.limit || 50) >= total
-                        }
+                        disabled={(filters.skip || 0) + (filters.limit || 50) >= total}
                         className="px-3 py-1 rounded-lg disabled:opacity-50"
                         style={{
                           background: "var(--theme-panel)",

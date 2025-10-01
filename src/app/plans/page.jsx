@@ -20,7 +20,6 @@ export default function ServicesPage() {
 
   /* ---------- state ---------- */
   const [services, setServices] = useState([])
-  const [billingCycles] = useState(['CALL']) // fixed to CALL
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -494,24 +493,22 @@ export default function ServicesPage() {
                     />
                   </div>
 
-                  {/* Billing Cycle (locked to CALL) */}
-                  <div>
-                    <label className="block mb-2 font-medium text-[var(--theme-text)]">
-                      Billing Cycle
-                    </label>
-                    <select
-                      name="billing_cycle"
-                      value="CALL"
-                      onChange={handleChange}
-                      className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] appearance-none"
-                    >
-                      {billingCycles.map((bc) => (
-                        <option key={bc} value={bc}>
-                          {bc}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Billing Cycle (locked) */}
+<div>
+  <label className="block mb-2 font-medium text-[var(--theme-text)]">
+    Billing Cycle
+  </label>
+
+  {/* Visually locked pill */}
+  <div className="p-4 rounded-xl w-full border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] flex items-center justify-between">
+    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[var(--theme-primary-softer)]">
+      CALL
+    </span>
+  </div>
+
+  {/* Hidden input so formData/bind stays consistent */}
+  <input type="hidden" name="billing_cycle" value="CALL" />
+</div>
 
                   {/* CALL Limit */}
                   <div>

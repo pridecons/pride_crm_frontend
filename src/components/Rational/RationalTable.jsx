@@ -39,6 +39,7 @@ function RationalTable({
   setOpenStatusDropdown,
   handleStatusChange,
   statusOptions,
+  onCorrection, // ⬅️ NEW: handler to open modal in "create" with prefilled data
 }) {
   const { hasPermission } = usePermissions();
 
@@ -204,18 +205,31 @@ function RationalTable({
                     </td>
 
                     {/* Action */}
-                    <td className="py-4 px-6 text-center">
-                      {!item.rational && hasPermission("rational_edit") && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openModal(item);
-                          }}
-                          className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                        >
-                          Edit
-                        </button>
-                      )}
+                    <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-2">
+                        {/* Correction → open modal as "create new" prefilled */}
+                        {/* {hasPermission("rational_add_recommadation") && ( */}
+                          <button
+                            type="button"
+                            onClick={() => onCorrection?.(item)}
+                            className="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                            title="Open this recommendation prefilled as a new correction"
+                          >
+                            Correction
+                          </button>
+                        {/* )} */}
+
+                        {/* Optional: keep your existing Edit control */}
+                        {!item.rational && hasPermission("rational_edit") && (
+                          <button
+                            onClick={() => openModal(item)}
+                            className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                            title="Edit this recommendation"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
 

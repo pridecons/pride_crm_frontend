@@ -378,6 +378,41 @@ const handleSubmit = async (e) => {
     { label: 'CLOSED', value: 'CLOSED' },
   ];
 
+  const openCorrection = (item) => {
+  // Normalize recommendation_type to array of strings
+  const recommendationArray = Array.isArray(item.recommendation_type)
+    ? item.recommendation_type
+    : item.recommendation_type
+    ? [String(item.recommendation_type)]
+    : [];
+
+  // Prefill form but ensure "create mode"
+  setEditId(null);
+  setIsEditMode(false);
+
+  setFormData({
+    stock_name: item.stock_name || "",
+    entry_price: item.entry_price ?? "",
+    stop_loss: item.stop_loss ?? "",
+    targets: item.targets ?? "",
+    targets2: item.targets2 ?? "",
+    targets3: item.targets3 ?? "",
+    rational: item.rational || "",
+    recommendation_type: recommendationArray,
+    // keep existing graph path so user sees preview; they can remove/replace if needed
+    graph: item.graph || null,
+    status: item.status || "OPEN", // status is shown in create mode; prefill from row
+    message: "",                   // fresh message/template in create
+    templateId: "",
+    sent_on_msg: { SMS: true, whatsapp: true, Email: false },
+    planType: item?.planType || "",
+  });
+
+  setImageError("");
+  setIsModalOpen(true);
+};
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 sm:p-6 lg:p-8">
       <div className="mx-2">
@@ -535,6 +570,7 @@ const handleSubmit = async (e) => {
           setOpenStatusDropdown={setOpenStatusDropdown}
           handleStatusChange={handleStatusChange}
           statusOptions={statusOptions}
+          onCorrection={openCorrection}
         />
 
         <AnalyticsDashboard />

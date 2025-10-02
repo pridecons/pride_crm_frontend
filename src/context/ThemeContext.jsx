@@ -197,6 +197,65 @@ const THEMES = {
   light: makeTheme(BASES.light),
   dark: makeTheme(BASES.dark),
 
+  slate: makeTheme({
+    ...BASES.light,
+    name: "Slate",
+    icon: "🪨",
+    primary: "#475569",
+    primaryHover: "#334155",
+    secondary: "#0ea5e9",
+    background: "#f8fafc",
+    surface: "#eef2f6",
+    text: "#0f172a",
+    textSecondary: "#475569",
+    border: "#d8dee9",
+    accent: "#0ea5e9",
+    header: "#0f172a",
+    headerText: "#e2e8f0",
+    sidebar: "#111827",
+    sidebarText: "#e5e7eb",
+    cardBackground: "#ffffff",
+    inputBackground: "#ffffff",
+    inputBorder: "#cbd5e1",
+    inputFocus: "#475569",
+    shadow: "rgba(15, 23, 42, 0.12)"
+  }),
+
+  midnight: makeTheme({
+    ...BASES.dark,
+    name: "Midnight",
+    icon: "🌌",
+    primary: "#60a5fa",
+    primaryHover: "#3b82f6",
+    secondary: "#f472b6",
+    background: "#0a0f1c",
+    surface: "#0f172a",
+    text: "#e2e8f0",
+    textSecondary: "#94a3b8",
+    border: "#1f2a44",
+    accent: "#f472b6",
+    header: "#090f1a",
+    headerText: "#e2e8f0",
+    sidebar: "#0b1324",
+    sidebarText: "#e2e8f0",
+    cardBackground: "#0f172a",
+    inputBackground: "#111b2b",
+    inputBorder: "#1f2a44",
+    inputFocus: "#60a5fa",
+    shadow: "rgba(0,0,0,0.35)"
+  }),
+
+  hybridLight: makePreset(BASES.light, {
+    name: "Hybrid Light",
+    icon: "🧊",
+    header: "#0b1220",
+    headerText: "#e5e7eb",
+    sidebar: "#0b1220",
+    sidebarText: "#e5e7eb",
+    border: "#e5e7eb",
+    shadow: "rgba(11, 18, 32, 0.2)"
+  }),
+
   pink: makeTheme({
     ...BASES.light,
     name: "Pink",
@@ -271,17 +330,6 @@ const THEMES = {
 
   /* NEW hybrid & extra palettes (header/sidebar ≠ center) */
 
-  hybridLight: makePreset(BASES.light, {
-    name: "Hybrid Light",
-    icon: "🧊",
-    header: "#0b1220",
-    headerText: "#e5e7eb",
-    sidebar: "#0b1220",
-    sidebarText: "#e5e7eb",
-    border: "#e5e7eb",
-    shadow: "rgba(11, 18, 32, 0.2)"
-  }),
-
   ocean: makeTheme({
     ...BASES.light,
     name: "Ocean",
@@ -304,30 +352,6 @@ const THEMES = {
     inputBorder: "#93c5fd",
     inputFocus: "#0ea5e9",
     shadow: "rgba(2, 132, 199, 0.15)"
-  }),
-
-  slate: makeTheme({
-    ...BASES.light,
-    name: "Slate",
-    icon: "🪨",
-    primary: "#475569",
-    primaryHover: "#334155",
-    secondary: "#0ea5e9",
-    background: "#f8fafc",
-    surface: "#eef2f6",
-    text: "#0f172a",
-    textSecondary: "#475569",
-    border: "#d8dee9",
-    accent: "#0ea5e9",
-    header: "#0f172a",
-    headerText: "#e2e8f0",
-    sidebar: "#111827",
-    sidebarText: "#e5e7eb",
-    cardBackground: "#ffffff",
-    inputBackground: "#ffffff",
-    inputBorder: "#cbd5e1",
-    inputFocus: "#475569",
-    shadow: "rgba(15, 23, 42, 0.12)"
   }),
 
   gold: makeTheme({
@@ -353,30 +377,6 @@ const THEMES = {
     inputFocus: "#d97706",
     shadow: "rgba(217, 119, 6, 0.12)"
   }),
-
-  midnight: makeTheme({
-    ...BASES.dark,
-    name: "Midnight",
-    icon: "🌌",
-    primary: "#60a5fa",
-    primaryHover: "#3b82f6",
-    secondary: "#f472b6",
-    background: "#0a0f1c",
-    surface: "#0f172a",
-    text: "#e2e8f0",
-    textSecondary: "#94a3b8",
-    border: "#1f2a44",
-    accent: "#f472b6",
-    header: "#090f1a",
-    headerText: "#e2e8f0",
-    sidebar: "#0b1324",
-    sidebarText: "#e2e8f0",
-    cardBackground: "#0f172a",
-    inputBackground: "#111b2b",
-    inputBorder: "#1f2a44",
-    inputFocus: "#60a5fa",
-    shadow: "rgba(0,0,0,0.35)"
-  })
 };
 
 /* -------------------------------------------

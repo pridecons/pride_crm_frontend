@@ -3,9 +3,11 @@ import Header from "@/components/Header";
 import CoreSidebar from "@/components/Sidebar";
 import { PermissionsProvider } from "@/context/PermissionsContext";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useState } from "react";
 import { Toaster } from "react-hot-toast";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
+
+export const AppContextProvider = createContext({});
 
 /* small helper for semi-transparent overlays from solid hex */
 function hexToRgba(hex = "#000000", alpha = 0.3) {
@@ -22,6 +24,10 @@ function hexToRgba(hex = "#000000", alpha = 0.3) {
 
 function Chrome({ children }) {
   const pathname = usePathname();
+  const [paymentStatus, setSaymentStatus] = useState({
+    "order_id":"",
+    "payment_status":"",
+  })
   const { themeConfig } = useTheme();
 
   // open/close toggle button state (persisted)
@@ -89,6 +95,12 @@ function Chrome({ children }) {
   const shadow = themeConfig?.shadow || "rgba(0,0,0,0.25)";
 
   return (
+    <AppContextProvider.Provider
+     value={{
+      paymentStatus,
+      setSaymentStatus
+     }}
+    >
     <div
       className="min-h-screen"
       style={{
@@ -161,6 +173,7 @@ function Chrome({ children }) {
         {children}
       </main>
     </div>
+    </AppContextProvider.Provider>
   );
 }
 

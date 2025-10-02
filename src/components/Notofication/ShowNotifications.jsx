@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Bell, X, BellOff, FileText, RefreshCcw, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import { axiosInstance, WS_BASE_URL_full } from "@/api/Axios";
 import { useRouter } from "next/navigation";
+import { AppContextProvider } from "@/app/Main";
 
 /* -------------------------- Config -------------------------- */
 const TOAST_MIN_GAP_MS = 2000;
@@ -102,31 +103,11 @@ function formatTime(dateLike) {
     return "";
   }
 }
-function formatDateDDMMYYYY(dt) {
-  try {
-    const d = new Date(dt);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  } catch {
-    return "";
-  }
-}
-
-function formatDateTime(dt) {
-  try {
-    const d = new Date(dt);
-    return d.toLocaleString();
-  } catch {
-    return "";
-  }
-}
-
 /* ============================================================= */
 
 export default function ShowNotifications({ setIsConnect, employee_code }) {
   const router = useRouter();
+  const { setSaymentStatus } = useContext(AppContextProvider);
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -435,6 +416,10 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
           setRationalUnread(true);
         } else {
           handleIncoming(data);
+
+          if(data.order_id && data.payment_status){
+            setSaymentStatus({"order_id": data.order_id, "payment_status": data.payment_status})
+          }
         }
       };
 

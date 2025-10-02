@@ -1,7 +1,7 @@
 // src/components/PaymentModal.jsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { InputField } from "../common/InputField";
 import LoadingState from "../LoadingState";
@@ -38,6 +38,7 @@ import {
   Inbox,
   BarChart3,
 } from "lucide-react";
+import { AppContextProvider } from "@/app/Main";
 
 const PAYMENT_METHODS = [
   { code: "cc", label: "Credit Card", icon: CreditCard, category: "card" },
@@ -180,6 +181,7 @@ const CreatePaymentLink = ({
   setOpen,
   lead_id = null,
 }) => {
+  const { paymentStatus, setSaymentStatus } = useContext(AppContextProvider);
   const [amount, setAmount] = useState(0);
   const [customerName, setCustomerName] = useState(name);
   const [customerEmail, setCustomerEmail] = useState(email);
@@ -214,6 +216,7 @@ const CreatePaymentLink = ({
   const totalLimit = Number(paymentLimit?.total_paid_limit || 0);
   const usedPct =
     totalLimit > 0 ? Math.min(100, Math.round((totalPaid / totalLimit) * 100)) : 0;
+
 
   const toggleMethod = (code) => {
     setSelectedMethods((prev) => {
@@ -352,10 +355,26 @@ const CreatePaymentLink = ({
     }
   };
 
+  const currentOrderId = response?.cashfreeResponse?.order_id;
+  const wsOrder = String(paymentStatus?.order_id || "");
+  const wsStatus = String(paymentStatus?.payment_status || "").toUpperCase();
+
+  const isSuccess= !!(wsOrder && wsStatus === "PAID" && wsOrder === String(currentOrderId))
+console.log("response : ==>",response)
   return (
     <div className="p-6 space-y-6" style={{ color: "var(--theme-text)" }}>
+
+   {
+  isSuccess &&
+    <PaymentSuccess
+      amount={response?.cashfreeResponse?.order_amount}
+      orderId={response?.cashfreeResponse?.order_id}
+      onDone={() => setOpen(false)}
+    />
+}
+
       {/* If No Payment Link */}
-      {!response?.cashfreeResponse?.payment_link && (
+      {!isSuccess && !response?.cashfreeResponse?.payment_link && (
         <>
           {/* LIMIT PANEL */}
           <div
@@ -815,7 +834,7 @@ const CreatePaymentLink = ({
       )}
 
       {/* If Payment Link Generated */}
-      {response?.cashfreeResponse?.payment_link && (
+      {!isSuccess && response?.cashfreeResponse?.payment_link && (
         <div className="space-y-6">
           {/* Payment Link */}
           <div
@@ -1541,3 +1560,161 @@ const CheckPayment = ({ phone }) => {
     </div>
   );
 };
+
+function PaymentSuccess({ amount, orderId, onDone }) {
+  // small helper to copy details
+  const copyDetails = async () => {
+    try {
+      const text = `Payment Successful ✅
+Amount: ₹${amount}
+Order: ${orderId}`;
+      await navigator.clipboard.writeText(text);
+    } catch {}
+  };
+
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{
+        padding: "32px 24px",
+        color: "var(--theme-text)",
+      }}
+    >
+      {/* Confetti (pure CSS) */}
+      <style>{`
+        @keyframes fall {
+          0% { transform: translateY(-120%) rotate(0deg); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+        }
+        .confetti {
+          position: absolute;
+          top: -10vh;
+          width: 10px; height: 14px;
+          border-radius: 2px;
+          animation: fall linear forwards;
+        }
+      `}</style>
+
+      {Array.from({ length: 40 }).map((_, i) => (
+        <span
+          key={i}
+          className="confetti"
+          style={{
+            left: `${(i * 2.3) % 100}%`,
+            animationDuration: `${4 + (i % 6)}s`,
+            animationDelay: `${(i % 10) * 0.15}s`,
+            background:
+              i % 5 === 0
+                ? "var(--theme-primary,#4f46e5)"
+                : i % 5 === 1
+                ? "var(--theme-accent,#22c55e)"
+                : i % 5 === 2
+                ? "var(--theme-success,#16a34a)"
+                : i % 5 === 3
+                ? "var(--theme-warning,#f59e0b)"
+                : "var(--theme-danger,#dc2626)",
+          }}
+        />
+      ))}
+
+      {/* Success Card */}
+      <div
+        className="mx-auto max-w-2xl rounded-2xl border shadow-xl p-6 text-center"
+        style={{
+          background:
+            "linear-gradient(180deg, color-mix(in srgb, var(--theme-success,#16a34a) 14%, transparent), var(--theme-card-bg,#0b1220))",
+          borderColor:
+            "color-mix(in srgb, var(--theme-success,#16a34a) 40%, var(--theme-border,#e5e7eb))",
+        }}
+      >
+        {/* animated ring */}
+        <div className="mx-auto mb-5 w-20 h-20 rounded-full grid place-items-center relative">
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              background:
+                "conic-gradient(from 0deg, var(--theme-success,#16a34a), transparent 60%)",
+              filter: "blur(6px)",
+              opacity: 0.8,
+              animation: "spin 2.5s linear infinite",
+            }}
+          />
+          <div
+            className="relative w-16 h-16 rounded-full grid place-items-center"
+            style={{ background: "var(--theme-card-bg,#fff)" }}
+          >
+            <CheckCircle2
+              size={42}
+              style={{ color: "var(--theme-success,#16a34a)" }}
+            />
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+
+        <h3
+          className="text-2xl font-bold"
+          style={{ color: "var(--theme-success,#16a34a)" }}
+        >
+          Payment Successful
+        </h3>
+        <p className="mt-2 text-sm" style={{ color: "var(--theme-muted,#94a3b8)" }}>
+          Your payment was received and confirmed.
+        </p>
+
+        <div
+          className="mt-5 rounded-xl p-4 text-left grid grid-cols-1 sm:grid-cols-2 gap-3 border"
+          style={{
+            background: "var(--theme-card-bg,#fff)",
+            borderColor: "var(--theme-border,#e5e7eb)",
+          }}
+        >
+          <div>
+            <div className="text-xs" style={{ color: "var(--theme-muted,#64748b)" }}>
+              Amount
+            </div>
+            <div className="text-xl font-semibold" style={{ color: "var(--theme-text)" }}>
+              ₹{amount}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs" style={{ color: "var(--theme-muted,#64748b)" }}>
+              Order ID
+            </div>
+            <div className="font-mono text-sm" style={{ color: "var(--theme-text)" }}>
+              {orderId}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <button
+            onClick={onDone}
+            className="px-5 py-2 rounded-lg"
+            style={{
+              background: "var(--theme-success,#16a34a)",
+              color: "var(--theme-primary-contrast,#fff)",
+            }}
+          >
+            Done
+          </button>
+
+          <button
+            onClick={copyDetails}
+            className="px-5 py-2 rounded-lg"
+            style={{
+              background: "var(--theme-primary,#4f46e5)",
+              color: "var(--theme-primary-contrast,#fff)",
+            }}
+          >
+            Copy Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

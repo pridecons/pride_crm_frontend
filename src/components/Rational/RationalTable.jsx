@@ -3,6 +3,7 @@ import React, { useMemo, useState, useCallback } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import DownloadPDF from "./downloadpdf";
+import { useTheme } from "@/context/ThemeContext";
 
 /** Small helpers */
 const formatDate = (d) =>
@@ -14,16 +15,37 @@ const formatDate = (d) =>
       })
     : "-";
 
+/** Themed Status Badge */
 const StatusBadge = ({ label }) => {
+  // map statuses to token tones
   const tone =
     label === "OPEN"
-      ? "bg-blue-50 text-blue-700 ring-blue-200"
+      ? {
+          bg: "var(--theme-primary-softer)",
+          text: "var(--theme-primary)",
+          ring: "var(--theme-border)",
+        }
       : label === "CLOSED"
-        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-        : "bg-slate-50 text-slate-700 ring-slate-200";
+      ? {
+          bg: "var(--theme-success-soft)",
+          text: "var(--theme-success)",
+          ring: "var(--theme-border)",
+        }
+      : {
+          bg: "var(--theme-surface)",
+          text: "var(--theme-text)",
+          ring: "var(--theme-border)",
+        };
+
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tone}`}
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1"
+      style={{
+        background: tone.bg,
+        color: tone.text,
+        boxShadow: "none",
+        borderColor: tone.ring,
+      }}
     >
       {label}
     </span>
@@ -39,9 +61,10 @@ function RationalTable({
   setOpenStatusDropdown,
   handleStatusChange,
   statusOptions,
-  onCorrection, // ⬅️ NEW: handler to open modal in "create" with prefilled data
+  onCorrection,
 }) {
   const { hasPermission } = usePermissions();
+  const { themeConfig } = useTheme();
 
   // which rows are expanded
   const [expanded, setExpanded] = useState(() => new Set());
@@ -64,11 +87,8 @@ function RationalTable({
   const safeRecommendation = (raw) => {
     if (!raw || raw.length === 0 || raw[0] === "[]") return "-";
     try {
-      // Already a clean array of strings
       if (Array.isArray(raw) && raw.every((r) => typeof r === "string" && !r.includes("[") && !r.includes("]")))
         return raw.join(", ");
-
-      // Sometimes arrives as chunked JSON-like tokens
       const joined = Array.isArray(raw) ? raw.join("") : String(raw);
       const fixed = joined.replace(/""/g, '","');
       const parsed = JSON.parse(fixed);
@@ -81,64 +101,111 @@ function RationalTable({
   const empty = rationalList.length === 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div
+      className="rounded-2xl overflow-hidden border shadow-sm"
+      style={{
+        background: "var(--theme-card-bg)",
+        borderColor: "var(--theme-border)",
+        color: "var(--theme-text)",
+        boxShadow: `0 10px 25px ${themeConfig.shadow}`,
+      }}
+    >
       {/* table title / count */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200 bg-gradient-to-r from-white to-slate-50">
-        <div className="text-sm text-slate-600">
-          Showing <span className="font-semibold text-slate-800">{filteredData.length}</span>{" "}
+      <div
+        className="flex items-center justify-between px-4 sm:px-6 py-3 border-b"
+        style={{
+          borderColor: "var(--theme-border)",
+          background:
+            "linear-gradient(90deg, var(--theme-card-bg) 0%, var(--theme-surface) 100%)",
+          color: "var(--theme-text)",
+        }}
+      >
+        <div className="text-sm" style={{ color: "var(--theme-text-muted)" }}>
+          Showing{" "}
+          <span className="font-semibold" style={{ color: "var(--theme-text)" }}>
+            {filteredData.length}
+          </span>{" "}
           {filteredData.length === 1 ? "item" : "items"}
         </div>
         {/* Space reserved for future bulk actions */}
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="min-w-full text-sm" style={{ color: "var(--theme-text)" }}>
           <thead>
-            <tr className="bg-slate-50/80 backdrop-blur border-b border-slate-200">
-              <th className="sticky left-0 z-20 bg-slate-50/80 text-left py-3.5 px-6 font-semibold text-slate-700">
+            <tr
+              className="border-b"
+              style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}
+            >
+              <th
+                className="sticky left-0 z-20 text-left py-3.5 px-6 font-semibold"
+                style={{ background: "var(--theme-surface)", color: "var(--theme-text)" }}
+              >
                 Stock Name
               </th>
-              <th className="py-3.5 px-6 text-left font-semibold text-slate-700">Entry Price</th>
-              <th className="py-3.5 px-6 text-left font-semibold text-slate-700">Stop Loss</th>
-              <th className="py-3.5 px-6 text-left font-semibold text-slate-700">Target</th>
-              <th className="py-3.5 px-6 text-left font-semibold text-slate-700">Date</th>
-              <th className="py-3.5 px-6 text-center font-semibold text-slate-700">Status</th>
-              <th className="py-3.5 px-6 text-center font-semibold text-slate-700">Action</th>
+              {["Entry Price", "Stop Loss", "Target", "Date"].map((h) => (
+                <th key={h} className="py-3.5 px-6 text-left font-semibold" style={{ color: "var(--theme-text)" }}>
+                  {h}
+                </th>
+              ))}
+              <th className="py-3.5 px-6 text-center font-semibold" style={{ color: "var(--theme-text)" }}>
+                Status
+              </th>
+              <th className="py-3.5 px-6 text-center font-semibold" style={{ color: "var(--theme-text)" }}>
+                Action
+              </th>
             </tr>
           </thead>
 
           <tbody>
             {filteredData.map((item, idx) => {
               const isOpen = expanded.has(item.id);
-              const zebra = idx % 2 === 0 ? "bg-white" : "bg-slate-50/40";
+              // zebra rows using surface/card blend
+              const zebraBg =
+                idx % 2 === 0 ? "var(--theme-card-bg)" : "color-mix(in oklab, var(--theme-card-bg) 70%, var(--theme-surface))";
+
               return (
                 <React.Fragment key={item.id}>
                   {/* Main row */}
                   <tr
-                    className={`${zebra} group hover:bg-slate-50 focus-within:bg-slate-50 cursor-pointer transition-colors`}
+                    className="group cursor-pointer transition-colors"
                     aria-expanded={isOpen}
                     onClick={() => toggleRow(item.id)}
+                    style={{
+                      background: zebraBg,
+                    }}
                   >
                     <td
-                      className="sticky left-0 z-10 bg-inherit py-4 px-6 font-semibold uppercase text-slate-800"
+                      className="sticky left-0 z-10 py-4 px-6 font-semibold uppercase"
                       tabIndex={0}
                       onKeyDown={(e) => handleKeyToggle(e, item.id)}
                       title={item.stock_name}
+                      style={{ background: "inherit", color: "var(--theme-text)" }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[220px] sm:max-w-[360px]">{item.stock_name}</span>
+                        <span className="truncate max-w-[220px] sm:max-w-[360px]">
+                          {item.stock_name}
+                        </span>
                         {isOpen ? (
-                          <ChevronUp size={16} className="shrink-0 text-slate-500" />
+                          <ChevronUp size={16} className="shrink-0" style={{ color: "var(--theme-text-muted)" }} />
                         ) : (
-                          <ChevronDown size={16} className="shrink-0 text-slate-500" />
+                          <ChevronDown size={16} className="shrink-0" style={{ color: "var(--theme-text-muted)" }} />
                         )}
                       </div>
                     </td>
 
-                    <td className="py-4 px-6 text-slate-700">{item.entry_price}</td>
-                    <td className="py-4 px-6 text-slate-700">{item.stop_loss}</td>
-                    <td className="py-4 px-6 text-slate-700">{item.targets || "-"}</td>
-                    <td className="py-4 px-6 text-slate-700">{formatDate(item.created_at)}</td>
+                    <td className="py-4 px-6" style={{ color: "var(--theme-text)" }}>
+                      {item.entry_price}
+                    </td>
+                    <td className="py-4 px-6" style={{ color: "var(--theme-text)" }}>
+                      {item.stop_loss}
+                    </td>
+                    <td className="py-4 px-6" style={{ color: "var(--theme-text)" }}>
+                      {item.targets || "-"}
+                    </td>
+                    <td className="py-4 px-6" style={{ color: "var(--theme-text)" }}>
+                      {formatDate(item.created_at)}
+                    </td>
 
                     {/* Status (with dropdown) */}
                     <td
@@ -149,7 +216,7 @@ function RationalTable({
                         (() => {
                           const current = (item.status || "").toString().trim();
                           const normalized = current.toUpperCase();
-                          const isEditable = normalized === "OPEN"; // only editable when status is OPEN
+                          const isEditable = normalized === "OPEN";
 
                           return (
                             <>
@@ -159,8 +226,9 @@ function RationalTable({
                                   if (!isEditable) return;
                                   setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
                                 }}
-                                className={`inline-flex items-center gap-1.5 ${isEditable ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-                                  }`}
+                                className={`inline-flex items-center gap-1.5 ${
+                                  isEditable ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+                                }`}
                                 aria-disabled={!isEditable}
                               >
                                 <StatusBadge
@@ -170,25 +238,33 @@ function RationalTable({
                                     "N/A"
                                   }
                                 />
-                                <ChevronDown size={14} className="text-slate-500" />
+                                <ChevronDown size={14} style={{ color: "var(--theme-text-muted)" }} />
                               </button>
 
                               {isEditable && openStatusDropdown === item.id && (
-                                <div className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 w-40 rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                                <div
+                                  className="absolute z-50 mt-2 left-1/2 -translate-x-1/2 w-40 rounded-lg border overflow-hidden"
+                                  style={{
+                                    background: "var(--theme-card-bg)",
+                                    borderColor: "var(--theme-border)",
+                                    boxShadow: `0 10px 25px ${themeConfig.shadow}`,
+                                  }}
+                                >
                                   {statusOptions.map(({ label, value }) => {
                                     const active = item.status === value;
                                     return (
                                       <button
                                         key={value}
                                         onClick={() => {
-                                          if (active) return; // no-op if selecting same value
+                                          if (active) return;
                                           handleStatusChange(item.id, value);
                                           setOpenStatusDropdown(null);
                                         }}
-                                        className={`w-full text-left px-3.5 py-2 text-sm transition-colors ${active
-                                            ? "bg-blue-50 text-blue-700"
-                                            : "hover:bg-slate-50 text-slate-700"
-                                          }`}
+                                        className="w-full text-left px-3.5 py-2 text-sm transition-colors"
+                                        style={{
+                                          background: active ? "var(--theme-primary-softer)" : "transparent",
+                                          color: active ? "var(--theme-primary)" : "var(--theme-text)",
+                                        }}
                                       >
                                         {label} {active && <span className="ml-1">✓</span>}
                                       </button>
@@ -207,24 +283,31 @@ function RationalTable({
                     {/* Action */}
                     <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">
-                        {/* Correction → open modal as "create new" prefilled */}
-                        {/* {hasPermission("rational_add_recommadation") && ( */}
-                          <button
-                            type="button"
-                            onClick={() => onCorrection?.(item)}
-                            className="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
-                            title="Open this recommendation prefilled as a new correction"
-                          >
-                            Correction
-                          </button>
-                        {/* )} */}
+                        {/* Correction */}
+                        <button
+                          type="button"
+                          onClick={() => onCorrection?.(item)}
+                          className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                          title="Open this recommendation prefilled as a new correction"
+                          style={{
+                            background: "var(--theme-accent, var(--theme-primary))",
+                            color: "var(--theme-on-accent, var(--theme-primary-contrast))",
+                          }}
+                        >
+                          Correction
+                        </button>
 
-                        {/* Optional: keep your existing Edit control */}
+                        {/* Edit (optional) */}
                         {!item.rational && hasPermission("rational_edit") && (
                           <button
                             onClick={() => openModal(item)}
-                            className="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                            className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
                             title="Edit this recommendation"
+                            style={{
+                              background: "var(--theme-primary-softer)",
+                              color: "var(--theme-primary)",
+                              border: "1px solid var(--theme-border)",
+                            }}
                           >
                             Edit
                           </button>
@@ -237,62 +320,82 @@ function RationalTable({
                   <tr className={`${isOpen ? "table-row" : "hidden"}`}>
                     <td colSpan={7} className="px-6 pb-4 pt-0">
                       <div
-                        className={`
-                          overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm
-                          transition-[max-height,opacity] duration-300 ease-in-out
-                          ${isOpen ? "opacity-100" : "opacity-0"}
-                        `}
+                        className="overflow-hidden rounded-xl border shadow-sm transition-[max-height,opacity] duration-300 ease-in-out"
+                        style={{
+                          background: "var(--theme-card-bg)",
+                          borderColor: "var(--theme-border)",
+                          color: "var(--theme-text)",
+                          opacity: isOpen ? 1 : 0,
+                        }}
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 p-5">
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-500">Target 2</p>
-                            <p className="mt-0.5 font-medium text-slate-800">{item.targets2 || "-"}</p>
+                            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--theme-text-muted)" }}>
+                              Target 2
+                            </p>
+                            <p className="mt-0.5 font-medium" style={{ color: "var(--theme-text)" }}>
+                              {item.targets2 || "-"}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-500">Target 3</p>
-                            <p className="mt-0.5 font-medium text-slate-800">{item.targets3 || "-"}</p>
+                            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--theme-text-muted)" }}>
+                              Target 3
+                            </p>
+                            <p className="mt-0.5 font-medium" style={{ color: "var(--theme-text)" }}>
+                              {item.targets3 || "-"}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-500">Recommendation</p>
-                            <p className="mt-0.5 font-medium text-slate-800">
+                            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--theme-text-muted)" }}>
+                              Recommendation
+                            </p>
+                            <p className="mt-0.5 font-medium" style={{ color: "var(--theme-text)" }}>
                               {safeRecommendation(item.recommendation_type)}
                             </p>
                           </div>
                           <div className="sm:col-span-2">
-                            <p className="text-xs uppercase tracking-wide text-slate-500">Rational</p>
-                            <p className="mt-0.5 font-medium text-slate-800 whitespace-pre-wrap">
+                            <p className="text-xs uppercase tracking-wide" style={{ color: "var(--theme-text-muted)" }}>
+                              Rational
+                            </p>
+                            <p className="mt-0.5 font-medium whitespace-pre-wrap" style={{ color: "var(--theme-text)" }}>
                               {item.rational || "-"}
                             </p>
                           </div>
 
                           {hasPermission("rational_graf_model_view") && (
                             <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-500">Graph</p>
+                              <p className="text-xs uppercase tracking-wide" style={{ color: "var(--theme-text-muted)" }}>
+                                Graph
+                              </p>
                               {item.graph ? (
                                 <button
                                   onClick={() => openImageModal(item.graph)}
-                                  className="mt-1 inline-flex text-blue-700 hover:underline text-sm"
+                                  className="mt-1 inline-flex text-sm underline-offset-2"
+                                  style={{ color: "var(--theme-primary)" }}
                                 >
                                   View
                                 </button>
                               ) : (
-                                <span className="mt-1 inline-block text-slate-400 text-sm">No Graph</span>
+                                <span className="mt-1 inline-block text-sm" style={{ color: "var(--theme-text-muted)" }}>
+                                  No Graph
+                                </span>
                               )}
                             </div>
                           )}
 
                           {hasPermission("rational_pdf_model_view") && (
                             <div>
-                              <p className="text-xs uppercase tracking-wide text-slate-500">PDF</p>
+                              <p className="text-xs uppercase tracking-wide" style={{ color: "var(--theme-text-muted)" }}>
+                                PDF
+                              </p>
                               {item.pdf ? (
                                 <span className="mt-1 inline-flex">
-                                  <DownloadPDF
-                                    id={item.id}
-                                    className="text-blue-700 hover:underline text-sm"
-                                  />
+                                  <DownloadPDF id={item.id} className="text-sm underline-offset-2" />
                                 </span>
                               ) : (
-                                <span className="mt-1 inline-block text-slate-400 text-sm">No PDF</span>
+                                <span className="mt-1 inline-block text-sm" style={{ color: "var(--theme-text-muted)" }}>
+                                  No PDF
+                                </span>
                               )}
                             </div>
                           )}
@@ -309,11 +412,17 @@ function RationalTable({
               <tr>
                 <td colSpan={7} className="py-14">
                   <div className="mx-auto max-w-md text-center">
-                    <div className="text-lg font-semibold text-slate-800">No rationals found</div>
+                    <div className="text-lg font-semibold" style={{ color: "var(--theme-text)" }}>
+                      No rationals found
+                    </div>
                     {hasPermission("rational_add_recommadation") && (
                       <button
                         onClick={() => openModal()}
-                        className="mt-4 inline-flex items-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                        className="mt-4 inline-flex items-center rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm"
+                        style={{
+                          background: "var(--theme-primary)",
+                          color: "var(--theme-primary-contrast)",
+                        }}
                       >
                         Add First Rational
                       </button>

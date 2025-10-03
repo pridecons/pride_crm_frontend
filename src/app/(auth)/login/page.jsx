@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import { authAxiosInstance } from '@/api/Axios'  // keeps your axios instance
 import { ErrorHandling } from '@/helper/ErrorHandling'
+import Logo from '@/components/Logo'
 
 /* -------------------------------- Role Helpers ------------------------------- */
 
@@ -210,11 +211,11 @@ export default function LoginPage() {
 
       {/* Right form side */}
       <div className="flex flex-col justify-center px-6">
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <div className="flex justify-center items-center">
-            <img src="/pride_logo_nobg.png" alt="Logo" className="h-12 w-auto" />
+            <Logo src="/crm.png" darkSrc="/crm-dark.png" width={160} height={50} />
           </div>
-          <p className="text-gray-700 text-sm">Sign in to access your CRM dashboard</p>
+          <p className="text-gray-700 pt-2 text-sm">Sign in to access your CRM dashboard</p>
         </div>
 
         <div className="flex justify-center">
@@ -275,16 +276,17 @@ export default function LoginPage() {
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
-                    <EyeOff size={18} className="text-gray-700" />
+                    <EyeOff size={18} className="text-gray-300" />
                   ) : (
-                    <Eye size={18} className="text-gray-700" />
+                    <Eye size={18} className="text-gray-300" />
                   )}
                 </button>
               </div>
             </div>
 
             {/* Login button */}
-            <button
+       <div className='mt-8'> 
+             <button
               type="submit"
               disabled={submitting}
               className={`w-full py-3 rounded-xl font-semibold text-white transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-white/30 ${
@@ -304,6 +306,7 @@ export default function LoginPage() {
                 )}
               </span>
             </button>
+       </div>
           </form>
         </div>
 

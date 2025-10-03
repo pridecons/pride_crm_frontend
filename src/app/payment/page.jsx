@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
-import { CheckCircle, Clock, FileText, SlidersHorizontal } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronRight, Clock, FileText, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import InvoiceModal from "@/components/Lead/InvoiceList";
 import { axiosInstance } from "@/api/Axios";
@@ -971,6 +971,7 @@ if (loading && payments.length === 0) {
 >
   <tr>
     {[
+      { label: "", align: "center" },
       { label: "Name", align: "left" },
       { label: "Email", align: "center" },
       { label: "Phone", align: "center" },
@@ -997,6 +998,24 @@ if (loading && payments.length === 0) {
                     className="hover:bg-[var(--theme-primary-softer)] cursor-pointer"
                     onClick={() => setOpenRowId(openRowId === p.id ? null : p.id)}
                   >
+                    <td className="py-2 px-2 text-center w-8">
+       <button
+         type="button"
+         aria-label={openRowId === p.id ? "Collapse details" : "Expand details"}
+         aria-expanded={openRowId === p.id}
+         onClick={(e) => {
+           e.stopPropagation();
+           setOpenRowId(openRowId === p.id ? null : p.id);
+         }}
+         className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
+       >
+         {openRowId === p.id ? (
+           <ChevronDown className="w-5 h-5 strokeWidth={3}" />
+         ) : (
+           <ChevronRight className="w-5 h-5 strokeWidth={3}" />
+         )}
+       </button>
+     </td>
                     <td className="py-2 px-3 text-left">{show(p.name)}</td>
                     <td className="py-2 px-3 text-center">{show(p.email)}</td>
                     <td className="py-2 px-3 text-center">{show(p.phone_number)}</td>

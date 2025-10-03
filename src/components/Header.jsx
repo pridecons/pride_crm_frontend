@@ -16,6 +16,7 @@ import ShowChatCount from "./chatting/ShowChatCount";
 import ThemeToggle from "./ThemeToggle";
 import { useTheme } from "@/context/ThemeContext";
 import { MiniLoader } from "./LoadingState";
+import Logo from "./Logo";
 
 /* ------------ helpers ------------ */
 function hexToRgba(hex = "#000000", alpha = 1) {
@@ -509,16 +510,13 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             </button>
 
             <div className="relative">
-              <img
-                src="/crm.png"
-                alt="Logo"
-                width={128}
-                height={53}
-                className="transition-transform duration-200"
-                onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(1.02)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
-                onClick={() => router.push("/dashboard")}
-              />
+               <Logo
+    src="/crm.png"
+    darkSrc="/crm-dark.png"  // optional
+    width={128}
+    height={40}
+    href="/dashboard"
+  />
               <div
                 className="absolute -inset-2 rounded-lg transition-opacity duration-200 -z-10"
                 style={{
@@ -630,13 +628,16 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           {/* Right cluster */}
           <div className="flex items-center gap-2">
             <ThemeToggle/>
+           <div className="flex">
+             
             <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
             {hasPermission("chat_page") && <ShowChatCount user={user?.employee_code} />}
 
+           </div>
             {/* Clock */}
             <div
-              className="hidden md:flex items-center gap-2 px-2 py-1 rounded-xl border shadow-sm"
+              className="hidden md:flex items-center gap-2 px-2 py-1.5 rounded-xl border shadow-sm"
               style={{
                 background: themeConfig.surface,
                 borderColor: themeConfig.border,
@@ -662,7 +663,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
               <button
                 type="button"
                 onClick={toggleProfileMenu}
-                className="flex items-center space-x-2 px-1.5 py-1.5 rounded-xl transition-all duration-200"
+                className="flex items-center space-x-2 px-1.5 py-1 rounded-xl transition-all duration-200"
                 style={{
                   color: themeConfig.text,
                   backgroundColor: themeConfig.surface,

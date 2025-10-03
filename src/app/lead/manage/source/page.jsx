@@ -733,6 +733,7 @@ export default function LeadSourcesPage() {
             {/* Header */}
             <thead className="bg-[var(--theme-surface)]">
               <tr className="text-[var(--theme-text-muted)]">
+                <th className="px-2 py-3 text-center w-8 font-semibold"></th> {/* arrow */}
                 <th className="px-4 py-3 text-left font-semibold">Source</th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total</th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Pending</th>
@@ -770,7 +771,7 @@ export default function LeadSourcesPage() {
                   (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
 
                 const isOpen = openRows.has(src.id);
-                const COLS = showBranchColumn ? 7 : 6; // (Source, Total, Pending, Roles, [Branch], Description, Actions)
+                const COLS = showBranchColumn ? 8 : 7; // (Source, Total, Pending, Roles, [Branch], Description, Actions)
 
                 return (
                   <React.Fragment key={src.id}>
@@ -780,6 +781,23 @@ export default function LeadSourcesPage() {
                       onClick={() => toggleRow(src.id)}
                       aria-expanded={isOpen}
                     >
+                      <td className="px-2 py-3 text-center w-8 align-top">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); toggleRow(src.id); }}
+                          aria-label={isOpen ? "Collapse details" : "Expand details"}
+                          aria-expanded={isOpen}
+                          aria-controls={`panel-${src.id}`}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
+                          title={isOpen ? "Collapse" : "Expand"}
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
+                          )}
+                        </button>
+                      </td>
                       <td className="px-4 py-3 align-top">
                         <div className="font-semibold">{src.name}</div>
                         <div className="text-xs text-[var(--theme-text-muted)] truncate">
@@ -864,24 +882,6 @@ export default function LeadSourcesPage() {
                               <Trash2 className="w-4 h-4 text-[var(--theme-danger)]" />
                             </button>
                           )}
-                          <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        toggleRow(src.id);
-      }}
-      aria-label={isOpen ? "Collapse details" : "Expand details"}
-      aria-expanded={isOpen}
-      aria-controls={`panel-${src.id}`}
-      className="p-2 rounded hover:bg-[var(--theme-primary-softer)] transition"
-      title={isOpen ? "Collapse" : "Expand"}
-    >
-      {isOpen ? (
-        <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" />
-      ) : (
-        <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" />
-      )}
-    </button>
                         </div>
                       </td>
                     </tr>

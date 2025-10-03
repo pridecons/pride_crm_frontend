@@ -304,32 +304,6 @@ const THEMES = {
     shadow: "rgba(139, 92, 246, 0.1)"
   }),
 
-  orange: makeTheme({
-    ...BASES.light,
-    name: "Orange",
-    icon: "🧡",
-    primary: "#ea580c",
-    primaryHover: "#c2410c",
-    secondary: "#0891b2",
-    background: "#fff7ed",
-    surface: "#ffedd5",
-    text: "#7c2d12",
-    textSecondary: "#9a3412",
-    border: "#fdba74",
-    accent: "#0891b2",
-    sidebar: "#ffedd5",
-    sidebarText: "#7c2d12",
-    header: "#ffedd5",
-    headerText: "#7c2d12",
-    cardBackground: "#ffffff",
-    inputBackground: "#ffffff",
-    inputBorder: "#fdba74",
-    inputFocus: "#ea580c",
-    shadow: "rgba(234, 88, 12, 0.1)"
-  }),
-
-  /* NEW hybrid & extra palettes (header/sidebar ≠ center) */
-
   ocean: makeTheme({
     ...BASES.light,
     name: "Ocean",
@@ -352,30 +326,6 @@ const THEMES = {
     inputBorder: "#93c5fd",
     inputFocus: "#0ea5e9",
     shadow: "rgba(2, 132, 199, 0.15)"
-  }),
-
-  gold: makeTheme({
-    ...BASES.light,
-    name: "Gold",
-    icon: "🏅",
-    primary: "#d97706",
-    primaryHover: "#b45309",
-    secondary: "#2563eb",
-    background: "#fffbeb",
-    surface: "#fef3c7",
-    text: "#78350f",
-    textSecondary: "#92400e",
-    border: "#fde68a",
-    accent: "#2563eb",
-    header: "#111827",
-    headerText: "#fde68a",
-    sidebar: "#1f2937",
-    sidebarText: "#fde68a",
-    cardBackground: "#ffffff",
-    inputBackground: "#ffffff",
-    inputBorder: "#fcd34d",
-    inputFocus: "#d97706",
-    shadow: "rgba(217, 119, 6, 0.12)"
   }),
 };
 

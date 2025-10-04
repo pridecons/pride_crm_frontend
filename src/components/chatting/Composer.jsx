@@ -1,18 +1,23 @@
 // src/components/chat/Composer.jsx
 "use client";
 import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, Paperclip } from "lucide-react";
 import { fileKindIcon } from "./utils";
+
+const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25MB
 
 const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
   const [text, setText] = useState("");
   const [pendingFiles, setPendingFiles] = useState([]);
+  const [skippedCount, setSkippedCount] = useState(0);
   const fileInputRef = useRef(null);
 
   function addFiles(fileList) {
     const arr = Array.from(fileList || []);
-    const filtered = arr.filter((f) => f.size <= 25 * 1024 * 1024); // 25MB
-    setPendingFiles((prev) => [...prev, ...filtered]);
+    const ok = arr.filter((f) => f.size <= MAX_FILE_BYTES);
+    const skipped = arr.length - ok.length;
+    if (skipped > 0) setSkippedCount((c) => c + skipped);
+    setPendingFiles((prev) => [...prev, ...ok]);
   }
 
   function removePending(idx) {
@@ -27,6 +32,7 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
     if (ok) {
       setText("");
       setPendingFiles([]);
+      setSkippedCount(0);
     }
   }
 
@@ -34,8 +40,17 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
     addFiles,
   }));
 
+  const canSend = !disabled && (text.trim().length > 0 || pendingFiles.length > 0);
+
   return (
-    <div className="bg-white px-5 py-3 border-t border-gray-300 relative overflow-x-hidden">
+    <div
+      className="px-5 py-3 border-t relative overflow-x-hidden"
+      style={{
+        background: "var(--theme-card-bg)",
+        borderColor: "var(--theme-border)",
+      }}
+    >
+      {/* hidden file input */}
       <input
         ref={fileInputRef}
         id="chat-file-input"
@@ -45,31 +60,76 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
         onChange={(e) => addFiles(e.target.files)}
       />
 
+      {/* pending attachments */}
       {pendingFiles.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2 min-w-0">
           {pendingFiles.map((f, i) => (
             <span
               key={`${f.name}-${i}`}
-              className="inline-flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1 text-[12px] max-w-full min-w-0"
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] max-w-full min-w-0 border"
+              style={{
+                background: "var(--theme-components-tag-neutral-bg)",
+                color: "var(--theme-components-tag-neutral-text)",
+                borderColor: "var(--theme-components-tag-neutral-border)",
+              }}
+              title={f.name}
             >
-              <span className="min-w-0 max-w-[60vw] sm:max-w-[40vw] truncate">{fileKindIcon(f.type, f.name)} {f.name}</span>
-              <button onClick={() => removePending(i)} className="text-gray-500 hover:text-gray-700">×</button>
+              <span className="min-w-0 max-w-[60vw] sm:max-w-[40vw] truncate">
+                {fileKindIcon(f.type, f.name)} {f.name}
+              </span>
+              <button
+                onClick={() => removePending(i)}
+                className="rounded px-1"
+                aria-label={`Remove ${f.name}`}
+                style={{ color: "var(--theme-text-muted)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary-softer)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                ×
+              </button>
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex items-center min-w-0 gap-2">
-        <button
-          className="mr-2 h-[33px] w-[33px] rounded-full bg-[#05728f] text-white flex items-center justify-center"
-          title="Attach"
-          onClick={() => fileInputRef.current?.click()}
+      {/* skipped notice (files > 25MB) */}
+      {skippedCount > 0 && (
+        <div
+          className="mb-2 text-xs rounded px-2 py-1 inline-block"
+          style={{
+            background: "var(--theme-danger-soft, rgba(244,63,94,0.1))",
+            color: "var(--theme-danger, #f43f5e)",
+            border: "1px solid var(--theme-danger, #f43f5e)",
+          }}
         >
-          <span className="text-sm">📎</span>
+          Skipped {skippedCount} file{skippedCount > 1 ? "s" : ""} (max 25MB each)
+        </div>
+      )}
+
+      <div className="flex items-center min-w-0 gap-2">
+        {/* attach */}
+        <button
+          type="button"
+          className="mr-1 h-[36px] w-[36px] rounded-full flex items-center justify-center"
+          title="Attach files"
+          aria-label="Attach files"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+          style={{
+            background: "var(--theme-primary-softer)",
+            color: "var(--theme-primary)",
+            opacity: disabled ? 0.6 : 1,
+            cursor: disabled ? "not-allowed" : "pointer",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--theme-primary-softer)")}
+        >
+          <Paperclip size={16} />
         </button>
 
+        {/* input */}
         <input
-          className="flex-1 w-0 min-w-0 bg-transparent border-0 text-[#4c4c4c] text-[15px] min-h-[48px] focus:outline-none"
+          className="flex-1 w-0 min-w-0 rounded-xl px-3 py-3 text-[15px] focus:outline-none"
           placeholder="Type a message"
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -79,13 +139,34 @@ const Composer = forwardRef(function Composer({ disabled, onSend }, ref) {
               handleSend();
             }
           }}
+          style={{
+            background: "var(--theme-input-background)",
+            color: "var(--theme-text)",
+            border: "1px solid var(--theme-input-border, var(--theme-border))",
+            boxShadow: "none",
+          }}
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "0 0 0 2px var(--theme-primary)")}
+          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
+          disabled={disabled}
+          aria-label="Message"
         />
 
+        {/* send */}
         <button
+          type="button"
           onClick={handleSend}
-          disabled={(!text.trim() && pendingFiles.length === 0) || disabled}
-          className="ml-2 h-[33px] w-[33px] rounded-full bg-[#05728f] text-white flex items-center justify-center disabled:opacity-50"
-          title="Send"
+          disabled={!canSend}
+          className="ml-2 h-[36px] w-[36px] rounded-full flex items-center justify-center"
+          title="Send message"
+          aria-label="Send message"
+          style={{
+            background: "var(--theme-primary)",
+            color: "var(--theme-primary-contrast)",
+            opacity: canSend ? 1 : 0.5,
+            cursor: canSend ? "pointer" : "not-allowed",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--theme-primary)")}
         >
           <Send size={16} />
         </button>

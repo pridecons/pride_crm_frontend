@@ -13,7 +13,6 @@ function formatInboxTimeStrict(iso) {
 
   const dt = new Date(iso);
   if (isNaN(dt)) {
-    // fall back to API date -> dd/mm/yyyy
     const [y, m, d] = String(iso).split("T")[0]?.split("-") ?? [];
     return d && m && y ? `${d}/${m}/${y}` : "";
   }
@@ -25,16 +24,15 @@ function formatInboxTimeStrict(iso) {
   const days  = Math.floor(diffMs / 86400000);
 
   if (mins < 60) {
-    const m = Math.max(1, mins);            // avoid "0 mins"
+    const m = Math.max(1, mins);
     return `${m} mins ago`;
   }
   if (hours < 24) {
-    return "hour ago";                       // as requested (no number)
+    return "hour ago"; // as requested (no number)
   }
   if (days === 1) return "1 day ago";
   if (days === 2) return "2 day ago";
 
-  // otherwise show dd/mm/yyyy from API date part
   const [y, m, d] = String(iso).split("T")[0].split("-");
   return `${d}/${m}/${y}`;
 }
@@ -50,8 +48,6 @@ const getBranchIdLike = (obj) => {
   return null;
 };
 const getRoleKeyLike = (obj) => {
-  // possible shapes:
-  // "SUPERADMIN" | "Super Admin" |  {key:"SUPERADMIN"} | {name:"SUPERADMIN"} | {role:"SUPERADMIN"} | {title:"SUPERADMIN"}
   const r =
     obj?.role ??
     obj?.user_role ??
@@ -65,18 +61,17 @@ const getRoleKeyLike = (obj) => {
   return normalizeRoleKey(r?.key || r?.name || r?.role || r?.title);
 };
 
-
 const getEmpCode = (obj) => toStr(obj?.employee_code || obj?.code || obj?.id);
 
 const ALWAYS_INCLUDE_ADMIN_CODES = new Set(["ADMIN001"]); // extend if needed
 
 // Read unseen (unread) count strictly from API response: unseen_count
- function getUnseen(t) {
-   if (!t) return 0;
-   let v = t.unseen_count;
-   if (typeof v === "string") v = parseInt(v, 10);
-   return Number.isFinite(v) && v > 0 ? v : 0;
- }
+function getUnseen(t) {
+  if (!t) return 0;
+  let v = t.unseen_count;
+  if (typeof v === "string") v = parseInt(v, 10);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
 
 function useCurrentUserRB() {
   const [state, setState] = useState({ role: null, branchId: null });
@@ -128,142 +123,181 @@ export default function ThreadList({
   }, [threads, q]);
 
   // Users search: SUPERADMIN sees all; others only same-branch users
-const filteredUsers = useMemo(() => {
-  if (!q) return [];
+  const filteredUsers = useMemo(() => {
+    if (!q) return [];
 
-  const base = Array.isArray(users) ? users : [];
-  const queryHintsSuper = q.includes("super");
-  const queryHintsAdmin = q.includes("admin");
+    const base = Array.isArray(users) ? users : [];
+    const queryHintsSuper = q.includes("super");
+    const queryHintsAdmin = q.includes("admin");
 
-  const byQuery = base.filter((u) => {
-    const code = getEmpCode(u);
-    const roleK = getRoleKeyLike(u);
-    const phantom = [];
+    const byQuery = base.filter((u) => {
+      const code = getEmpCode(u);
+      const roleK = getRoleKeyLike(u);
+      const phantom = [];
 
-    // make sure typing "super" or "admin" still matches the superadmin account
-    if (ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())) {
-      phantom.push("superadmin", "super admin", "admin", "admin001");
+      if (ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())) {
+        phantom.push("superadmin", "super admin", "admin", "admin001");
+      }
+      if (roleK === "SUPERADMIN" || u?.is_super_admin || u?.isSuperAdmin) {
+        phantom.push("superadmin", "super admin");
+      }
+
+      const hay = [
+        toStr(u.full_name || u.name),
+        toStr(code),
+        toStr(roleK),
+        ...phantom,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        hay.includes(q) ||
+        ((queryHintsSuper || queryHintsAdmin) &&
+          (roleK === "SUPERADMIN" ||
+            ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())))
+      );
+    });
+
+    if (isSuperAdmin) return byQuery;
+
+    const myBranch = branchId != null ? String(branchId) : null;
+    if (!myBranch) {
+      return byQuery.filter((u) => {
+        const roleK = getRoleKeyLike(u);
+        const code = getEmpCode(u).toUpperCase();
+        return roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code);
+      });
     }
-    if (roleK === "SUPERADMIN" || u?.is_super_admin || u?.isSuperAdmin) {
-      phantom.push("superadmin", "super admin");
-    }
 
-    const hay = [
-      toStr(u.full_name || u.name),
-      toStr(code),
-      toStr(roleK),       // e.g. "SUPERADMIN"
-      ...phantom,         // extra hints
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    // normal match OR explicit hint match ("super"/"admin")
-    return (
-      hay.includes(q) ||
-      ((queryHintsSuper || queryHintsAdmin) &&
-        (roleK === "SUPERADMIN" ||
-         ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())))
-    );
-  });
-
-  if (isSuperAdmin) return byQuery;
-
-  // non-superadmins: same branch, but ALWAYS include superadmin/admin001
-  const myBranch = branchId != null ? String(branchId) : null;
-  if (!myBranch) {
     return byQuery.filter((u) => {
       const roleK = getRoleKeyLike(u);
       const code = getEmpCode(u).toUpperCase();
-      return roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code);
+      if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code)) return true;
+      const ub = getBranchIdLike(u);
+      return ub != null && String(ub) === myBranch;
     });
-  }
-
-  return byQuery.filter((u) => {
-    const roleK = getRoleKeyLike(u);
-    const code = getEmpCode(u).toUpperCase();
-    if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code)) return true;
-    const ub = getBranchIdLike(u);
-    return ub != null && String(ub) === myBranch;
-  });
-}, [users, q, isSuperAdmin, branchId]);
-
+  }, [users, q, isSuperAdmin, branchId]);
 
   // Reusable thread row (shows unread badge consistently)
-const ThreadRow = ({ thread }) => {
-  const unread = getUnseen(thread);
-  return (
-    <button
-      key={thread.id}
-      onClick={() => onSelectThread(thread)}
-      className={clsx(
-        "w-full text-left px-3 py-2 hover:bg-gray-50 focus:bg-gray-50",
-        "transition-colors"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div className="pt-0.5">
-          <Avatar name={thread.name} id={String(thread.id)} size="lg" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {/* top row: name + green weekday */}
-          <div className="flex items-start gap-3">
-            <h5 className="text-[15px] text-gray-900 font-semibold truncate">
-              {thread.name || "Direct Chat"}
-            </h5>
-
-            <div className="ml-auto shrink-0 flex items-center gap-2">
-              {/* time label in green */}
-              <span className="text-[12px] text-[#0f766e] font-medium italic">
-                {formatInboxTimeStrict(thread.last_message_time)}
-              </span>
-
-              {/* unread badge (green circle) */}
-              {unread > 0 && (
-                <span className="inline-flex items-center justify-center rounded-full bg-[#0f766e] text-white text-[11px] font-semibold min-w-[22px] h-[22px] px-1.5">
-                  {unread}
-                </span>
-              )}
-            </div>
+  const ThreadRow = ({ thread }) => {
+    const unread = getUnseen(thread);
+    const isActive = String(selectedId) === String(thread.id);
+    return (
+      <button
+        key={thread.id}
+        onClick={() => onSelectThread(thread)}
+        className={clsx(
+          "w-full text-left px-3 py-2 transition-colors",
+          isActive
+            ? "bg-[var(--theme-primary-softer)]"
+            : "hover:bg-[var(--theme-primary-softer)]"
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div className="pt-0.5">
+            <Avatar name={thread.name} id={String(thread.id)} size="lg" />
           </div>
 
-          {/* snippet */}
-          <p className="mt-0.5 text-[13px] text-gray-600 truncate">
-            {thread.last_message || " "}
-          </p>
+          <div className="min-w-0 flex-1">
+            {/* top row: name + time + unread */}
+            <div className="flex items-start gap-3">
+              <h5 className="text-[15px] font-semibold truncate text-[var(--theme-text)]">
+                {thread.name || "Direct Chat"}
+              </h5>
+
+              <div className="ml-auto shrink-0 flex items-center gap-2">
+                {/* time label */}
+                <span className="text-[12px] italic font-medium text-[var(--theme-text-muted)]">
+                  {formatInboxTimeStrict(thread.last_message_time)}
+                </span>
+
+                {/* unread badge */}
+                {unread > 0 && (
+                  <span
+                    className="inline-flex items-center justify-center rounded-full text-[11px] font-semibold min-w-[22px] h-[22px] px-1.5"
+                    style={{
+                      backgroundColor: "var(--theme-primary)",
+                      color: "var(--theme-primary-contrast, #fff)",
+                    }}
+                  >
+                    {unread}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* snippet */}
+            <p className="mt-0.5 text-[13px] truncate text-[var(--theme-text-muted)]">
+              {thread.last_message || " "}
+            </p>
+          </div>
         </div>
-      </div>
-    </button>
-  );
-};
+      </button>
+    );
+  };
 
   return (
     <div
-      className="shrink-0 border-r border-gray-200 bg-[#f8fafc] flex flex-col overflow-hidden min-h-0"
-      style={{ width: "315px" }}
+      className="shrink-0 flex flex-col overflow-hidden min-h-0 border-r"
+      style={{
+        width: "315px",
+        background: "var(--theme-surface)",
+        borderColor: "var(--theme-border)",
+        color: "var(--theme-text)",
+      }}
     >
       {/* Sticky head */}
-      <div className="sticky top-0 z-10 bg-[#f8fafc] border-b border-gray-200 px-5 py-3">
+      <div
+        className="sticky top-0 z-10 border-b px-5 py-3"
+        style={{
+          background: "var(--theme-card-bg)",
+          borderColor: "var(--theme-border)",
+        }}
+      >
         <div className="flex items-center">
-          <h4 className="text-[#0f766e] text-[20px] font-semibold flex-1">Recent Chats</h4>
+          <h4
+            className="text-[20px] font-semibold flex-1"
+            style={{ color: "var(--theme-primary)" }}
+          >
+            Recent Chats
+          </h4>
           <button
             onClick={onOpenNewChat}
-            className="ml-3 inline-flex items-center justify-center h-9 w-9 rounded-full hover:bg-gray-200 text-gray-700"
+            className="ml-3 inline-flex items-center justify-center h-9 w-9 rounded-full transition-colors"
             title="New Group"
             aria-label="New Group"
+            style={{
+              color: "var(--theme-text)",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--theme-primary-softer)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
           >
             <Plus size={18} />
           </button>
         </div>
+
         {/* Search */}
         <div className="mt-3 relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: "var(--theme-text-muted)" }}
+          />
           <input
-            className="w-full pl-9 pr-3 py-2 bg-white/80 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500/40 text-sm"
+            className="w-full pl-9 pr-3 py-2 rounded-2xl focus:outline-none text-sm"
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              background: "var(--theme-input-background, var(--theme-surface))",
+              border: "1px solid var(--theme-border)",
+              color: "var(--theme-text)",
+              boxShadow: "none",
+            }}
+            onFocus={(e) => (e.currentTarget.style.boxShadow = "0 0 0 2px color-mix(in oklab, var(--theme-primary) 30%, transparent)")}
+            onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
           />
         </div>
       </div>
@@ -277,42 +311,49 @@ const ThreadRow = ({ thread }) => {
             ))}
 
             {filteredUsers.map((user) => {
-  const roleK = getRoleKeyLike(user);
-  const code = getEmpCode(user);
-  const displayName =
-    roleK === "SUPERADMIN" ? "SuperAdmin" : (user.full_name || user.name || code);
+              const roleK = getRoleKeyLike(user);
+              const code = getEmpCode(user);
+              const displayName =
+                roleK === "SUPERADMIN" ? "SuperAdmin" : (user.full_name || user.name || code);
 
-  return (
-    <button
-      key={`user-${code}`}
-      onClick={() => onSelectUserAsPending(user)}
-      className="w-full text-left px-4 py-3 border-b border-gray-200 hover:bg-gray-100/80"
-    >
-      <div className="flex">
-        <div className="w-[44px] pt-1">
-          <Avatar name={displayName} id={code} size="lg" />
-        </div>
-        <div className="pl-4 min-w-0 flex-1">
-          <h5 className="text-[15px] text-[#374151] font-semibold mb-1 truncate">
-            {displayName}
-          </h5>
-          <p className="text-[13px] text-[#6b7280] truncate">
-            {code}
-            {roleK === "SUPERADMIN" ? (
-              <span className="ml-2 text-[11px] text-gray-500">· All branches</span>
-            ) : (
-              user.branch_id != null && (
-                <span className="ml-2 text-[11px] text-gray-500">
-                  · B{String(user.branch_id)}
-                </span>
-              )
-            )}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-})}
+              return (
+                <button
+                  key={`user-${code}`}
+                  onClick={() => onSelectUserAsPending(user)}
+                  className="w-full text-left px-4 py-3 border-b transition-colors"
+                  style={{
+                    borderColor: "var(--theme-border)",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--theme-primary-softer)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  <div className="flex">
+                    <div className="w-[44px] pt-1">
+                      <Avatar name={displayName} id={code} size="lg" />
+                    </div>
+                    <div className="pl-4 min-w-0 flex-1">
+                      <h5 className="text-[15px] font-semibold mb-1 truncate" style={{ color: "var(--theme-text)" }}>
+                        {displayName}
+                      </h5>
+                      <p className="text-[13px] truncate" style={{ color: "var(--theme-text-muted)" }}>
+                        {code}
+                        {roleK === "SUPERADMIN" ? (
+                          <span className="ml-2 text-[11px]" style={{ color: "var(--theme-text-muted)" }}>
+                            · All branches
+                          </span>
+                        ) : (
+                          user.branch_id != null && (
+                            <span className="ml-2 text-[11px]" style={{ color: "var(--theme-text-muted)" }}>
+                              · B{String(user.branch_id)}
+                            </span>
+                          )
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </>
         ) : (
           (threads || []).map((t) => <ThreadRow key={t.id} thread={t} />)

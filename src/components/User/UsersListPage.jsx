@@ -8,7 +8,6 @@ import { Users, Upload } from "lucide-react";
 import StatsCards from "./StatsCards";
 import UserFilters from "./UserFilters";
 import UserTable from "./UserTable";
-import UserDetailsModal from "./UserDetailsModal";
 import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import UserModal from "./UserModal";
@@ -53,8 +52,6 @@ export default function UsersListPage() {
   const [roles, setRoles] = useState([]);
   const [branchMap, setBranchMap] = useState({});
   const [roleMap, setRoleMap] = useState({}); // {"1":"SUPERADMIN", ...}
-
-  const [detailsUser, setDetailsUser] = useState(null);
 
   // Create/Edit Modal control
   const [modalMode, setModalMode] = useState(null); // "add" | "edit" | null
@@ -400,7 +397,6 @@ export default function UsersListPage() {
             branchMap={branchMap}
             onEdit={openEdit}
             onDelete={handleDelete}
-            onDetails={(u) => setDetailsUser(u)}
             refreshUsers={() => fetchUsers({ page })}
             pagination={{ page, totalPages, total, limit, skip }}   // NEW: skip
             onPrev={prevPage}
@@ -424,15 +420,6 @@ export default function UsersListPage() {
             fetchUsers();
             setModalMode(null);
           }}
-        />
-
-        {/* Details Modal */}
-        <UserDetailsModal
-          isOpen={!!detailsUser}
-          onClose={() => setDetailsUser(null)}
-          user={detailsUser}
-          branchMap={branchMap}
-          roleMap={roleMap}
         />
 
         {/* ⬇️ Bulk Upload Modal */}

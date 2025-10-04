@@ -1,76 +1,149 @@
 // src/components/chat/NewChatModal.jsx
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import UserSelect from "./EmpSelect";
 import { useTheme } from "@/context/ThemeContext";
 
 export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) {
-  const { theme } = useTheme(); // not used directly, but keeps modal reactive on theme switch
+  // not used directly; keeps component reactive on theme switch
+  const { theme } = useTheme();
+
   const [groupName, setGroupName] = useState("");
   const [groupUsers, setGroupUsers] = useState([]);
+
   const dialogRef = useRef(null);
   const inputRef = useRef(null);
+  const lastFocusRef = useRef(null);
 
-  const handleCreateGroup = () => {
-    if (!groupName.trim() || groupUsers.length === 0) return;
-    onCreateGroup(groupName.trim(), groupUsers);
+  const resetState = useCallback(() => {
     setGroupName("");
     setGroupUsers([]);
-    onClose();
+  }, []);
+
+  const handleCreateGroup = useCallback(() => {
+    const name = groupName.trim();
+    if (!name || groupUsers.length === 0) return;
+    onCreateGroup?.(name, groupUsers);
+    resetState();
+    onClose?.();
+  }, [groupName, groupUsers, onCreateGroup, onClose, resetState]);
+
+  // Close on backdrop click
+  const onBackdropMouseDown = (e) => {
+    if (e.target === e.currentTarget) onClose?.();
   };
 
-  // Close on Esc; focus the first field on open
+  // Body scroll lock + focus restore
+  useEffect(() => {
+    if (!isOpen) return;
+    lastFocusRef.current = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const to = setTimeout(() => inputRef.current?.focus(), 0);
+
+    return () => {
+      clearTimeout(to);
+      document.body.style.overflow = prevOverflow;
+      // restore focus back to the opener if possible
+      if (lastFocusRef.current && lastFocusRef.current.focus) {
+        try { lastFocusRef.current.focus(); } catch {}
+      }
+    };
+  }, [isOpen]);
+
+  // Global key handlers (Esc to close, Enter to submit)
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Enter" && (document.activeElement === inputRef.current || dialogRef.current?.contains(document.activeElement))) {
-        handleCreateGroup();
+      if (e.key === "Escape") onClose?.();
+      if (e.key === "Enter") {
+        const insideDialog = dialogRef.current?.contains(document.activeElement);
+        if (insideDialog) handleCreateGroup();
       }
     };
     document.addEventListener("keydown", onKey);
-    const t = setTimeout(() => inputRef.current?.focus(), 0);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      clearTimeout(t);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, handleCreateGroup, onClose]);
+
+  // Simple focus trap
+  useEffect(() => {
+    if (!isOpen) return;
+    const root = dialogRef.current;
+    if (!root) return;
+
+    const getFocusable = () =>
+      Array.from(
+        root.querySelectorAll(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute("disabled") && !el.getAttribute("aria-hidden"));
+
+    const onKeydown = (e) => {
+      if (e.key !== "Tab") return;
+      const focusables = getFocusable();
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey) {
+        if (active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    root.addEventListener("keydown", onKeydown);
+    return () => root.removeEventListener("keydown", onKeydown);
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const disabled = !groupName.trim() || groupUsers.length === 0;
 
   return (
     <div
       className="fixed inset-0 z-50 p-4 flex items-center justify-center"
       role="dialog"
       aria-modal="true"
-      onMouseDown={(e) => {
-        // close when clicking the backdrop (not the panel)
-        if (e.target === e.currentTarget) onClose();
-      }}
-      style={{ background: "var(--theme-backdrop)" }}
+      aria-labelledby="new-group-title"
+      aria-describedby="new-group-desc"
+      onMouseDown={onBackdropMouseDown}
+      style={{ background: "var(--theme-backdrop, rgba(0,0,0,0.5))" }}
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-md rounded-lg shadow-lg border"
+        className="w-full max-w-md rounded-2xl shadow-2xl border outline-none"
+        role="document"
         style={{
           background: "var(--theme-card-bg)",
           color: "var(--theme-text)",
           borderColor: "var(--theme-border)",
+          boxShadow: `0 20px 50px var(--theme-shadow, rgba(0,0,0,0.25))`,
         }}
+        tabIndex={-1}
       >
         {/* Header */}
         <div
-          className="p-4 flex items-center justify-between border-b"
+          className="p-4 flex items-center justify-between border-b rounded-t-2xl"
           style={{ borderColor: "var(--theme-border)" }}
         >
-          <h3 className="text-lg font-semibold">Create Group</h3>
+          <h3 id="new-group-title" className="text-lg font-semibold">
+            Create Group
+          </h3>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={() => { resetState(); onClose?.(); }}
             className="text-sm px-2 py-1 rounded"
             aria-label="Close"
-            style={{
-              color: "var(--theme-text-muted)",
-            }}
+            style={{ color: "var(--theme-text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary-softer)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
@@ -80,20 +153,36 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
 
         {/* Body */}
         <div className="p-4 space-y-4">
-          <input
-            ref={inputRef}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none transition"
-            placeholder="Group name"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            style={{
-              background: "var(--theme-input-background)",
-              color: "var(--theme-text)",
-              border: "1px solid var(--theme-input-border)",
-            }}
-            onFocus={(e) => (e.currentTarget.style.boxShadow = "0 0 0 2px var(--theme-primary)")}
-            onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
-          />
+          <p id="new-group-desc" className="sr-only">
+            Enter a group name and choose participants to create a group chat.
+          </p>
+
+          <div>
+            <label
+              htmlFor="group-name"
+              className="block text-sm mb-1"
+              style={{ color: "var(--theme-text-muted)" }}
+            >
+              Group name
+            </label>
+            <input
+              id="group-name"
+              ref={inputRef}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none transition"
+              placeholder="e.g., Research Team"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              style={{
+                background: "var(--theme-input-background)",
+                color: "var(--theme-text)",
+                border: "1px solid var(--theme-input-border, var(--theme-border))",
+              }}
+              onFocus={(e) =>
+                (e.currentTarget.style.boxShadow = "0 0 0 2px var(--theme-primary)")
+              }
+              onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
+            />
+          </div>
 
           <div>
             <label
@@ -102,11 +191,12 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
             >
               Add participants
             </label>
+
             <UserSelect
               users={users}
               value={groupUsers}
               onChange={setGroupUsers}
-              placeholder="Search users..."
+              placeholder="Search users…"
               multiple
             />
 
@@ -124,13 +214,18 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
                   >
                     {u.full_name || u.name || u.employee_code}
                     <button
+                      type="button"
                       onClick={() =>
-                        setGroupUsers(groupUsers.filter((x) => x.employee_code !== u.employee_code))
+                        setGroupUsers((prev) =>
+                          prev.filter((x) => x.employee_code !== u.employee_code)
+                        )
                       }
                       className="px-1 rounded"
                       aria-label={`Remove ${u.full_name || u.name || u.employee_code}`}
                       style={{ color: "var(--theme-text-muted)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary-softer)")}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "var(--theme-primary-softer)")
+                      }
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
                       ×
@@ -143,18 +238,23 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
 
           {/* Footer */}
           <button
+            type="button"
             onClick={handleCreateGroup}
-            disabled={!groupName.trim() || groupUsers.length === 0}
+            disabled={disabled}
             className="w-full py-2 rounded-lg font-medium transition"
             style={{
               background: "var(--theme-primary)",
-              color: "var(--theme-primary-contrast)",
-              opacity: !groupName.trim() || groupUsers.length === 0 ? 0.6 : 1,
-              cursor: !groupName.trim() || groupUsers.length === 0 ? "not-allowed" : "pointer",
-              boxShadow: "0 10px 20px rgba(0,0,0,0.08)",
+              color: "var(--theme-primary-contrast, #fff)",
+              opacity: disabled ? 0.6 : 1,
+              cursor: disabled ? "not-allowed" : "pointer",
+              boxShadow: "0 10px 20px var(--theme-shadow, rgba(0,0,0,0.08))",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--theme-primary-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--theme-primary)")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "var(--theme-primary-hover, var(--theme-primary))")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "var(--theme-primary)")
+            }
           >
             Create Group
           </button>

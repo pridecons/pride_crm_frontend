@@ -497,7 +497,7 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       {/* rationals button */}
       <button
         onClick={() => setShowRationalModal(true)}
-        className="ml-2 relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
+        className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
         title="Rationals"
       >
         <FileText size={20} />

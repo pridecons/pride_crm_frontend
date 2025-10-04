@@ -81,12 +81,12 @@ const inputClass =
   "px-3 py-2 border rounded-md w-full outline-none transition " +
   "border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)] " +
   "placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent";
-  const badgeBase =
+const badgeBase =
   "inline-flex items-center justify-center w-24 h-6 px-2.5 rounded-full text-xs font-semibold uppercase tracking-wide whitespace-nowrap";
 const thBase =
   "bg-transparent uppercase tracking-wider font-semibold text-[var(--theme-primary-contrast)]";
 
-  const btnPrimary =
+const btnPrimary =
   "px-3 py-1.5 rounded bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] hover:bg-[var(--theme-primary-hover)]";
 const btnSecondary =
   "px-3 py-1.5 rounded border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]";
@@ -147,9 +147,9 @@ export default function PaymentHistoryPage() {
   // View scope for non-managers
   const [myView, setMyView] = useState("self");
 
-const isFirstLoadRef = React.useRef(true);
-const [refreshing, setRefreshing] = useState(false);
-const fetchAbortRef = React.useRef(null);
+  const isFirstLoadRef = React.useRef(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const fetchAbortRef = React.useRef(null);
 
   // Pagination derived values
   const page = Math.floor(offset / (limit || 1)) + 1;
@@ -213,7 +213,7 @@ const fetchAbortRef = React.useRef(null);
     axiosInstance
       .get("/profile-role/recommendation-type/")
       .then((res) => setServices(res.data))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Plans (by service)
@@ -272,36 +272,36 @@ const fetchAbortRef = React.useRef(null);
     setFiltersOpen(true);
   };
 
-// Reset everything to truly blank defaults (no date range)
-const resetAll = () => {
-  // 1) Dates — clear to remove chips & constraints
-  setDateFromApplied("");
-  setDateToApplied("");
+  // Reset everything to truly blank defaults (no date range)
+  const resetAll = () => {
+    // 1) Dates — clear to remove chips & constraints
+    setDateFromApplied("");
+    setDateToApplied("");
 
-  // 2) Filters
-  setService("");
-  setPlan("");
+    // 2) Filters
+    setService("");
+    setPlan("");
 
-  // 3) Employee (raised_by)
-  setSelectedUserId("");
-  setSelectedUserName("");
-  setUserSearch("");
-  setShowUserDropdown(false);
-  setUserSuggestions([]);
+    // 3) Employee (raised_by)
+    setSelectedUserId("");
+    setSelectedUserName("");
+    setUserSearch("");
+    setShowUserDropdown(false);
+    setUserSuggestions([]);
 
-  // 4) Client filter + UI
-  setClientFilter({ name: "", email: "", phone_number: "" });
-  setClientQuery("");
-  setShowClientDropdown(false);
-  setClientSuggestions([]);
+    // 4) Client filter + UI
+    setClientFilter({ name: "", email: "", phone_number: "" });
+    setClientQuery("");
+    setShowClientDropdown(false);
+    setClientSuggestions([]);
 
-  // 5) Branch + scope
-  if (canPickBranch) setBranchId("");     // SUPERADMIN can go back to all branches
-  setMyView(canPickBranch ? "all" : "self");
+    // 5) Branch + scope
+    if (canPickBranch) setBranchId("");     // SUPERADMIN can go back to all branches
+    setMyView(canPickBranch ? "all" : "self");
 
-  // 6) Paging
-  setOffset(0);
-};
+    // 6) Paging
+    setOffset(0);
+  };
 
   const hasActive = React.useMemo(() => {
     const isCustomDate = !!date_from || !!date_to;
@@ -421,8 +421,8 @@ const resetAll = () => {
           let list = Array.isArray(res?.data?.payments)
             ? res.data.payments
             : Array.isArray(res?.data?.data)
-            ? res.data.data
-            : [];
+              ? res.data.data
+              : [];
 
           // broader pass if searching short mobile
           if (list.length === 0 && shortPhone) {
@@ -433,8 +433,8 @@ const resetAll = () => {
             list = Array.isArray(res2?.data?.payments)
               ? res2.data.payments
               : Array.isArray(res2?.data?.data)
-              ? res2.data.data
-              : [];
+                ? res2.data.data
+                : [];
           }
 
           const seen = new Set();
@@ -521,72 +521,72 @@ const resetAll = () => {
   };
 
   /* ---------------- Fetch payments with ALL filters ---------------- */
-const fetchPayments = async () => {
-  // decide whether to block UI or just show a light refresh
-  const blockUI = isFirstLoadRef.current || payments.length === 0;
-  if (blockUI) setLoading(true); else setRefreshing(true);
-  setError("");
+  const fetchPayments = async () => {
+    // decide whether to block UI or just show a light refresh
+    const blockUI = isFirstLoadRef.current || payments.length === 0;
+    if (blockUI) setLoading(true); else setRefreshing(true);
+    setError("");
 
-  // abort any in-flight request
-  try { fetchAbortRef.current?.abort?.(); } catch {}
-  const controller = new AbortController();
-  fetchAbortRef.current = controller;
+    // abort any in-flight request
+    try { fetchAbortRef.current?.abort?.(); } catch { }
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
 
-  try {
-    const branchParam =
-      canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
-        ? Number(branchId)
-        : undefined;
+    try {
+      const branchParam =
+        canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
+          ? Number(branchId)
+          : undefined;
 
-    const raisedByParam = canSearchEmployees ? selectedUserId || undefined : undefined;
+      const raisedByParam = canSearchEmployees ? selectedUserId || undefined : undefined;
 
-    const parsed =
-      clientFilter.name || clientFilter.email || clientFilter.phone_number
-        ? clientFilter
-        : parseClientQuery(clientQuery);
+      const parsed =
+        clientFilter.name || clientFilter.email || clientFilter.phone_number
+          ? clientFilter
+          : parseClientQuery(clientQuery);
 
-    const params = {
-      service: service || undefined,
-      plan_id: plan || undefined,
-      name: parsed.name || undefined,
-      email: parsed.email || undefined,
-      phone_number: parsed.phone_number || undefined,
-      branch_id: branchParam,
-      branch: branchParam,
-      date_from: date_from || undefined,
-      date_to: date_to || undefined,
-      limit,
-      offset,
-      user_id: raisedByParam,
-      raised_by: raisedByParam,
-      view: canPickBranch ? "all" : myView,
-    };
-    Object.keys(params).forEach((k) => {
-      if (params[k] === "" || params[k] === null) delete params[k];
-    });
+      const params = {
+        service: service || undefined,
+        plan_id: plan || undefined,
+        name: parsed.name || undefined,
+        email: parsed.email || undefined,
+        phone_number: parsed.phone_number || undefined,
+        branch_id: branchParam,
+        branch: branchParam,
+        date_from: date_from || undefined,
+        date_to: date_to || undefined,
+        limit,
+        offset,
+        user_id: raisedByParam,
+        raised_by: raisedByParam,
+        view: canPickBranch ? "all" : myView,
+      };
+      Object.keys(params).forEach((k) => {
+        if (params[k] === "" || params[k] === null) delete params[k];
+      });
 
-    const { data } = await axiosInstance.get("/payment/all/employee/history", {
-      params,
-      signal: controller.signal,
-    });
+      const { data } = await axiosInstance.get("/payment/all/employee/history", {
+        params,
+        signal: controller.signal,
+      });
 
-    setPayments(data.payments || []);
-    setTotal(data.total || 0);
-  } catch (err) {
-    if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
-      const msg =
-        err?.response?.data?.detail?.message ||
-        err?.response?.data?.detail ||
-        err?.message ||
-        "Failed to fetch payment history.";
-      setError(msg);
+      setPayments(data.payments || []);
+      setTotal(data.total || 0);
+    } catch (err) {
+      if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
+        const msg =
+          err?.response?.data?.detail?.message ||
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Failed to fetch payment history.";
+        setError(msg);
+      }
+    } finally {
+      if (blockUI) setLoading(false); else setRefreshing(false);
+      isFirstLoadRef.current = false;
+      fetchAbortRef.current = null;
     }
-  } finally {
-    if (blockUI) setLoading(false); else setRefreshing(false);
-    isFirstLoadRef.current = false;
-    fetchAbortRef.current = null;
-  }
-};
+  };
 
   // Auto-fetch when applied filters change
   useEffect(() => {
@@ -607,46 +607,50 @@ const fetchPayments = async () => {
   ]);
 
   // Full-screen first load
-if (loading && payments.length === 0) {
-  return (
-    <div className="min-h-screen grid place-items-center bg-[var(--theme-background)] text-[var(--theme-text)]">
-      <LoadingState message="Fetching payments..." />
-    </div>
-  );
-}
+  if (loading && payments.length === 0) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-[var(--theme-background)] text-[var(--theme-text)]">
+        <LoadingState message="Fetching payments..." />
+      </div>
+    );
+  }
 
   return (
-   <div className="mx-2 px-4 py-8 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
+    <div className="mx-2 px-4 py-8 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
       {/* Toolbar (applied chips) */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">All Employee Payment History</h2>
 
         <div className="flex items-center gap-2">
           {date_from && (
-           <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
-     style={{ background: "var(--theme-components-tag-info-bg)", color: "var(--theme-components-tag-info-text)", borderColor: "var(--theme-components-tag-info-border)" }}>
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
+              style={{ background: "var(--theme-components-tag-info-bg)", color: "var(--theme-components-tag-info-text)", borderColor: "var(--theme-components-tag-info-border)" }}>
               From: {date_from}
             </span>
           )}
           {date_to && (
-           <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
-     style={{ background: "var(--theme-components-tag-info-bg)", color: "var(--theme-components-tag-info-text)", borderColor: "var(--theme-components-tag-info-border)" }}>
+            <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
+              style={{ background: "var(--theme-components-tag-info-bg)", color: "var(--theme-components-tag-info-text)", borderColor: "var(--theme-components-tag-info-border)" }}>
               To: {date_to}
             </span>
           )}
           {service && (
             <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
-      style={{background:"var(--theme-components-tag-accent-bg)",
-              color:"var(--theme-components-tag-accent-text)",
-              borderColor:"var(--theme-components-tag-accent-border)"}}>
+              style={{
+                background: "var(--theme-components-tag-accent-bg)",
+                color: "var(--theme-components-tag-accent-text)",
+                borderColor: "var(--theme-components-tag-accent-border)"
+              }}>
               Service: {service}
             </span>
           )}
           {plan && (
             <span className="hidden md:inline-flex px-3 py-1.5 rounded border text-xs"
-      style={{background:"var(--theme-components-tag-accent-bg)",
-              color:"var(--theme-components-tag-accent-text)",
-              borderColor:"var(--theme-components-tag-accent-border)"}}>
+              style={{
+                background: "var(--theme-components-tag-accent-bg)",
+                color: "var(--theme-components-tag-accent-text)",
+                borderColor: "var(--theme-components-tag-accent-border)"
+              }}>
               Plan: {plan}
             </span>
           )}
@@ -673,10 +677,10 @@ if (loading && payments.length === 0) {
           <button
             type="button"
             onClick={openFilters}
-           className={`${btnPrimary} text-sm`}
+            className={`${btnPrimary} text-sm`}
             title="Open filters"
           >
-            <SlidersHorizontal className="h-6 w-5"/>
+            <SlidersHorizontal className="h-6 w-5" />
           </button>
           {refreshing && <InlineSpinner />}
 
@@ -691,11 +695,10 @@ if (loading && payments.length === 0) {
               key={v}
               type="button"
               onClick={() => setMyView(v)}
-              className={`px-4 py-2 text-sm font-medium transition border-[var(--theme-border)] ${
-           myView === v
-             ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] shadow-md"
-             : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
-         } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
+              className={`px-4 py-2 text-sm font-medium transition border-[var(--theme-border)] ${myView === v
+                  ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] shadow-md"
+                  : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
             >
               {v === "self" ? "My Payments" : "Team Payments"}
             </button>
@@ -705,46 +708,44 @@ if (loading && payments.length === 0) {
 
       {/* Branch chips */}
       {/* Branch chips — visible only to SUPERADMIN */}
-{role === "SUPERADMIN" && (
-  <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 gap-4">
-    <div className="flex space-x-2 overflow-x-auto">
-      <button
-        onClick={() => {
-          setBranchId("");
-          setOffset(0);
-        }}
-        className={`px-4 py-2 rounded border border-[var(--theme-border)] ${
-          branchId === ""
-            ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-            : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
-        }`}
-      >
-        All Branches
-      </button>
+      {role === "SUPERADMIN" && (
+        <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 gap-4">
+          <div className="flex space-x-2 overflow-x-auto">
+            <button
+              onClick={() => {
+                setBranchId("");
+                setOffset(0);
+              }}
+              className={`px-4 py-2 rounded border border-[var(--theme-border)] ${branchId === ""
+                  ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                  : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                }`}
+            >
+              All Branches
+            </button>
 
-      {branches.map((b) => {
-        const bid = b.id ?? b.branch_id;
-        const isActive = String(branchId) === String(bid);
-        return (
-          <button
-            key={bid}
-            onClick={() => {
-              setBranchId(String(bid));
-              setOffset(0);
-            }}
-            className={`px-4 py-2 rounded border border-[var(--theme-border)] ${
-   isActive
-     ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-     : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
- }`}
-          >
-            {b.name || b.branch_name || `Branch ${bid}`}
-          </button>
-        );
-      })}
-    </div>
-  </div>
-)}
+            {branches.map((b) => {
+              const bid = b.id ?? b.branch_id;
+              const isActive = String(branchId) === String(bid);
+              return (
+                <button
+                  key={bid}
+                  onClick={() => {
+                    setBranchId(String(bid));
+                    setOffset(0);
+                  }}
+                  className={`px-4 py-2 rounded border border-[var(--theme-border)] ${isActive
+                      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                      : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                    }`}
+                >
+                  {b.name || b.branch_name || `Branch ${bid}`}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
 
       {/* Filters (keep service/plan/client/employee inline for convenience) */}
@@ -803,13 +804,13 @@ if (loading && payments.length === 0) {
           />
           {(clientFilter.name || clientFilter.email || clientFilter.phone_number) && (
             <div
-   className="mt-1 inline-flex items-center text-xs px-2 py-1 rounded border"
-   style={{
-     background: "var(--theme-components-tag-info-bg)",
-     color: "var(--theme-components-tag-info-text)",
-     borderColor: "var(--theme-components-tag-info-border)"
-   }}
- >
+              className="mt-1 inline-flex items-center text-xs px-2 py-1 rounded border"
+              style={{
+                background: "var(--theme-components-tag-info-bg)",
+                color: "var(--theme-components-tag-info-text)",
+                borderColor: "var(--theme-components-tag-info-border)"
+              }}
+            >
               {[clientFilter.name, clientFilter.email, clientFilter.phone_number]
                 .filter(Boolean)
                 .join(" • ")}
@@ -897,9 +898,8 @@ if (loading && payments.length === 0) {
                   key={u.id}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleUserSelect(u)}
-                  className={`px-3 py-2 cursor-pointer ${
-   idx === userHL ? "bg-[var(--theme-primary-softer)]" : "hover:bg-[var(--theme-primary-softer)]"
- }`}
+                  className={`px-3 py-2 cursor-pointer ${idx === userHL ? "bg-[var(--theme-primary-softer)]" : "hover:bg-[var(--theme-primary-softer)]"
+                    }`}
                 >
                   <div className="flex justify-between">
                     <span className="font-medium">{u.name || "Unknown"}</span>
@@ -918,78 +918,78 @@ if (loading && payments.length === 0) {
       {/* Results */}
       {error && (
         <div className="rounded px-4 py-2 mb-4 border"
-     style={{
-       background: "var(--theme-components-tag-error-bg)",
-       color: "var(--theme-components-tag-error-text)",
-       borderColor: "var(--theme-components-tag-error-border)",
-     }}
->
+          style={{
+            background: "var(--theme-components-tag-error-bg)",
+            color: "var(--theme-components-tag-error-text)",
+            borderColor: "var(--theme-components-tag-error-border)",
+          }}
+        >
           {error}
         </div>
       )}
       {!loading && !error && payments.length === 0 && (
-       <div className="text-center py-10 text-[var(--theme-text-muted)]">No records found.</div>
+        <div className="text-center py-10 text-[var(--theme-text-muted)]">No records found.</div>
       )}
 
       {/* Page size */}
       {/* Page size — show only when there are results */}
-{!loading && !error && total > 0 && (
-  <div className="flex items-center gap-2 text-sm mb-2">
-    <span className="text-[var(--theme-text-muted)]">Payments per page:</span>
-    <select
-      className="px-2 py-1 border rounded"
-      style={{
-         background: "var(--theme-input-background)",
-         color: "var(--theme-text)",
-         borderColor: "var(--theme-input-border)"
-       }}
-      value={limit}
-      onChange={(e) => {
-        const v = Number(e.target.value) || DEFAULT_LIMIT;
-        setLimit(v);
-        setOffset(0);
-      }}
-    >
-      {[25, 50, 100, 200].map((n) => (
-        <option key={n} value={n}>{n}</option>
-      ))}
-    </select>
-  </div>
-)}
+      {!loading && !error && total > 0 && (
+        <div className="flex items-center gap-2 text-sm mb-2">
+          <span className="text-[var(--theme-text-muted)]">Payments per page:</span>
+          <select
+            className="px-2 py-1 border rounded"
+            style={{
+              background: "var(--theme-input-background)",
+              color: "var(--theme-text)",
+              borderColor: "var(--theme-input-border)"
+            }}
+            value={limit}
+            onChange={(e) => {
+              const v = Number(e.target.value) || DEFAULT_LIMIT;
+              setLimit(v);
+              setOffset(0);
+            }}
+          >
+            {[25, 50, 100, 200].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {!loading && !error && payments.length > 0 && (
         <div className="relative max-h-[70vh] overflow-auto rounded-lg shadow border border-[var(--theme-border)]">
           {loading && payments.length > 0 && (
-  <div className="absolute inset-0 z-20 grid place-items-center bg-black/5 backdrop-blur-[1px]">
-    <InlineSpinner label="Updating..." />
-  </div>
-)}
+            <div className="absolute inset-0 z-20 grid place-items-center bg-black/5 backdrop-blur-[1px]">
+              <InlineSpinner label="Updating..." />
+            </div>
+          )}
           <table className="min-w-full bg-[var(--theme-card-bg)] text-sm text-[var(--theme-text)]">
             <thead
-  className="sticky top-0 z-10"
-  style={{ backgroundImage: "linear-gradient(to right, var(--theme-primary), var(--theme-primary-hover))" }}
->
-  <tr>
-    {[
-      { label: "", align: "center" },
-      { label: "Name", align: "left" },
-      { label: "Email", align: "center" },
-      { label: "Phone", align: "center" },
-      { label: "Amount", align: "center" },
-      { label: "Status", align: "center" },
-      { label: "Date (MM/DD/YYYY)", align: "center" },
-      { label: "Send Invoice", align: "center" },
-      { label: "Invoice", align: "center" },
-    ].map(({ label, align }) => (
-      <th
-        key={label}
-        className={`${thBase} py-2 px-3 ${align === "left" ? "text-left" : "text-center"}`}
-      >
-        {label}
-      </th>
-    ))}
-  </tr>
-</thead>
+              className="sticky top-0 z-10"
+              style={{ backgroundImage: "linear-gradient(to right, var(--theme-primary), var(--theme-primary-hover))" }}
+            >
+              <tr>
+                {[
+                  { label: "", align: "center" },
+                  { label: "Name", align: "left" },
+                  { label: "Email", align: "center" },
+                  { label: "Phone", align: "center" },
+                  { label: "Amount", align: "center" },
+                  { label: "Status", align: "center" },
+                  { label: "Date (MM/DD/YYYY)", align: "center" },
+                  { label: "Send Invoice", align: "center" },
+                  { label: "Invoice", align: "center" },
+                ].map(({ label, align }) => (
+                  <th
+                    key={label}
+                    className={`${thBase} py-2 px-3 ${align === "left" ? "text-left" : "text-center"}`}
+                  >
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {payments.map((p) => (
                 <React.Fragment key={p.id}>
@@ -999,23 +999,23 @@ if (loading && payments.length === 0) {
                     onClick={() => setOpenRowId(openRowId === p.id ? null : p.id)}
                   >
                     <td className="py-2 px-2 text-center w-8">
-       <button
-         type="button"
-         aria-label={openRowId === p.id ? "Collapse details" : "Expand details"}
-         aria-expanded={openRowId === p.id}
-         onClick={(e) => {
-           e.stopPropagation();
-           setOpenRowId(openRowId === p.id ? null : p.id);
-         }}
-         className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
-       >
-         {openRowId === p.id ? (
-           <ChevronDown className="w-5 h-5 strokeWidth={3}" />
-         ) : (
-           <ChevronRight className="w-5 h-5 strokeWidth={3}" />
-         )}
-       </button>
-     </td>
+                      <button
+                        type="button"
+                        aria-label={openRowId === p.id ? "Collapse details" : "Expand details"}
+                        aria-expanded={openRowId === p.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenRowId(openRowId === p.id ? null : p.id);
+                        }}
+                        className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
+                      >
+                        {openRowId === p.id ? (
+                          <ChevronDown className="w-5 h-5 strokeWidth={3}" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 strokeWidth={3}" />
+                        )}
+                      </button>
+                    </td>
                     <td className="py-2 px-3 text-left">{show(p.name)}</td>
                     <td className="py-2 px-3 text-center">{show(p.email)}</td>
                     <td className="py-2 px-3 text-center">{show(p.phone_number)}</td>
@@ -1023,27 +1023,27 @@ if (loading && payments.length === 0) {
                     <td className="py-2 px-3">
                       <div className="flex justify-center">
                         <span
-  className={`${badgeBase} border`}
-  style={{
-    background: p.status === "PAID"
-      ? "var(--theme-components-tag-success-bg)"
-      : (p.status === "ACTIVE" || p.status === "PENDING")
-      ? "var(--theme-components-tag-warning-bg)"
-      : "var(--theme-components-tag-neutral-bg)",
-    color: p.status === "PAID"
-      ? "var(--theme-components-tag-success-text)"
-      : (p.status === "ACTIVE" || p.status === "PENDING")
-      ? "var(--theme-components-tag-warning-text)"
-      : "var(--theme-components-tag-neutral-text)",
-    borderColor: p.status === "PAID"
-      ? "var(--theme-components-tag-success-border)"
-      : (p.status === "ACTIVE" || p.status === "PENDING")
-      ? "var(--theme-components-tag-warning-border)"
-      : "var(--theme-components-tag-neutral-border)",
-  }}
->
-  {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
-</span>
+                          className={`${badgeBase} border`}
+                          style={{
+                            background: p.status === "PAID"
+                              ? "var(--theme-components-tag-success-bg)"
+                              : (p.status === "ACTIVE" || p.status === "PENDING")
+                                ? "var(--theme-components-tag-warning-bg)"
+                                : "var(--theme-components-tag-neutral-bg)",
+                            color: p.status === "PAID"
+                              ? "var(--theme-components-tag-success-text)"
+                              : (p.status === "ACTIVE" || p.status === "PENDING")
+                                ? "var(--theme-components-tag-warning-text)"
+                                : "var(--theme-components-tag-neutral-text)",
+                            borderColor: p.status === "PAID"
+                              ? "var(--theme-components-tag-success-border)"
+                              : (p.status === "ACTIVE" || p.status === "PENDING")
+                                ? "var(--theme-components-tag-warning-border)"
+                                : "var(--theme-components-tag-neutral-border)",
+                          }}
+                        >
+                          {show(p.status === "ACTIVE" ? "PENDING" : p.status)}
+                        </span>
                       </div>
                     </td>
                     <td className="py-2 px-3 text-center">{showDateTime(p.created_at)}</td>
@@ -1114,10 +1114,10 @@ if (loading && payments.length === 0) {
                             <div>
                               {toArray(p.Service).length
                                 ? toArray(p.Service).map((s, i) => (
-                                    <span key={i} className="block">
-                                      {show(s)}
-                                    </span>
-                                  ))
+                                  <span key={i} className="block">
+                                    {show(s)}
+                                  </span>
+                                ))
                                 : DASH}
                             </div>
                           </div>
@@ -1219,11 +1219,10 @@ if (loading && payments.length === 0) {
                 <button
                   key={n}
                   onClick={() => goToPage(n)}
-                  className={`px-3 py-1 rounded border border-[var(--theme-border)] ${
-   n === page
-     ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-     : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
- }`}
+                  className={`px-3 py-1 rounded border border-[var(--theme-border)] ${n === page
+                      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                      : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                    }`}
                 >
                   {n}
                 </button>

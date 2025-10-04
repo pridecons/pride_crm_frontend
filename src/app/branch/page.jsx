@@ -119,72 +119,72 @@ const BranchesPage = () => {
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [existingAgreementUrl, setExistingAgreementUrl] = useState("");
 
-// --- State autocomplete (Manager State) ---
-const [states, setStates] = useState([]);            // [{ state_name, code }]
-const [stateQuery, setStateQuery] = useState("");
-const [showStateList, setShowStateList] = useState(false);
-const [stateIndex, setStateIndex] = useState(0);
-const stateInputRef = useRef(null);
-const [statePopup, setStatePopup] = useState({ top: 0, left: 0, width: 0 });
+  // --- State autocomplete (Manager State) ---
+  const [states, setStates] = useState([]);            // [{ state_name, code }]
+  const [stateQuery, setStateQuery] = useState("");
+  const [showStateList, setShowStateList] = useState(false);
+  const [stateIndex, setStateIndex] = useState(0);
+  const stateInputRef = useRef(null);
+  const [statePopup, setStatePopup] = useState({ top: 0, left: 0, width: 0 });
 
-// --- Position the floating popup under the input ---
-const updateStatePopupPos = () => {
-  const el = stateInputRef.current;
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-  setStatePopup({
-    top: r.bottom + window.scrollY,
-    left: r.left + window.scrollX,
-    width: r.width,
-  });
-};
-
-// --- Filter states using the query (case-insensitive, matches substrings) ---
-const filteredStates = useMemo(() => {
-  const q = (stateQuery || "").toUpperCase().trim();
-  if (!q) return states;
-  return (states || []).filter((s) =>
-    String(s.state_name || "").toUpperCase().includes(q)
-  );
-}, [stateQuery, states]);
-
-// --- Select a state from the list ---
-const selectManagerState = (name) => {
-  setFormData((p) => ({ ...p, manager_state: name }));
-  setStateQuery(name);
-  setShowStateList(false);
-};
-// Fetch states when the Add/Edit modal opens
-useEffect(() => {
-  if (!isOpen) return;
-  (async () => {
-    try {
-      const res = await axiosInstance.get("/state/");
-      // API may respond with { states: [...] } or just [...]
-      setStates(res?.data?.states || res?.data || []);
-    } catch {
-      setStates([]);
-    }
-  })();
-}, [isOpen]);
-
-// Keep popup aligned to input while open
-useEffect(() => {
-  if (!showStateList) return;
-  updateStatePopupPos();
-  const onScrollOrResize = () => updateStatePopupPos();
-  window.addEventListener("scroll", onScrollOrResize, true);
-  window.addEventListener("resize", onScrollOrResize);
-  return () => {
-    window.removeEventListener("scroll", onScrollOrResize, true);
-    window.removeEventListener("resize", onScrollOrResize);
+  // --- Position the floating popup under the input ---
+  const updateStatePopupPos = () => {
+    const el = stateInputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setStatePopup({
+      top: r.bottom + window.scrollY,
+      left: r.left + window.scrollX,
+      width: r.width,
+    });
   };
-}, [showStateList]);
 
-// Keep local query in sync if manager_state is prefilled (edit mode)
-useEffect(() => {
-  setStateQuery(formData.manager_state || "");
-}, [formData.manager_state]);
+  // --- Filter states using the query (case-insensitive, matches substrings) ---
+  const filteredStates = useMemo(() => {
+    const q = (stateQuery || "").toUpperCase().trim();
+    if (!q) return states;
+    return (states || []).filter((s) =>
+      String(s.state_name || "").toUpperCase().includes(q)
+    );
+  }, [stateQuery, states]);
+
+  // --- Select a state from the list ---
+  const selectManagerState = (name) => {
+    setFormData((p) => ({ ...p, manager_state: name }));
+    setStateQuery(name);
+    setShowStateList(false);
+  };
+  // Fetch states when the Add/Edit modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    (async () => {
+      try {
+        const res = await axiosInstance.get("/state/");
+        // API may respond with { states: [...] } or just [...]
+        setStates(res?.data?.states || res?.data || []);
+      } catch {
+        setStates([]);
+      }
+    })();
+  }, [isOpen]);
+
+  // Keep popup aligned to input while open
+  useEffect(() => {
+    if (!showStateList) return;
+    updateStatePopupPos();
+    const onScrollOrResize = () => updateStatePopupPos();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [showStateList]);
+
+  // Keep local query in sync if manager_state is prefilled (edit mode)
+  useEffect(() => {
+    setStateQuery(formData.manager_state || "");
+  }, [formData.manager_state]);
 
   // password policy: ≥6 chars, at least one number & one special char
   const MGR_PASSWORD_REGEX =
@@ -503,13 +503,13 @@ useEffect(() => {
 
   // -------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-[var(--theme-background)]">
       <div className="mx-2 p-6">
         {/* Header */}
         <div className="flex justify-end mb-6">
           {hasPermission("branch_add") && (
             <button
-              className="inline-flex items-center px-2 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="inline-flex items-center px-2 py-2 bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] font-semibold rounded-xl hover:bg-[var(--theme-primary-hover)] transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
               onClick={openAddModal}
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -521,23 +521,23 @@ useEffect(() => {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden">
           {loading ? (
             <div className="p-12">
               <LoadingState message="Loading branches..." />
             </div>
           ) : branches.length === 0 ? (
             <div className="text-center py-16">
-              <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-24 h-24 mx-auto mb-6 bg-[var(--theme-surface-hover)] rounded-full flex items-center justify-center">
+                <svg className="w-12 h-12 text-[var(--theme-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No branches found</h3>
-              <p className="text-gray-500 mb-6">Get started by creating your first branch</p>
+              <h3 className="text-xl font-semibold text-[var(--theme-text)] mb-2">No branches found</h3>
+              <p className="text-[var(--theme-text-muted)] mb-6">Get started by creating your first branch</p>
               <button
                 onClick={openAddModal}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200"
+                className="inline-flex items-center px-6 py-3 bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] font-semibold rounded-xl hover:bg-[var(--theme-primary-hover)] transform hover:scale-105 transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -547,36 +547,40 @@ useEffect(() => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+              <table className="min-w-full divide-y divide-[var(--theme-border)]">
+                <thead className="bg-[var(--theme-surface-hover)]">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Branch ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Branch Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Agreement</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider">Branch ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider">Branch Name</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider">Agreement</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-[var(--theme-surface)] divide-y divide-[var(--theme-border)]">
                   {branches.map((branch, index) => (
-                    <tr key={branch.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                    <tr
+                      key={branch.id}
+                      className={`hover:bg-[var(--theme-primary-softer)] transition-colors duration-200 ${index % 2 === 0 ? "bg-[var(--theme-surface)]" : "bg-[var(--theme-surface-hover)]"
+                        }`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[var(--theme-surface-hover)] text-[var(--theme-text)]">
                           #{String(branch.id).padStart(3, "0")}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-semibold text-gray-900">{branch.name}</div>
+                        <div className="font-semibold text-[var(--theme-text)]">{branch.name}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {branch.active ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[var(--theme-success-soft)] text-[var(--theme-success)]">
+                            <div className="w-2 h-2 bg-[var(--theme-success)] rounded-full mr-2"></div>
                             Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                            <div className="w-2 h-2 bg-red-400 rounded-full mr-2"></div>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[var(--theme-danger-soft)] text-[var(--theme-danger)]">
+                            <div className="w-2 h-2 bg-[var(--theme-danger)] rounded-full mr-2"></div>
                             Inactive
                           </span>
                         )}
@@ -584,7 +588,7 @@ useEffect(() => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => openAgreementModal(branch.agreement_url)}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition-colors duration-200"
                           type="button"
                         >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -595,28 +599,30 @@ useEffect(() => {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex space-x-2">
+                        <div className="flex gap-1 ">
                           {hasPermission("branch_edit") && (
                             <button
-                              className="inline-flex items-center px-3 py-2 text-sm font-medium text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors duration-200"
+                              title="Edit Branch"
+                              className="inline-flex items-center py-2 text-sm font-medium text-[var(--theme-warning)] hover:text-[var(--theme-warning-hover)] hover:bg-[var(--theme-warning-soft)] rounded-lg transition-colors duration-200"
                               onClick={() => openEditModal(branch)}
                             >
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
-                              Edit
                             </button>
+
                           )}
                           {hasPermission("branch_details") && (
                             <button
-                              className="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors duration-200"
+                              title="View Details"
+                              className="inline-flex items-center py-2 text-sm font-medium text-[var(--theme-secondary)] hover:text-[var(--theme-secondary-hover)] hover:bg-[var(--theme-secondary-soft)] rounded-lg transition-colors duration-200"
                               onClick={() => openDetails(branch.id)}
                             >
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              Details
                             </button>
+
                           )}
                         </div>
                       </td>
@@ -633,13 +639,13 @@ useEffect(() => {
       <Transition appear show={isOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setIsOpen(false)}>
           <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-            <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm" />
+            <div className="fixed inset-0 bg-[var(--theme-background)] backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-              <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                <div className="flex justify-between items-start bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
+              <Dialog.Panel className="bg-[var(--theme-background)] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div className="flex justify-between items-start  bg-[var(--theme-primary)] px-8 py-6">
                   <div>
                     <Dialog.Title className="text-2xl font-bold text-white flex items-center">
                       <svg className="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -669,47 +675,47 @@ useEffect(() => {
                   )}
                   <form onSubmit={handleSubmit} className="space-y-8">
                     {/* Branch Information */}
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                        <svg className="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className=" bg-[var(--theme-surface)] rounded-xl p-6">
+                      <h3 className="text-lg font-semibold mb-6 flex items-center">
+                        <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                         Branch Information
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name *</label>
+                          <label className="block text-sm font-medium text-[var(--theme-text-muted)] mb-2">Branch Name *</label>
                           <input
                             name="branch_name"
                             value={formData.branch_name}
                             onChange={handleChange}
                             placeholder="Enter branch name"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Branch Address *</label>
+                          <label className="block text-sm font-medium text-[var(--theme-text-muted)] mb-2">Branch Address *</label>
                           <textarea
                             name="branch_address"
                             value={formData.branch_address}
                             onChange={handleChange}
                             placeholder="Enter complete branch address"
                             rows="3"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Agreement PDF *</label>
+                          <label className="block text-sm font-medium text-[var(--theme-text-muted)] mb-2">Agreement PDF *</label>
                           <input
                             type="file"
                             accept=".pdf,application/pdf"
                             onChange={handleFileChange}
                             ref={fileInputRef}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                           />
                           <p className="mt-1 text-xs text-gray-500">
                             Upload a valid PDF file (max 10MB). Required when creating a branch.
@@ -725,7 +731,7 @@ useEffect(() => {
                             >
                               View current agreement
                             </button>
-                            <span className="text-gray-500 ml-2">(upload a new PDF to replace)</span>
+                            <span className="text-[var(--theme-text-muted)] ml-2">(upload a new PDF to replace)</span>
                           </div>
                         )}
 
@@ -735,15 +741,15 @@ useEffect(() => {
                             name="branch_active"
                             checked={!!formData.branch_active}
                             onChange={handleChange}
-                            className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="w-5 h-5 text-blue-600 border border-[var(--theme-border)] rounded focus:ring-blue-500"
                           />
-                          <label className="ml-3 text-sm font-medium text-gray-700">Branch Active</label>
+                          <label className="ml-3 text-sm font-medium text-[var(--theme-text-muted)]">Branch Active</label>
                         </div>
                       </div>
                     </div>
 
                     {/* Manager Information */}
-                    <div className="bg-indigo-50 rounded-xl p-6">
+                    <div className="bg-[var(--theme-surface)] rounded-xl p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                         <svg className="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -766,7 +772,7 @@ useEffect(() => {
                               }
                               placeholder="ABCDE1234F"
                               maxLength={10} // ← ensures user can't type more than 10
-                              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                              className="flex-1 px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                               required
                               disabled={loadingManagerPan || isManagerPanVerified}
                               aria-invalid={!!formData.manager_pan && !isValidPAN(formData.manager_pan)}
@@ -780,7 +786,7 @@ useEffect(() => {
                                 <button
                                   type="button"
                                   onClick={() => setIsManagerPanVerified(false)}
-                                  className="p-2 rounded-lg hover:bg-yellow-200 text-yellow-700"
+                                  className="p-2 rounded-lg hover:bg-[var(--theme-primary-softer)] text-yellow-700"
                                   title="Edit PAN"
                                 >
                                   <Edit className="w-5 h-5" />
@@ -791,7 +797,7 @@ useEffect(() => {
                                 type="button"
                                 onClick={handleVerifyManagerPan}
                                 disabled={loadingManagerPan || !isValidPAN(formData.manager_pan)} // ← block verify until valid
-                                className="px-4 py-2 rounded-lg flex items-center gap-2 bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 text-white"
+                                className="px-4 py-2 rounded-lg flex items-center gap-2 bg-[var(--theme-primary)] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--theme-primary-softer)] text-white"
                               >
                                 {loadingManagerPan ? (
                                   <>
@@ -822,7 +828,7 @@ useEffect(() => {
                             value={formData.manager_name}
                             onChange={handleChange}
                             placeholder="Enter manager name"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                             disabled={isManagerPanVerified}
                           />
@@ -835,7 +841,7 @@ useEffect(() => {
                             onChange={handleChange}
                             placeholder="Enter manager email"
                             type="email"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
@@ -849,7 +855,7 @@ useEffect(() => {
                               setFormData((prev) => ({ ...prev, manager_phone: digits }));
                             }}
                             placeholder="Enter manager phone number"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
@@ -878,7 +884,7 @@ useEffect(() => {
                               type={showMgrPwd ? "text" : "password"}
                               autoComplete="new-password"
                               aria-invalid={!!mgrPasswordError}
-                              className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                              className="w-full px-4 py-3 pr-10 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                               required={!editBranch}
                             />
                             <button
@@ -916,7 +922,7 @@ useEffect(() => {
                               }))
                             }
                             placeholder="12 digits or masked XXXXXXXX1234"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none border placeholder-[var(--theme-text-muted)] border-[var(--theme-border)]  rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                             disabled={isManagerPanVerified}
                           />
@@ -930,7 +936,7 @@ useEffect(() => {
                             value={formData.manager_father_name}
                             onChange={handleChange}
                             placeholder="Enter father's name"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                             disabled={isManagerPanVerified}
                           />
@@ -954,7 +960,7 @@ useEffect(() => {
                             placeholder="DD/MM/YYYY"
                             inputMode="numeric"
                             type="text"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                             disabled={isManagerPanVerified}
                           />
@@ -971,67 +977,67 @@ useEffect(() => {
                             value={formData.manager_city}
                             onChange={handleChange}
                             placeholder="Enter city"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
                         <div className="relative">
-  <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-  <input
-    ref={stateInputRef}
-    name="manager_state"
-    value={formData.manager_state}
-    onChange={(e) => {
-      const v = e.target.value;
-      setFormData((p) => ({ ...p, manager_state: v }));
-      setStateQuery(v);
-      setShowStateList(true);
-      setStateIndex(0);
-      updateStatePopupPos();
-    }}
-    onFocus={() => { setShowStateList(true); updateStatePopupPos(); }}
-    onBlur={() => setTimeout(() => setShowStateList(false), 120)}
-    onKeyDown={(e) => {
-      if (!showStateList || filteredStates.length === 0) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setStateIndex((i) => Math.min(i + 1, filteredStates.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setStateIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        const pick = filteredStates[stateIndex];
-        if (pick) selectManagerState(pick.state_name);
-      } else if (e.key === "Escape") {
-        setShowStateList(false);
-      }
-    }}
-    placeholder="Start typing… e.g. MADHYA PRADESH"
-    autoComplete="off"
-    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-white"
-    required
-  />
+                          <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
+                          <input
+                            ref={stateInputRef}
+                            name="manager_state"
+                            value={formData.manager_state}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFormData((p) => ({ ...p, manager_state: v }));
+                              setStateQuery(v);
+                              setShowStateList(true);
+                              setStateIndex(0);
+                              updateStatePopupPos();
+                            }}
+                            onFocus={() => { setShowStateList(true); updateStatePopupPos(); }}
+                            onBlur={() => setTimeout(() => setShowStateList(false), 120)}
+                            onKeyDown={(e) => {
+                              if (!showStateList || filteredStates.length === 0) return;
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setStateIndex((i) => Math.min(i + 1, filteredStates.length - 1));
+                              } else if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                setStateIndex((i) => Math.max(i - 1, 0));
+                              } else if (e.key === "Enter") {
+                                e.preventDefault();
+                                const pick = filteredStates[stateIndex];
+                                if (pick) selectManagerState(pick.state_name);
+                              } else if (e.key === "Escape") {
+                                setShowStateList(false);
+                              }
+                            }}
+                            placeholder="Start typing… e.g. MADHYA PRADESH"
+                            autoComplete="off"
+                            className="w-full px-4 py-3 placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 focus:outline-none"
+                            required
+                          />
 
-  {showStateList && filteredStates.length > 0 && createPortal(
-    <div
-      className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
-      style={{ top: statePopup.top, left: statePopup.left, width: statePopup.width }}
-    >
-      {filteredStates.map((s, idx) => (
-        <button
-          type="button"
-          key={s.code || s.state_name}
-          onMouseDown={(e) => { e.preventDefault(); selectManagerState(s.state_name); }}
-          className={`w-full text-left px-3 py-2 hover:bg-gray-100 ${idx === stateIndex ? "bg-gray-100" : ""}`}
-        >
-          {s.state_name}
-        </button>
-      ))}
-    </div>,
-    document.body
-  )}
-</div>
+                          {showStateList && filteredStates.length > 0 && createPortal(
+                            <div
+                              className="fixed z-[9999] bg-white border rounded-md shadow max-h-60 overflow-auto"
+                              style={{ top: statePopup.top, left: statePopup.left, width: statePopup.width }}
+                            >
+                              {filteredStates.map((s, idx) => (
+                                <button
+                                  type="button"
+                                  key={s.code || s.state_name}
+                                  onMouseDown={(e) => { e.preventDefault(); selectManagerState(s.state_name); }}
+                                  className={`w-full text-left px-3 py-2 hover:bg-[var(--theme-primary-softer)] ${idx === stateIndex ? "bg-gray-100" : ""}`}
+                                >
+                                  {s.state_name}
+                                </button>
+                              ))}
+                            </div>,
+                            document.body
+                          )}
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Pincode *</label>
                           <input
@@ -1042,7 +1048,7 @@ useEffect(() => {
                               setFormData((prev) => ({ ...prev, manager_pincode: digits }));
                             }}
                             placeholder="6-digit pincode"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
@@ -1058,7 +1064,7 @@ useEffect(() => {
                               }))
                             }
                             placeholder="e.g. 3"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
@@ -1070,7 +1076,7 @@ useEffect(() => {
                             onChange={handleChange}
                             placeholder="Enter complete address"
                             rows="3"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             required
                           />
                         </div>
@@ -1082,7 +1088,7 @@ useEffect(() => {
                             onChange={handleChange}
                             placeholder="Additional comments or notes"
                             rows="2"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                            className="w-full px-4 py-3 focus:outline-none placeholder-[var(--theme-text-muted)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                           />
                         </div>
                       </div>
@@ -1093,13 +1099,13 @@ useEffect(() => {
                       <button
                         type="button"
                         onClick={() => setIsOpen(false)}
-                        className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                        className="px-6 py-3 border border-[var(--theme-border)]   text-gray-700 font-medium rounded-lg hover:bg-[var(--theme-primary-softer)] transition-colors duration-200"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        className="px-8 py-3 border border-[var(--theme-border)] bg-[var(--theme-primary)] text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
                       >
                         {editBranch ? "Update Branch" : "Create Branch + Manager"}
                       </button>
@@ -1122,7 +1128,7 @@ useEffect(() => {
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-2">
+                <div className="bg-[var(--theme-primary)] px-8 py-2">
                   <Dialog.Title className="text-2xl font-bold text-white flex items-center">
                     <svg className="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1140,7 +1146,7 @@ useEffect(() => {
                   ) : branchDetails ? (
                     <div className="space-y-8">
                       {/* Branch Information */}
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                      <div className="bg-[var(--theme-surface)] rounded-xl p-6">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                           <svg className="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -1189,7 +1195,7 @@ useEffect(() => {
                       </div>
 
                       {/* Manager Information */}
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
+                      <div className=" bg-[var(--theme-surface)] rounded-xl p-6">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                           <svg className="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1228,20 +1234,20 @@ useEffect(() => {
                       </div>
 
                       {/* Users */}
-                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+                      <div className=" bg-[var(--theme-surface)] rounded-xl p-6">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                           <svg className="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
                           Branch Users
-                          <span className="ml-3 text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full">
+                          <span className="ml-3 text-sm bg-[var(--theme-primary-softer)] text-purple-800 px-3 py-1 rounded-full">
                             Total: {branchDetails.total_users}
                           </span>
                         </h3>
                         {branchDetails.users && branchDetails.users.length > 0 ? (
                           <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm">
-                              <thead className="bg-gray-50">
+                              <thead className="bg-[var(--theme-primary)]">
                                 <tr>
                                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee Code</th>
                                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
@@ -1250,7 +1256,9 @@ useEffect(() => {
                                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                                 </tr>
                               </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
+                              <tbody className="bg-[var(--theme-primary-softer)]
+                              
+                              divide-y divide-gray-200">
                                 {branchDetails.users.map((user, index) => (
                                   <tr key={user.employee_code} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                                     <td className="px-4 py-3 whitespace-nowrap">
@@ -1314,7 +1322,7 @@ useEffect(() => {
                   <div className="flex justify-end">
                     <button
                       onClick={() => setShowDetails(false)}
-                      className="px-6 py-1 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                      className="px-6 py-1 bg-gray-600 text-white font-medium rounded-lg hover:bg-[var(--theme-primary-softer)] transition-colors duration-200"
                     >
                       Close
                     </button>

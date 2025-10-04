@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from '@/api/Axios';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import {Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal,} from 'lucide-react';
+import { Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import DashboardSkeleton from '@/components/common/skeletonloader';
 
@@ -255,7 +255,7 @@ export default function Dashboard() {
   const [errMsg, setErrMsg] = useState('');
   const [data, setData] = useState(null);
   const [employeesTable, setEmployeesTable] = useState([]);
- const [loadingapi, setLoadingapi] = useState(false);
+  const [loadingapi, setLoadingapi] = useState(false);
   // Accordion state for Employee table
   const [expandedEmp, setExpandedEmp] = useState(() => new Set());
   const toggleEmp = (code) => {
@@ -389,613 +389,384 @@ export default function Dashboard() {
 
   /* ----------------------------- Render ----------------------------- */
   return (
-      <>
-    {loading ? (
-      <DashboardSkeleton themeConfig={themeConfig} />
-    ) : (
-    <div
-      className="min-h-screen"
-      style={{
-        background: `linear-gradient(135deg, ${hexToRgba(themeConfig.surface, 0.75)} 0%, ${hexToRgba(themeConfig.background, 1)} 40%, ${hexToRgba(themeConfig.accent, 0.08)} 100%)`,
-        color: themeConfig.text
-      }}
-    >
-      <div className="p-4 md:p-6 space-y-6 mx-2">
-        {/* Greeting header (BM & Employees) */}
-        {!isSuperAdmin && (
-          <div className="w-fit">
-            <h1 className="text-2xl font-semibold" style={{ color: themeConfig.text }}>
-              {getGreeting()}, {firstName}!
-            </h1>
-            <p className="mt-0.5 text-sm" style={{ color: themeConfig.textSecondary }}>
-              Here’s your performance overview for {appliedFilters.days === 1 ? 'today' : `the last ${appliedFilters.days} days`}
-            </p>
-          </div>
-        )}
-
-        {/* Branch Tabs */}
-        {isSuperAdmin && (
-          <div
-            className="p-3 shadow-md rounded-xl"
-            style={{
-              backgroundColor: hexToRgba(themeConfig.cardBackground, 0.9),
-              border: `1px solid ${themeConfig.border}`,
-            }}
-          >
-            <div className="flex items-center gap-2 overflow-x-auto">
-              <Tab
-                active={branchTabId === ''}
-                onClick={() => setBranchTabId('')}
-                themeConfig={themeConfig}
-              >
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  <span className="text-sm">All Branches</span>
-                </div>
-              </Tab>
-
-              {(branches || []).map((b) => (
-                <Tab
-                  key={b.id}
-                  active={String(branchTabId) === String(b.id)}
-                  onClick={() => setBranchTabId(b.id)}
-                  themeConfig={themeConfig}
-                >
-                  <div className="flex items-center gap-2">
-                    <Store className="h-4 w-4" />
-                    <span className="text-sm">{b.name}</span>
-                  </div>
-                </Tab>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Filters Toolbar (chips show APPLIED) */}
-        <div className="flex items-center justify-end">
-          <div className="flex items-center gap-2">
-            {appliedFilters.fromDate && (
-              <span
-                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
-                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
-                  color: themeConfig.primary,
-                }}
-              >
-                From: {appliedFilters.fromDate}
-              </span>
-            )}
-            {appliedFilters.toDate && (
-              <span
-                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
-                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
-                  color: themeConfig.primary,
-                }}
-              >
-                To: {appliedFilters.toDate}
-              </span>
-            )}
-            {!!appliedFilters.employeeCode && (
-              <span
-                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
-                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
-                  color: themeConfig.primary,
-                }}
-              >
-                Emp: {appliedFilters.employeeCode}
-              </span>
-            )}
-            {/* Days chip */}
-            {appliedFilters.days && (
-              <span
-                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.primary, 0.08),
-                  border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
-                  color: themeConfig.primary,
-                }}
-              >
-                {
-                  DAY_OPTIONS.find(opt => opt.value === appliedFilters.days)?.label
-                  || `${appliedFilters.days} days`
-                }
-              </span>
-            )}
-
-            {showReset && (
-              <button
-                type="button"
-                onClick={resetAllFilters}
-                className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
-                title="Reset filters"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.accent, 0.08),
-                  border: `1px solid ${hexToRgba(themeConfig.accent, 0.25)}`,
-                  color: themeConfig.accent,
-                }}
-              >
-                <span className="font-medium">Reset</span>
-              </button>
-            )}
-
-            <button type="button" onClick={() => setFiltersOpen(true)} title="Open filters">
-              <SlidersHorizontal className="h-6 w-5" style={{ color: themeConfig.primary }} />
-            </button>
-          </div>
-        </div>
-
-        {/* Errors */}
-        {errMsg ? (
-          <div
-            className="p-3 rounded-lg shadow-sm"
-            style={{
-              backgroundColor: hexToRgba(themeConfig.error, 0.08),
-              borderLeft: `4px solid ${themeConfig.error}`,
-              color: themeConfig.error
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              <span className="font-medium text-sm">{errMsg}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-28 rounded-xl animate-pulse shadow"
-                style={{
-                  background: `linear-gradient(135deg, ${hexToRgba(themeConfig.surface, 0.6)}, ${hexToRgba(themeConfig.background, 0.9)})`,
-                  boxShadow: `0 10px 20px ${hexToRgba(themeConfig.shadow || '#000', 0.15)}`
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Cards */}
-        {!!data && (
-          <>
-            <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} themeConfig={themeConfig} />
-              <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} themeConfig={themeConfig} />
-              <Card title="Running FT Leads" value={inr(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
-              <Card title="Total FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
-            </div>
-
-            <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card
-                title="Total Calls"
-                value={num(data?.cards?.calls?.total)}
-                icon={<PhoneCall className="h-5 w-5" />}
-                themeConfig={themeConfig}
-              />
-              <Card
-                title="Answered Calls"
-                value={num(data?.cards?.calls?.answered)}
-                icon={<PhoneIncoming className="h-5 w-5" />}
-                themeConfig={themeConfig}
-              />
-              <Card
-                title="Missed Calls"
-                value={num(data?.cards?.calls?.missed)}
-                icon={<PhoneOff className="h-5 w-5" />}
-                themeConfig={themeConfig}
-              />
-              <Card
-                title="Avg Duration"
-                value={data?.cards?.calls?.duration_hms || "00:00:00"}
-                icon={<Clock3 className="h-5 w-5" />}
-                themeConfig={themeConfig}
-              />
-            </div>
-
-            <SectionHeader title="Leads Analytics" themeConfig={themeConfig} />
-            <LeadsPiePanel data={data} themeConfig={themeConfig} COLORS_AGE={COLORS_AGE} COLORS_OUT={COLORS_OUT} COLORS_PER={COLORS_PER} />
-          </>
-        )}
-
-        {/* Top performers */}
-        {!!data && (
-          <div className="gap-4">
-            {isSuperAdmin && (
-              <TableWrap className="mb-6 px-3" title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5" style={{ color: themeConfig.primary }} />} themeConfig={themeConfig}>
-                <div className="max-h-72 overflow-y-auto pr-1">
-                  <SimpleTable
-                    cols={['Branch', 'Revenue', 'Paid Count', 'Conversion %']}
-                    rows={(data?.top?.branches || []).map((b) => [
-                      <span className="font-medium" style={{ color: themeConfig.text }} key={`${b.branch_code}-name`}>
-                        {b.branch_name || '—'}
-                      </span>,
-                      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${b.branch_code}-rev`}>
-                        {inr(b.revenue)}
-                      </span>,
-                      <span style={{ color: themeConfig.text }} key={`${b.branch_code}-paid`}>
-                        {num(b.paid_count)}
-                      </span>,
-                      <span
-                        className="font-semibold"
-                        style={{ color: Number(b.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
-                        key={`${b.branch_code}-rate`}
-                      >
-                        {b.conversion_rate ?? 0}%
-                      </span>,
-                    ])}
-                    themeConfig={themeConfig}
-                    className="w-full rounded-2xl"
-                  />
-                </div>
-              </TableWrap>
-            )}
-
-            <div className="mt-6">
-              <TableWrap
-                className="mb-6 px-3"
-                title={`Top Employees (${isEmployee ? 'Team (Top 5)' : 'Top 10'})`}
-                icon={<Users className="h-5 w-5" style={{ color: themeConfig.accent }} />}
-                themeConfig={themeConfig}
-              >
-                <div className="max-h-72 overflow-y-auto pr-1">
-                  <SimpleTable
-                    cols={['Employee', 'Role', 'Leads', 'Clients', 'Revenue', 'Target', 'Achieved', 'Conv %']}
-                    rows={(data?.top?.employees || []).map((e) => [
-                      <span className="font-medium" style={{ color: themeConfig.text }} key={`${e.employee_code}-name`}>
-                        {e.employee_name} <span style={{ color: themeConfig.textSecondary }}>({e.employee_code})</span>
-                      </span>,
-                      <span style={{ color: themeConfig.textSecondary }} key={`${e.employee_code}-role`}>
-                        {e.role_name || e.role_id}
-                      </span>,
-                      <span style={{ color: themeConfig.text }} key={`${e.employee_code}-leads`}>
-                        {num(e.total_leads)}
-                      </span>,
-                      <span style={{ color: themeConfig.text }} key={`${e.employee_code}-conv`}>
-                        {num(e.converted_leads)}
-                      </span>,
-                      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${e.employee_code}-rev`}>
-                        {inr(e.total_revenue)}
-                      </span>,
-                      <span style={{ color: themeConfig.accent }} key={`${e.employee_code}-tgt`}>
-                        {inr(e.target)}
-                      </span>,
-                      <span style={{ color: themeConfig.primaryHover || themeConfig.primary }} key={`${e.employee_code}-ach`}>
-                        {inr(e.achieved_target ?? e.total_revenue)}
-                      </span>,
-                      <span
-                        className="font-semibold"
-                        style={{ color: Number(e.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
-                        key={`${e.employee_code}-rate`}
-                      >
-                        {e.conversion_rate}%
-                      </span>,
-                    ])}
-                    themeConfig={themeConfig}
-                    className="w-full rounded-2xl"
-                  />
-                </div>
-              </TableWrap>
-            </div>
-          </div>
-        )}
-
-        {/* Profiles (admin & BM only) */}
-        {!!data && (isSuperAdmin || isBranchManager) && (
-          <div className="grid grid-cols-1 gap-4">
-            <TableWrap className="mb-6 px-3" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
-              <div className="max-h-72 overflow-y-auto pr-1">
-                <SimpleTable
-                  cols={['Profile', 'Leads', 'Paid Revenue']}
-                  rows={(data?.breakdowns?.profile_wise || []).map((p) => {
-                    const prof = profiles.find((x) => x.id === p.profile_id);
-                    return [
-                      <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
-                        {prof?.name || (p.profile_id ?? '—')}
-                      </span>,
-                      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
-                        {num(p.total_leads)}
-                      </span>,
-                      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
-                        {inr(p.paid_revenue)}
-                      </span>,
-                    ];
-                  })}
-                  themeConfig={themeConfig}
-                  className="w-full rounded-2xl"
-                />
-              </div>
-            </TableWrap>
-          </div>
-        )}
-
-        {/* Users table */}
-        {!!employeesTable && (
-          <TableWrap
-            className="mb-6 px-3"
-            title={`Employee Performance (${isEmployee ? 'Your Team' : 'All (scoped)'})`}
-            icon={<LineChart className="h-5 w-5" style={{ color: themeConfig.success }} />}
-            themeConfig={themeConfig}
-          >
-            {/* Inline filters (draft) with Apply */}
-            <div className="mb-3 px-1">
-              <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
-                  <input
-                    type="date"
-                    className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-                    value={draftFilters.fromDate}
-                    onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
-                    style={{
-                      backgroundColor: themeConfig.inputBackground,
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.inputBorder}`,
-                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                    }}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
-                  <input
-                    type="date"
-                    className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-                    value={draftFilters.toDate}
-                    onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
-                    style={{
-                      backgroundColor: themeConfig.inputBackground,
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.inputBorder}`,
-                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                    }}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
-                  <select
-                    className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-                    value={draftFilters.days}
-                    onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
-                    style={{
-                      backgroundColor: themeConfig.inputBackground,
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.inputBorder}`,
-                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                    }}
-                  >
-                    {DAY_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="md:col-span-2 flex md:justify-end gap-2">
-                  <button
-                    onClick={() =>
-                      setDraftFilters((d) => ({
-                        ...d,
-                        fromDate: '',
-                        toDate: '',
-                        days: 30,
-                      }))
-                    }
-                    className="h-9 px-3 rounded-md text-sm font-medium transition"
-                    style={{
-                      backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.border}`
-                    }}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={() => setAppliedFilters(draftFilters)}
-                    className="h-9 px-3 rounded-md text-sm font-medium transition"
-                    style={{
-                      backgroundColor: themeConfig.primary,
-                      color: '#fff',
-                      boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="max-h-[480px] overflow-y-auto overflow-x-auto pr-1 relative">
-              <EmployeeTableAccordion
-                cols={empPerfCols}
-                rows={pageRowsRaw}
-                otherResponses={otherResponses}
-                expanded={expandedEmp}
-                onToggle={toggleEmp}
-                themeConfig={themeConfig}
-              />
-            </div>
-
-            {/* Pagination */}
-            <div className="mt-3 flex items-center justify-between px-3">
-              <div className="text-xs" style={{ color: themeConfig.textSecondary }}>
-                {totalEmp === 0 ? 'No records' : `Showing ${startIdx + 1}–${endIdx} of ${totalEmp}`}
-              </div>
-
-              <div className="flex items-center gap-2 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setEmpPage((p) => Math.max(1, p - 1))}
-                  disabled={empPage === 1}
-                  className="h-9 px-3 rounded-md text-sm font-medium border transition"
-                  style={{
-                    backgroundColor: empPage === 1 ? hexToRgba(themeConfig.surface, 0.6) : themeConfig.cardBackground,
-                    color: empPage === 1 ? hexToRgba(themeConfig.textSecondary, 0.7) : themeConfig.text,
-                    borderColor: themeConfig.border,
-                    cursor: empPage === 1 ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Previous
-                </button>
-
-                <span className="text-sm" style={{ color: themeConfig.text }}>
-                  Page <span className="font-medium">{empPage}</span> / {totalEmpPages}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setEmpPage((p) => Math.min(totalEmpPages, p + 1))}
-                  disabled={empPage === totalEmpPages}
-                  className="h-9 px-3 rounded-md text-sm font-medium border transition"
-                  style={{
-                    backgroundColor: empPage === totalEmpPages ? hexToRgba(themeConfig.surface, 0.6) : themeConfig.cardBackground,
-                    color: empPage === totalEmpPages ? hexToRgba(themeConfig.textSecondary, 0.7) : themeConfig.text,
-                    borderColor: themeConfig.border,
-                    cursor: empPage === totalEmpPages ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </TableWrap>
-        )}
-      </div>
-
-      {/* Slide-over Filters Panel */}
-      {filtersOpen && (
+    <>
+      {loading ? (
+        <DashboardSkeleton themeConfig={themeConfig} />
+      ) : (
         <div
-          className="fixed inset-0 z-50"
-          aria-modal="true"
-          role="dialog"
-          onKeyDown={(e) => e.key === 'Escape' && setFiltersOpen(false)}
+          className="min-h-screen"
+          style={{
+            background: `linear-gradient(135deg, ${hexToRgba(themeConfig.surface, 0.75)} 0%, ${hexToRgba(themeConfig.background, 1)} 40%, ${hexToRgba(themeConfig.accent, 0.08)} 100%)`,
+            color: themeConfig.text
+          }}
         >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0"
-            onClick={() => setFiltersOpen(false)}
-            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-          />
-
-          {/* Panel */}
-          <div
-            className="absolute inset-y-0 right-0 w-full sm:w-[420px] flex flex-col"
-            style={{ backgroundColor: themeConfig.cardBackground, boxShadow: `-12px 0 24px ${hexToRgba(themeConfig.shadow || '#000', 0.25)}` }}
-          >
-            {/* Header */}
-            <div
-              className="px-4 py-2.5 flex items-center justify-between"
-              style={{ borderBottom: `1px solid ${themeConfig.border}` }}
-            >
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5" style={{ color: themeConfig.primary }} />
-                <h3 className="text-base font-semibold" style={{ color: themeConfig.text }}>Filters</h3>
+          <div className="p-4 md:p-6 space-y-6 mx-2">
+            {/* Greeting header (BM & Employees) */}
+{user && !isSuperAdmin && (
+              <div className="w-fit">
+                <h1 className="text-2xl font-semibold" style={{ color: themeConfig.text }}>
+                  {getGreeting()}, {firstName}!
+                </h1>
+                <p className="mt-0.5 text-sm" style={{ color: themeConfig.textSecondary }}>
+                  Here’s your performance overview for {appliedFilters.days === 1 ? 'today' : `the last ${appliedFilters.days} days`}
+                </p>
               </div>
-              <button
-                onClick={() => setFiltersOpen(false)}
-                className="p-2 rounded-md"
-                aria-label="Close filters"
-                style={{ color: themeConfig.textSecondary }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.06); }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-              >
-                ✕
-              </button>
-            </div>
+            )}
 
-            {/* Content (DRAFT controls) */}
-            <div className="p-4 overflow-y-auto flex-1">
-              <div className="grid grid-cols-1 gap-3">
-                <Field label={<LabelWithIcon icon={<CalendarDays className="h-4 w-4" />} text="Time Period" />} themeConfig={themeConfig}>
-                  <select
-                    className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
-                    value={draftFilters.days}
-                    onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
+            {/* Branch Tabs */}
+            {isSuperAdmin && (
+              <div
+                className="p-3 shadow-md rounded-xl"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.cardBackground, 0.9),
+                  border: `1px solid ${themeConfig.border}`,
+                }}
+              >
+                <div className="flex items-center gap-2 overflow-x-auto">
+                  <Tab
+                    active={branchTabId === ''}
+                    onClick={() => setBranchTabId('')}
+                    themeConfig={themeConfig}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span className="text-sm">All Branches</span>
+                    </div>
+                  </Tab>
+
+                  {(branches || []).map((b) => (
+                    <Tab
+                      key={b.id}
+                      active={String(branchTabId) === String(b.id)}
+                      onClick={() => setBranchTabId(b.id)}
+                      themeConfig={themeConfig}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Store className="h-4 w-4" />
+                        <span className="text-sm">{b.name}</span>
+                      </div>
+                    </Tab>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Filters Toolbar (chips show APPLIED) */}
+            <div className="flex items-center justify-end">
+              <div className="flex items-center gap-2">
+                {appliedFilters.fromDate && (
+                  <span
+                    className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
                     style={{
-                      backgroundColor: themeConfig.inputBackground,
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.inputBorder}`,
-                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                      backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                      border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                      color: themeConfig.primary,
                     }}
                   >
-                    {DAY_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="From Date" />} themeConfig={themeConfig}>
-                  <input
-                    type="date"
-                    className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
-                    value={draftFilters.fromDate}
-                    onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
+                    From: {appliedFilters.fromDate}
+                  </span>
+                )}
+                {appliedFilters.toDate && (
+                  <span
+                    className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
                     style={{
-                      backgroundColor: themeConfig.inputBackground,
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.inputBorder}`,
-                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                      backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                      border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                      color: themeConfig.primary,
                     }}
-                  />
-                </Field>
-
-                <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="To Date" />} themeConfig={themeConfig}>
-                  <input
-                    type="date"
-                    className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
-                    value={draftFilters.toDate}
-                    onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
+                  >
+                    To: {appliedFilters.toDate}
+                  </span>
+                )}
+                {!!appliedFilters.employeeCode && (
+                  <span
+                    className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
                     style={{
-                      backgroundColor: themeConfig.inputBackground,
-                      color: themeConfig.text,
-                      border: `1px solid ${themeConfig.inputBorder}`,
-                      boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                      backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                      border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                      color: themeConfig.primary,
                     }}
-                  />
-                </Field>
-
-                {!isSuperAdmin && (
-                  <Field label={<LabelWithIcon icon={<Eye className="h-4 w-4" />} text="View Type" />} themeConfig={themeConfig}>
-                    <select
-                      className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
-                      value={draftFilters.view}
-                      onChange={(e) => setDraftFilters((d) => ({ ...d, view: e.target.value }))}
-                      style={{
-                        backgroundColor: themeConfig.inputBackground,
-                        color: themeConfig.text,
-                        border: `1px solid ${themeConfig.inputBorder}`,
-                        boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                      }}
-                    >
-                      <option value="self">Self</option>
-                      <option value="team">Team</option>
-                      <option value="all" disabled={isEmployee}>
-                        All
-                      </option>
-                    </select>
-                  </Field>
+                  >
+                    Emp: {appliedFilters.employeeCode}
+                  </span>
+                )}
+                {/* Days chip */}
+                {user && appliedFilters?.days && (
+                  <span
+                    className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                    style={{
+                      backgroundColor: hexToRgba(themeConfig.primary, 0.08),
+                      border: `1px solid ${hexToRgba(themeConfig.primary, 0.25)}`,
+                      color: themeConfig.primary,
+                    }}
+                  >
+                    {
+                      DAY_OPTIONS.find(opt => opt.value === appliedFilters.days)?.label
+                      || `${appliedFilters.days} days`
+                    }
+                  </span>
                 )}
 
-                {(isSuperAdmin || isBranchManager) && (
-                  <>
-                    <Field label={<LabelWithIcon icon={<Briefcase className="h-4 w-4" />} text="Role (Profile)" />} themeConfig={themeConfig}>
+                {user && showReset && (
+                  <button
+                    type="button"
+                    onClick={resetAllFilters}
+                    className="hidden md:inline-flex gap-2 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                    title="Reset filters"
+                    style={{
+                      backgroundColor: hexToRgba(themeConfig.accent, 0.08),
+                      border: `1px solid ${hexToRgba(themeConfig.accent, 0.25)}`,
+                      color: themeConfig.accent,
+                    }}
+                  >
+                    <span className="font-medium">Reset</span>
+                  </button>
+                )}
+                {user && (
+
+                  <button type="button" onClick={() => setFiltersOpen(true)} title="Open filters">
+                    <SlidersHorizontal className="h-6 w-5" style={{ color: themeConfig.primary }} />
+                  </button>
+                )}
+
+              </div>
+            </div>
+
+            {/* Errors */}
+            {errMsg ? (
+              <div
+                className="p-3 rounded-lg shadow-sm"
+                style={{
+                  backgroundColor: hexToRgba(themeConfig.error, 0.08),
+                  borderLeft: `4px solid ${themeConfig.error}`,
+                  color: themeConfig.error
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  <span className="font-medium text-sm">{errMsg}</span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Loading skeleton */}
+            {loading && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-28 rounded-xl animate-pulse shadow"
+                    style={{
+                      background: `linear-gradient(135deg, ${hexToRgba(themeConfig.surface, 0.6)}, ${hexToRgba(themeConfig.background, 0.9)})`,
+                      boxShadow: `0 10px 20px ${hexToRgba(themeConfig.shadow || '#000', 0.15)}`
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Cards */}
+            {!!data && (
+              <>
+                <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} themeConfig={themeConfig} />
+                  <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} themeConfig={themeConfig} />
+                  <Card title="Running FT Leads" value={num(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
+                  <Card title="Total FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
+                </div>
+
+                <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <Card
+                    title="Total Calls"
+                    value={num(data?.cards?.calls?.total)}
+                    icon={<PhoneCall className="h-5 w-5" />}
+                    themeConfig={themeConfig}
+                  />
+                  <Card
+                    title="Answered Calls"
+                    value={num(data?.cards?.calls?.answered)}
+                    icon={<PhoneIncoming className="h-5 w-5" />}
+                    themeConfig={themeConfig}
+                  />
+                  <Card
+                    title="Missed Calls"
+                    value={num(data?.cards?.calls?.missed)}
+                    icon={<PhoneOff className="h-5 w-5" />}
+                    themeConfig={themeConfig}
+                  />
+                  <Card
+                    title="Avg Duration"
+                    value={data?.cards?.calls?.duration_hms || "00:00:00"}
+                    icon={<Clock3 className="h-5 w-5" />}
+                    themeConfig={themeConfig}
+                  />
+                </div>
+
+                <SectionHeader title="Leads Analytics" themeConfig={themeConfig} />
+                <LeadsPiePanel data={data} themeConfig={themeConfig} COLORS_AGE={COLORS_AGE} COLORS_OUT={COLORS_OUT} COLORS_PER={COLORS_PER} />
+              </>
+            )}
+
+            {/* Top performers */}
+            {!!data && (
+              <div className="gap-4">
+                {isSuperAdmin && (
+                  <TableWrap className="mb-6" title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5" style={{ color: themeConfig.primary }} />} themeConfig={themeConfig}>
+                    <div className="max-h-72 overflow-y-auto pr-1">
+                      <SimpleTable
+                        cols={['Branch', 'Revenue', 'Paid Count', 'Conversion %']}
+                        rows={(data?.top?.branches || []).map((b) => [
+                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${b.branch_code}-name`}>
+                            {b.branch_name || '—'}
+                          </span>,
+                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${b.branch_code}-rev`}>
+                            {inr(b.revenue)}
+                          </span>,
+                          <span style={{ color: themeConfig.text }} key={`${b.branch_code}-paid`}>
+                            {num(b.paid_count)}
+                          </span>,
+                          <span
+                            className="font-semibold"
+                            style={{ color: Number(b.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
+                            key={`${b.branch_code}-rate`}
+                          >
+                            {b.conversion_rate ?? 0}%
+                          </span>,
+                        ])}
+                        themeConfig={themeConfig}
+                        className="w-full rounded-2xl"
+                      />
+                    </div>
+                  </TableWrap>
+                )}
+
+                <div className="mt-6">
+                  <TableWrap
+                    className="mb-6"
+                    title={`Top Employees (${isEmployee ? 'Team (Top 5)' : 'Top 10'})`}
+                    icon={<Users className="h-5 w-5" style={{ color: themeConfig.accent }} />}
+                    themeConfig={themeConfig}
+                  >
+                    <div className="max-h-72 overflow-y-auto pr-1">
+                      <SimpleTable
+                        cols={['Employee', 'Role', 'Leads', 'Clients', 'Revenue', 'Target', 'Achieved', 'Conv %']}
+                        rows={(data?.top?.employees || []).map((e) => [
+                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${e.employee_code}-name`}>
+                            {e.employee_name} <span style={{ color: themeConfig.textSecondary }}>({e.employee_code})</span>
+                          </span>,
+                          <span style={{ color: themeConfig.textSecondary }} key={`${e.employee_code}-role`}>
+                            {e.role_name || e.role_id}
+                          </span>,
+                          <span style={{ color: themeConfig.text }} key={`${e.employee_code}-leads`}>
+                            {num(e.total_leads)}
+                          </span>,
+                          <span style={{ color: themeConfig.text }} key={`${e.employee_code}-conv`}>
+                            {num(e.converted_leads)}
+                          </span>,
+                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${e.employee_code}-rev`}>
+                            {inr(e.total_revenue)}
+                          </span>,
+                          <span style={{ color: themeConfig.accent }} key={`${e.employee_code}-tgt`}>
+                            {inr(e.target)}
+                          </span>,
+                          <span style={{ color: themeConfig.primaryHover || themeConfig.primary }} key={`${e.employee_code}-ach`}>
+                            {inr(e.achieved_target ?? e.total_revenue)}
+                          </span>,
+                          <span
+                            className="font-semibold"
+                            style={{ color: Number(e.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
+                            key={`${e.employee_code}-rate`}
+                          >
+                            {e.conversion_rate}%
+                          </span>,
+                        ])}
+                        themeConfig={themeConfig}
+                        className="w-full rounded-2xl"
+                      />
+                    </div>
+                  </TableWrap>
+                </div>
+              </div>
+            )}
+
+            {/* Profiles (admin & BM only) */}
+            {!!data && (isSuperAdmin || isBranchManager) && (
+              <div className="grid grid-cols-1 gap-4">
+                <TableWrap className="mb-6" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
+                  <div className="max-h-72 overflow-y-auto pr-1">
+                    <SimpleTable
+                      cols={['Profile', 'Leads', 'Paid Revenue']}
+                      rows={(data?.breakdowns?.profile_wise || []).map((p) => {
+                        const prof = profiles.find((x) => x.id === p.profile_id);
+                        return [
+                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
+                            {prof?.name || (p.profile_id ?? '—')}
+                          </span>,
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
+                            {num(p.total_leads)}
+                          </span>,
+                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
+                            {inr(p.paid_revenue)}
+                          </span>,
+                        ];
+                      })}
+                      themeConfig={themeConfig}
+                      className="w-full rounded-2xl"
+                    />
+                  </div>
+                </TableWrap>
+              </div>
+            )}
+
+            {/* Users table */}
+            {user && employeesTable && (
+              <TableWrap
+                className="mb-6"
+                title={`Employee Performance (${isEmployee ? 'Your Team' : 'All (scoped)'})`}
+                icon={<LineChart className="h-5 w-5" style={{ color: themeConfig.success }} />}
+                themeConfig={themeConfig}
+              >
+                {/* Inline filters (draft) with Apply */}
+                <div className="mb-3 px-1">
+                  <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
+                      <input
+                        type="date"
+                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+                        value={draftFilters.fromDate}
+                        onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
+                      <input
+                        type="date"
+                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+                        value={draftFilters.toDate}
+                        onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
                       <select
-                        className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
-                        value={draftFilters.profileId}
-                        onChange={(e) => setDraftFilters((d) => ({ ...d, profileId: e.target.value }))}
+                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+                        value={draftFilters.days}
+                        onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
                         style={{
                           backgroundColor: themeConfig.inputBackground,
                           color: themeConfig.text,
@@ -1003,152 +774,384 @@ export default function Dashboard() {
                           boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
                         }}
                       >
-                        <option value="">All Roles</option>
-                        {(profiles || []).map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
+                        {DAY_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2 flex md:justify-end gap-2">
+                      <button
+                        onClick={() =>
+                          setDraftFilters((d) => ({
+                            ...d,
+                            fromDate: '',
+                            toDate: '',
+                            days: 30,
+                          }))
+                        }
+                        className="h-9 px-3 rounded-md text-sm font-medium transition"
+                        style={{
+                          backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.border}`
+                        }}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => setAppliedFilters(draftFilters)}
+                        className="h-9 px-3 rounded-md text-sm font-medium transition"
+                        style={{
+                          backgroundColor: themeConfig.primary,
+                          color: '#fff',
+                          boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto pr-1 relative">
+                  <EmployeeTableAccordion
+                    cols={empPerfCols}
+                    rows={pageRowsRaw}
+                    otherResponses={otherResponses}
+                    expanded={expandedEmp}
+                    onToggle={toggleEmp}
+                    themeConfig={themeConfig}
+                  />
+                </div>
+
+                {/* Pagination */}
+                <div className="mt-3 flex items-center justify-between px-3">
+                  <div className="text-xs" style={{ color: themeConfig.textSecondary }}>
+                    {totalEmp === 0 ? 'No records' : `Showing ${startIdx + 1}–${endIdx} of ${totalEmp}`}
+                  </div>
+
+                  <div className="flex items-center gap-2 pb-1">
+                    <button
+                      type="button"
+                      onClick={() => setEmpPage((p) => Math.max(1, p - 1))}
+                      disabled={empPage === 1}
+                      className="h-9 px-3 rounded-md text-sm font-medium border transition"
+                      style={{
+                        backgroundColor: empPage === 1 ? hexToRgba(themeConfig.surface, 0.6) : themeConfig.cardBackground,
+                        color: empPage === 1 ? hexToRgba(themeConfig.textSecondary, 0.7) : themeConfig.text,
+                        borderColor: themeConfig.border,
+                        cursor: empPage === 1 ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Previous
+                    </button>
+
+                    <span className="text-sm" style={{ color: themeConfig.text }}>
+                      Page <span className="font-medium">{empPage}</span> / {totalEmpPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setEmpPage((p) => Math.min(totalEmpPages, p + 1))}
+                      disabled={empPage === totalEmpPages}
+                      className="h-9 px-3 rounded-md text-sm font-medium border transition"
+                      style={{
+                        backgroundColor: empPage === totalEmpPages ? hexToRgba(themeConfig.surface, 0.6) : themeConfig.cardBackground,
+                        color: empPage === totalEmpPages ? hexToRgba(themeConfig.textSecondary, 0.7) : themeConfig.text,
+                        borderColor: themeConfig.border,
+                        cursor: empPage === totalEmpPages ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </TableWrap>
+            )}
+          </div>
+
+          {/* Slide-over Filters Panel */}
+          {filtersOpen && (
+            <div
+              className="fixed inset-0 z-50"
+              aria-modal="true"
+              role="dialog"
+              onKeyDown={(e) => e.key === 'Escape' && setFiltersOpen(false)}
+            >
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0"
+                onClick={() => setFiltersOpen(false)}
+                style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+              />
+
+              {/* Panel */}
+              <div
+                className="absolute inset-y-0 right-0 w-full sm:w-[420px] flex flex-col"
+                style={{ backgroundColor: themeConfig.cardBackground, boxShadow: `-12px 0 24px ${hexToRgba(themeConfig.shadow || '#000', 0.25)}` }}
+              >
+                {/* Header */}
+                <div
+                  className="px-4 py-2.5 flex items-center justify-between"
+                  style={{ borderBottom: `1px solid ${themeConfig.border}` }}
+                >
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-5 w-5" style={{ color: themeConfig.primary }} />
+                    <h3 className="text-base font-semibold" style={{ color: themeConfig.text }}>Filters</h3>
+                  </div>
+                  <button
+                    onClick={() => setFiltersOpen(false)}
+                    className="p-2 rounded-md"
+                    aria-label="Close filters"
+                    style={{ color: themeConfig.textSecondary }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.06); }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Content (DRAFT controls) */}
+                <div className="p-4 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-1 gap-3">
+                    <Field label={<LabelWithIcon icon={<CalendarDays className="h-4 w-4" />} text="Time Period" />} themeConfig={themeConfig}>
+                      <select
+                        className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
+                        value={draftFilters.days}
+                        onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      >
+                        {DAY_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
                           </option>
                         ))}
                       </select>
                     </Field>
-                  </>
-                )}
 
-                {/* Users Autocomplete (draft) */}
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block" style={{ color: themeConfig.text }}>
-                    <LabelWithIcon icon={<User className="h-4 w-4" />} text="User (Employee)" />
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: themeConfig.textSecondary }} />
-                    <input
-                      className="rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 outline-none"
-                      value={userSearch}
-                      onFocus={() => !draftFilters.employeeCode && setShowSuggestions(true)}
-                      onChange={(e) => {
-                        setUserSearch(e.target.value);
-                        if (!draftFilters.employeeCode) setShowSuggestions(true);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') setShowSuggestions(false);
-                      }}
-                      placeholder="Search by name / code / email / phone"
-                      style={{
-                        backgroundColor: themeConfig.inputBackground,
-                        color: themeConfig.text,
-                        border: `1px solid ${themeConfig.inputBorder}`,
-                        boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                      }}
-                    />
-                    {showSuggestions && userSearch && !draftFilters.employeeCode && (
-                      <div
-                        className="absolute z-[60] rounded-lg mt-2 w-full max-h-64 overflow-auto shadow-md"
-                        style={{ backgroundColor: themeConfig.cardBackground, border: `1px solid ${themeConfig.border}` }}
-                      >
-                        {filteredUsers.length === 0 ? (
-                          <div className="px-3 py-2.5 text-sm" style={{ color: themeConfig.textSecondary }}>No users found</div>
-                        ) : (
-                          filteredUsers.map((u) => (
-                            <button
-                              key={u.employee_code}
-                              type="button"
-                              className="w-full text-left px-3 py-2.5 transition-colors border-b last:border-b-0"
-                              onClick={() => {
-                                setDraftFilters((d) => ({ ...d, employeeCode: u.employee_code }));
-                                setUserSearch(`${u.name} (${u.employee_code})`);
-                                setShowSuggestions(false);
-                              }}
-                              style={{
-                                color: themeConfig.text,
-                                borderColor: hexToRgba(themeConfig.border, 0.7)
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.06); }}
-                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-                            >
-                              <div className="font-medium" style={{ color: themeConfig.text }}>
-                                {u.name} <span style={{ color: themeConfig.primary }}>({u.employee_code})</span>
-                              </div>
-                              <div className="text-xs" style={{ color: themeConfig.textSecondary }}>
-                                {u.role_name} • {u.email} • {u.phone}
-                              </div>
-                            </button>
-                          ))
+                    <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="From Date" />} themeConfig={themeConfig}>
+                      <input
+                        type="date"
+                        className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
+                        value={draftFilters.fromDate}
+                        onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      />
+                    </Field>
+
+                    <Field label={<LabelWithIcon icon={<Calendar className="h-4 w-4" />} text="To Date" />} themeConfig={themeConfig}>
+                      <input
+                        type="date"
+                        className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
+                        value={draftFilters.toDate}
+                        onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      />
+                    </Field>
+
+                    {!isSuperAdmin && (
+                      <Field label={<LabelWithIcon icon={<Eye className="h-4 w-4" />} text="View Type" />} themeConfig={themeConfig}>
+                        <select
+                          className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
+                          value={draftFilters.view}
+                          onChange={(e) => setDraftFilters((d) => ({ ...d, view: e.target.value }))}
+                          style={{
+                            backgroundColor: themeConfig.inputBackground,
+                            color: themeConfig.text,
+                            border: `1px solid ${themeConfig.inputBorder}`,
+                            boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                          }}
+                        >
+                          <option value="self">Self</option>
+                          <option value="team">Team</option>
+                          <option value="all" disabled={isEmployee}>
+                            All
+                          </option>
+                        </select>
+                      </Field>
+                    )}
+
+                    {(isSuperAdmin || isBranchManager) && (
+                      <>
+                        <Field label={<LabelWithIcon icon={<Briefcase className="h-4 w-4" />} text="Role (Profile)" />} themeConfig={themeConfig}>
+                          <select
+                            className="rounded-lg px-3 py-2.5 shadow-sm focus:ring-2 outline-none w-full"
+                            value={draftFilters.profileId}
+                            onChange={(e) => setDraftFilters((d) => ({ ...d, profileId: e.target.value }))}
+                            style={{
+                              backgroundColor: themeConfig.inputBackground,
+                              color: themeConfig.text,
+                              border: `1px solid ${themeConfig.inputBorder}`,
+                              boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                            }}
+                          >
+                            <option value="">All Roles</option>
+                            {(profiles || []).map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      </>
+                    )}
+
+                    {/* Users Autocomplete (draft) */}
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block" style={{ color: themeConfig.text }}>
+                        <LabelWithIcon icon={<User className="h-4 w-4" />} text="User (Employee)" />
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: themeConfig.textSecondary }} />
+                        <input
+                          className="rounded-lg pl-8 pr-3 py-2.5 w-full shadow-sm focus:ring-2 outline-none"
+                          value={userSearch}
+                          onFocus={() => !draftFilters.employeeCode && setShowSuggestions(true)}
+                          onChange={(e) => {
+                            setUserSearch(e.target.value);
+                            if (!draftFilters.employeeCode) setShowSuggestions(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') setShowSuggestions(false);
+                          }}
+                          placeholder="Search by name / code / email / phone"
+                          style={{
+                            backgroundColor: themeConfig.inputBackground,
+                            color: themeConfig.text,
+                            border: `1px solid ${themeConfig.inputBorder}`,
+                            boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                          }}
+                        />
+                        {showSuggestions && userSearch && !draftFilters.employeeCode && (
+                          <div
+                            className="absolute z-[60] rounded-lg mt-2 w-full max-h-64 overflow-auto shadow-md"
+                            style={{ backgroundColor: themeConfig.cardBackground, border: `1px solid ${themeConfig.border}` }}
+                          >
+                            {filteredUsers.length === 0 ? (
+                              <div className="px-3 py-2.5 text-sm" style={{ color: themeConfig.textSecondary }}>No users found</div>
+                            ) : (
+                              filteredUsers.map((u) => (
+                                <button
+                                  key={u.employee_code}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2.5 transition-colors border-b last:border-b-0"
+                                  onClick={() => {
+                                    setDraftFilters((d) => ({ ...d, employeeCode: u.employee_code }));
+                                    setUserSearch(`${u.name} (${u.employee_code})`);
+                                    setShowSuggestions(false);
+                                  }}
+                                  style={{
+                                    color: themeConfig.text,
+                                    borderColor: hexToRgba(themeConfig.border, 0.7)
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.06); }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                                >
+                                  <div className="font-medium" style={{ color: themeConfig.text }}>
+                                    {u.name} <span style={{ color: themeConfig.primary }}>({u.employee_code})</span>
+                                  </div>
+                                  <div className="text-xs" style={{ color: themeConfig.textSecondary }}>
+                                    {u.role_name} • {u.email} • {u.phone}
+                                  </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
                         )}
                       </div>
+                      {draftFilters.employeeCode ? (
+                        <div className="text-xs mt-1 font-medium flex items-center gap-1" style={{ color: themeConfig.success }}>
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>Selected: {draftFilters.employeeCode}</span>
+                        </div>
+                      ) : (
+                        <div className="text-xs mt-1 flex items-center gap-1" style={{ color: themeConfig.textSecondary }}>
+                          <Info className="h-4 w-4" />
+                          <span>No user selected</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {optLoading && (
+                      <div className="flex items-center gap-2 text-xs mt-2" style={{ color: themeConfig.primary }}>
+                        <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: themeConfig.primary, borderTopColor: "transparent" }}></div>
+                        Loading filter options…
+                      </div>
+                    )}
+                    {optError && (
+                      <div className="text-sm mt-1 rounded-lg px-3 py-2" style={{ color: themeConfig.error, backgroundColor: hexToRgba(themeConfig.error, 0.08) }}>{optError}</div>
                     )}
                   </div>
-                  {draftFilters.employeeCode ? (
-                    <div className="text-xs mt-1 font-medium flex items-center gap-1" style={{ color: themeConfig.success }}>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Selected: {draftFilters.employeeCode}</span>
-                    </div>
-                  ) : (
-                    <div className="text-xs mt-1 flex items-center gap-1" style={{ color: themeConfig.textSecondary }}>
-                      <Info className="h-4 w-4" />
-                      <span>No user selected</span>
-                    </div>
-                  )}
                 </div>
 
-                {optLoading && (
-                  <div className="flex items-center gap-2 text-xs mt-2" style={{ color: themeConfig.primary }}>
-                    <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: themeConfig.primary, borderTopColor: "transparent" }}></div>
-                    Loading filter options…
+                {/* Footer actions */}
+                <div className="p-4 flex items-center justify-between gap-2" style={{ borderTop: `1px solid ${themeConfig.border}` }}>
+                  <button
+                    onClick={() => setDraftFilters(baseDefaults)}
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                    style={{
+                      backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
+                      color: themeConfig.text
+                    }}
+                  >
+                    Reset
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setFiltersOpen(false)}
+                      className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                      style={{
+                        backgroundColor: themeConfig.cardBackground,
+                        color: themeConfig.text,
+                        border: `1px solid ${themeConfig.border}`
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAppliedFilters(draftFilters);
+                        setFiltersOpen(false);
+                      }}
+                      className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
+                      style={{
+                        backgroundColor: themeConfig.primary,
+                        color: '#fff',
+                        boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
+                    >
+                      Apply
+                    </button>
                   </div>
-                )}
-                {optError && (
-                  <div className="text-sm mt-1 rounded-lg px-3 py-2" style={{ color: themeConfig.error, backgroundColor: hexToRgba(themeConfig.error, 0.08) }}>{optError}</div>
-                )}
+                </div>
               </div>
             </div>
-
-            {/* Footer actions */}
-            <div className="p-4 flex items-center justify-between gap-2" style={{ borderTop: `1px solid ${themeConfig.border}` }}>
-              <button
-                onClick={() => setDraftFilters(baseDefaults)}
-                className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
-                  color: themeConfig.text
-                }}
-              >
-                Reset
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setFiltersOpen(false)}
-                  className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
-                  style={{
-                    backgroundColor: themeConfig.cardBackground,
-                    color: themeConfig.text,
-                    border: `1px solid ${themeConfig.border}`
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setAppliedFilters(draftFilters);
-                    setFiltersOpen(false);
-                  }}
-                  className="px-4 py-2.5 rounded-lg text-sm font-medium transition"
-                  style={{
-                    backgroundColor: themeConfig.primary,
-                    color: '#fff',
-                    boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
-    </div>
-     )}
     </>
   );
 }
@@ -1236,7 +1239,7 @@ function TableWrap({ title, children, icon, className = '', themeConfig }) {
       }}
     >
       <div
-        className="flex items-center p-2 justify-between rounded-t-2xl"
+        className="flex items-center p-6 justify-between rounded-t-2xl"
         style={{
           backgroundColor: themeConfig.surface,
           borderBottom: `1px solid ${themeConfig.border}`
@@ -1371,17 +1374,17 @@ function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }
 
     return (
       <div
-        className="rounded-xl px-5 shadow-md transition-all duration-300"
+        className="rounded-xl px-5 shadow-md transition-all duration-300 h-full"
         style={{
           backgroundColor: hexToRgba(themeConfig.cardBackground, 0.95),
           border: `1px solid ${themeConfig.border}`,
           color: themeConfig.text
         }}
       >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: themeConfig.text }}>{title}</h3>
+        <h3 className="text-lg font-semibold py-3" style={{ color: themeConfig.text }}>{title}</h3>
 
-        <div className="gap-2">
-          <div className="order-2 md:order-1 md:col-span-1">
+        <div className="flex flex-col justify-between">
+          <div className="md:col-span-1">
             <ul className="space-y-2">
               {dataset.map((item, i) => (
                 <li key={item.name} className="flex items-center justify-between">
@@ -1401,7 +1404,7 @@ function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }
             </div>
           </div>
 
-          <div className="h-80">
+          <div className="h-72 flex items-end justify-end mt-auto">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -1448,10 +1451,10 @@ function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }
 function EmployeeTableAccordion({ cols = [], rows = [], otherResponses = [], expanded, onToggle, themeConfig }) {
   return (
     <div
-      className="overflow-x-auto w-full rounded-2xl"
+      className="overflow-x-auto w-full "
       style={{
         backgroundColor: themeConfig.cardBackground,
-        border: `1px solid ${themeConfig.border}`,
+        // border: `1px solid ${themeConfig.border}`,
         boxShadow: `0 12px 24px ${hexToRgba(themeConfig.shadow || '#000', 0.12)}`
       }}
     >

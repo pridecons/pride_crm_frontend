@@ -392,7 +392,7 @@ export default function InternalMailingForm() {
         >
           {/* Compose Header */}
           <div
-            className="px-4 py-2 border-b rounded-t-lg"
+            className="px-4 py-4 border-b rounded-t-lg"
             style={{
              background: "var(--theme-components-header-bg)",
               color: "var(--theme-components-header-text)",

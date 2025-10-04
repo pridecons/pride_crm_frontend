@@ -147,11 +147,11 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const headerVars = (themeConfig && themeConfig.components && themeConfig.components.header)
     ? themeConfig.components.header
     : {
-        bg: themeConfig.header,
-        text: themeConfig.headerText,
-        border: themeConfig.border,
-        shadow: themeConfig.shadow
-      };
+      bg: themeConfig.header,
+      text: themeConfig.headerText,
+      border: themeConfig.border,
+      shadow: themeConfig.shadow
+    };
 
   /** ✅ auth bootstrap: set axios auth + extract user for header */
   useEffect(() => {
@@ -313,12 +313,12 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const fetchSuggestions = useCallback(async (q) => {
     const term = (q || "").trim();
     if (term.length < 2) {
-      try { abortRef.current?.abort(); } catch {}
+      try { abortRef.current?.abort(); } catch { }
       setSuggestions([]); setRespCounts({}); setRespMatches([]); setResponseCounts({}); setLoading(false);
       return;
     }
 
-    try { abortRef.current?.abort(); } catch {}
+    try { abortRef.current?.abort(); } catch { }
     const ac = new AbortController();
     abortRef.current = ac;
 
@@ -510,13 +510,13 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             </button>
 
             <div className="relative">
-               <Logo
-    src="/crm.png"
-    darkSrc="/crm-dark.png"  // optional
-    width={128}
-    height={40}
-    href="/dashboard"
-  />
+              <Logo
+                src="/crm.png"
+                darkSrc="/crm-dark.png"  // optional
+                width={128}
+                height={40}
+                href="/dashboard"
+              />
               <div
                 className="absolute -inset-2 rounded-lg transition-opacity duration-200 -z-10"
                 style={{
@@ -575,22 +575,22 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                   }}
                 />
                 {/* Right-side adornment: spinner when loading, otherwise clear button */}
-           {loading ? (
-             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-               <MiniLoader />
-             </div>
-           ) : (
-             query && (
-               <button
-                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                 onClick={() => setQuery('')}
-                 aria-label="Clear search"
-                 style={{ color: themeConfig.textSecondary }}
-               >
-                 <X size={16} />
-               </button>
-             )
-           )}
+                {loading ? (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <MiniLoader />
+                  </div>
+                ) : (
+                  query && (
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+                      onClick={() => setQuery('')}
+                      aria-label="Clear search"
+                      style={{ color: themeConfig.textSecondary }}
+                    >
+                      <X size={16} />
+                    </button>
+                  )
+                )}
 
                 {open && anchorRect && portalHostRef.current && (
                   <SearchOverlay
@@ -627,17 +627,17 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
           {/* Right cluster */}
           <div className="flex items-center gap-2">
-            <ThemeToggle/>
-           <div className="flex">
-             
-            <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
+            <ThemeToggle />
+            <div className="flex">
 
-            {hasPermission("chat_page") && <ShowChatCount user={user?.employee_code} />}
+              <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
-           </div>
+              {hasPermission("chat_page") && <ShowChatCount user={user?.employee_code} />}
+
+            </div>
             {/* Clock */}
             <div
-              className="hidden md:flex items-center gap-2 px-2 py-1.5 rounded-xl border shadow-sm"
+              className="hidden md:flex items-center gap-2 px-2 py-1.5 rounded-xl border"
               style={{
                 background: themeConfig.surface,
                 borderColor: themeConfig.border,
@@ -958,9 +958,9 @@ function SearchOverlay({
                             borderTop: `1px solid ${hexToRgba(themeConfig.border, 0.5)}`
                           }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.cardBackground; }}
-                          // onMouseEnter={(e) => {
-                          //   if (!active) e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.05);
-                          // }}
+                        // onMouseEnter={(e) => {
+                        //   if (!active) e.currentTarget.style.backgroundColor = hexToRgba(themeConfig.primary, 0.05);
+                        // }}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">

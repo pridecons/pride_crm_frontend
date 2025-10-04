@@ -505,7 +505,7 @@ export default function BulkUploadPage() {
                 )}
 
                 {/* Lead source dropdown */}
-                <div className="space-y-1 w-fit">
+                <div className="space-y-1 w-full">
                   <label className="flex items-center gap-2 text-sm font-medium text-[var(--theme-text)]">
                     <Tag className="w-4 h-4 text-[var(--theme-primary)]" />
                     Select Lead Source

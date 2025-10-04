@@ -132,7 +132,7 @@ const ShowChatCount = ({ user }) => {
     <button
       type="button"
       onClick={() => router.push("/chatting")}
-      className="group relative pr-2 rounded-xl text-gray-500 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
+      className="relative p-3 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:scale-105 group"
       aria-label="Open chat"
       title="Chat"
     >

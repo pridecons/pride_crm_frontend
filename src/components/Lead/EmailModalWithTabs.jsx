@@ -55,97 +55,109 @@ const EmailModalWithLogs = ({ open, onClose, leadEmail, leadName = "" }) => {
     };
   }, [open, tab]);
 
-  // Load logs
-  useEffect(() => {
-    if (!(open && tab === "logs" && leadEmail)) return;
 
-    let isActive = true;
-    (async () => {
-      setLogs([]);
-      setLogsLoading(true);
-      try {
-        const res = await axiosInstance.get("/email/logs/", {
-          params: { recipient_email: leadEmail },
-        });
-        if (!isActive) return;
-        setLogs(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        ErrorHandling({ error: err, defaultError: "Failed to load email logs" });
-      } finally {
-        if (isActive) setLogsLoading(false);
-      }
-    })();
+  // useEffect(() => {
+  //   if (!(open && tab === "logs" && leadEmail)) return;
 
-    return () => {
-      isActive = false;
-    };
-  }, [open, tab, leadEmail]);
+  //   let isActive = true;
+  //   (async () => {
+  //     setLogs([]);
+  //     setLogsLoading(true);
+  //     try {
+  //       const res = await axiosInstance.get("/email/logs/", {
+  //         params: { recipient_email: leadEmail },
+  //       });
+  //       if (!isActive) return;
+  //       setLogs(Array.isArray(res.data) ? res.data : []);
+  //     } catch (err) {
+  //       ErrorHandling({ error: err, defaultError: "Failed to load email logs" });
+  //     } finally {
+  //       if (isActive) setLogsLoading(false);
+  //     }
+  //   })();
 
-  // On template change, compute placeholders
-  useEffect(() => {
-    if (selectedTemplateId && templates.length) {
-      const selected = templates.find((t) => t.id === Number(selectedTemplateId));
-      if (selected) {
-        const combined = `${selected.subject || ""} ${selected.body || ""}`;
-        setContextFields(extractPlaceholders(combined));
-        setEmailContext({});
-      }
-    } else {
-      setContextFields([]);
+  //   return () => {
+  //     isActive = false;
+  //   };
+  // }, [open, tab, leadEmail]);
+
+  
+ useEffect(() => {
+  if (selectedTemplateId && templates.length) {
+    const selected = templates.find((t) => t.id === Number(selectedTemplateId));
+    if (selected) {
+      const combined = `${selected.subject || ""} ${selected.body || ""}`;
+      setContextFields(extractPlaceholders(combined));
+      setEmailContext({});
     }
-  }, [selectedTemplateId, templates]);
+  } else {
+    setContextFields([]);
+  }
+}, [selectedTemplateId, templates]);
 
-  const handleSendEmail = async () => {
-    if (!selectedTemplateId)
-      return ErrorHandling({ defaultError: "Select a template" });
-    if (contextFields.some((f) => !emailContext[f])) {
-      ErrorHandling({ defaultError: "Fill all required fields" });
-      return;
-    }
-    setSending(true);
+const handleSendEmail = async () => {
+  if (!selectedTemplateId) {
+    return ErrorHandling({ defaultError: "Select a template" });
+  }
+
+  if (contextFields.some((f) => !emailContext[f])) {
+    ErrorHandling({ defaultError: "Fill all required fields" });
+    return;
+  }
+
+  setSending(true);
+
+  try {
+    // Send the email
+    await axiosInstance.post("/email/send", {
+      template_id: selectedTemplateId,
+      recipient_email: leadEmail,
+      context: emailContext,
+    });
+
+    toast.success("Email sent!");
+
+    // Reset states
+    setTab("logs");
+    setSelectedTemplateId("");
+    setContextFields([]);
+    setEmailContext({});
+
+    // Refresh logs
+    setLogsLoading(true);
     try {
-      await axiosInstance.post("/email/send", {
-        template_id: selectedTemplateId,
-        recipient_email: leadEmail,
-        context: emailContext,
+      const response = await axiosInstance.get("/reports/email", {
+        params: {
+          lead_id: leadId, // <-- make sure you pass the lead id here
+          skip: 0,
+          limit: 50,
+        },
       });
-      toast.success("Email sent!");
 
-      // refresh logs after send
-      setTab("logs");
-      setSelectedTemplateId("");
-      setContextFields([]);
-      setEmailContext({});
-
-      setLogsLoading(true);
-      try {
-        const res = await axiosInstance.get("/email/logs/", {
-          params: { recipient_email: leadEmail },
-        });
-        setLogs(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        ErrorHandling({ error: err, defaultError: "Failed to refresh logs" });
-      } finally {
-        setLogsLoading(false);
-      }
+      setLogs(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Failed to send email" });
+      ErrorHandling({ error: err, defaultError: "Failed to refresh logs" });
     } finally {
-      setSending(false);
-    }
-  };
-
-  // Reset on close
-  useEffect(() => {
-    if (!open) {
-      setTab("send");
-      setSelectedTemplateId("");
-      setContextFields([]);
-      setEmailContext({});
-      setLogs([]);
       setLogsLoading(false);
     }
-  }, [open]);
+  } catch (err) {
+    ErrorHandling({ error: err, defaultError: "Failed to send email" });
+  } finally {
+    setSending(false);
+  }
+};
+
+  // Reset on close
+  // useEffect(() => {
+  //   if (!open) {
+  //     setTab("send");
+  //     setSelectedTemplateId("");
+  //     setContextFields([]);
+  //     setEmailContext({});
+  //     setLogs([]);
+  //     setLogsLoading(false);
+  //   }
+  // }, [open]);
 
   const TitleTabs = (
     <div className="flex items-center gap-2">

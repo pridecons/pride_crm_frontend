@@ -361,3 +361,7 @@ input[type="number"] {
     color: black !important;
   }
 }
+
+input:focus{
+  outline:none
+}

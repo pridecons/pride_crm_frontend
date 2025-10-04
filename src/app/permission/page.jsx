@@ -579,9 +579,11 @@ export default function PermissionsPage() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="rounded-full p-2" style={{ background: "color-mix(in oklab, var(--theme-primary) 20%, transparent)" }}>
-                    <Users className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)" }} />
+                    <Users className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)", color: "var(--theme-text)" }} />
                   </div>
-                  <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)" }}>
+                  <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)",
+                    color: "var(--theme-text)"
+                   }}>
                     Users with Permissions
                   </h2>
                 </div>
@@ -686,14 +688,16 @@ export default function PermissionsPage() {
               <>
                 <div className="px-6 py-4 flex justify-between items-center" style={styles.headerSecondary("--theme-success")}>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-full p-2" style={{ background: "color-mix(in oklab, var(--theme-success) 20%, transparent)" }}>
-                      <Settings className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)" }} />
+                    <div className="rounded-full p-2" style={{ background: "color-mix(in oklab, var(--theme-primary) 20%, transparent)" }}> 
+                      <Settings className="w-5 h-5" style={{ color: "var(--theme-primary-contrast)", color: "var(--theme-text)" }} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)" }}>
+                      <h2 className="text-xl font-semibold" style={{ color: "var(--theme-primary-contrast)",
+                    color: "var(--theme-text)"
+                   }}>
                         Permissions Editor
                       </h2>
-                      <p className="text-sm" style={{ color: "color-mix(in oklab, var(--theme-primary-contrast) 70%, transparent)" }}>
+                      <p className="text-sm" style={{ color: "color-mix(in oklab, var(--theme-primary-contrast) 70%, transparent)",color: "var(--theme-text)" }}>
                         Editing:{" "}
                         <span className="font-medium">
                           {usersByCode[selectedUser]?.name ||
@@ -712,7 +716,7 @@ export default function PermissionsPage() {
                     onClick={clearSelection}
                     className="transition"
                     title="Close Editor"
-                    style={{ color: "var(--theme-primary-contrast)" }}
+                    style={{ color: "var(--theme-primary-contrast)" , color: "var(--theme-text)"}}
                   >
                     <XCircle className="w-6 h-6" />
                   </button>

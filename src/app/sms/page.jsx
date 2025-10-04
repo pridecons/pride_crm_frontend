@@ -122,20 +122,20 @@ export default function SMSTemplatesSimplePage() {
     <div className="py-10 px-5">
       <div className="mx-auto font-sans">
         {/* Header */}
-        <div className="bg-white/95 backdrop-blur-lg rounded-2xl px-10 py-4 mb-8 shadow-lg border border-white/20">
+        <div className="bg-[var(--theme-primary-softer)] rounded-2xl px-10 py-4 mb-8 shadow-lg border border-[var(--theme-border)]">
           <div className="flex flex-wrap justify-between items-center gap-5">
             <div>
-              <h1 className="text-5xl font-extrabold mb-3 bg-blue-600 bg-clip-text text-transparent tracking-tight">
+              <h1 className="text-4xl font-extrabold mb-3  bg-clip-text tracking-tight">
                 SMS Templates
               </h1>
-              <p className="m-0 text-lg font-medium text-gray-500">
+              <p className="m-0 text-md font-medium">
                 Manage your SMS templates and messaging configurations
               </p>
             </div>
             {hasPermission("sms_add") && (
               <button
                 onClick={openForCreate}
-                className="px-3 py-2 bg-blue-600  text-white rounded-xl shadow-lg flex items-center gap-2 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                className="px-3 py-2 bg-[var(--theme-primary)]  rounded-xl shadow-lg flex items-center gap-2 transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
               >
                 <svg
                   width="20"
@@ -156,7 +156,7 @@ export default function SMSTemplatesSimplePage() {
         {/* Alert */}
         {msg && (
           <div
-            className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg font-semibold ${msg.toLowerCase().includes("fail")
+            className={`flex items-center gap-3 p-5 mb-6 rounded-lg shadow-md text-lg ${msg.toLowerCase().includes("fail")
               ? "bg-red-50 border-2 border-red-400 text-red-600"
               : "bg-sky-50 border-2 border-sky-300 text-sky-800"
               }`}
@@ -180,10 +180,10 @@ export default function SMSTemplatesSimplePage() {
         )}
 
         {/* Table */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-lg border border-white/20">
+        <div className="backdrop-blur-xl rounded-2xl overflow-hidden shadow-lg border border-[var(--theme-border)]">
           {loading ? (
             <div className="flex flex-col items-center gap-5 py-20 px-10 text-center">
-              <div className="w-16 h-16 border-8 border-gray-200 border-t-8 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="w-16 h-16 border-8  border-t-8 border-[var(--theme-border)] rounded-full animate-spin"></div>
               <p className="m-0 text-lg font-medium text-gray-500">
                 Loading templates...
               </p>
@@ -223,29 +223,36 @@ export default function SMSTemplatesSimplePage() {
             <div className="overflow-x-auto">
               <table className="min-w-[900px] w-full text-sm divide-y">
                 <thead>
-                  <tr className="bg-white">
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                  <tr
+                    className="sticky top-0 z-20"
+                    style={{
+                      background: "var(--theme-components-table-headerBg, var(--theme-surface))",
+                      color: "var(--theme-components-table-headerText, var(--theme-text))",
+                      borderBottom: "1px solid var(--theme-components-table-border, var(--theme-border))",
+                    }}
+                  >
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       ID
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       Title
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       Template
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       DLT ID
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       Type
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       Source
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       Roles
                     </th>
-                    <th className="px-5 py-4 font-bold text-left text-gray-700 border-b-2 border-gray-200">
+                    <th className="px-5 py-4 font-bold text-left uppercase tracking-wide text-xs" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                       Actions
                     </th>
                   </tr>
@@ -257,20 +264,35 @@ export default function SMSTemplatesSimplePage() {
                       ;
 
                     return (
-                      <tr key={tpl.id} className="odd:bg-white even:bg-gray-50">
+                      <tr key={tpl.id} className="transition-colors duration-150"
+                        style={{
+                          background:
+                            "var(--theme-components-table-headerBg, var(--theme-surface))",
+                          color:
+                            "var(--theme-components-table-headerText, var(--theme-text))",
+                          borderBottom:
+                            "1px solid var(--theme-components-table-border, var(--theme-border))",
+                        }}
+                      >
                         <td className="px-5 py-4">
-                          <span className="inline-block text-blue-600  font-bold">
+                          <span className="inline-block  font-bold"
+                            style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                             #{tpl.id}
                           </span>
                         </td>
-                        <td className="px-5 py-4 font-semibold text-gray-800">
+                        <td className="px-5 py-4 font-semibold" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                           {tpl.title}
                         </td>
-                        <td className="px-5 py-4 text-gray-600 max-w-xs truncate">
+                        <td className="px-5 py-4 max-w-xs truncate" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
+
                           {tpl.template}
                         </td>
-                        <td className="px-5 py-4">
-                          <code className="bg-gray-100 px-2 py-1 rounded text-[13px] text-gray-700">
+                        <td className="px-5 py-4 max-w-xs truncate" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
+                          <code className=" px-2 py-1 rounded text-[13px]"
+                            style={{
+                              background: "var(--theme-components-codeBg, rgba(0,0,0,0.05))",
+                              color: "var(--theme-text, #111827)",
+                            }}>
                             {tpl.dlt_template_id
                             }
                           </code>
@@ -286,7 +308,7 @@ export default function SMSTemplatesSimplePage() {
                             {(tpl.message_type || "").toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-gray-500 text-[13px]">
+                        <td className="px-5 py-4 text-[13px]" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }}>
                           {(tpl.source_address || []).join(", ")}
                         </td>
                         <td className="px-5 py-4">
@@ -294,13 +316,17 @@ export default function SMSTemplatesSimplePage() {
                             {roles.slice(0, 2).map((r) => (
                               <span
                                 key={r}
-                                className="inline-block bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[11px] font-medium"
+                                className="inline-block px-1.5 py-0.5 rounded text-[11px] font-medium"
+                                style={{
+                                  background: "var(--theme-roleBg, #ecfdf5)",
+                                  color: "var(--theme-roleText, #065f46)",
+                                }}
                               >
                                 {r}
                               </span>
                             ))}
                             {roles.length > 2 && (
-                              <span className="text-gray-500 text-[11px] font-medium">
+                              <span className="text-[11px] font-medium" style={{ color: "var(--theme-textSecondary, #6b7280)" }}>
                                 +{roles.length - 2}
                               </span>
                             )}
@@ -313,14 +339,14 @@ export default function SMSTemplatesSimplePage() {
                                 onClick={() => openForEdit(tpl)}
                                 title="Edit"
                               >
-                                <Pencil className="w-4 h-4 text-blue-500 hover:text-blue-600" />
+                                <Pencil className="w-4 h-4 hover:opacity-80" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }} />
                               </button>
                             )}
                             {hasPermission("sms_delete") && (
                               <button
                                 onClick={() => handleDelete(tpl.id)}
                               >
-                                <Trash2 className="w-4 h-4 text-red-500 hover:text-red-600" />
+                                <Trash2 className="w-4 h-4 hover:opacity-80" style={{ color: "var(--theme-components-table-headerText, var(--theme-text))" }} />
 
                               </button>
                             )}
@@ -551,8 +577,8 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
   //   form.allowedRoles?.length ? form.allowedRoles.join(", ") : "Select roles";
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1100] flex items-center justify-center p-5">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-[modalSlideIn_0.3s_ease-out]">
+    <div className="fixed inset-0 backdrop-blur-md z-[1100] flex items-center justify-center p-5">
+      <div className="rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-[modalSlideIn_0.3s_ease-out]">
         <style>
           {`@keyframes modalSlideIn {
               from { opacity: 0; transform: scale(0.95) translateY(10px); }
@@ -561,11 +587,11 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
         </style>
 
         {/* Header */}
-        <div className="bg-blue-600 rounded-t-2xl px-10 py-8 relative">
-          <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-2 tracking-tight">
+        <div className="bg-[var(--theme-primary)] rounded-t-2xl px-10 py-8 relative">
+          <h2 className="text-2xl md:text-3xl font-extrabold  mb-2 tracking-tight">
             {editing ? "Edit Template" : "Create New Template"}
           </h2>
-          <p className="text-base font-medium text-white/80 m-0">
+          <p className="text-base font-medium m-0">
             {editing ? "Update your SMS template configuration" : "Configure your new SMS template"}
           </p>
           <button
@@ -581,20 +607,20 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
         </div>
 
         {/* Body */}
-        <div className="p-10">
+        <div className="p-10  bg-[var(--theme-surface)]">
           <form onSubmit={handleSubmit}>
             {/* Title + DLT ID */}
             <div className="flex gap-6 mb-6">
               <div className="flex-1">
                 <label className="block">
-                  <span className="block font-semibold text-gray-700 text-base mb-2">Title</span>
+                  <span className="block font-semibold text-base mb-2">Title</span>
                   <input
                     type="text"
                     name="title"
                     value={form.title}
                     onChange={handleChange}
                     required
-                    className="w-full p-3.5 border-2 border-gray-200 rounded-xl text-base bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                    className="w-full p-3.5 border-2 border-[var(--theme-border)] rounded-xl text-base outline-none transition placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
                     placeholder="Enter template title"
                     autoComplete="off"
                   />
@@ -602,14 +628,14 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
               </div>
               <div className="flex-1">
                 <label className="block">
-                  <span className="block font-semibold text-gray-700 text-base mb-2">DLT Template ID</span>
+                  <span className="block font-semibold text-base mb-2">DLT Template ID</span>
                   <input
                     type="text"
                     name="dltTemplateId"
                     value={form.dltTemplateId}
                     onChange={handleChange}
                     required
-                    className="w-full p-3.5 border-2 border-gray-200 rounded-xl text-base bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                    className="w-full p-3.5 border-2 border-[var(--theme-border)] rounded-xl text-base outline-none transition placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
                     placeholder="Enter DLT template ID"
                     autoComplete="off"
                   />
@@ -621,14 +647,13 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
             <div className="flex gap-6 mb-6">
               <div className="flex-1">
                 <label className="block">
-                  <span className="block font-semibold text-gray-700 text-base mb-2">Message Type</span>
+                  <span className="block font-semibold text-base mb-2">Message Type</span>
                   <select
                     name="messageType"
                     value={form.messageType}
                     onChange={handleChange}
                     required
-                    className="w-full p-3.5 border-2 border-gray-200 rounded-xl text-base bg-white pr-10 appearance-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
-                  >
+                    className=" w-full p-3.5 border-2 border-[var(--theme-border)] rounded-xl text-base outline-none transition placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent">
                     <option value="TRANSACTIONAL">Transactional</option>
                     <option value="PROMOTIONAL">Promotional</option>
                     <option value="Explicit">Service Explicit</option>
@@ -638,14 +663,14 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
               </div>
               <div className="flex-1">
                 <label className="block">
-                  <span className="block font-semibold text-gray-700 text-base mb-2">Source Address</span>
+                  <span className="block font-semibold text-base mb-2">Source Address</span>
                   <input
                     type="text"
                     name="sourceAddress"
                     value={form.sourceAddress}
                     onChange={handleChange}
                     required
-                    className="w-full p-3.5 border-2 border-gray-200 rounded-xl text-base bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                    className="w-full p-3.5 border-2 border-[var(--theme-border)] rounded-xl text-base outline-none transition placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
                     placeholder="PRIDTT, etc (comma separated)"
                     autoComplete="off"
                   />
@@ -657,11 +682,11 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
             <div className="flex gap-6 mb-6">
               <div className="flex-1">
                 <label className="block">
-                  <span className="block font-semibold text-gray-700 text-base mb-2">Template Type</span>
+                  <span className="block font-semibold text-base mb-2">Template Type</span>
                   <select
                     value={templateType}
                     onChange={(e) => setTemplateType(e.target.value)}
-                    className="w-full p-3.5 border-2 border-gray-200 rounded-xl text-base bg-white pr-10 appearance-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                    className="w-full p-3.5 border-2 border-[var(--theme-border)] rounded-xl text-base outline-none transition placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent"
                   >
                     <option value="Rational">Rational</option>
                     <option value="Other">Other</option>
@@ -671,14 +696,14 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
 
               {/* Allowed Roles */}
               <div className="flex-1">
-                <span className="block font-semibold text-gray-700 text-base mb-2">Allowed Roles</span>
+                <span className="block font-semibold  text-base mb-2">Allowed Roles</span>
                 <div ref={roleDropdownRef} className="relative mt-2">
                   <div
-                    className={`w-full p-3.5 border-2 rounded-xl bg-white cursor-pointer flex items-center justify-between min-h-[48px] transition ${showRoleDropdown ? "border-indigo-500 ring-2 ring-indigo-100" : "border-gray-200"
+                     className={`w-full p-3.5 border-2 rounded-xl cursor-pointer flex items-center justify-between min-h-[48px] transition ${showRoleDropdown ? "focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent" : "border-[var(--theme-border)]"
                       }`}
                     onClick={() => setShowRoleDropdown((s) => !s)}
                   >
-                    <span className={`text-[15px] ${form.allowedRoles.length ? "text-gray-700" : "text-gray-400"}`}>
+                    <span className={`text-[15px] ${form.allowedRoles.length === 0 ? "text-[var(--theme-text-muted)]" : "text-[var(--theme-text)]"}`}>
                       {selectedRolesString}
                     </span>
                     <svg width="20" height="20" className={`w-5 h-5 fill-indigo-500 transition-transform ${showRoleDropdown ? "rotate-180" : ""}`} viewBox="0 0 24 24">
@@ -687,9 +712,9 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                   </div>
 
                   {showRoleDropdown && (
-                    <div className="absolute top-full left-0 right-0 bg-white border-2 border-indigo-500 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] z-50 p-4 mt-1 max-h-52 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 bg-[var(--theme-primary-softer)] backdrop-blur-sm border-2 border-[var(--theme-border)]ounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.15)] z-50 p-4 mt-1 max-h-52 overflow-y-auto">
                       {roles.length === 0 ? (
-                        <div className="text-gray-400 text-sm text-center p-3">Loading roles...</div>
+                        <div className=" text-sm text-center p-3">Loading roles...</div>
                       ) : (
                         <>
                           <label className="flex items-center gap-3 px-3 py-2 rounded mb-1 font-semibold text-base bg-gray-50 cursor-pointer">
@@ -699,7 +724,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                               onChange={selectAllRoles}
                               className="w-4 h-4 accent-indigo-600 cursor-pointer"
                             />
-                            <span className="text-gray-800">Select All</span>
+                            <span>Select All</span>
                           </label>
 
                           {roles.map((roleName) => (
@@ -710,7 +735,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
                                 onChange={() => toggleRole(String(roleName?.id))}
                                 className="w-4 h-4 accent-indigo-500 cursor-pointer"
                               />
-                              <span className="text-gray-700">{roleName?.name}</span>
+                              <span>{roleName?.name}</span>
                             </label>
                           ))}
                         </>
@@ -724,13 +749,13 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
             {/* Raw Template Textarea */}
             <div className="mb-6">
               <label className="block">
-                <span className="block font-semibold text-gray-700 text-base mb-2">Template Content</span>
+                <span className="block font-semibold text-base mb-2">Template Content</span>
                 <textarea
                   name="template"
                   value={form.template}
                   onChange={handleChange}
                   required
-                  className="w-full p-3.5 border-2 border-gray-200 rounded-xl text-base bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition min-h-[120px] resize-y"
+                  className="w-full p-3.5 border-2 border-[var(--theme-border)] rounded-xl text-base placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent outline-none transition min-h-[120px] resize-y"
                   placeholder='Use {#var#} where you want a variable, e.g. "CASH:BUY {#var#} TARGET {#var#} STOP LOSS {#var#} ..."'
                   autoComplete="off"
                 />
@@ -740,26 +765,26 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
             {/* Dynamic Variable Builder */}
             {textParts.length > 0 && (textParts.length - 1 >= 0) && (
               <div className="mb-8">
-                <span className="block font-semibold text-gray-700 text-base mb-2">
+                <span className="block font-semibold text-base mb-2">
                   Dynamic Variable Builder
                 </span>
-                <div className="p-4 border-2 border-indigo-100 rounded-xl bg-indigo-50/30">
+                <div className="p-4 border-2 border-[var(--theme-border)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent rounded-xl bg-indigo-50/30">
                   <div className="flex flex-wrap gap-2 overflow-y-auto">
                     {textParts.map((part, idx) => (
-                      <div key={`part-${idx}`} className="flex items-center gap-2">
+                      <div key={`part-${idx}`} className="flex items-center gap-2focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent">
                         {/* Editable text chunk */}
                         <input
                           value={part}
                           disabled
                           onChange={(e) => handleTextPartChange(idx, e.target.value)}
-                          className="px-2 py-1 border rounded-md text-sm max-w-xs"
+                          className="px-2 py-1 border border-[var(--theme-border)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent rounded-md text-sm max-w-xs"
                         />
                         {/* Insert dropdown between parts */}
                         {idx < textParts.length - 1 && (
                           <select
                             value={varSelections[idx] || rational_val[0].value}
                             onChange={(e) => handleVarChange(idx, e.target.value)}
-                            className="px-2 py-1 border rounded-md text-sm"
+                            className="px-2 py-1 border rounded-md border-[var(--theme-border)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent text-sm"
                           >
                             {rational_val.map((opt) => (
                               <option key={opt.value} value={opt.value}>
@@ -774,8 +799,8 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
 
                   {/* Preview of compiled template */}
                   <div className="mt-4 text-sm">
-                    <span className="font-semibold text-gray-700 mr-2">Preview:</span>
-                    <code className="bg-white border rounded px-2 py-1 break-words">
+                    <span className="font-semibold mr-2">Preview:</span>
+                    <code className="transition placeholder-[var(--theme-text-muted)] border rounded border-[var(--theme-border)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent px-2 py-1 break-words">
                       {form.template}
                     </code>
                   </div>
@@ -784,13 +809,13 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
             )}
 
             {/* Actions */}
-            <div className="flex gap-4 pt-6 border-t border-gray-100">
+            <div className="flex gap-4 pt-6 border-t border-[var(--theme-border)] ">
               <button
                 type="submit"
                 disabled={saving}
-                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl text-white transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg ${editing
-                  ? "bg-blue-600 hover:from-purple-600 hover:to-purple-700"
-                  : "bg-blue-600 hover:from-indigo-600 hover:to-purple-600"
+                className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 text-base font-bold rounded-xl transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg ${editing
+                  ? "bg-[var(--theme-primary)]"
+                  : "bg-[var(--theme-primary)]"
                   } ${saving ? "opacity-70 cursor-not-allowed" : ""}`}
               >
                 {editing ? "Update Template" : "Create Template"}
@@ -798,7 +823,7 @@ function TemplateModal({ open, onClose, initialForm, onSubmit, editing }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-4 bg-gradient-to-br from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 rounded-lg font-semibold text-base transition"
+                className="px-6 py-4 bg-gradient-to-br from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300  rounded-lg font-semibold text-base transition"
               >
                 Cancel
               </button>

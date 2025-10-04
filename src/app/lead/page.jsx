@@ -311,7 +311,7 @@ export default function NewLeadsTable() {
               onClick={() => router.push(`/lead/${lead.id}`)}
               title="Edit lead"
               className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
-              style={{ color: "var(--page-primary)" }}
+              style={{ color: "var(--theme-primary)" }}
             >
               <Pencil size={22} className="transition-transform duration-150 group-hover:scale-110" />
             </button>
@@ -323,7 +323,7 @@ export default function NewLeadsTable() {
               }}
               title="View Story"
               className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
-              style={{ color: "var(--page-accent)" }}
+             style={{ color: "var(--theme-accent, var(--theme-primary))" }}
             >
               <BookOpenText size={22} className="transition-transform duration-150 group-hover:scale-110" />
             </button>
@@ -335,7 +335,7 @@ export default function NewLeadsTable() {
               }}
               title="Comments"
               className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
-              style={{ color: "var(--page-success)" }}
+              style={{ color: "var(--theme-components-tag-accent-text, var(--theme-primary))" }}
             >
               <MessageCircle size={22} className="transition-transform duration-150 group-hover:scale-110" />
             </button>
@@ -382,7 +382,12 @@ export default function NewLeadsTable() {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 mx-2 overflow-hidden flex flex-col ui-card">
+      <div className="flex-1 min-h-0 mx-2 overflow-hidden flex flex-col ui-card border rounded-xl border-collapse"
+       style={{
+          background: "var(--theme-components-card-bg, var(--theme-cardBackground))",
+          border: "1px solid var(--theme-components-card-border, var(--theme-border))",
+        }}
+        >
         <LeadsDataTable
           leads={paginatedLeads}
           loading={loading}

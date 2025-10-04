@@ -808,7 +808,7 @@ export default function OldLeadsTable() {
                 setResponseFilterId(newResponseId);
                 setPage(1);
               }}
-              className="rounded-full text-sm shadow-sm"
+              className="rounded text-sm shadow-sm"
               style={{ ...inputPillStyle, padding: "0.5rem 2rem 0.5rem 0.75rem" }}
             >
               <option value="">All Responses</option>
@@ -841,7 +841,7 @@ export default function OldLeadsTable() {
                 setFromDate(e.target.value);
                 setApplied(false);
               }}
-              className="rounded-full text-sm shadow-sm"
+              className="rounded text-sm shadow-sm"
               style={{ ...inputPillStyle, padding: "0.5rem 0.75rem" }}
             />
             <label
@@ -857,7 +857,7 @@ export default function OldLeadsTable() {
                 setToDate(e.target.value);
                 setApplied(false);
               }}
-              className="rounded-full text-sm shadow-sm"
+              className="rounded text-sm shadow-sm"
               style={{ ...inputPillStyle, padding: "0.5rem 0.75rem" }}
             />
           </div>

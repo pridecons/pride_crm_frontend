@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import { useTheme } from "@/context/ThemeContext";
+import LoadingState from "@/components/LoadingState";
 
 /* --------------------------- helpers --------------------------- */
 const btnPrimary =
@@ -551,6 +552,11 @@ export default function LeadSourcesPage() {
     );
   };
 
+  // ⬇️ put this before the main return(...):
+if (loading) {
+  return <LoadingState message="Loading..." />;
+}
+
   return (
     <div className="p-6 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
       {/* Header */}
@@ -694,18 +700,15 @@ export default function LeadSourcesPage() {
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className={`${btnPrimary} disabled:opacity-50 font-medium shadow-lg`}
-                >
-                  {isSubmitting
-                    ? editingId
-                      ? "Updating..."
-                      : "Creating..."
-                    : editingId
-                      ? "Update Source"
-                      : "Create Source"}
-                </button>
+  type="submit"
+  disabled={isSubmitting}
+  className={`${btnPrimary} disabled:opacity-50 font-medium shadow-lg flex items-center gap-2`}
+>
+  {isSubmitting && <MiniLoader />}
+  {editingId
+    ? (isSubmitting ? "Updating..." : "Update Source")
+    : (isSubmitting ? "Creating..." : "Create Source")}
+</button>
               </div>
             </form>
           </div>
@@ -952,16 +955,6 @@ export default function LeadSourcesPage() {
                     colSpan={showBranchColumn ? 8 : 7}
                   >
                     No sources {searchTerm ? `matching “${searchTerm}”` : "available"}.
-                  </td>
-                </tr>
-              )}
-              {loading && (
-                <tr>
-                  <td
-                    className="px-4 py-6 text-center text-[var(--theme-text-muted)]"
-                    colSpan={showBranchColumn ? 8 : 7}
-                  >
-                    Loading…
                   </td>
                 </tr>
               )}

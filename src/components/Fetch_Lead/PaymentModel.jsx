@@ -40,6 +40,12 @@ import {
 } from "lucide-react";
 import { AppContextProvider } from "@/app/Main";
 
+// Feature flags
+const FEATURES = {
+  qr: false,   // set true to re-enable QR section
+  upi: false,  // set true to re-enable UPI section
+};
+
 const PAYMENT_METHODS = [
   { code: "cc", label: "Credit Card", icon: CreditCard, category: "card" },
   { code: "dc", label: "Debit Card", icon: CreditCard, category: "card" },
@@ -888,13 +894,18 @@ console.log("response : ==>",response)
           </div>
 
           {/* QR Code */}
-          <QRCodeSection
-            orderId={response.cashfreeResponse.order_id}
-            paymentLink={response.cashfreeResponse.payment_link}
-          />
+          {/* QR Code (disabled via flag) */}
+{FEATURES.qr && (
+  <QRCodeSection
+    orderId={response.cashfreeResponse.order_id}
+    paymentLink={response.cashfreeResponse.payment_link}
+  />
+)}
 
-          {/* UPI Section */}
-          <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
+{/* UPI Section (disabled via flag) */}
+{FEATURES.upi && (
+  <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
+)}
         </div>
       )}
     </div>

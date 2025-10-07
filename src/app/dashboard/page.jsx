@@ -573,7 +573,7 @@ export default function Dashboard() {
                   <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} themeConfig={themeConfig} />
                   <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} themeConfig={themeConfig} />
                   <Card title="Running FT Leads" value={num(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
-                  <Card title="Total FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
+                  <Card title="Today FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
                 </div>
 
                 <SectionHeader title="Call Analytics" themeConfig={themeConfig} />

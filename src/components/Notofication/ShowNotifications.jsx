@@ -11,8 +11,10 @@ import { AppContextProvider } from "@/app/Main";
 const TOAST_MIN_GAP_MS = 2000;
 const MAX_ACTIVE_TOASTS = 3;
 const MAX_MESSAGES_BUFFER = 200;
-const MAX_WS_RETRIES_BEFORE_FALLBACK = 3; // after this, we switch to SSE/polling
-const POLL_INTERVAL_MS = 5000;
+
+const MAX_WS_RETRIES = 10;         // max 10 retries
+const RECONNECT_DELAY_MS = 30000;  // 30s gap between retries
+
 
 const SOUND_PREF_KEY = "notifications_sound_enabled";
 const AUDIO_URL = "/notification.mp3";
@@ -296,174 +298,115 @@ export default function ShowNotifications({ setIsConnect, employee_code }) {
       pollTimerRef.current = null;
     }
   }
-  function startSSE() {
-    stopSSE();
-    stopPolling();
-    if (!("EventSource" in window)) return startPolling();
-
-    const root = buildHttpRoot(WS_BASE_URL_full);
-    const httpUrl = `${root}/sse/notification/${encodeURIComponent(
-      String(employee_code)
-    )}?after=${encodeURIComponent(String(lastSeenServerTsRef.current))}`;
-
-    try {
-      const es = new EventSource(httpUrl, { withCredentials: true });
-      sseRef.current = es;
-      es.onmessage = (e) => {
-        try {
-          handleIncoming(JSON.parse(e.data));
-        } catch { }
-      };
-      es.onerror = () => {
-        stopSSE();
-        startPolling();
-      };
-    } catch {
-      startPolling();
-    }
-  }
-  function startPolling() {
-    stopPolling();
-    const root = buildHttpRoot(WS_BASE_URL_full);
-    const url = `${root}/api/notifications/pull?employee_code=${encodeURIComponent(
-      String(employee_code)
-    )}&after=${encodeURIComponent(String(lastSeenServerTsRef.current))}`;
-
-    async function pollOnce() {
-      try {
-        const res = await fetch(url, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (!res.ok) return;
-        const arr = await res.json();
-        if (Array.isArray(arr)) {
-          for (const m of arr) handleIncoming(m);
-        }
-      } catch { }
-    }
-
-    pollOnce(); // immediate
-    pollTimerRef.current = setInterval(pollOnce, POLL_INTERVAL_MS);
-  }
 
   /* ---------------- WebSocket connect (primary) ---------------- */
   useEffect(() => {
-    if (!employee_code) return;
-    if (typeof window === "undefined") return;
+  if (!employee_code) return;
+  if (typeof window === "undefined") return;
 
-    function isSocketAlive(ws) {
-      return (
-        ws &&
-        (ws.readyState === window.WebSocket.OPEN ||
-          ws.readyState === window.WebSocket.CONNECTING)
-      );
+  function isSocketAlive(ws) {
+    return (
+      ws &&
+      (ws.readyState === window.WebSocket.OPEN ||
+        ws.readyState === window.WebSocket.CONNECTING)
+    );
+  }
+
+  function connectWS() {
+    if (typeof window.WebSocket === "undefined") return;
+    if (isSocketAlive(socketRef.current)) return;
+
+    // ✅ Use path-only; browser will use current origin (ws://host or wss://host)
+    const path = `/api/v1/ws/notification/${String(employee_code)}`;
+    const url = buildWsUrl(WS_BASE_URL_full, path);
+
+    let socket;
+    try {
+      socket = new window.WebSocket(url);
+    } catch {
+      // if constructor itself fails, schedule retry
+      scheduleReconnect();
+      return;
     }
 
-    function connectWS() {
-      if (typeof window.WebSocket === "undefined") {
-        startSSE();
-        return;
-      }
-      if (isSocketAlive(socketRef.current)) return;
+    socketRef.current = socket;
 
-      const path = `/api/v1/ws/notification/${String(employee_code)}`;
-      const url = buildWsUrl(WS_BASE_URL_full, path);
-
-      let socket;
-      try {
-        socket = new window.WebSocket(url);
-      } catch {
-        return startSSE();
-      }
-
-      socketRef.current = socket;
-
-      socket.onopen = () => {
-        setIsConnect?.(true);
-        retryCountRef.current = 0;
-        if (reconnectTimerRef.current) {
-          clearTimeout(reconnectTimerRef.current);
-          reconnectTimerRef.current = null;
-        }
-        stopSSE();
-        stopPolling();
-      };
-
-      socket.onmessage = (event) => {
-        let data;
-        try {
-          data = JSON.parse(event.data);
-          // console.log("WS:", data);
-        } catch {
-          return;
-        }
-        if (
-          data?.type === "connection_confirmed" ||
-          data?.type === "ping" ||
-          data?.type === "pong"
-        ) {
-          return;
-        } else if (data?.type === "rational") {
-          // Keep for modal + show NEW badge until user opens modal
-          setLastRational({
-            id: data.id || `ws-${Date.now()}`,
-            timestamp: data.timestamp || new Date().toISOString(),
-            type: data.type,
-            title: data.title || "Recommendation",
-            message: data.message || "",
-          });
-          setRationalUnread(true);
-        } else {
-          handleIncoming(data);
-
-          if(data.order_id && data.payment_status){
-            setSaymentStatus({"order_id": data.order_id, "payment_status": data.payment_status})
-          }
-        }
-      };
-
-      socket.onerror = () => {
-        try {
-          socket.close();
-        } catch { }
-      };
-
-      socket.onclose = () => {
-        setIsConnect?.(false);
-        if (retryCountRef.current >= MAX_WS_RETRIES_BEFORE_FALLBACK) {
-          startSSE();
-          return;
-        }
-        if (!allowReconnectRef.current) return;
-        retryCountRef.current += 1;
-        const base = Math.min(30000, 1000 * Math.pow(2, retryCountRef.current));
-        const jitter = Math.floor(Math.random() * 500);
-        reconnectTimerRef.current = setTimeout(connectWS, base + jitter);
-      };
-    }
-
-    connectWS();
-
-    return () => {
-      allowReconnectRef.current = false;
-      try {
-        socketRef.current?.close();
-      } catch { }
+    socket.onopen = () => {
+      setIsConnect?.(true);
+      retryCountRef.current = 0; // reset on successful open
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
       stopSSE();
       stopPolling();
-      for (let i = 0; i < activeToastIdsRef.current.length; i++)
-        toast.dismiss(activeToastIdsRef.current[i]);
-      activeToastIdsRef.current = [];
-      setTimeout(() => {
-        allowReconnectRef.current = true;
-      }, 0);
     };
-  }, [employee_code, setIsConnect]);
+
+    socket.onmessage = (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (data?.type === "connection_confirmed" || data?.type === "ping" || data?.type === "pong") {
+        return;
+      } else if (data?.type === "rational") {
+        setLastRational({
+          id: data.id || `ws-${Date.now()}`,
+          timestamp: data.timestamp || new Date().toISOString(),
+          type: data.type,
+          title: data.title || "Recommendation",
+          message: data.message || "",
+        });
+        setRationalUnread(true);
+      } else {
+        handleIncoming(data);
+        if (data.order_id && data.payment_status) {
+          setSaymentStatus({ order_id: data.order_id, payment_status: data.payment_status });
+        }
+      }
+    };
+
+    socket.onerror = () => {
+      try { socket.close(); } catch {}
+    };
+
+    socket.onclose = () => {
+      setIsConnect?.(false);
+      scheduleReconnect();
+    };
+  }
+
+  function scheduleReconnect() {
+    if (!allowReconnectRef.current) return;
+
+    // increment first, then check cap (max 10 tries)
+    retryCountRef.current += 1;
+    if (retryCountRef.current > MAX_WS_RETRIES) return;
+
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    reconnectTimerRef.current = setTimeout(connectWS, RECONNECT_DELAY_MS);
+  }
+
+  connectWS();
+
+  return () => {
+    allowReconnectRef.current = false;
+    try { socketRef.current?.close(); } catch {}
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    stopSSE();
+    stopPolling();
+    for (let i = 0; i < activeToastIdsRef.current.length; i++)
+      toast.dismiss(activeToastIdsRef.current[i]);
+    activeToastIdsRef.current = [];
+    setTimeout(() => { allowReconnectRef.current = true; }, 0);
+  };
+}, [employee_code, setIsConnect]);
+
 
   /* ---------------- Click-outside to close panel ---------------- */
   useEffect(() => {

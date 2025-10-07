@@ -283,7 +283,7 @@ function ScopePicker({ value, onChange }) {
     >
       <option value="">{placeholder}</option>
       {sources.map((s) => (
-        <option key={s.id} value={s.id}>{s.name} (#{s.id})</option>
+        <option key={s.id} value={s.id}>{s.name} ({s.count})</option>
       ))}
     </select>
   );
@@ -308,7 +308,7 @@ function ScopePicker({ value, onChange }) {
                   else onChange(values.filter((x) => x !== r.id));
                 }}
               />
-              <span>{r.name} (#{r.id})</span>
+              <span>{r.name} ({r.count})</span>
             </label>
           );
         })}

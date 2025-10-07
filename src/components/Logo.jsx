@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
  * Minimal Logo
  * Props:
  * - src: light/default logo path (string)  e.g. "/crm.png"
- * - darkSrc: optional dark-mode logo path (string) e.g. "/crm-dark.png"
+ * - darkSrc: optional dark-mode logo path (string) e.g. "/crm.png"
  * - alt: string (default: "Logo")
  * - width, height: numbers for intrinsic size (defaults 128x40)
  * - href: optional link. if provided, wraps in <Link>

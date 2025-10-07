@@ -213,7 +213,7 @@ export default function LoginPage() {
       <div className="flex flex-col justify-center px-6">
         <div className="text-center mb-4">
           <div className="flex justify-center items-center">
-            <Logo src="/crm.png" darkSrc="/crm-dark.png" width={160} height={50} />
+            <Logo src="/crm.png" darkSrc="/crm.png" width={160} height={50} />
           </div>
           <p className="text-gray-700 pt-2 text-sm">Sign in to access your CRM dashboard</p>
         </div>

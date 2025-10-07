@@ -512,7 +512,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
             <div className="relative">
               <Logo
                 src="/crm.png"
-                darkSrc="/crm-dark.png"  // optional
+                darkSrc="/crm.png"  // optional
                 width={128}
                 height={40}
                 href="/dashboard"

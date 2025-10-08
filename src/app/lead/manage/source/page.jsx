@@ -79,6 +79,13 @@ const getPendingFromBreakdown = (breakdown = []) =>
 const getNonPendingBreakdown = (breakdown = []) =>
   (breakdown || []).filter((x) => x?.response_id != null);
 
+// NEW: available leads helper (tries a few likely field names)
+const getAvailableFromSource = (src) =>
+  Number(
+    src?.available_leads ?? src?.available ?? src?.available_count ?? 0
+  ) || 0;
+
+
 export default function LeadSourcesPage() {
   const { theme, toggleTheme } = useTheme();
   const { hasPermission } = usePermissions();
@@ -356,24 +363,27 @@ export default function LeadSourcesPage() {
   };
 
   /* --------------------------- filters --------------------------- */
-  const filteredSources = useMemo(() => {
-    const term = (searchTerm || "").toLowerCase();
-    return (sources || []).filter((src) => {
-      const roleNames =
-        (src.fetch_configs || [])
-          .map((fc) => {
-            const r = roles.find((x) => x.id === fc.role_id);
-            return r?.name || "";
-          })
-          .join(", ") || "";
-      return (
-        (src?.name || "").toLowerCase().includes(term) ||
-        (src?.description || "").toLowerCase().includes(term) ||
-        String(src?.branch_id || "").toLowerCase().includes(term) ||
-        roleNames.toLowerCase().includes(term)
-      );
-    });
-  }, [sources, searchTerm, roles]);
+const filteredSources = useMemo(() => {
+  const term = (searchTerm || "").toLowerCase();
+  return (sources || []).filter((src) => {
+    const roleNames =
+      (src.fetch_configs || [])
+        .map((fc) => {
+          const r = roles.find((x) => x.id === fc.role_id);
+          return r?.name || "";
+        })
+        .join(", ") || "";
+
+    // 🔽 UPDATED: include branch_name in the searchable text
+    return (
+      (src?.name || "").toLowerCase().includes(term) ||
+      (src?.description || "").toLowerCase().includes(term) ||
+      (src?.branch_name || "").toLowerCase().includes(term) ||
+      String(src?.branch_id || "").toLowerCase().includes(term) ||
+      roleNames.toLowerCase().includes(term)
+    );
+  });
+}, [sources, searchTerm, roles]);
 
   /* --------------------------- UI helpers --------------------------- */
   const renderBranchField = (isCreateMode) => {
@@ -740,6 +750,7 @@ if (loading) {
                 <th className="px-4 py-3 text-left font-semibold">Source</th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total</th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Pending</th>
+<th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Available</th>
                 <th className="px-4 py-3 text-left font-semibold">Roles (per/daily)</th>
                 {showBranchColumn && (
                   <th className="px-4 py-3 text-left font-semibold">Branch</th>
@@ -766,15 +777,17 @@ if (loading) {
 
                 const breakdown = Array.isArray(src.response_breakdown) ? src.response_breakdown : [];
                 const pending = getPendingFromBreakdown(breakdown);
+                const available = getAvailableFromSource(src);
                 const nonPending = getNonPendingBreakdown(breakdown);
                 const branchLabel =
-                  branchMap[Number(src.branch_id)] ||
-                  src.branch_name ||
-                  src?.branch?.name ||
-                  (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
+  src.branch_name ||                 // ✅ prefer API's branch_name
+  src?.branch?.name ||
+  branchMap[Number(src.branch_id)] ||// fallback to map if needed (for old data)
+  (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
 
                 const isOpen = openRows.has(src.id);
-                const COLS = showBranchColumn ? 8 : 7; // (Source, Total, Pending, Roles, [Branch], Description, Actions)
+                const COLS = showBranchColumn ? 9 : 8;
+ // (Source, Total, Pending, Roles, [Branch], Description, Actions)
 
                 return (
                   <React.Fragment key={src.id}>
@@ -812,22 +825,40 @@ if (loading) {
                         {src.total_leads ?? 0}
                       </td>
 
-                      <td className="px-4 py-3 align-top whitespace-nowrap">
-                        {(pending?.total_leads ?? 0) > 0 ? (
-                          <span
-                            className="inline-flex px-2 py-0.5 rounded-full text-xs border"
-                            style={{
-                              background: "var(--theme-components-tag-warning-bg)",
-                              color: "var(--theme-components-tag-warning-text)",
-                              borderColor: "var(--theme-components-tag-warning-border)",
-                            }}
-                          >
-                            {pending.total_leads}
-                          </span>
-                        ) : (
-                          <span className="text-[var(--theme-text-muted)]">0</span>
-                        )}
-                      </td>
+                      {/* Pending */}
+<td className="px-4 py-3 align-top whitespace-nowrap">
+  {(pending?.total_leads ?? 0) > 0 ? (
+    <span
+      className="inline-flex px-2 py-0.5 rounded-full text-xs border"
+      style={{
+        background: "var(--theme-components-tag-warning-bg)",
+        color: "var(--theme-components-tag-warning-text)",
+        borderColor: "var(--theme-components-tag-warning-border)",
+      }}
+      title="Pending leads"
+    >
+      {pending.total_leads}
+    </span>
+  ) : (
+    <span className="text-[var(--theme-text-muted)]">0</span>
+  )}
+</td>
+
+{/* Available */}
+<td className="px-4 py-3 align-top whitespace-nowrap">
+  <span
+    className="inline-flex px-2 py-0.5 rounded-full text-xs border"
+    style={{
+      background:
+        "var(--theme-components-tag-info-bg, color-mix(in srgb, var(--theme-primary) 10%, transparent))",
+      color: "var(--theme-components-tag-info-text, var(--theme-primary))",
+      borderColor: "var(--theme-components-tag-info-border, var(--theme-border))",
+    }}
+    title="Available leads"
+  >
+    {available}
+  </span>
+</td>
 
                       <td className="px-4 py-3 align-top max-w-[520px]">
                         <div className="text-xs text-[var(--theme-text)] truncate" title={fcPreview}>
@@ -952,7 +983,7 @@ if (loading) {
                 <tr>
                   <td
                     className="px-4 py-10 text-center text-[var(--theme-text-muted)]"
-                    colSpan={showBranchColumn ? 8 : 7}
+                    colSpan={showBranchColumn ? 9 : 8}
                   >
                     No sources {searchTerm ? `matching “${searchTerm}”` : "available"}.
                   </td>

@@ -12,7 +12,8 @@ import {
   ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal, PhoneCall,
   PlusCircle, MessagesSquare, ClipboardCheck, FileSearch, StickyNote,
   PieChart, UserCog, MailOpen, MessageSquareText,
-  Share
+  Share,
+  Recycle
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -318,7 +319,7 @@ const handleEnter = () => {
           { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
           { href: "/lead/manage/response", icon: MessagesSquare, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
           { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
-          { href: "/lead/transfer", icon: Share, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact"},
+          { href: "/lead/transfer", icon: Recycle, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact"},
         ],
       },
       {

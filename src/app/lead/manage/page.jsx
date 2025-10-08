@@ -48,7 +48,7 @@ async function loadRoleMap() {
     if (cached && typeof cached === "object" && Object.keys(cached).length) {
       return cached;
     }
-  } catch {}
+  } catch { }
 
   try {
     const res = await axiosInstance.get("/profile-role/", {
@@ -77,7 +77,7 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
         if (mapped) return mapped;
       }
     }
-  } catch {}
+  } catch { }
 
   if (userInfo) {
     const uiRole =
@@ -161,12 +161,10 @@ const LeadManage = () => {
 
   // Accordion
   const [openLead, setOpenLead] = useState(null);
-// Date filters
-const [fromDate, setFromDate] = useState("");
-const [toDate, setToDate] = useState("");
-
-// Apply trigger
-const [applyDateFilter, setApplyDateFilter] = useState(false);
+  // Cards
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [applyDateFilter, setApplyDateFilter] = useState(false);
 
   // Cards
   const [dashboardData, setDashboardData] = useState(null);
@@ -299,15 +297,16 @@ const [applyDateFilter, setApplyDateFilter] = useState(false);
         if (responseFilter !== "All") params.response_id = responseFilter;
 
         if (searchQuery.trim()) params.search = searchQuery.trim();
-        
-        if (fromDate) params.created_from = fromDate;
-if (toDate) params.created_to = toDate;
+
 
         if (kycFilter === "Completed") {
           params.kyc_only = true;
         } else if (kycFilter === "Pending") {
           params.kyc_only = false;
         }
+
+        if (fromDate) params.from_date = fromDate;
+        if (toDate) params.to_date = toDate;
 
         const { data } = await axiosInstance.get("/leads/", { params });
         setLeadData(Array.isArray(data?.leads) ? data.leads : []);
@@ -330,7 +329,7 @@ if (toDate) params.created_to = toDate;
     responseFilter,
     kycFilter,
     searchQuery,
-    applyDateFilter,
+    applyDateFilter
   ]);
 
   /* ---------- quick cards (admins only) ---------- */
@@ -479,7 +478,7 @@ if (toDate) params.created_to = toDate;
   };
 
   /* ================ UI (Theme variables only for colors) ================ */
-    const openStory = (leadId) => {
+  const openStory = (leadId) => {
     setStoryLeadId(leadId);
     setIsStoryModalOpen(true);
   };
@@ -514,54 +513,67 @@ if (toDate) params.created_to = toDate;
           </div>
         </div>
       </div>
-{/* Date Filter */}
-<div className="flex flex-wrap items-end gap-4">
-  <div>
-    <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
-      From Date
-    </label>
-    <input
-      type="date"
-      value={fromDate}
-      onChange={(e) => setFromDate(e.target.value)}
-      className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
-    />
-  </div>
+      {/* ================= Date Filter ================= */}
+      <div className="flex flex-wrap items-end gap-4 py-4">
+        {/* From Date */}
+        <div>
+          <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+            From Date
+          </label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="border border-[var(--theme-border)] rounded-lg px-3 py-2 
+                 bg-[var(--theme-input-background)] text-[var(--theme-text)] 
+                 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]
+                 hover:bg-[var(--theme-primary-softer)]"
+          />
+        </div>
 
-  <div>
-    <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
-      To Date
-    </label>
-    <input
-      type="date"
-      value={toDate}
-      onChange={(e) => setToDate(e.target.value)}
-      className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
-    />
-  </div>
+        {/* To Date */}
+        <div>
+          <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+            To Date
+          </label>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="border border-[var(--theme-border)] rounded-lg px-3 py-2 
+                 bg-[var(--theme-input-background)] text-[var(--theme-text)] 
+                 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]
+                 hover:bg-[var(--theme-primary-softer)]"
+          />
+        </div>
 
-  <div className="flex gap-2 mb-1">
-    <button
-      type="button"
-      onClick={() => setApplyDateFilter((prev) => !prev)} // trigger fetch
-      className="px-4 py-2 rounded-lg bg-[var(--theme-primary)] text-white"
-    >
-      Apply
-    </button>
+        {/* Buttons */}
+        <div className="flex gap-2 mb-1">
+          <button
+            type="button"
+            onClick={() => setApplyDateFilter((prev) => !prev)} // ✅ trigger API refetch
+            className="px-4 py-2 rounded-lg bg-[var(--theme-primary)] text-white 
+                 hover:opacity-90 transition-all border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
+          >
+            Apply
+          </button>
 
-    <button
-      type="button"
-      onClick={() => {
-        setFromDate("");
-        setToDate("");
-        setApplyDateFilter((prev) => !prev); // reset trigger
-      }}
-      className="px-4 py-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)]"
-    >
-      Reset
-    </button>
-  </div>
-</div>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate("");
+              setToDate("");
+              setApplyDateFilter((prev) => !prev); // ✅ trigger API refetch (reset)
+            }}
+            className="px-4 py-2 rounded-lg border border-[var(--theme-border)] 
+                 bg-[var(--theme-surface)] text-[var(--theme-text)] 
+                  transition-all  hover:bg-[var(--theme-primary-softer)]"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
 
       {/* Quick Stats */}
       {canViewCards && (
@@ -659,11 +671,10 @@ if (toDate) params.created_to = toDate;
                   <button
                     key={opt.value}
                     onClick={() => setBranchFilter(opt.value)}
-                    className={`px-4 py-2 rounded-lg border whitespace-nowrap transition-colors ${
-                      branchFilter === opt.value
+                    className={`px-4 py-2 rounded-lg border whitespace-nowrap transition-colors ${branchFilter === opt.value
                         ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
                         : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
-                    }`}
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -975,11 +986,10 @@ if (toDate) params.created_to = toDate;
             <button
               key={i}
               onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 border rounded ${
-                currentPage === i + 1
+              className={`px-3 py-1 border rounded ${currentPage === i + 1
                   ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
                   : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
-              }`}
+                }`}
             >
               {i + 1}
             </button>

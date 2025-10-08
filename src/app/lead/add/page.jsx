@@ -771,7 +771,9 @@ export default function LeadForm() {
               required
             >
               <option value="">Select Response</option>
-              {leadResponses.map((r) => (
+              {leadResponses
+              .filter((r) => r.name !== "CLIENT")
+              .map((r) => (
                 <option key={r.id} value={String(r.id)}>
                   {r.name}
                 </option>

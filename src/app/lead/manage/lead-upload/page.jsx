@@ -400,14 +400,7 @@ export default function BulkUploadPage() {
                   name="pasted_mobiles"
                   value={pasteText}
                   onChange={(e) => setPasteText(e.target.value)}
-                  placeholder={`Examples:
-0919876543210
-091 98765 43210
-091 98765-43210
-91 98765 43210, 919876543210
-+91 98765 43210, 91234-56789
-(91) 98989 89898 97979 79797
-`}
+                  placeholder={`Paste Mobile Numbers`}
                   rows={8}
                   className="w-full px-4 py-3 rounded-lg transition
                              bg-[var(--theme-components-input-bg)]

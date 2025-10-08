@@ -583,7 +583,7 @@ export const ViewAndEditLead = ({
               className="block text-sm font-medium mb-1"
               style={{ color: "var(--theme-text-muted,#64748b)" }}
             >
-              Lead Source
+              Created Source
             </label>
             <InputField
               id="lead_source_id"
@@ -601,15 +601,16 @@ export const ViewAndEditLead = ({
               className="block text-sm font-medium mb-1"
               style={{ color: "var(--theme-text-muted,#64748b)" }}
             >
-              Lead Response
+              Client Response
             </label>
 
-            {isEditMode ? (
+            {/* {isEditMode ? (
               <select
                 id="lead_response_id"
                 name="lead_response_id"
                 value={String(editFormData.lead_response_id ?? "")}
                 onChange={(e) => handleResponseSelect(e.target.value)}
+               disabled={editFormData.lead_response?.name === "CLIENT"}
                 className="w-full h-12 px-3 rounded-lg"
                 style={{
                   background: "var(--theme-card-bg,#fff)",
@@ -619,18 +620,21 @@ export const ViewAndEditLead = ({
                 }}
               >
                 <option value="">Select Response</option>
-                {leadResponses.map((resp) => (
+                {leadResponses
+                .filter((r) => r.name !== "CLIENT")
+                .map((resp) => (
                   <option key={resp.value} value={resp.value}>
                     {resp.label}
                   </option>
                 ))}
               </select>
-            ) : (
+            ) : ( */}
               <select
                 id="lead_response_id"
                 name="lead_response_id"
                 value={String(editFormData.lead_response_id ?? "")}
                 onChange={(e) => handleResponseSelect(e.target.value)}
+                 disabled={editFormData.lead_response?.name === "CLIENT"}
                 className="w-full h-12 px-3 rounded-lg"
                 style={{
                   background: "var(--theme-card-bg,#fff)",
@@ -640,13 +644,15 @@ export const ViewAndEditLead = ({
                 }}
               >
                 <option value="">Select Response</option>
-                {leadResponses.map((resp) => (
+                {leadResponses
+                .filter((r) => editFormData.lead_response?.name !== "CLIENT" ? r.label !== "CLIENT" : r.label)
+                .map((resp) => (
                   <option key={resp.value} value={resp.value}>
                     {resp.label}
                   </option>
                 ))}
               </select>
-            )}
+            {/* )}   */}
           </div>
         </div>
       </div>

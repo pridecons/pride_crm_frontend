@@ -4,7 +4,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
-import { Users, Upload } from "lucide-react";
+import { Users, Upload, Download } from "lucide-react";
 import StatsCards from "./StatsCards";
 import UserFilters from "./UserFilters";
 import UserTable from "./UserTable";
@@ -74,7 +74,7 @@ export default function UsersListPage() {
   const [total, setTotal] = useState(0);   // backend total
   const [usersTotal, setUsersTotal] = useState(0);  // <-- TOTAL users (for card)
   const [activeTotal, setActiveTotal] = useState(0);
-  const [skip, setSkip]   = useState(0);   // NEW
+  const [skip, setSkip] = useState(0);   // NEW
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -173,13 +173,13 @@ export default function UsersListPage() {
       // OPTIONAL: if you also want to base usersTotal on the card block
       setUsersTotal(
         Number(card.total_employee) ||
-          (Number(res?.data?.pagination?.total) || list.length)
+        (Number(res?.data?.pagination?.total) || list.length)
       );
 
       // accept either {data, total, limit} or bare array fallback
       const list =
         Array.isArray(res?.data?.data) ? res.data.data :
-        (Array.isArray(res?.data) ? res.data : []);
+          (Array.isArray(res?.data) ? res.data : []);
 
       setUsers(normalizeUsers(list, roleMap));
       setCodeToName(makeCodeToName(list));
@@ -187,10 +187,10 @@ export default function UsersListPage() {
       // NEW: use API pagination block
       const pg = res?.data?.pagination || {};
       const apiTotal = Number(pg.total) || 0;
-      const apiSkip  = Number(pg.skip)  || 0;
+      const apiSkip = Number(pg.skip) || 0;
       const apiLimit = Number(pg.limit) || limit;
       const apiPages = Number(pg.pages) || Math.max(1, Math.ceil(apiTotal / (apiLimit || 1)));
-      const apiPage  = apiLimit ? Math.floor(apiSkip / apiLimit) + 1 : 1;
+      const apiPage = apiLimit ? Math.floor(apiSkip / apiLimit) + 1 : 1;
 
       setTotal(apiTotal || list.length);
       setUsersTotal(apiTotal || 0);
@@ -253,6 +253,66 @@ export default function UsersListPage() {
   const goToPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
   const prevPage = () => goToPage(page - 1);
   const nextPage = () => goToPage(page + 1);
+
+const handleDownloadUsers = async () => {
+  try {
+    toast.loading("Downloading all users...");
+
+    const bigList = [];
+    let skip = 0;
+    const bigLimit = 500; // or whatever your backend allows
+    let total = 0;
+
+    do {
+      const res = await axiosInstance.get("/users/", {
+        params: { skip, limit: bigLimit, active_only: false },
+      });
+
+      const batch = Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
+
+      if (!batch.length) break;
+
+      bigList.push(...batch);
+
+      // detect if more pages
+      const pg = res?.data?.pagination;
+      total = pg?.total ?? total ?? 0;
+      skip += bigLimit;
+    } while (skip < total);
+
+    if (!bigList.length) {
+      toast.error("No users found to download.");
+      return;
+    }
+
+    // Convert to CSV
+    const headers = Object.keys(bigList[0]);
+    const csv = [
+      headers.join(","),
+      ...bigList.map((u) => headers.map((h) => JSON.stringify(u[h] ?? "")).join(",")),
+    ].join("\n");
+
+    // Trigger download
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "all_users.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.dismiss();
+    toast.success(`Downloaded ${bigList.length} users successfully!`);
+  } catch (err) {
+    toast.dismiss();
+    ErrorHandling({ error: err, defaultError: "Failed to download all users." });
+  }
+};
+
+
 
   return (
     <div
@@ -353,7 +413,12 @@ export default function UsersListPage() {
             </p>
           </div>
 
+
           <div className="flex items-center gap-3">
+            <button onClick={handleDownloadUsers} className="theme-btn theme-btn-secondary">
+              <Download className="w-4 h-4" />
+              Download Users
+            </button>
             {canBulk && (
               <button onClick={openBulk} className="theme-btn theme-btn-primary">
                 <Upload className="w-4 h-4" />

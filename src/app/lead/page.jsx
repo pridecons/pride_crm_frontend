@@ -12,7 +12,7 @@ import { toast } from "react-hot-toast";
 import LeadsDataTable from "@/components/Lead/LeadsTable";
 import { formatCallbackForAPI, isoToDatetimeLocal } from "@/utils/dateUtils";
 import { ErrorHandling } from "@/helper/ErrorHandling";
-import CallButton from "@/components/Lead/CallButton";
+// import CallButton from "@/components/Lead/CallButton";
 import FetchLeadsModal from "@/components/Lead/FetchLeadsModal";
 
 export default function NewLeadsTable() {
@@ -270,7 +270,9 @@ export default function NewLeadsTable() {
             onChange={(e) => handleResponseChange(lead, e.target.value)}
           >
             <option value="">Select Response</option>
-            {responses.map((r) => (
+            {responses
+            .filter((r) => r.name !== "CLIENT")
+            .map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -305,7 +307,7 @@ export default function NewLeadsTable() {
         header: "Actions",
         render: (lead) => (
           <div className="flex gap-2">
-            <CallButton lead={lead} onRefresh={fetchLeads} />
+            {/* <CallButton lead={lead} onRefresh={fetchLeads} /> */}
 
             <button
               onClick={() => router.push(`/lead/${lead.id}`)}

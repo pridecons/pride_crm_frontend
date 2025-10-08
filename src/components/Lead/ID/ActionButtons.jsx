@@ -14,7 +14,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
-import CallButton from "../CallButton";
+// import CallButton from "../CallButton";
 
 const btnBase =
   "flex items-center px-4 py-2 rounded-lg border font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed";
@@ -39,14 +39,14 @@ export function ActionButtons({
   return (
     <div className="flex flex-wrap gap-3 mb-5 justify-center">
       {/* Call */}
-      <CallButton
+      {/* <CallButton
         lead={currentLead}
         size="md"
         onRefresh={onRefresh}
         title={currentLead?.is_call ? "Called" : "Call"}
       >
         {currentLead?.is_call ? "Called" : "Call"}
-      </CallButton>
+      </CallButton> */}
 
       {/* Agreement / KYC */}
       {currentLead?.kyc ? (

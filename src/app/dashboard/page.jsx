@@ -569,11 +569,11 @@ export default function Dashboard() {
             {!!data && (
               <>
                 <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5" />} themeConfig={themeConfig} />
-                  <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5" />} themeConfig={themeConfig} />
-                  <Card title="Running FT Leads" value={num(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
-                  <Card title="Today FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5" />} themeConfig={themeConfig} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 ">
+                  <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />} themeConfig={themeConfig} />
+                  <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />} themeConfig={themeConfig} />
+                  <Card title="Running FT Leads" value={num(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />} themeConfig={themeConfig} />
+                  <Card title="Today FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />} themeConfig={themeConfig} />
                 </div>
 
                 <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
@@ -581,25 +581,25 @@ export default function Dashboard() {
                   <Card
                     title="Total Calls"
                     value={num(data?.cards?.calls?.total)}
-                    icon={<PhoneCall className="h-5 w-5" />}
+                    icon={<PhoneCall className="h-5 w-5 text-[var(--theme-accent)]" />}
                     themeConfig={themeConfig}
                   />
                   <Card
                     title="Answered Calls"
                     value={num(data?.cards?.calls?.answered)}
-                    icon={<PhoneIncoming className="h-5 w-5" />}
+                    icon={<PhoneIncoming className="h-5 w-5 text-[var(--theme-text)]" />}
                     themeConfig={themeConfig}
                   />
                   <Card
                     title="Missed Calls"
                     value={num(data?.cards?.calls?.missed)}
-                    icon={<PhoneOff className="h-5 w-5" />}
+                    icon={<PhoneOff className="h-5 w-5 text-[var(--theme-warning)]" />}
                     themeConfig={themeConfig}
                   />
                   <Card
                     title="Avg Duration"
                     value={data?.cards?.calls?.duration_hms || "00:00:00"}
-                    icon={<Clock3 className="h-5 w-5" />}
+                    icon={<Clock3 className="h-5 w-5 text-[var(--theme-success)]" />}
                     themeConfig={themeConfig}
                   />
                 </div>
@@ -729,7 +729,7 @@ export default function Dashboard() {
                 themeConfig={themeConfig}
               >
                 {/* Inline filters (draft) with Apply */}
-                <div className="mb-3 px-1">
+                <div className="mb-3 px-2 pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
                     <div className="md:col-span-2">
                       <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
@@ -1191,33 +1191,28 @@ function SectionHeader({ title, themeConfig }) {
 function Card({ title, value, sub = '', icon, delta, className = '', themeConfig }) {
   return (
     <div
-      className={`shadow-sm overflow-hidden rounded-xl ${className}`}
-      style={{
-        background: `linear-gradient(135deg, ${themeConfig.primary} 0%, ${themeConfig.accent} 100%)`,
-        boxShadow: `0 12px 24px ${hexToRgba(themeConfig.shadow || '#000', 0.2)}`
-      }}
+      className={` overflow-hidden rounded-xl group bg-[var(--theme-card-bg)] shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]${className}`}
     >
       <div className="grid grid-cols-[1fr,88px]">
         <div className="flex justify-between">
-          <div className="p-4">
-            <div className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: hexToRgba('#FFFFFF', 0.85) }}>{title}</div>
-            <div className="mt-1 text-[22px] leading-tight font-bold rupee" style={{ color: '#fff' }}>{value ?? '—'}</div>
+          <div className="">
+            <div className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">{title}</div>
+            <div className="mt-4 text-[22px] leading-tight font-bold rupee">{value ?? '—'}</div>
 
             <div className="mt-2 flex items-center px-4 gap-2">
               {typeof delta === 'number' && (
-                <span className="px-2 py-[2px] rounded text-[11px] font-semibold" style={{ backgroundColor: hexToRgba('#FFFFFF', 0.25), color: '#fff' }}>
+                <span className="px-2 py-[2px] rounded text-[11px] font-semibold">
                   {`${delta > 0 ? '+' : ''}${Number(delta).toFixed(2)}%`}
                 </span>
               )}
-              {sub && <span className="text-[11px] font-medium" style={{ color: hexToRgba('#FFFFFF', 0.95) }}>{sub}</span>}
+              {sub && <span className="text-[11px] font-medium">{sub}</span>}
             </div>
           </div>
 
           <div
             className="flex items-center justify-center px-2"
-            style={{ background: hexToRgba('#000000', 0.08) }}
           >
-            <div className="w-10 h-10 rounded-md flex items-center justify-center" style={{ backgroundColor: hexToRgba('#FFFFFF', 0.15), color: '#fff' }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--theme-primary-softer)]">
               {icon}
             </div>
           </div>

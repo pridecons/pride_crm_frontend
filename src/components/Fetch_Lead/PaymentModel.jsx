@@ -595,6 +595,7 @@ const CreatePaymentLink = ({
                     onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                     placeholder={`0.00 (Max ₹${remaining})`}
                     disabled={remaining <= 0}
+                    onWheel={(e) => e.target.blur()}
                   />
                 </div>
                 {amount > remaining && (

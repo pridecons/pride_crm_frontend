@@ -312,13 +312,13 @@ const handleEnter = () => {
         ],
       },
       {
-        title: "MANAGEMENT", section: "management", icon: SlidersHorizontal,
+        title: "LEAD MANAGEMENT", section: "management", icon: SlidersHorizontal,
         items: [
           { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "prefix" },
           { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
           { href: "/lead/manage/response", icon: MessagesSquare, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
           { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
-          { href: "/lead/transfer", icon: Share, label: "Lead Transfer", access: "lead_transfer_page", activeMatch: "exact"},
+          { href: "/lead/transfer", icon: Share, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact"},
         ],
       },
       {

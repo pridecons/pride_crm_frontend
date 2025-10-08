@@ -33,11 +33,15 @@ const USE_OLD_IMAGE_KEYS = false;
 function RowHeader({ title, onAdd }) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <h3 className="font-semibold text-gray-800">{title}</h3>
+      <h3 className="font-semibold text-[var(--theme-text)]">{title}</h3>
       <button
         type="button"
         onClick={onAdd}
-        className="flex items-center gap-2 px-3 py-1.5 border rounded-lg hover:bg-gray-50 border-[var(--theme-border)]"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg
+                          bg-[var(--theme-components-button-secondary-bg)]
+                           text-[var(--theme-components-button-secondary-text)]
+                           border border-[var(--theme-components-button-secondary-border)]
+                           hover:bg-[var(--theme-components-button-secondary-hoverBg)]"
       >
         <Plus size={16} />
         Add
@@ -77,12 +81,12 @@ function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start border border-[var(--theme-border)] rounded-xl p-3 mb-3">
       <input
         placeholder="Symbol"
-        className="md:col-span-2 border border-[var(--theme-border)] bg-[var(--theme-input-bg)] rounded-lg h-11 px-3"
+        className="md:col-span-2 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent h-11 px-3"
         value={row.symbol || ""}
         onChange={(e) => set("symbol", e.target.value)}
       />
       <select
-        className="md:col-span-2 border border-[var(--theme-border)] rounded-lg h-11 px-3 bg-[var(--theme-input-bg)]"
+        className="md:col-span-2 rounded-lg h-11 px-3 transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
         value={row.view || ""}
         onChange={(e) => set("view", e.target.value)}
       >
@@ -93,7 +97,7 @@ function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
       </select>
       <input
         placeholder="Entry @"
-        className="md:col-span-1 border border-[var(--theme-border)] bg-[var(--theme-input-bg)] rounded-lg h-11 px-3"
+        className="md:col-span-1 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent h-11 px-3"
         value={row.entry_at ?? ""}
         onChange={(e) => set("entry_at", numOrNull(e.target.value))}
         type="number"
@@ -101,7 +105,7 @@ function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
       />
       <input
         placeholder="Buy Above"
-        className="md:col-span-1 border border-[var(--theme-border)] bg-[var(--theme-input-bg)]rounded-lg h-11 px-3"
+        className="md:col-span-1 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent h-11 px-3"
         value={row.buy_above ?? ""}
         onChange={(e) => set("buy_above", numOrNull(e.target.value))}
         type="number"
@@ -109,7 +113,7 @@ function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
       />
       <input
         placeholder="T1"
-        className="md:col-span-1 border border-[var(--theme-border)] rounded-lg h-11 px-3"
+        className="md:col-span-1 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent h-11 px-3"
         value={row.t1 ?? ""}
         onChange={(e) => set("t1", numOrNull(e.target.value))}
         type="number"
@@ -117,7 +121,7 @@ function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
       />
       <input
         placeholder="T2"
-        className="md:col-span-1 border border-[var(--theme-border)] rounded-lg h-11 px-3"
+        className="md:col-span-1 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent h-11 px-3"
         value={row.t2 ?? ""}
         onChange={(e) => set("t2", numOrNull(e.target.value))}
         type="number"
@@ -125,14 +129,14 @@ function CallRow({ row, onChange, onRemove, onPickFile, uploading }) {
       />
       <input
         placeholder="SL"
-        className="md:col-span-1 border border-[var(--theme-border)] rounded-lg h-11 px-3"
+        className="md:col-span-1 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent h-11 px-3"
         value={row.sl ?? ""}
         onChange={(e) => set("sl", numOrNull(e.target.value))}
         type="number"
         step="any"
       />
       <div className="md:col-span-2 flex items-center gap-2 ">
-        <label className="flex items-center gap-2 px-3 py-2 border border-[var(--theme-border)] rounded-lg cursor-pointer">
+        <label className="flex items-center gap-2 px-3 py-2 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent cursor-pointer">
           <UploadCloud size={16} />
           <span className="text-sm">
             {uploading ? "Uploading..." : "Chart Image"}
@@ -166,19 +170,19 @@ export default function NewResearchReportPage() {
   const [tags, setTags] = useState("");
 
   const [ipo, setIpo] = useState([
-  { company: "", lot_size: null, price_range: "", open_date: "", close_date: "", category: "" },
-  { company: "", lot_size: null, price_range: "", open_date: "", close_date: "", category: "" },
-]);
+    { company: "", lot_size: null, price_range: "", open_date: "", close_date: "", category: "" },
+    { company: "", lot_size: null, price_range: "", open_date: "", close_date: "", category: "" },
+  ]);
 
   const [board, setBoard] = useState([
-  { company: "", date: "", agenda: "" },
-  { company: "", date: "", agenda: "" },
-]);
+    { company: "", date: "", agenda: "" },
+    { company: "", date: "", agenda: "" },
+  ]);
 
   const [corpActs, setCorpActs] = useState([
-  { company: "", action: "", ex_date: "", details: "" },
-  { company: "", action: "", ex_date: "", details: "" },
-]);
+    { company: "", action: "", ex_date: "", details: "" },
+    { company: "", action: "", ex_date: "", details: "" },
+  ]);
 
   const [results, setResults] = useState([
     { company: "", date: "", type: "", ltp: null, change: null },
@@ -198,14 +202,14 @@ export default function NewResearchReportPage() {
     fii_fpi: { cash: null, debt: null },
     dii: { cash: null, debt: null },
   });
-const [callsIndex, setCallsIndex] = useState([
+  const [callsIndex, setCallsIndex] = useState([
     { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
-  { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
-]);
+    { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
+  ]);
   const [callsStock, setCallsStock] = useState([
     { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
-  { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
-]);
+    { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
+  ]);
 
 
 
@@ -252,7 +256,7 @@ const [callsIndex, setCallsIndex] = useState([
       ...x,
       { symbol: "", cmp: null, price_change: null, change_pct: null },
     ]);
-  const addCallIndex = () =>  
+  const addCallIndex = () =>
     setCallsIndex((x) => [
       ...x,
       { symbol: "", view: "", entry_at: null, buy_above: null, t1: null, t2: null, sl: null, chart_file: null },
@@ -279,9 +283,9 @@ const [callsIndex, setCallsIndex] = useState([
         notes: notes || null,
         tags: tags
           ? tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
           : null,
 
         ipo: ipo.map((i) => ({
@@ -403,9 +407,9 @@ const [callsIndex, setCallsIndex] = useState([
       <div className="mx-2 p-4 md:p-6">
         <form onSubmit={onSubmit} className="space-y-6">
           {/* Meta Section */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-[var(--theme-border)]">
-              <h2 className="text-lg font-semibold text-[var(--theme-primary)] flex items-center gap-2">
+          <section className="bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className=" px-6 py-6 border-b border-[var(--theme-border)]">
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
                 <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
                 Report Meta
               </h2>
@@ -414,46 +418,46 @@ const [callsIndex, setCallsIndex] = useState([
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
                   <input
-                    className="w-full border border-[var(--theme-border)]  rounded-xl h-12 px-4 transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     placeholder="Title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[var(--theme-primary)]">
+                  <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
                     Title
                   </label>
                 </div>
                 <div className="relative">
                   <input
                     type="date"
-                    className="w-full border border-[var(--theme-border)] rounded-xl h-12 px-4  transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
-                  />                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[var(--theme-primary)]">
+                  />                  <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
 
                     Report Date
                   </label>
                 </div>
                 <div className="relative">
                   <input
-                    className="w-full border border-[var(--theme-border)]  rounded-xl h-12 px-4  transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     placeholder="Tags (comma separated)"
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[var(--theme-primary)]">
+                  <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
                     Tags
                   </label>
                 </div>
               </div>
               <div className="relative mt-4">
                 <textarea
-                  className="w-full border border-[var(--theme-border)] rounded-xl min-h-[100px] p-4 transition-all duration-200 bg-gray-50 "
+                  className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                   placeholder="Notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-                <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-[var(--theme-primary)]">
+                <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
                   Notes
                 </label>
               </div>
@@ -461,14 +465,15 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* IPO Section */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-b text-[var(--theme-primary)] border-[var(--theme-border)] ">
-              <RowHeader title="IPO" onAdd={addIPO} />
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 border-b text-[var(--theme-primary)] border-[var(--theme-border)] ">
+              <RowHeader title="IPO" onAdd={addIPO}
+                className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]" />
             </div>
             <div className="p-6">
               {ipo.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <p className="text-sm text-[var(--theme-primary)]">
+                <div className="text-center py-8 rounded-xl border-2 border-dashed border-gray-300">
+                  <p className="text-sm text-[var(--theme-text)]">
                     No IPO rows yet. Click add to get started.
                   </p>
                 </div>
@@ -476,11 +481,11 @@ const [callsIndex, setCallsIndex] = useState([
               {ipo.map((row, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-[var(--theme-border)]"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-4 p-4 rounded-xl border border-[var(--theme-border)]"
                 >
                   <input
                     placeholder="Company"
-                    className="w-full min-w-0 h-11 px-3 border border-[var(--theme-border)] rounded-lg transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.company || ""}
                     onChange={(e) =>
                       setIpo((x) =>
@@ -493,7 +498,7 @@ const [callsIndex, setCallsIndex] = useState([
                   <input
                     placeholder="Lot Size"
                     type="number"
-                    className="w-full min-w-0 h-11 px-3 border border-[var(--theme-border)] rounded-lg transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.lot_size ?? ""}
                     onChange={(e) =>
                       setIpo((x) =>
@@ -507,7 +512,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="Price Range"
-                    className="w-full min-w-0 h-11 px-3 border border-[var(--theme-border)] rounded-lg duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.price_range || ""}
                     onChange={(e) =>
                       setIpo((x) =>
@@ -521,7 +526,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     type="date"
-                    className="w-full min-w-0 h-11 px-3 border border-[var(--theme-border)] rounded-lg duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.open_date || ""}
                     onChange={(e) =>
                       setIpo((x) =>
@@ -533,7 +538,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     type="date"
-                    className="w-full min-w-0 h-11 px-3 border border-[var(--theme-border)] rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.close_date || ""}
                     onChange={(e) =>
                       setIpo((x) =>
@@ -546,7 +551,7 @@ const [callsIndex, setCallsIndex] = useState([
                   <div className="flex items-center gap-2 min-w-0">
                     <input
                       placeholder="Category"
-                      className="w-full min-w-0 h-11 px-3 border border-[var(--theme-border)] rounded-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 bg-white"
+                      className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                       value={row.category || ""}
                       onChange={(e) =>
                         setIpo((x) =>
@@ -569,9 +574,10 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Board Meetings Section */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 text-[var(--theme-primary)] border-b border-[var(--theme-border)]">
-              <RowHeader title="Board Meetings" onAdd={addBoard} />
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 text-[var(--theme-primary)]  border-b border-[var(--theme-border)]">
+              <RowHeader title="Board Meetings" onAdd={addBoard}
+                className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]" />
             </div>
             <div className="p-6">
               {board.length === 0 && (
@@ -584,11 +590,11 @@ const [callsIndex, setCallsIndex] = useState([
               {board.map((row, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-[var(--theme-border)]"
+                  className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 p-4 rounded-xl border border-[var(--theme-border)]"
                 >
                   <input
                     placeholder="Company"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.company || ""}
                     onChange={(e) =>
                       setBoard((x) =>
@@ -600,7 +606,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     type="date"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.date || ""}
                     onChange={(e) =>
                       setBoard((x) =>
@@ -612,7 +618,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="Agenda"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-purple-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] placeholder:text-[var(--theme-components-input-placeholder)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.agenda || ""}
                     onChange={(e) =>
                       setBoard((x) =>
@@ -624,7 +630,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <div className="flex items-center">
                     <RemoveBtn
-                    className="border border-[var(--theme-border)]"
+                      className="border border-[var(--theme-border)]"
                       onClick={() =>
                         setBoard((x) => x.filter((_, idx) => idx !== i))
                       }
@@ -636,13 +642,14 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Corporate Actions Section */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-6 py-4 border-b text-[var(--theme-primary)]  border-[var(--theme-border)]">
-              <RowHeader title="Corporate Actions" onAdd={addCorp} />
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 border-b text-[var(--theme-primary)]  border-[var(--theme-border)]">
+              <RowHeader title="Corporate Actions" onAdd={addCorp}
+             className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]"/>
             </div>
             <div className="p-6">
               {corpActs.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                <div className="text-center py-8 rounded-xl border-2 border-dashed border-gray-300">
                   <p className="text-sm text-[var(--theme-primary)]">
                     No corporate actions yet. Click add to get started.
                   </p>
@@ -651,11 +658,11 @@ const [callsIndex, setCallsIndex] = useState([
               {corpActs.map((row, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-[var(--theme-border)]"
+                  className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4  rounded-xl border border-[var(--theme-border)]"
                 >
                   <input
                     placeholder="Company"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3  bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.company || ""}
                     onChange={(e) =>
                       setCorpActs((x) =>
@@ -667,7 +674,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="Action"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.action || ""}
                     onChange={(e) =>
                       setCorpActs((x) =>
@@ -679,7 +686,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     type="date"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.ex_date || ""}
                     onChange={(e) =>
                       setCorpActs((x) =>
@@ -691,7 +698,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="Details"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-orange-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.details || ""}
                     onChange={(e) =>
                       setCorpActs((x) =>
@@ -703,7 +710,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <div className="flex items-center">
                     <RemoveBtn
-                    className="border border-[var(--theme-border)]"
+                      className="border border-[var(--theme-border)]"
                       onClick={() =>
                         setCorpActs((x) => x.filter((_, idx) => idx !== i))
                       }
@@ -715,13 +722,14 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Result Calendar Section */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-cyan-50 to-teal-50 px-6 py-4 text-[var(--theme-primary)] border-b border-[var(--theme-border)]">
-              <RowHeader title="Result Calendar" onAdd={addResult} />
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 text-[var(--theme-primary)] border-b border-[var(--theme-border)]">
+              <RowHeader title="Result Calendar" onAdd={addResult}
+                className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]" />
             </div>
             <div className="p-6">
               {results.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                <div className="text-center py-8 rounded-xl border-2 border-dashed border-gray-300">
                   <p className="text-sm text-gray-500">
                     No results yet. Click add to get started.
                   </p>
@@ -730,12 +738,11 @@ const [callsIndex, setCallsIndex] = useState([
               {results.map((row, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-[var(--theme-border)]"
+                  className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4 p-4 border border-[var(--theme-border)]"
                 >
                   <input
                     placeholder="Company"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3
-                     bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.company || ""}
                     onChange={(e) =>
                       setResults((x) =>
@@ -747,7 +754,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     type="date"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.date || ""}
                     onChange={(e) =>
                       setResults((x) =>
@@ -759,7 +766,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="Type"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={row.type || ""}
                     onChange={(e) =>
                       setResults((x) =>
@@ -771,7 +778,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="LTP"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     type="number"
                     step="any"
                     value={row.ltp ?? ""}
@@ -787,7 +794,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <input
                     placeholder="Change"
-                    className="border border-[var(--theme-border)] rounded-lg h-11 px-3 focus:border-cyan-500 focus:outline-none transition-colors duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     type="number"
                     step="any"
                     value={row.change ?? ""}
@@ -803,7 +810,7 @@ const [callsIndex, setCallsIndex] = useState([
                   />
                   <div className="flex items-center">
                     <RemoveBtn
-                    className="border border-[var(--theme-border)]"
+                      className="border border-[var(--theme-border)]"
                       onClick={() =>
                         setResults((x) => x.filter((_, idx) => idx !== i))
                       }
@@ -815,9 +822,9 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Market Movers Section */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b  border-[var(--theme-border)]">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 border-b  border-[var(--theme-border)]">
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
                 <span className="w-2 h-2 bg-indigo-600 rounded-full"></span>
                 Market Movers
               </h2>
@@ -825,8 +832,9 @@ const [callsIndex, setCallsIndex] = useState([
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Top Gainers */}
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 text-[var(--theme-primary)] border border-[var(--theme-border)] ">
-                  <RowHeader title="Top Gainers" onAdd={addGainer} />
+                <div className="rounded-xl p-4 text-[var(--theme-primary)] border border-[var(--theme-border)] ">
+                  <RowHeader title="Top Gainers" onAdd={addGainer}
+                    className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]" />
                   {topGainers.length === 0 && (
                     <div className="text-center py-6 bg-white/50 rounded-lg mt-3">
                       <p className="text-sm text-gray-600">No gainers yet.</p>
@@ -835,11 +843,11 @@ const [callsIndex, setCallsIndex] = useState([
                   {topGainers.map((row, i) => (
                     <div
                       key={i}
-                      className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3 p-3 bg-white rounded-lg border border-[var(--theme-border)] hover:shadow-md transition-all duration-200"
+                      className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3 p-3 rounded-lg border border-[var(--theme-border)] hover:shadow-md transition-all duration-200"
                     >
                       <input
                         placeholder="Symbol"
-                        className="border border-[var(--theme-border)]  rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         value={row.symbol || ""}
                         onChange={(e) =>
                           setTopGainers((x) =>
@@ -851,7 +859,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <input
                         placeholder="CMP"
-                        className="border border-[var(--theme-border)] rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         type="number"
                         step="any"
                         value={row.cmp ?? ""}
@@ -865,7 +873,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <input
                         placeholder="Price Δ"
-                        className="border border-[var(--theme-border)]  rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         type="number"
                         step="any"
                         value={row.price_change ?? ""}
@@ -881,7 +889,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <input
                         placeholder="% Δ"
-                        className="border border-[var(--theme-border)]  rounded-lg h-10 px-2 text-sm focus:border-green-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         type="number"
                         step="any"
                         value={row.change_pct ?? ""}
@@ -897,7 +905,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <div className="flex items-center">
                         <RemoveBtn
-                        className="border border-[var(--theme-border)]"
+                          className="border border-[var(--theme-border)]"
                           onClick={() =>
                             setTopGainers((x) => x.filter((_, idx) => idx !== i))
                           }
@@ -908,8 +916,9 @@ const [callsIndex, setCallsIndex] = useState([
                 </div>
 
                 {/* Top Losers */}
-                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4 text-[var(--theme-primary)] border border-[var(--theme-border)] ">
-                  <RowHeader title="Top Losers" onAdd={addLoser} />
+                <div className="rounded-xl p-4 text-[var(--theme-primary)] border border-[var(--theme-border)] ">
+                  <RowHeader title="Top Losers" onAdd={addLoser}
+                    className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]" />
                   {topLosers.length === 0 && (
                     <div className="text-center py-6 bg-white/50 rounded-lg mt-3">
                       <p className="text-sm text-gray-600">No losers yet.</p>
@@ -918,11 +927,11 @@ const [callsIndex, setCallsIndex] = useState([
                   {topLosers.map((row, i) => (
                     <div
                       key={i}
-                      className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3 p-3 bg-white rounded-lg border border-[var(--theme-border)]  hover:shadow-md transition-all duration-200"
+                      className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3 p-3 rounded-lg border border-[var(--theme-border)]  hover:shadow-md transition-all duration-200"
                     >
                       <input
                         placeholder="Symbol"
-                        className="border border-[var(--theme-border)] rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         value={row.symbol || ""}
                         onChange={(e) =>
                           setTopLosers((x) =>
@@ -934,7 +943,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <input
                         placeholder="CMP"
-                        className="border border-[var(--theme-border)]  rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         type="number"
                         step="any"
                         value={row.cmp ?? ""}
@@ -948,7 +957,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <input
                         placeholder="Price Δ"
-                        className="border border-[var(--theme-border)] rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         type="number"
                         step="any"
                         value={row.price_change ?? ""}
@@ -964,7 +973,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <input
                         placeholder="% Δ"
-                        className="border border-[var(--theme-border)] rounded-lg h-10 px-2 text-sm focus:border-red-500 focus:outline-none transition-colors duration-200"
+                        className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                         type="number"
                         step="any"
                         value={row.change_pct ?? ""}
@@ -980,7 +989,7 @@ const [callsIndex, setCallsIndex] = useState([
                       />
                       <div className="flex items-center">
                         <RemoveBtn
-                        className="border border-[var(--theme-border)]"
+                          className="border border-[var(--theme-border)]"
                           onClick={() =>
                             setTopLosers((x) => x.filter((_, idx) => idx !== i))
                           }
@@ -994,32 +1003,32 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* FII/DII Section */}
-          <section className="bg-white rounded-2xl shadow-lg borderborder-[var(--theme-border)]  overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-red-50 to-red-50 px-6 py-4 border-b border-[var(--theme-border)]">
-              <h3 className="font-semibold text-[var(--theme-primary)] flex items-center gap-2">
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 border-b border-[var(--theme-border)]">
+              <h3 className="text-lg font-semibold flex items-center gap-2 text-[var(--theme-text)]">
+                <span className="w-2 h-2 rounded-full animate-pulse"></span>
                 FII / DII Activity
               </h3>
             </div>
-            <div className="p-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            <div className="p-6 ">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="relative">
                   <input
                     type="date"
-                    className="w-full border border-[var(--theme-border)]  rounded-xl h-12 px-4 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={fiiDii.date}
                     onChange={(e) =>
                       setFiiDii({ ...fiiDii, date: e.target.value })
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                  <label className="absolute -top-2 left-3 text-xs text-[var(--theme-text)]">
                     Date
                   </label>
                 </div>
                 <div className="relative">
                   <input
                     placeholder="FII Buy (cash)"
-                    className="w-full border border-[var(--theme-border)]  rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     type="number"
                     step="any"
                     value={fiiDii?.fii_fpi?.cash ?? ""}
@@ -1033,14 +1042,14 @@ const [callsIndex, setCallsIndex] = useState([
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                  <label className="absolute -top-2 left-3 text-xs text-[var(--theme-text)]">
                     FII Cash (buy)
                   </label>
                 </div>
                 <div className="relative">
                   <input
                     placeholder="FII Sell (debt)"
-                    className="w-full border border-[var(--theme-border)]  rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     type="number"
                     step="any"
                     value={fiiDii?.fii_fpi?.debt ?? ""}
@@ -1054,14 +1063,14 @@ const [callsIndex, setCallsIndex] = useState([
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                  <label className="absolute -top-2 left-3 text-xs text-[var(--theme-text)]">
                     FII Debt (sell)
                   </label>
                 </div>
                 <div className="relative">
                   <input
                     placeholder="DII Buy (cash)"
-                    className="w-full border border-[var(--theme-border)]  rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     type="number"
                     step="any"
                     value={fiiDii?.dii?.cash ?? ""}
@@ -1072,14 +1081,14 @@ const [callsIndex, setCallsIndex] = useState([
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                  <label className="absolute -top-2 left-3 text-xs text-[var(--theme-text)]">
                     DII Cash (buy)
                   </label>
                 </div>
                 <div className="relative">
                   <input
                     placeholder="DII Sell (debt)"
-                    className="w-full border border-[var(--theme-border)] rounded-xl h-12 px-4 focus:border-blue-500 focus:outline-none transition-all duration-200 bg-white"
+                    className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     type="number"
                     step="any"
                     value={fiiDii?.dii?.debt ?? ""}
@@ -1090,7 +1099,7 @@ const [callsIndex, setCallsIndex] = useState([
                       }))
                     }
                   />
-                  <label className="absolute -top-2 left-3 bg-white px-1 text-xs text-gray-600">
+                  <label className="absolute -top-2 left-3 text-xs text-[var(--theme-text)]">
                     DII Debt (sell)
                   </label>
                 </div>
@@ -1099,13 +1108,13 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Calls: Index */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-6 py-4 text-[var(--theme-primary)] border-b border-[var(--theme-border)]">
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 text-[var(--theme-primary)] border-b border-[var(--theme-border)]">
               <RowHeader title="Calls — Index" onAdd={addCallIndex} />
             </div>
             <div className="p-6">
               {callsIndex.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-[var(--theme-border)]">
+                <div className="text-center py-8 rounded-xl border border-dashed border-[var(--theme-border)]">
                   <p className="text-sm text-gray-500">
                     No index calls yet. Click add to get started.
                   </p>
@@ -1135,13 +1144,13 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Calls: Stock */}
-          <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300">
-            <div className="bg-gradient-to-r from-rose-50 to-pink-50 px-6 py-4 border-b  border-[var(--theme-border)]">
+          <section className="bg-[var(--theme-surface)] rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div className="px-6 py-4 border-b text-[var(--theme-primary)]  border-[var(--theme-border)]">
               <RowHeader title="Calls — Stock" onAdd={addCallStock} />
             </div>
             <div className="p-6">
               {callsStock.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                <div className="text-center py-8 rounded-xl border-2 border-dashed border-[var(--theme-border)]">
                   <p className="text-sm text-gray-500">
                     No stock calls yet. Click add to get started.
                   </p>
@@ -1171,12 +1180,13 @@ const [callsIndex, setCallsIndex] = useState([
           </section>
 
           {/* Submit */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+          <div className="rounded-2xl shadow-lg border border-[var(--theme-border)] p-6">
             <div className="flex items-center gap-4 flex-wrap">
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-60 disabled:transform-none"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-[var(--theme-border)]  text-[var(--theme-components-button-primary-text)]
+                         bg-[var(--theme-components-button-primary-bg)] font-medium hover:bg-[var(--theme-components-button-primary-hoverBg)] transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-60 disabled:transform-none"
               >
                 {submitting ? (
                   <Loader2 className="animate-spin" size={20} />

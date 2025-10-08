@@ -8,6 +8,7 @@ import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import { authAxiosInstance } from '@/api/Axios'  // keeps your axios instance
 import { ErrorHandling } from '@/helper/ErrorHandling'
 import Logo from '@/components/Logo'
+import Image from 'next/image'
 
 /* -------------------------------- Role Helpers ------------------------------- */
 
@@ -202,11 +203,14 @@ export default function LoginPage() {
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2  px-0 bg-gradient-to-br from-sky-500 via-gray-200 to-sky-600 w-full">
       {/* Left image side */}
       <div className="hidden md:flex items-center justify-center">
-        <img
-          src="/ganesha_no_bg.png"
-          alt="Ganpati"
-          className="w-80 h-80 opacity-90 select-none"
-        />
+<Image
+  src="/ganesha_no_bg.png"
+  alt="Ganesha"
+  width={350}
+  height={350} 
+  className="opacity-90 select-none pointer-events-none"
+  priority
+/>
       </div>
 
       {/* Right form side */}

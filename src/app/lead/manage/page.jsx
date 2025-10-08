@@ -161,6 +161,12 @@ const LeadManage = () => {
 
   // Accordion
   const [openLead, setOpenLead] = useState(null);
+// Date filters
+const [fromDate, setFromDate] = useState("");
+const [toDate, setToDate] = useState("");
+
+// Apply trigger
+const [applyDateFilter, setApplyDateFilter] = useState(false);
 
   // Cards
   const [dashboardData, setDashboardData] = useState(null);
@@ -293,6 +299,9 @@ const LeadManage = () => {
         if (responseFilter !== "All") params.response_id = responseFilter;
 
         if (searchQuery.trim()) params.search = searchQuery.trim();
+        
+        if (fromDate) params.created_from = fromDate;
+if (toDate) params.created_to = toDate;
 
         if (kycFilter === "Completed") {
           params.kyc_only = true;
@@ -321,6 +330,7 @@ const LeadManage = () => {
     responseFilter,
     kycFilter,
     searchQuery,
+    applyDateFilter,
   ]);
 
   /* ---------- quick cards (admins only) ---------- */
@@ -504,6 +514,54 @@ const LeadManage = () => {
           </div>
         </div>
       </div>
+{/* Date Filter */}
+<div className="flex flex-wrap items-end gap-4">
+  <div>
+    <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+      From Date
+    </label>
+    <input
+      type="date"
+      value={fromDate}
+      onChange={(e) => setFromDate(e.target.value)}
+      className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
+    />
+  </div>
+
+  <div>
+    <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+      To Date
+    </label>
+    <input
+      type="date"
+      value={toDate}
+      onChange={(e) => setToDate(e.target.value)}
+      className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
+    />
+  </div>
+
+  <div className="flex gap-2 mb-1">
+    <button
+      type="button"
+      onClick={() => setApplyDateFilter((prev) => !prev)} // trigger fetch
+      className="px-4 py-2 rounded-lg bg-[var(--theme-primary)] text-white"
+    >
+      Apply
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setFromDate("");
+        setToDate("");
+        setApplyDateFilter((prev) => !prev); // reset trigger
+      }}
+      className="px-4 py-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)]"
+    >
+      Reset
+    </button>
+  </div>
+</div>
 
       {/* Quick Stats */}
       {canViewCards && (
@@ -636,7 +694,7 @@ const LeadManage = () => {
                 <input
                   type="text"
                   placeholder="Search Employee..."
-                  className="w-full px-4 py-2 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-input-background)] text-[var(--theme-text)] placeholder-[var(--theme-text-muted)]"
+                  className="w-full px-4 py-2 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-input-background)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
                   value={employeeQuery}
                   onChange={(e) => {
                     setEmployeeQuery(e.target.value);
@@ -685,7 +743,7 @@ const LeadManage = () => {
             <select
               value={kycFilter}
               onChange={(e) => setKycFilter(e.target.value)}
-              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)]"
+              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)]  focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
               title="Filter by KYC status"
             >
               <option value="All">All KYC</option>
@@ -697,7 +755,7 @@ const LeadManage = () => {
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)]"
+              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
             >
               {sourceOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -710,7 +768,7 @@ const LeadManage = () => {
             <select
               value={responseFilter}
               onChange={(e) => setResponseFilter(e.target.value)}
-              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)]"
+              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
             >
               {responseOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>

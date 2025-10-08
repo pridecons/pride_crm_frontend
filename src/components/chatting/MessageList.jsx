@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DayDivider, MessageBubble } from "./atoms";
 import { compareMsgId, isSameDay, toLocal } from "./utils";
+import Image from "next/image";
 
 export default function MessageList({
   selected,
@@ -222,7 +223,7 @@ export default function MessageList({
           onClick={() => setImgPreview(null)}
           style={{ backgroundColor: "var(--theme-backdrop, rgba(0,0,0,0.7))" }}
         >
-          <img
+          <Image
             src={imgPreview.src}
             alt={imgPreview.title}
             className="max-w-[70vw] max-h-[75vh] rounded-lg shadow-2xl"

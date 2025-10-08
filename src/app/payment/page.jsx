@@ -1172,6 +1172,7 @@ export default function PaymentHistoryPage() {
             isOpen={!!selectedLeadId}
             onClose={() => setSelectedLeadId(null)}
             leadId={selectedLeadId}
+            onViewPdf={(url, title) => window.open(url, "_blank")}
           />
 
           {/* Pagination */}

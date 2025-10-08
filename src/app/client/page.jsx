@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
@@ -16,6 +16,161 @@ import { useRouter } from "next/navigation";
 import { usePermissions } from "@/context/PermissionsContext";
 
 /* ===== Helpers: roles & user meta ===== */
+
+const EmployeeAutoComplete = ({
+  placeholder = "Search employee (min 2 chars)...",
+  employeeQuery, setEmployeeQuery,
+  employeeOptions, employeeLoading,
+  employeeDropdownOpen, setEmployeeDropdownOpen,
+  selectedEmployee, setSelectedEmployee,
+  searchEmployees,
+  isSuperAdmin, isBranchManager, myView,
+  branchId, appliedFrom, appliedTo,
+  fetchClients, fetchMyClients,
+}) => {
+  const wrapRef = useRef(null);
+
+  // ---- helper: refetch with no employee filter
+  const refetchWithoutEmployee = useCallback(() => {
+    const from = appliedFrom || "";
+    const to = appliedTo || "";
+    const emp = ""; // cleared
+    if (isSuperAdmin || isBranchManager) {
+      fetchClients(branchId ?? null, from, to, emp);
+    } else if (myView === "other") {
+      fetchMyClients("other", from, to, emp);
+    } else {
+      // for "self" view there is no employee filter; keep as-is
+      fetchMyClients("self", from, to, emp);
+    }
+  }, [appliedFrom, appliedTo, isSuperAdmin, isBranchManager, myView, branchId, fetchClients, fetchMyClients]);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setEmployeeDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [setEmployeeDropdownOpen]);
+
+  return (
+    <div ref={wrapRef} className="relative w-[260px]">
+      <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">
+        Employee
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          value={selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.employee_code})` : employeeQuery}
+          placeholder={placeholder}
+          onChange={(e) => {
+            const v = e.target.value;
+            // if the user is clearing the input, also clear the selection
+            if (selectedEmployee) setSelectedEmployee(null);
+            setEmployeeQuery(v);
+
+            if (v.trim().length === 0) {
+              // input cleared -> close list, clear options, and refetch
+              setEmployeeDropdownOpen(false);
+              // optional: clear any stale options
+              // setEmployeeOptions([]); // you have this state in parent
+              refetchWithoutEmployee();
+            } else {
+              // only search when >= 2 chars
+              searchEmployees(v);
+            }
+          }}
+          onFocus={() => { if (employeeOptions.length) setEmployeeDropdownOpen(true); }}
+          className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+          style={{ borderColor: "var(--theme-input-border)" }}
+          aria-autocomplete="list"
+          aria-expanded={employeeDropdownOpen}
+          aria-controls="employee-autocomplete-list"
+        />
+
+        {selectedEmployee && (
+          <button
+            type="button"
+            onClick={() => {
+              // Clear selection and query, then refetch list without employee filter
+              setSelectedEmployee(null);
+              setEmployeeQuery("");
+              setEmployeeDropdownOpen(false);
+              // optional: clear options so the dropdown is empty
+              // setEmployeeOptions([]);
+              refetchWithoutEmployee();
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
+            style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)", color: "var(--theme-textSecondary)" }}
+            aria-label="Clear employee"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {employeeDropdownOpen && (
+        <div
+          id="employee-autocomplete-list"
+          role="listbox"
+          className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-lg border shadow-lg"
+          style={{ background: "var(--theme-components-card-bg)", borderColor: "var(--theme-components-card-border)" }}
+        >
+          {employeeLoading ? (
+            <div className="px-3 py-2 text-sm text-[var(--theme-textSecondary)]">Searching…</div>
+          ) : employeeOptions.length ? (
+            employeeOptions.map((opt) => (
+              <button
+                key={opt.employee_code}
+                role="option"
+                type="button"
+                onClick={() => {
+                  setSelectedEmployee({ employee_code: opt.employee_code, name: opt.name });
+                  setEmployeeQuery("");
+                  setEmployeeDropdownOpen(false);
+                  const emp = opt.employee_code;
+                  if (isSuperAdmin || isBranchManager) {
+                    fetchClients(branchId ?? null, appliedFrom || "", appliedTo || "", emp);
+                  } else if (myView === "other") {
+                    fetchMyClients("other", appliedFrom || "", appliedTo || "", emp);
+                  } else {
+                    fetchMyClients("self", appliedFrom || "", appliedTo || "", emp);
+                  }
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-[var(--theme-surface)]"
+                style={{ color: "var(--theme-text)" }}
+              >
+                <div className="text-sm font-medium truncate">
+                  {opt.name} <span className="opacity-70">({opt.employee_code})</span>
+                </div>
+                {opt.role && (
+                  <div className="text-[11px] text-[var(--theme-textSecondary)]">{opt.role}</div>
+                )}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-[var(--theme-textSecondary)]">No matches</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const pickEmployeeCode = (u) => u?.employee_code ?? u?.user?.employee_code ?? null;
+
+const getMyEmployeeCodeFromCookie = () => {
+  try {
+    const raw = Cookies.get("user_info");
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    return pickEmployeeCode(p);
+  } catch {
+    return null;
+  }
+};
+
 const normalizeRoleKey = (r) => {
   const key = (r || "").toString().trim().toUpperCase().replace(/\s+/g, "_");
   if (key === "SUPER_ADMINISTRATOR") return "SUPERADMIN";
@@ -71,7 +226,7 @@ const parseServices = (client) => {
     try {
       const arr = JSON.parse(client.segment);
       if (Array.isArray(arr)) for (const s of arr) if (s) out.add(String(s).trim());
-    } catch {}
+    } catch { }
   }
   return Array.from(out);
 };
@@ -96,22 +251,6 @@ const uniqueGstTypes = (client) => {
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-const buildRange = (from, to) => {
-  const start = from ? new Date(`${from}T00:00:00`) : null;
-  const end = to ? new Date(`${to}T23:59:59.999`) : null;
-  return { start, end };
-};
-
-const pickWhen = (c) => c?.created_at || lastPaymentISO(c) || null;
-
-const isIsoInRange = (iso, start, end) => {
-  if (!iso) return false;
-  const d = new Date(iso);
-  if (start && d < start) return false;
-  if (end && d > end) return false;
-  return true;
-};
-
 /* ===== Page component ===== */
 export default function ClientsPage() {
   const { hasPermission } = usePermissions();
@@ -132,12 +271,29 @@ export default function ClientsPage() {
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [storyLead, setStoryLead] = useState(null);
 
-  const [openPayments, setOpenPayments] = useState({});
   const [openServices, setOpenServices] = useState({});
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+
+const [dateFromInput, setDateFromInput] = useState("");
+const [dateToInput, setDateToInput] = useState("");
+const [appliedFrom, setAppliedFrom] = useState(""); // only used after clicking Apply
+const [appliedTo, setAppliedTo] = useState("");
+
   const router = useRouter();
   const [roleMap, setRoleMap] = useState({});
+
+  // payments modal state (belongs in ClientsPage, not ActionsDropdown)
+  const [paymentsModal, setPaymentsModal] = useState({ open: false, client: null });
+
+  // employee filter (autocomplete)
+  const [employeeQuery, setEmployeeQuery] = useState("");
+  const [employeeOptions, setEmployeeOptions] = useState([]); // [{employee_code, name, profile_role?.name}]
+  const [employeeLoading, setEmployeeLoading] = useState(false);
+  const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null); // { employee_code, name }
+
+  const [myEmployeeCode, setMyEmployeeCode] = useState(null);
+
+  const employeeSearchTimer = useRef(null);
 
   const isSuperAdmin = role === "SUPERADMIN";
   const isBranchManager = role === "BRANCH MANAGER";
@@ -147,6 +303,47 @@ export default function ClientsPage() {
     const k = String(id ?? "");
     return roleMap[k] || k;
   }, [roleMap]);
+
+const searchEmployees = useCallback((q) => {
+  if (employeeSearchTimer.current) clearTimeout(employeeSearchTimer.current);
+
+  employeeSearchTimer.current = setTimeout(async () => {
+    const query = (q || "").trim();
+    if (query.length < 2) { setEmployeeOptions([]); return; }
+
+    try {
+      setEmployeeLoading(true);
+
+      // ✅ Only pass the search term. Backend uses the auth cookie to scope:
+      // - Senior: only direct team
+      // - Branch Manager: whole branch
+      // - Superadmin: all branches
+      const res = await axiosInstance.get("/users-fiter/", {
+        params: { search: query }
+      });
+
+      const arr = Array.isArray(res.data) ? res.data : [];
+
+      // 🙅‍♂️ Don’t show myself
+      const filtered = myEmployeeCode
+        ? arr.filter(u => String(u.employee_code) !== String(myEmployeeCode))
+        : arr;
+
+      setEmployeeOptions(
+        filtered.map(u => ({
+          employee_code: u.employee_code,
+          name: u.name,
+          role: u?.profile_role?.name ?? u?.role_id
+        }))
+      );
+    } catch {
+      setEmployeeOptions([]);
+    } finally {
+      setEmployeeLoading(false);
+      setEmployeeDropdownOpen(true);
+    }
+  }, 250);
+}, [myEmployeeCode]);
 
   /* ---- bootstrap ---- */
   useEffect(() => {
@@ -158,7 +355,7 @@ export default function ClientsPage() {
           setRoleMap(map);
         }
       }
-    } catch {}
+    } catch { }
 
     (async () => {
       try {
@@ -172,15 +369,16 @@ export default function ClientsPage() {
         setRoleMap(map);
         try {
           localStorage.setItem(ROLE_CACHE_KEY, JSON.stringify({ ts: Date.now(), map }));
-        } catch {}
+        } catch { }
       } catch (err) {
         console.error("Failed to load role map:", err);
       }
     })();
 
     const { role: r, branch_id: b } = getUserMeta();
-    setRole(r);
-    setBranchId(b ?? null);
+setRole(r);
+setBranchId(b ?? null);
+setMyEmployeeCode(getMyEmployeeCodeFromCookie());
 
     if (r === "SUPERADMIN") {
       fetchBranches();
@@ -202,55 +400,55 @@ export default function ClientsPage() {
     }
   };
 
-  const fetchClients = async (branch = null) => {
-    try {
-      setLoading(true);
-      const effectiveBranch = isSuperAdmin ? branch : (branchId ?? null);
-      const qs = new URLSearchParams({ page: "1", limit: "100", view: "all" });
-      if (effectiveBranch) qs.append("branch_id", String(effectiveBranch));
-      const res = await axiosInstance.get(`/clients/?${qs.toString()}`);
-      const list = Array.isArray(res.data?.clients) ? res.data.clients : [];
-      setClients(list);
-    } catch (err) {
-      console.error("Error fetching clients:", err);
-      setClients([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+// REPLACE fetchClients with this
+const fetchClients = async (branch = null, fromDate = "", toDate = "",  employeeCode = "") => {
+  try {
+    setLoading(true);
+    const effectiveBranch = (branch !== null && branch !== undefined) ? branch : (branchId ?? null);
 
-  const fetchMyClients = async (scope) => {
-    try {
-      setLoading(true);
-      const res = await axiosInstance.get(`/clients/?page=1&limit=50&view=${scope}`);
-      setMyClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
-    } catch (err) {
-      console.error("Error fetching my clients:", err);
-      setMyClients([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const qs = new URLSearchParams({ page: "1", limit: "100", view: "all" });
+    if (effectiveBranch) qs.append("branch_id", String(effectiveBranch));
+    if (fromDate) qs.append("from_date", fromDate);
+    if (toDate) qs.append("to_date", toDate);
+    if (employeeCode) qs.append("employee_code", employeeCode);
 
-  const { start, end } = useMemo(() => buildRange(dateFrom, dateTo), [dateFrom, dateTo]);
+    const res = await axiosInstance.get(`/clients/?${qs.toString()}`);
+    const list = Array.isArray(res.data?.clients) ? res.data.clients : [];
+    setClients(list);
+  } catch (err) {
+    console.error("Error fetching clients:", err);
+    setClients([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const filteredClients = useMemo(() => {
-    if (!dateFrom && !dateTo) return clients;
-    return clients.filter((c) => isIsoInRange(pickWhen(c), start, end));
-  }, [clients, dateFrom, dateTo, start, end]);
+// REPLACE fetchMyClients with this
+const fetchMyClients = async (scope, fromDate = "", toDate = "", employeeCode = "") => {
+  try {
+    setLoading(true);
+    const qs = new URLSearchParams({ page: "1", limit: "50", view: scope || "self" });
+    if (fromDate) qs.append("from_date", fromDate);
+    if (toDate) qs.append("to_date", toDate);
+    if (employeeCode) qs.append("employee_code", employeeCode);
 
-  const filteredMyClients = useMemo(() => {
-    if (!dateFrom && !dateTo) return myClients;
-    return myClients.filter((c) => isIsoInRange(pickWhen(c), start, end));
-  }, [myClients, dateFrom, dateTo, start, end]);
+    const res = await axiosInstance.get(`/clients/?${qs.toString()}`);
+    setMyClients(Array.isArray(res.data?.clients) ? res.data.clients : []);
+  } catch (err) {
+    console.error("Error fetching my clients:", err);
+    setMyClients([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   /* ===== UI atoms ===== */
   const Badge = ({ children, tone = "info", title }) => {
     const tones = {
-      info:   { bg: "rgba(59,130,246,.08)", text: "#2563eb", border: "rgba(59,130,246,.2)" },
-      warn:   { bg: "rgba(251,191,36,.08)", text: "#a16207", border: "rgba(251,191,36,.2)" },
-      ok:     { bg: "rgba(34,197,94,.08)",  text: "#166534", border: "rgba(34,197,94,.2)" },
-      danger: { bg: "rgba(239,68,68,.08)",  text: "#b91c1c", border: "rgba(239,68,68,.2)" },
+      info: { bg: "rgba(59,130,246,.08)", text: "#2563eb", border: "rgba(59,130,246,.2)" },
+      warn: { bg: "rgba(251,191,36,.08)", text: "#a16207", border: "rgba(251,191,36,.2)" },
+      ok: { bg: "rgba(34,197,94,.08)", text: "#166534", border: "rgba(34,197,94,.2)" },
+      danger: { bg: "rgba(239,68,68,.08)", text: "#b91c1c", border: "rgba(239,68,68,.2)" },
     };
     const t = tones[tone] || tones.info;
     return (
@@ -285,351 +483,411 @@ export default function ClientsPage() {
     </div>
   );
 
-  const PaymentList = ({ payments }) => {
+  const PaymentList = ({ payments = [] }) => {
     if (!Array.isArray(payments) || payments.length === 0) {
-      return <div className="text-sm text-[var(--theme-textSecondary)] p-4">No payments available.</div>;
+      return (
+        <div className="text-sm text-[var(--theme-textSecondary)] px-3 py-2">
+          No payments available.
+        </div>
+      );
     }
+
+    const Money = ({ v }) => (
+      <span className="font-semibold">₹{(Number(v) || 0).toLocaleString("en-IN")}</span>
+    );
+
+    const Chip = ({ children, tone = "default", title }) => {
+      const tones = {
+        default: { bg: "rgba(0,0,0,.04)", text: "var(--theme-text)", br: "transparent" },
+        ok: { bg: "rgba(34,197,94,.10)", text: "#166534", br: "rgba(34,197,94,.25)" },
+        warn: { bg: "rgba(251,191,36,.12)", text: "#92400e", br: "rgba(251,191,36,.28)" },
+        info: { bg: "rgba(59,130,246,.12)", text: "#1e40af", br: "rgba(59,130,246,.28)" },
+      };
+      const t = tones[tone] || tones.default;
+      return (
+        <span
+          title={title}
+          className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border"
+          style={{ background: t.bg, color: t.text, borderColor: t.br }}
+        >
+          {children}
+        </span>
+      );
+    };
+
+    const extractServices = (p) => {
+      const out = [];
+      if (Array.isArray(p?.plan) && Array.isArray(p.plan[0]?.service_type)) {
+        for (const s of p.plan[0].service_type) if (s) out.push(String(s));
+      }
+      if (Array.isArray(p?.service)) {
+        for (const s of p.service) {
+          String(s)
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .forEach((x) => out.push(x));
+        }
+      }
+      // unique + keep order
+      return Array.from(new Set(out));
+    };
+
     return (
-      <div className="space-y-4">
-        {payments.map((p) => (
-          <div
-            key={p.payment_id || p.order_id}
-            className="rounded-xl border p-4 sm:p-5 hover:shadow-sm transition-all duration-200"
-            style={{ borderColor: "var(--theme-border)", background: "var(--theme-surface)" }}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="min-w-[180px]">
-                <div className="font-semibold text-sm mb-1">
-                  Payment #{p.payment_id} · <span className="uppercase">{p.status}</span>
-                </div>
-                <div className="text-[11px] text-[var(--theme-textSecondary)]">
-                  {p.created_at
-                    ? new Date(p.created_at).toLocaleString("en-IN", {
-                        day: "2-digit", month: "short", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })
-                    : "—"}
-                </div>
-                {p.order_id && (
-                  <div className="text-[11px] text-[var(--theme-textSecondary)] mt-0.5">Order: {p.order_id}</div>
-                )}
-              </div>
-              <div className="text-right ml-auto">
-                <div className="text-[11px] text-[var(--theme-textSecondary)] mb-1">Paid Amount</div>
-                <div className="text-lg"><Money val={p.paid_amount} /></div>
-              </div>
-            </div>
+      <ul className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
+        {payments.map((p) => {
+          const services = extractServices(p);
+          const show = services.slice(0, 3);
+          const more = services.length - show.length;
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <div>
-                <div className="text-[11px] text-[var(--theme-textSecondary)] mb-1.5">Mode</div>
-                <Badge>{p.mode || "—"}</Badge>
-              </div>
-              <div>
-                <div className="text-[11px] text-[var(--theme-textSecondary)] mb-1.5">Billing</div>
-                <Badge title="Billing Cycle">{p.billing_cycle || "—"}</Badge>
-                {typeof p.call === "number" && (
-                  <div className="text-[11px] text-[var(--theme-textSecondary)] mt-1">
-                    Calls: {p.used_calls ?? 0}/{p.call ?? 0} (Rem: {p.remaining_calls ?? 0})
+          const createdLabel = p.created_at
+            ? new Date(p.created_at).toLocaleString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+            : "—";
+
+          return (
+            <li
+              key={p.payment_id || p.order_id}
+              className="px-3 sm:px-4 py-3"
+              style={{ background: "var(--theme-surface)" }}
+            >
+              {/* Row 1: Title + amount */}
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <div className="text-sm font-semibold">
+                      Payment #{p.payment_id} ·{" "}
+                      <span className="uppercase">{p.status || "—"}</span>
+                    </div>
+                    {p.order_id ? (
+                      <span className="text-[11px] text-[var(--theme-textSecondary)] truncate">
+                        Order: {p.order_id}
+                      </span>
+                    ) : null}
                   </div>
-                )}
-              </div>
-              <div>
-                <div className="text-[11px] text-[var(--theme-textSecondary)] mb-1.5">Active</div>
-                <Badge tone={p.is_active ? "ok" : "danger"}>{p.is_active ? "Yes" : "No"}</Badge>
-              </div>
-            </div>
+                  <div className="text-[11px] text-[var(--theme-textSecondary)]">
+                    {createdLabel}
+                  </div>
+                </div>
 
-            {Array.isArray(p.plan) && p.plan[0] && (
-              <div className="mb-4">
-                <div className="text-[11px] text-[var(--theme-textSecondary)] mb-1.5">Plan</div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="ok">{p.plan[0].name || "Plan"}</Badge>
-                  <span className="text-sm">Price: <Money val={p.plan[0].price} /></span>
-                  {typeof p.plan[0].discount_percent === "number" && p.plan[0].discount_percent > 0 && (
-                    <Badge tone="warn">Discount: {p.plan[0].discount_percent}%</Badge>
-                  )}
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] text-[var(--theme-textSecondary)] leading-none mb-0.5">
+                    Paid
+                  </div>
+                  <div className="text-base leading-none">
+                    <Money v={p.paid_amount} />
+                  </div>
                 </div>
               </div>
-            )}
 
-            <div className="mb-4">
-              <div className="text-[11px] text-[var(--theme-textSecondary)] mb-1.5">Services</div>
-              <div className="flex flex-wrap gap-1.5">
-                {Array.isArray(p.plan) && Array.isArray(p.plan[0]?.service_type) && p.plan[0].service_type.length
-                  ? p.plan[0].service_type.map((s, i) => (
-                      <Badge key={i} title={s}>
-                        <span className="max-w-[160px] truncate inline-block">{s}</span>
-                      </Badge>
-                    ))
-                  : Array.isArray(p.service) && p.service.length
-                  ? p.service.map((s, i) => (
-                      <Badge key={i} title={String(s)}>
-                        <span className="max-w-[160px] truncate inline-block">{String(s)}</span>
-                      </Badge>
-                    ))
-                  : "—"}
+              {/* Row 2: Compact meta chips */}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Chip tone="info" title="Mode">{p.mode || "—"}</Chip>
+                <Chip title="Billing Cycle">{p.billing_cycle || "—"}</Chip>
+                {typeof p.call === "number" ? (
+                  <Chip title="Calls Used/Total">
+                    {p.used_calls ?? 0}/{p.call ?? 0} (Rem {p.remaining_calls ?? 0})
+                  </Chip>
+                ) : null}
+                <Chip tone={p.is_active ? "ok" : "warn"} title="Active">
+                  {p.is_active ? "Active" : "Inactive"}
+                </Chip>
+                {Array.isArray(p.plan) && p.plan[0] ? (
+                  <>
+                    {p.plan[0].name ? <Chip title="Plan">{p.plan[0].name}</Chip> : null}
+                    {typeof p.plan[0].price !== "undefined" ? (
+                      <Chip title="Plan Price">
+                        <Money v={p.plan[0].price} />
+                      </Chip>
+                    ) : null}
+                    {typeof p.plan[0].discount_percent === "number" && p.plan[0].discount_percent > 0 ? (
+                      <Chip tone="warn" title="Discount">
+                        {p.plan[0].discount_percent}% off
+                      </Chip>
+                    ) : null}
+                  </>
+                ) : null}
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-[var(--theme-border)]">
-              <div>
-                <div className="text-[10px] text-[var(--theme-textSecondary)]">GST Type</div>
-                <Badge tone="info">{p.gst_type || "—"}</Badge>
+              {/* Row 3: Services (inline, trimmed) */}
+              <div className="mt-2">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--theme-textSecondary)] mb-1">
+                  Services
+                </div>
+                {show.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {show.map((s, i) => (
+                      <Chip key={i} tone="default" title={s}>
+                        <span className="max-w-[140px] truncate inline-block">{s}</span>
+                      </Chip>
+                    ))}
+                    {more > 0 ? <Chip>+{more} more</Chip> : null}
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-[var(--theme-textSecondary)]">—</div>
+                )}
               </div>
-              <div>
-                <div className="text-[10px] text-[var(--theme-textSecondary)]">CGST</div>
-                <Money val={p.cgst} />
+
+              {/* Row 4: Taxes in one slim line */}
+              <div className="mt-2 pt-2 border-t text-[12px] flex flex-wrap items-center gap-x-3 gap-y-1"
+                style={{ borderColor: "var(--theme-border)" }}>
+                <Chip tone="info" title="GST Type">{p.gst_type || "—"}</Chip>
+                <span className="text-[var(--theme-textSecondary)]">
+                  CGST: <Money v={p.cgst} /> &nbsp;|&nbsp; SGST: <Money v={p.sgst} /> &nbsp;|&nbsp; IGST: <Money v={p.igst} />
+                </span>
               </div>
-              <div>
-                <div className="text-[10px] text-[var(--theme-textSecondary)]">SGST</div>
-                <Money val={p.sgst} />
-              </div>
-              <div>
-                <div className="text-[10px] text-[var(--theme-textSecondary)]">IGST</div>
-                <Money val={p.igst} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </li>
+          );
+        })}
+      </ul>
     );
   };
 
   const ActionsDropdown = ({
-  onView,
-  onInvoices,
-  onStory,
-  onComments,
-  canInvoices = true,
-  canStory = true,
-  canComments = true,
-  label = "Actions",
-}) => {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef(null);
-  const menuRef = useRef(null);
+    onView,
+    onInvoices,
+    onStory,
+    onComments,
+    canInvoices = true,
+    canStory = true,
+    canComments = true,
+    label = "Actions",
+  }) => {
+    const [open, setOpen] = useState(false);
 
-  // close on outside click
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (!open) return;
-      const t = e.target;
-      if (menuRef.current && !menuRef.current.contains(t) && btnRef.current && !btnRef.current.contains(t)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+    const btnRef = useRef(null);
+    const menuRef = useRef(null);
 
-  // close on ESC
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+    // close on outside click
+    useEffect(() => {
+      const onDoc = (e) => {
+        if (!open) return;
+        const t = e.target;
+        if (menuRef.current && !menuRef.current.contains(t) && btnRef.current && !btnRef.current.contains(t)) {
+          setOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", onDoc);
+      return () => document.removeEventListener("mousedown", onDoc);
+    }, [open]);
 
-  const Item = ({ onClick, children, icon: Icon }) => (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={() => { setOpen(false); onClick?.(); }}
-      className="w-full px-3 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-[var(--theme-surface)]"
-      style={{ color: "var(--theme-text)" }}
-    >
-      {Icon ? <Icon size={16} /> : null}
-      <span className="truncate">{children}</span>
-    </button>
-  );
+    // close on ESC
+    useEffect(() => {
+      const onKey = (e) => {
+        if (e.key === "Escape") setOpen(false);
+      };
+      document.addEventListener("keydown", onKey);
+      return () => document.removeEventListener("keydown", onKey);
+    }, []);
 
-  const items = [
-    { key: "view", label: "View", icon: Eye, onClick: onView, show: true },
-    { key: "invoices", label: "Invoices", icon: FileText, onClick: onInvoices, show: !!canInvoices },
-    { key: "story", label: "Story", icon: BookOpenText, onClick: onStory, show: !!canStory },
-    { key: "comments", label: "Comments", icon: MessageCircle, onClick: onComments, show: !!canComments },
-  ].filter(i => i.show);
-
-  return (
-    <div className="relative inline-block text-left">
+    const Item = ({ onClick, children, icon: Icon }) => (
       <button
-        ref={btnRef}
         type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen(v => !v)}
-        title={label}
-        className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:shadow-md border"
-        style={{
-          background: "var(--theme-surface)",
-          color: "var(--theme-text)",
-          borderColor: "var(--theme-border)"
-        }}
+        role="menuitem"
+        onClick={() => { setOpen(false); onClick?.(); }}
+        className="w-full px-3 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-[var(--theme-surface)]"
+        style={{ color: "var(--theme-text)" }}
       >
-        <MoreVertical size={18} />
+        {Icon ? <Icon size={16} /> : null}
+        <span className="truncate">{children}</span>
       </button>
+    );
 
-      {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          className="absolute right-0 mt-2 w-44 z-50 rounded-xl border shadow-lg p-2"
+    const items = [
+      { key: "view", label: "View", icon: Eye, onClick: onView, show: true },
+      { key: "invoices", label: "Invoices", icon: FileText, onClick: onInvoices, show: !!canInvoices },
+      { key: "story", label: "Story", icon: BookOpenText, onClick: onStory, show: !!canStory },
+      { key: "comments", label: "Comments", icon: MessageCircle, onClick: onComments, show: !!canComments },
+    ].filter(i => i.show);
+
+    return (
+      <div className="relative inline-block text-left">
+        <button
+          ref={btnRef}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen(v => !v)}
+          title={label}
+          className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:shadow-md border"
           style={{
-            background: "var(--theme-components-card-bg)",
-            borderColor: "var(--theme-components-card-border)",
-            boxShadow: "0 12px 24px rgba(0,0,0,.12)"
+            background: "var(--theme-surface)",
+            color: "var(--theme-text)",
+            borderColor: "var(--theme-border)"
           }}
         >
-          {items.length ? (
-            items.map(i => (
-              <Item key={i.key} onClick={i.onClick} icon={i.icon}>
-                {i.label}
-              </Item>
-            ))
-          ) : (
-            <div className="px-3 py-2 text-sm text-[var(--theme-textSecondary)]">No actions</div>
-          )}
+          <MoreVertical size={18} />
+        </button>
+
+        {open && (
+          <div
+            ref={menuRef}
+            role="menu"
+            className="absolute right-0 mt-2 w-44 z-50 rounded-xl border shadow-lg p-2"
+            style={{
+              background: "var(--theme-components-card-bg)",
+              borderColor: "var(--theme-components-card-border)",
+              boxShadow: "0 12px 24px rgba(0,0,0,.12)"
+            }}
+          >
+            {items.length ? (
+              items.map(i => (
+                <Item key={i.key} onClick={i.onClick} icon={i.icon}>
+                  {i.label}
+                </Item>
+              ))
+            ) : (
+              <div className="px-3 py-2 text-sm text-[var(--theme-textSecondary)]">No actions</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const TagPill = ({ children }) => (
+    <span
+      className="px-2 py-0.5 rounded-full text-[11px] font-semibold border"
+      style={{
+        background: "rgba(59,130,246,.06)",
+        color: "#2563eb",
+        borderColor: "rgba(59,130,246,.25)"
+      }}
+    >
+      {children}
+    </span>
+  );
+
+  const StatChip = ({ label, value, sub }) => (
+    <div
+      className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-full border flex items-center justify-between gap-3"
+      style={{
+        background:
+          "linear-gradient(180deg, var(--theme-components-card-bg) 0%, var(--theme-surface) 100%)",
+        borderColor: "var(--theme-components-card-border)",
+        boxShadow: "0 6px 20px rgba(0,0,0,.08)"
+      }}
+    >
+      <div className="min-w-0">
+        <div
+          className="text-[11px] font-bold uppercase tracking-wide truncate"
+          style={{ color: "var(--theme-textSecondary)" }}
+        >
+          {label}
         </div>
-      )}
+        {sub ? (
+          <div className="text-[11px] truncate" style={{ color: "var(--theme-textSecondary)" }}>
+            {sub}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="text-right">
+        <div className="text-base sm:text-lg font-bold" style={{ color: "var(--theme-text)" }}>
+          {value}
+        </div>
+      </div>
     </div>
   );
-};
 
-const TagPill = ({ children }) => (
-  <span
-    className="px-2 py-0.5 rounded-full text-[11px] font-semibold border"
-    style={{
-      background: "rgba(59,130,246,.06)",
-      color: "#2563eb",
-      borderColor: "rgba(59,130,246,.25)"
-    }}
-  >
-    {children}
-  </span>
-);
-
-const StatChip = ({ label, value, sub }) => (
-  <div
-    className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-full border flex items-center justify-between gap-3"
-    style={{
-      background:
-        "linear-gradient(180deg, var(--theme-components-card-bg) 0%, var(--theme-surface) 100%)",
-      borderColor: "var(--theme-components-card-border)",
-      boxShadow: "0 6px 20px rgba(0,0,0,.08)"
-    }}
-  >
-    <div className="min-w-0">
-      <div
-        className="text-[11px] font-bold uppercase tracking-wide truncate"
-        style={{ color: "var(--theme-textSecondary)" }}
-      >
-        {label}
-      </div>
-      {sub ? (
-        <div className="text-[11px] truncate" style={{ color: "var(--theme-textSecondary)" }}>
-          {sub}
-        </div>
-      ) : null}
-    </div>
-
-    <div className="text-right">
-      <div className="text-base sm:text-lg font-bold" style={{ color: "var(--theme-text)" }}>
-        {value}
-      </div>
-    </div>
-  </div>
-);
+  const ChevronRightIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ opacity: .8 }}>
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 
   const renderClientCard = (client) => {
     const services = parseServices(client);
     const gstTypes = uniqueGstTypes(client);
-    const paymentsOpen = !!openPayments[client.lead_id];
     const servicesOpen = !!openServices[client.lead_id];
 
     return (
       <div
-  key={client.lead_id}
-  className="h-full flex flex-col rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-4 sm:p-6 bg-[var(--theme-components-card-bg)] border border-[var(--theme-components-card-border)]"
-  style={{ background: "linear-gradient(135deg, var(--theme-components-card-bg) 0%, var(--theme-surface) 100%)" }}
->
+        key={client.lead_id}
+        className="h-full flex flex-col rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-4 sm:p-6 bg-[var(--theme-components-card-bg)] border border-[var(--theme-components-card-border)]"
+        style={{ background: "linear-gradient(135deg, var(--theme-components-card-bg) 0%, var(--theme-surface) 100%)" }}
+      >
         {/* Header */}
         <div className="pb-3 sm:pb-4 mb-3 sm:mb-4 border-b border-[var(--theme-border)] grid grid-cols-[1fr,auto] items-start gap-3">
-  {/* Title + meta kept at a minimum height so action buttons line up across cards */}
-  <div className="min-w-0 min-h-[48px] flex flex-col justify-between">
-    <h3
-      className="font-bold text-lg sm:text-xl text-[var(--theme-text)] mb-0.5 whitespace-normal break-words"
-      title={client.full_name}
-    >
-      {client.full_name}
-    </h3>
-    <div className="text-[11px] text-[var(--theme-textSecondary)]">
-      Created: {client.created_at
-        ? new Date(client.created_at).toLocaleString("en-IN", {
-            day: "2-digit", month: "short", year: "numeric",
-            hour: "2-digit", minute: "2-digit",
-          })
-        : "—"}
-    </div>
-  </div>
+          {/* Title + meta kept at a minimum height so action buttons line up across cards */}
+          <div className="min-w-0 min-h-[48px] flex flex-col justify-between">
+            <h3
+              className="font-bold text-lg sm:text-xl text-[var(--theme-text)] mb-0.5 whitespace-normal break-words"
+              title={client.full_name}
+            >
+              {client.full_name}
+            </h3>
+            <div className="text-[11px] text-[var(--theme-textSecondary)]">
+              Created: {client.created_at
+                ? new Date(client.created_at).toLocaleString("en-IN", {
+                  day: "2-digit", month: "short", year: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })
+                : "—"}
+            </div>
+          </div>
 
-{/* Actions */}
-<div className="flex flex-wrap gap-1.5 sm:gap-2 shrink-0 self-start">
-  {[
-    {
-      icon: Eye,
-      title: "View",
-      color: "var(--theme-components-button-primary-bg)",
-      onClick: () => router.push(`/lead/${client.lead_id}`),
-    },
-    {
-      icon: FileText,
-      title: "Invoices",
-      color: "var(--theme-components-button-primary-bg)",
-      onClick: () => {
-        setSelectedLead(client);
-        setIsInvoiceModalOpen(true);
-      },
-    },
-    {
-      icon: BookOpenText,
-      title: "Story",
-      color: "var(--theme-secondary)",
-      onClick: () => {
-        setStoryLead(client);
-        setIsStoryModalOpen(true);
-      },
-    },
-    {
-      icon: MessageCircle,
-      title: "Comments",
-      color: "var(--theme-accent)",
-      onClick: () => {
-        setSelectedLeadId(client.lead_id);
-        setIsCommentModalOpen(true);
-      },
-    },
-  ].map((btn, i) => (
-    <button
-      key={i}
-      onClick={btn.onClick}
-      aria-label={btn.title}
-      className="w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200"
-      title={btn.title}
-      style={{ background: btn.color, color: "#fff" }}
-    >
-      <btn.icon size={14} />
-    </button>
-  ))}
-</div>
-</div>
+          {/* Actions */}
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 shrink-0 self-start">
+            {[
+              {
+                icon: Eye,
+                title: "View",
+                color: "var(--theme-components-button-primary-bg)",
+                onClick: () => router.push(`/lead/${client.lead_id}`),
+              },
+              {
+                icon: FileText,
+                title: "Invoices",
+                color: "var(--theme-components-button-primary-bg)",
+                onClick: () => {
+                  setSelectedLead(client);
+                  setIsInvoiceModalOpen(true);
+                },
+              },
+              {
+                icon: BookOpenText,
+                title: "Story",
+                color: "var(--theme-secondary)",
+                onClick: () => {
+                  setStoryLead(client);
+                  setIsStoryModalOpen(true);
+                },
+              },
+              {
+                icon: MessageCircle,
+                title: "Comments",
+                color: "var(--theme-accent)",
+                onClick: () => {
+                  setSelectedLeadId(client.lead_id);
+                  setIsCommentModalOpen(true);
+                },
+              },
+            ].map((btn, i) => (
+              <button
+                key={i}
+                onClick={btn.onClick}
+                aria-label={btn.title}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200"
+                title={btn.title}
+                style={{ background: btn.color, color: "#fff" }}
+              >
+                <btn.icon size={14} />
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Client info grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-6 sm:gap-x-8 mb-4 sm:mb-5">
-          <LV label="Email"   value={client.email} />
-          <LV label="Mobile"  value={client.mobile} />
-          <LV label="City"    value={client.city} />
+          <LV label="Email" value={client.email} />
+          <LV label="Mobile" value={client.mobile} />
+          <LV label="City" value={client.city} />
           {showBranchColumn && <LV label="Branch" value={client.branch_name} />}
           <LV
             label="Assigned"
@@ -669,80 +927,74 @@ const StatChip = ({ label, value, sub }) => (
         </div>
 
         {/* Summary – capsule chips */}
-{/* Summary – capsule chips (2 per row, no scroll) */}
-<div className="mb-4 sm:mb-5">
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 md:gap-4">
-    <StatChip
-      label="Total Paid"
-      value={<Money val={client.total_amount_paid} />}
-      sub={`${client.total_payments ?? 0} payments`}
-    />
+        {/* Summary – capsule chips (2 per row, no scroll) */}
+        <div className="mb-4 sm:mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 md:gap-4">
+            <StatChip
+              label="Total Paid"
+              value={<Money val={client.total_amount_paid} />}
+              sub={`${client.total_payments ?? 0} payments`}
+            />
 
-    <StatChip
-      label="Calls"
-      value={
-        <span className="font-bold">
-          {(client.used_calls ?? 0)}/{client.total_calls ?? 0}
-        </span>
-      }
-      sub={`${client.remaining_calls ?? 0} Remaining`}
-    />
+            <StatChip
+              label="Calls"
+              value={
+                <span className="font-bold">
+                  {(client.used_calls ?? 0)}/{client.total_calls ?? 0}
+                </span>
+              }
+              sub={`${client.remaining_calls ?? 0} Remaining`}
+            />
 
-    {/* GST TYPE capsule */}
-<div
-  className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-full border flex items-center gap-3"
-  style={{
-    background:
-      "linear-gradient(180deg, var(--theme-components-card-bg) 0%, var(--theme-surface) 100%)",
-    borderColor: "var(--theme-components-card-border)",
-    boxShadow: "0 6px 20px rgba(0,0,0,.08)"
-  }}
->
-  <div className="min-w-0 flex-1">
-    <div
-      className="text-[11px] font-bold uppercase tracking-wide"
-      style={{ color: "var(--theme-textSecondary)" }}
-    >
-      GST Type
-    </div>
+            {/* GST TYPE capsule */}
+            <div
+              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 rounded-full border flex items-center gap-3"
+              style={{
+                background:
+                  "linear-gradient(180deg, var(--theme-components-card-bg) 0%, var(--theme-surface) 100%)",
+                borderColor: "var(--theme-components-card-border)",
+                boxShadow: "0 6px 20px rgba(0,0,0,.08)"
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <div
+                  className="text-[11px] font-bold uppercase tracking-wide"
+                  style={{ color: "var(--theme-textSecondary)" }}
+                >
+                  GST Type
+                </div>
 
-    <div
-      className="text-[12px] sm:text-[13px] font-semibold whitespace-normal break-words leading-snug"
-      style={{ color: "var(--theme-text)" }}
-      title={gstTypes && gstTypes.length ? gstTypes.join(", ") : "—"}
-    >
-      &quot;{gstTypes && gstTypes.length ? gstTypes.join(", ") : "—"}&quot;
-    </div>
-  </div>
-</div>
+                <div
+                  className="text-[12px] sm:text-[13px] font-semibold whitespace-normal break-words leading-snug"
+                  style={{ color: "var(--theme-text)" }}
+                  title={gstTypes && gstTypes.length ? gstTypes.join(", ") : "—"}
+                >
+                  &quot;{gstTypes && gstTypes.length ? gstTypes.join(", ") : "—"}&quot;
+                </div>
+              </div>
+            </div>
 
-    <StatChip
-      label="Active"
-      value={<span className="font-bold">{client.active_payments_count ?? 0}</span>}
-      sub="payments"
-    />
-  </div>
-</div>
+            <StatChip
+              label="Active"
+              value={<span className="font-bold">{client.active_payments_count ?? 0}</span>}
+              sub="payments"
+            />
+          </div>
+        </div>
 
 
-        {/* Payments accordion */}
+        {/* Payments: open modal with table */}
         <div className="mt-auto">
           <button
-            onClick={() => setOpenPayments(prev => ({ ...prev, [client.lead_id]: !prev[client.lead_id] }))}
+            onClick={() => setPaymentsModal({ open: true, client })}
             className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border hover:shadow-sm transition-all duration-200"
             style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)", color: "var(--theme-text)" }}
           >
             <span className="text-sm font-semibold">
               All Payments ({client.all_payments?.length || 0})
             </span>
-            {paymentsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            <ChevronRightIcon />
           </button>
-
-          {paymentsOpen && (
-            <div className="mt-3 sm:mt-4">
-              <PaymentList payments={client.all_payments || []} />
-            </div>
-          )}
         </div>
       </div>
     );
@@ -773,11 +1025,27 @@ const StatChip = ({ label, value, sub }) => (
   );
 
   /* ===== Main render ===== */
-  const applyDate = useCallback(() => {
-    if (isSuperAdmin) fetchClients(branchId || null);
-    else if (isBranchManager) fetchClients(branchId);
-    else fetchMyClients(myView);
-  }, [isSuperAdmin, isBranchManager, branchId, myView]);
+const applyDate = useCallback(() => {
+  let from = dateFromInput;
+  let to = dateToInput;
+
+  // single-date support: if only one is filled, use it for both
+  if (from && !to) to = from;
+  if (to && !from) from = to;
+
+  setAppliedFrom(from || "");
+  setAppliedTo(to || "");
+
+  // refetch based on role
+  const emp = selectedEmployee?.employee_code || "";
+  if (isSuperAdmin) {
+    fetchClients(branchId ?? null, from || "", to || "", emp);
+  } else if (isBranchManager) {
+    fetchClients(branchId ?? null, from || "", to || "", emp);
+  } else {
+    fetchMyClients(myView || "self", from || "", to || "", emp);
+  }
+}, [dateFromInput, dateToInput, isSuperAdmin, isBranchManager, branchId, myView, selectedEmployee]);
 
   return (
     <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
@@ -792,7 +1060,11 @@ const StatChip = ({ label, value, sub }) => (
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => { setBranchId(null); fetchClients(null); }}
+                    onClick={() => {
+   setBranchId(null);
+   const emp = selectedEmployee?.employee_code || "";
+   fetchClients(null, appliedFrom || "", appliedTo || "", emp);
+ }}
                     className="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 hover:shadow-md"
                     style={{
                       background: !branchId ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",
@@ -808,7 +1080,11 @@ const StatChip = ({ label, value, sub }) => (
                     return (
                       <button
                         key={branch.id}
-                        onClick={() => { setBranchId(branch.id); fetchClients(branch.id); }}
+                        onClick={() => {
+       setBranchId(branch.id);
+       const emp = selectedEmployee?.employee_code || "";
+       fetchClients(branch.id, appliedFrom || "", appliedTo || "", emp);
+     }}
                         className="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 hover:shadow-md"
                         style={{
                           background: isActive ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",
@@ -857,50 +1133,86 @@ const StatChip = ({ label, value, sub }) => (
               </div>
 
               {/* Date filters (wrap nicely on mobile) */}
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
-                  <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">From Date</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
-                    style={{ borderColor: "var(--theme-input-border)" }}
-                  />
-                </div>
-                <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
-                  <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">To Date</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
-                    style={{ borderColor: "var(--theme-input-border)" }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={applyDate}
-                  className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg transition-all duration-200"
-                  style={{
-                    background: "var(--theme-components-button-primary-bg)",
-                    color: "var(--theme-components-button-primary-text)",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  Apply
-                </button>
-                {(dateFrom || dateTo) && (
-                  <button
-                    type="button"
-                    onClick={() => { setDateFrom(""); setDateTo(""); applyDate(); }}
-                    className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold border hover:shadow-md transition-all duration-200"
-                    style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+<div className="flex flex-wrap items-end gap-3">
+  <EmployeeAutoComplete
+  employeeQuery={employeeQuery}
+  setEmployeeQuery={setEmployeeQuery}
+  employeeOptions={employeeOptions}
+  employeeLoading={employeeLoading}
+  employeeDropdownOpen={employeeDropdownOpen}
+  setEmployeeDropdownOpen={setEmployeeDropdownOpen}
+  selectedEmployee={selectedEmployee}
+  setSelectedEmployee={setSelectedEmployee}
+  searchEmployees={searchEmployees}
+  isSuperAdmin={isSuperAdmin}
+  isBranchManager={isBranchManager}
+  myView={myView}
+  branchId={branchId}
+  appliedFrom={appliedFrom}
+  appliedTo={appliedTo}
+  fetchClients={fetchClients}
+  fetchMyClients={fetchMyClients}
+/>
+  <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
+    <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">From Date</label>
+    <input
+      type="date"
+      value={dateFromInput}
+      onChange={(e) => setDateFromInput(e.target.value)}     
+      className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
+      style={{ borderColor: "var(--theme-input-border)" }}
+    />
+  </div>
+  <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
+    <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">To Date</label>
+    <input
+      type="date"
+      value={dateToInput}
+      onChange={(e) => setDateToInput(e.target.value)}       
+      className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
+      style={{ borderColor: "var(--theme-input-border)" }}
+    />
+  </div>
+  <button
+    type="button"
+    onClick={applyDate}
+    className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg transition-all duration-200"
+    style={{
+      background: "var(--theme-components-button-primary-bg)",
+      color: "var(--theme-components-button-primary-text)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    }}
+  >
+    Apply
+  </button>
+
+  {(dateFromInput || dateToInput || appliedFrom || appliedTo) && (  /* optional: show when applied too */
+    <button
+      type="button"
+      onClick={() => {                               
+        setDateFromInput("");
+        setDateToInput("");
+        setAppliedFrom("");
+        setAppliedTo("");
+        setSelectedEmployee(null);
+        setEmployeeQuery("");
+
+        if (isSuperAdmin) {
+    fetchClients(branchId ?? null, "", "");
+  } else if (isBranchManager) {
+    fetchClients(branchId ?? null, "", "");
+  } else {
+    fetchMyClients(myView || "self", "", "");
+  }
+      }}
+      className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold border hover:shadow-md transition-all duration-200"
+      style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
+    >
+      Clear
+    </button>
+  )}
+</div>
+
             </div>
           </div>
         )}
@@ -911,13 +1223,13 @@ const StatChip = ({ label, value, sub }) => (
         ) : (isSuperAdmin || isBranchManager) ? (
           view === "card" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-              {filteredClients.map((client) => renderClientCard(client))}
+              {clients.map((client) => renderClientCard(client))}
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl shadow-lg bg-[var(--theme-components-card-bg)] border border-[var(--theme-components-card-border)]">
               {/* Mobile cards for table data */}
               <div className="md:hidden">
-                {filteredClients.map((c) => (
+                {clients.map((c) => (
                   <MobileRowCard key={c.lead_id}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -971,7 +1283,7 @@ const StatChip = ({ label, value, sub }) => (
                     ]}
                   />
                   <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
-                    {filteredClients.map((client) => (
+                    {clients.map((client) => (
                       <tr key={client.lead_id} className="hover:bg-[var(--theme-surface)] transition-colors duration-150">
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm font-semibold truncate" title={client.full_name}>{client.full_name}</td>
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.email || "—"}</td>
@@ -990,14 +1302,14 @@ const StatChip = ({ label, value, sub }) => (
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.used_calls ?? 0}/{client.total_calls ?? 0}</td>
                         <td className="px-5 lg:px-6 py-3 lg:py-4">
                           <ActionsDropdown
-  onView={() => router.push(`/lead/${client.lead_id}`)}
-  onInvoices={() => { setSelectedLead(client); setIsInvoiceModalOpen(true); }}
-  onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
-  onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
-  canInvoices={hasPermission("client_invoice")}
-  canStory={hasPermission("client_story")}
-  canComments={hasPermission("client_comments")}
-/>
+                            onView={() => router.push(`/lead/${client.lead_id}`)}
+                            onInvoices={() => { setSelectedLead(client); setIsInvoiceModalOpen(true); }}
+                            onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
+                            onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
+                            canInvoices={hasPermission("client_invoice")}
+                            canStory={hasPermission("client_story")}
+                            canComments={hasPermission("client_comments")}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -1015,7 +1327,13 @@ const StatChip = ({ label, value, sub }) => (
                   <button
                     key={v}
                     type="button"
-                    onClick={() => { if (myView !== v) { setMyView(v); fetchMyClients(v); }}}
+                    onClick={() => {
+   if (myView !== v) {
+     setMyView(v);
+     const emp = selectedEmployee?.employee_code || "";
+     fetchMyClients(v, appliedFrom || "", appliedTo || "", emp);
+   }
+ }}
                     className={`px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-semibold border transition-all duration-200 ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
                     style={{
                       background: myView === v ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",
@@ -1029,53 +1347,105 @@ const StatChip = ({ label, value, sub }) => (
                 ))}
               </div>
 
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
-                  <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">From Date</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
-                    style={{ borderColor: "var(--theme-input-border)" }}
-                  />
-                </div>
-                <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
-                  <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">To Date</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
-                    style={{ borderColor: "var(--theme-input-border)" }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={applyDate}
-                  className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg transition-all duration-200"
-                  style={{ background: "var(--theme-components-button-primary-bg)", color: "var(--theme-components-button-primary-text)" }}
-                >
-                  Apply Filter
-                </button>
-                {(dateFrom || dateTo) && (
-                  <button
-                    type="button"
-                    onClick={() => { setDateFrom(""); setDateTo(""); applyDate(); }}
-                    className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold border hover:shadow-md transition-all duration-200"
-                    style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+{/* Date filters (wrap nicely on mobile) */}
+<div className="flex flex-wrap items-end gap-3">
+
+{/* Non-admin, only when myView === "other" */}
+{myView === "other" && (
+  <EmployeeAutoComplete
+    employeeQuery={employeeQuery}
+    setEmployeeQuery={setEmployeeQuery}
+    employeeOptions={employeeOptions}
+    employeeLoading={employeeLoading}
+    employeeDropdownOpen={employeeDropdownOpen}
+    setEmployeeDropdownOpen={setEmployeeDropdownOpen}
+    selectedEmployee={selectedEmployee}
+    setSelectedEmployee={setSelectedEmployee}
+    searchEmployees={searchEmployees}
+    isSuperAdmin={isSuperAdmin}
+    isBranchManager={isBranchManager}
+    myView={myView}
+    branchId={branchId}
+    appliedFrom={appliedFrom}
+    appliedTo={appliedTo}
+    fetchClients={fetchClients}
+    fetchMyClients={fetchMyClients}
+  />
+)}
+  <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
+    <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">
+      From Date
+    </label>
+    <input
+      type="date"
+      value={dateFromInput}
+      onChange={(e) => setDateFromInput(e.target.value)}
+      className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
+      style={{ borderColor: "var(--theme-input-border)" }}
+    />
+  </div>
+
+  <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
+    <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">
+      To Date
+    </label>
+    <input
+      type="date"
+      value={dateToInput}
+      onChange={(e) => setDateToInput(e.target.value)}
+      className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
+      style={{ borderColor: "var(--theme-input-border)" }}
+    />
+  </div>
+
+  <button
+    type="button"
+    onClick={applyDate}
+    className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg transition-all duration-200"
+    style={{
+      background: "var(--theme-components-button-primary-bg)",
+      color: "var(--theme-components-button-primary-text)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    }}
+  >
+    Apply
+  </button>
+
+  {(dateFromInput || dateToInput || appliedFrom || appliedTo) && (
+    <button
+      type="button"
+      onClick={() => {
+        setDateFromInput("");
+        setDateToInput("");
+        setAppliedFrom("");
+        setAppliedTo("");
+        setSelectedEmployee(null);
+        setEmployeeQuery("");
+
+        if (isSuperAdmin) {
+    fetchClients(branchId ?? null, "", "");
+  } else if (isBranchManager) {
+    fetchClients(branchId ?? null, "", "");
+  } else {
+    fetchMyClients(myView || "self", "", "");
+  }
+      }}
+      className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold border hover:shadow-md transition-all duration-200"
+      style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
+    >
+      Clear
+    </button>
+  )}
+</div>
+
+
             </div>
 
             {/* My clients list: mobile cards + desktop table */}
             <div className="overflow-hidden rounded-xl shadow-lg bg-[var(--theme-components-card-bg)] border border-[var(--theme-components-card-border)]">
               {/* Mobile cards */}
               <div className="md:hidden">
-                {Array.isArray(filteredMyClients) && filteredMyClients.map((c) => {
+                {Array.isArray(myClients) && myClients.map((c) => {
                   const lastPaidAt = lastPaymentISO(c);
                   return (
                     <MobileRowCard key={c.lead_id}>
@@ -1108,15 +1478,28 @@ const StatChip = ({ label, value, sub }) => (
               {/* Desktop table */}
               <div className="overflow-x-auto hidden md:block">
                 <table className="w-full min-w-[760px]">
-                  <TableHeader cols={["Name", "Email", "Mobile", "Total Paid", "Last Payment", "Calls", "Actions"]} />
+                  <TableHeader
+   cols={
+     myView === "other"
+       ? ["Name", "Email", "Mobile", "Assigned", "Total Paid", "Last Payment", "Calls", "Actions"]
+       : ["Name", "Email", "Mobile", "Total Paid", "Last Payment", "Calls", "Actions"]
+   }
+ />
                   <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
-                    {Array.isArray(filteredMyClients) && filteredMyClients.map((client) => {
+                    {Array.isArray(myClients) && myClients.map((client) => {
                       const lastPaidAt = lastPaymentISO(client);
                       return (
                         <tr key={client.lead_id} className="hover:bg-[var(--theme-surface)] transition-colors duration-150">
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm font-semibold truncate" title={client.full_name}>{client.full_name}</td>
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.email || "—"}</td>
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.mobile || "—"}</td>
+                          {myView === "other" && (
+           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">
+             {client?.assigned_employee
+               ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})`
+               : "—"}
+           </td>
+         )}
                           <td className="px-5 lg:px-6 py-3 lg:py-4 font-bold"><Money val={client.total_amount_paid} /></td>
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">
                             {lastPaidAt ? new Date(lastPaidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
@@ -1124,15 +1507,15 @@ const StatChip = ({ label, value, sub }) => (
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.used_calls ?? 0}/{client.total_calls ?? 0}</td>
                           <td className="px-5 lg:px-6 py-3 lg:py-4">
                             <div className="flex flex-wrap gap-2">
-                             <ActionsDropdown
-  onView={() => router.push(`/lead/${client.lead_id}`)}
-  onInvoices={undefined /* not shown in this table by default; add if you want */}
-  onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
-  onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
-  canInvoices={false}  // set true + add handler if you want invoices here too
-  canStory={true}
-  canComments={true}
-/>
+                              <ActionsDropdown
+                                onView={() => router.push(`/lead/${client.lead_id}`)}
+                                onInvoices={undefined /* not shown in this table by default; add if you want */}
+                                onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
+                                onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
+                                canInvoices={false}  // set true + add handler if you want invoices here too
+                                canStory={true}
+                                canComments={true}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -1146,7 +1529,7 @@ const StatChip = ({ label, value, sub }) => (
         )}
 
         {/* Empty state */}
-        {!loading && ((isSuperAdmin || isBranchManager) ? filteredClients.length === 0 : filteredMyClients.length === 0) && (
+        {!loading && ((isSuperAdmin || isBranchManager) ? clients.length === 0 : myClients.length === 0) && (
           <div className="text-center py-12 sm:py-16">
             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 rounded-full bg-[var(--theme-surface)] flex items-center justify-center">
               <svg className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: "var(--theme-textSecondary)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1160,7 +1543,181 @@ const StatChip = ({ label, value, sub }) => (
           </div>
         )}
 
-        {/* Modals */}
+{/* Compact Enhanced Payments Modal */}
+{paymentsModal.open && (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+    <div className="absolute inset-0 bg-black/50" onClick={() => setPaymentsModal({ open: false, client: null })} />
+    
+    <div className="relative w-[96vw] max-w-5xl max-h-[92vh] border shadow-2xl flex flex-col"
+      style={{ background: "var(--theme-components-card-bg)", borderColor: "var(--theme-components-card-border)" }}>
+      
+      {/* Compact Header */}
+      <div className="px-5 py-3 border-b flex items-center justify-between shrink-0"
+        style={{ borderColor: "var(--theme-border)", background: "var(--theme-surface)" }}>
+        <div>
+          <h2 className="text-lg font-semibold leading-tight" style={{ color: "var(--theme-text)" }}>
+            Payment History
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: "var(--theme-textSecondary)" }}>
+            {paymentsModal.client?.full_name} · {paymentsModal.client?.all_payments?.length || 0} records
+          </p>
+        </div>
+        <button className="w-9 h-9 rounded-lg flex items-center justify-center border hover:shadow transition-all text-xl"
+          style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
+          onClick={() => setPaymentsModal({ open: false, client: null })} aria-label="Close">
+          ×
+        </button>
+      </div>
+
+      {/* Compact Content */}
+      <div className="overflow-y-auto flex-1 px-5 py-3">
+        {(!paymentsModal.client?.all_payments || paymentsModal.client.all_payments.length === 0) ? (
+          <div className="text-center py-12" style={{ color: "var(--theme-textSecondary)" }}>
+            No payments available.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {paymentsModal.client.all_payments.map((p, idx) => {
+              const dt = p?.created_at ? new Date(p.created_at).toLocaleString("en-IN", {
+                day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+              }) : "—";
+
+              const plan = Array.isArray(p?.plan) && p.plan[0] ? p.plan[0] : null;
+              const services = (() => {
+                const arr = [];
+                if (plan?.service_type?.length) arr.push(...plan.service_type);
+                if (Array.isArray(p?.service)) {
+                  p.service.flatMap(s => String(s).split(",")).map(s => s.trim()).filter(Boolean).forEach(s => arr.push(s));
+                }
+                const uniq = Array.from(new Set(arr));
+                return uniq.length <= 3 ? uniq.join(", ") : `${uniq.slice(0, 3).join(", ")} +${uniq.length - 3}`;
+              })();
+
+              return (
+                <div key={p.payment_id || p.order_id || idx} 
+                  className="rounded-lg border hover:shadow-lg transition-all"
+                  style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                  
+                  {/* Compact Top Row */}
+                  <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b" style={{ borderColor: "var(--theme-border)" }}>
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wide" 
+                        style={{ 
+                          background: p.status === 'success' ? '#dcfce7' : p.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                          color: p.status === 'success' ? '#166534' : p.status === 'pending' ? '#854d0e' : '#991b1b'
+                        }}>
+                        {p.status || "—"}
+                      </span>
+                      <span className="text-xs font-medium" style={{ color: "var(--theme-textSecondary)" }}>
+                        {dt}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-xl font-bold" style={{ color: "var(--theme-text)" }}>
+                        ₹{(Number(p.paid_amount) || 0).toLocaleString("en-IN")}
+                      </div>
+                      <div className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded" 
+                        style={{ background: "var(--theme-components-card-bg)", color: "var(--theme-textSecondary)" }}>
+                        {p.mode || "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Compact Details Grid */}
+                  <div className="px-4 py-3">
+                    <div className="grid grid-cols-12 gap-x-4 gap-y-2 text-sm">
+                      {/* Plan */}
+                      <div className="col-span-12 md:col-span-5">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "var(--theme-textSecondary)" }}>
+                          Plan
+                        </div>
+                        <div className="font-medium" style={{ color: "var(--theme-text)" }}>
+                          {plan?.name || "—"}
+                          {typeof plan?.price === "number" && (
+                            <span className="text-xs font-normal ml-1.5" style={{ color: "var(--theme-textSecondary)" }}>
+                              ₹{plan.price}
+                            </span>
+                          )}
+                          {typeof plan?.discount_percent === "number" && plan.discount_percent > 0 && (
+                            <span className="text-xs font-semibold ml-1.5 px-1 py-0.5 rounded" style={{ background: "#fef3c7", color: "#854d0e" }}>
+                              {plan.discount_percent}% off
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Billing */}
+                      <div className="col-span-6 md:col-span-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "var(--theme-textSecondary)" }}>
+                          Billing
+                        </div>
+                        <div className="font-medium" style={{ color: "var(--theme-text)" }}>{p.billing_cycle || "—"}</div>
+                      </div>
+
+                      {/* Active Status */}
+                      <div className="col-span-6 md:col-span-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "var(--theme-textSecondary)" }}>
+                          Active
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                            {p.is_active ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Calls - Compact inline */}
+                      {typeof p.call === "number" && (
+                        <div className="col-span-12 md:col-span-2">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "var(--theme-textSecondary)" }}>
+                            Calls
+                          </div>
+                          <div className="text-xs font-medium" style={{ color: "var(--theme-text)" }}>
+                            <span className="font-bold">{p.used_calls ?? 0}</span>
+                            <span className="mx-0.5" style={{ color: "var(--theme-textSecondary)" }}>/</span>
+                            <span className="font-bold">{p.call ?? 0}</span>
+                            <span className="ml-1" style={{ color: "var(--theme-textSecondary)" }}>
+                              ({p.remaining_calls ?? 0} left)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Services */}
+                      <div className="col-span-12">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "var(--theme-textSecondary)" }}>
+                          Services
+                        </div>
+                        <div className="text-xs leading-relaxed" style={{ color: "var(--theme-text)" }}>{services || "—"}</div>
+                      </div>
+
+                      {/* Taxes - Inline compact */}
+                      {(p.cgst || p.sgst || p.igst) && (
+                        <div className="col-span-12 pt-2 mt-1 border-t" style={{ borderColor: "var(--theme-border)" }}>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--theme-textSecondary)" }}>
+                              Tax ({p.gst_type || "—"}):
+                            </span>
+                            <div className="flex gap-3 text-xs font-medium">
+                              {Number(p.cgst) > 0 && <span style={{ color: "var(--theme-text)" }}>CGST ₹{Number(p.cgst).toLocaleString("en-IN")}</span>}
+                              {Number(p.sgst) > 0 && <span style={{ color: "var(--theme-text)" }}>SGST ₹{Number(p.sgst).toLocaleString("en-IN")}</span>}
+                              {Number(p.igst) > 0 && <span style={{ color: "var(--theme-text)" }}>IGST ₹{Number(p.igst).toLocaleString("en-IN")}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
         {isCommentModalOpen && (
           <CommentModal isOpen={isCommentModalOpen} onClose={() => setIsCommentModalOpen(false)} leadId={selectedLeadId} />
         )}
@@ -1168,6 +1725,7 @@ const StatChip = ({ label, value, sub }) => (
           <StoryModal isOpen={isStoryModalOpen} onClose={() => setIsStoryModalOpen(false)} leadId={storyLead?.lead_id} />
         )}
         <InvoiceList isOpen={isInvoiceModalOpen} onClose={() => setIsInvoiceModalOpen(false)} leadId={selectedLead?.lead_id} />
+
       </div>
     </div>
   );

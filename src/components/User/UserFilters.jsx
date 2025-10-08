@@ -161,7 +161,7 @@ export default function UserFilters({
             placeholder="Search by name, email, phone or code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`${fieldBase} pl-10 w-full`}
+            className={`${fieldBase} pl-10 w-90`}
             style={inputStyle}
             onFocus={(e) => Object.assign(e.currentTarget.style, { ...inputStyle, ...focusStyle })}
             onBlur={(e) => Object.assign(e.currentTarget.style, inputStyle)}

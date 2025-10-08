@@ -365,19 +365,19 @@ const CreatePaymentLink = ({
   const wsOrder = String(paymentStatus?.order_id || "");
   const wsStatus = String(paymentStatus?.payment_status || "").toUpperCase();
 
-  const isSuccess= !!(wsOrder && wsStatus === "PAID" && wsOrder === String(currentOrderId))
-console.log("response : ==>",response)
+  const isSuccess = !!(wsOrder && wsStatus === "PAID" && wsOrder === String(currentOrderId))
+  console.log("response : ==>", response)
   return (
     <div className="p-6 space-y-6" style={{ color: "var(--theme-text)" }}>
 
-   {
-  isSuccess &&
-    <PaymentSuccess
-      amount={response?.cashfreeResponse?.order_amount}
-      orderId={response?.cashfreeResponse?.order_id}
-      onDone={() => setOpen(false)}
-    />
-}
+      {
+        isSuccess &&
+        <PaymentSuccess
+          amount={response?.cashfreeResponse?.order_amount}
+          orderId={response?.cashfreeResponse?.order_id}
+          onDone={() => setOpen(false)}
+        />
+      }
 
       {/* If No Payment Link */}
       {!isSuccess && !response?.cashfreeResponse?.payment_link && (
@@ -479,8 +479,8 @@ console.log("response : ==>",response)
                   val?.billing_cycle === "MONTHLY"
                     ? 30
                     : val?.billing_cycle === "YEARLY"
-                    ? 365
-                    : 0
+                      ? 365
+                      : 0
                 );
               }}
             />
@@ -589,8 +589,8 @@ console.log("response : ==>",response)
                       boxShadow: "0 0 0 0 rgba(0,0,0,0)",
                     }}
                     onFocus={(e) =>
-                      (e.currentTarget.style.boxShadow =
-                        "0 0 0 3px color-mix(in srgb, var(--theme-success,#16a34a) 25%, transparent)")
+                    (e.currentTarget.style.boxShadow =
+                      "0 0 0 3px color-mix(in srgb, var(--theme-success,#16a34a) 25%, transparent)")
                     }
                     onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
                     placeholder={`0.00 (Max ₹${remaining})`}
@@ -747,12 +747,12 @@ console.log("response : ==>",response)
                               background: "var(--theme-card-bg,#fff)",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.background =
-                                "color-mix(in srgb, var(--theme-primary,#4f46e5) 5%, var(--theme-card-bg,#fff))")
+                            (e.currentTarget.style.background =
+                              "color-mix(in srgb, var(--theme-primary,#4f46e5) 5%, var(--theme-card-bg,#fff))")
                             }
                             onMouseLeave={(e) =>
-                              (e.currentTarget.style.background =
-                                "var(--theme-card-bg,#fff)")
+                            (e.currentTarget.style.background =
+                              "var(--theme-card-bg,#fff)")
                             }
                           >
                             <input
@@ -893,26 +893,25 @@ console.log("response : ==>",response)
             </div>
           </div>
 
-          {/* QR Code */}
           {/* QR Code (disabled via flag) */}
-{FEATURES.qr && (
-  <QRCodeSection
-    orderId={response.cashfreeResponse.order_id}
-    paymentLink={response.cashfreeResponse.payment_link}
-  />
-)}
+          {FEATURES.qr && (
+            <QRCodeSection
+              orderId={response.cashfreeResponse.order_id}
+              paymentLink={response.cashfreeResponse.payment_link}
+            />
+          )}
 
-{/* UPI Section (disabled via flag) */}
-{FEATURES.upi && (
-  <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
-)}
+          {/* UPI Section (disabled via flag) */}
+          {FEATURES.upi && (
+            <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
+          )}
         </div>
       )}
     </div>
   );
 };
 
-function ServiceCard({ selectService = {}, setSelectService = () => {} }) {
+function ServiceCard({ selectService = {}, setSelectService = () => { } }) {
   const [service_plan, setService_plan] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -1580,7 +1579,7 @@ function PaymentSuccess({ amount, orderId, onDone }) {
 Amount: ₹${amount}
 Order: ${orderId}`;
       await navigator.clipboard.writeText(text);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -1619,12 +1618,12 @@ Order: ${orderId}`;
               i % 5 === 0
                 ? "var(--theme-primary,#4f46e5)"
                 : i % 5 === 1
-                ? "var(--theme-accent,#22c55e)"
-                : i % 5 === 2
-                ? "var(--theme-success,#16a34a)"
-                : i % 5 === 3
-                ? "var(--theme-warning,#f59e0b)"
-                : "var(--theme-danger,#dc2626)",
+                  ? "var(--theme-accent,#22c55e)"
+                  : i % 5 === 2
+                    ? "var(--theme-success,#16a34a)"
+                    : i % 5 === 3
+                      ? "var(--theme-warning,#f59e0b)"
+                      : "var(--theme-danger,#dc2626)",
           }}
         />
       ))}

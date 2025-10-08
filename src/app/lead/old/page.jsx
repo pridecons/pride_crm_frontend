@@ -12,7 +12,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, memo, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
   formatCallbackForAPI,
@@ -22,7 +22,213 @@ import {
 import CallButton from "@/components/Lead/CallButton";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
-/* ---------- Theme-driven UI tokens (style only) ---------- */
+export const AssigneeAutoComplete = memo(function AssigneeAutoComplete({
+  value, setValue,
+  selected, setSelected,
+  options, loading, open, setOpen,
+  onSearch, onClear, onPick,
+}) {
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [setOpen]);
+
+  return (
+    <div ref={wrapRef} className="relative w-[260px]">
+      <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5">
+        Assignee
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          autoComplete="off"
+          value={selected ? `${selected.name} (${selected.employee_code})` : value}
+          placeholder="Search employee (min 2 chars)…"
+          onChange={(e) => {
+            if (selected) setSelected(null);
+            const v = e.target.value;
+            setValue(v);
+            if (v.trim().length === 0) {
+              setOpen(false);
+              onClear?.();
+            } else {
+              onSearch(v);
+              setOpen(true);
+            }
+          }}
+          onFocus={() => { if (options.length) setOpen(true); }}
+          className="w-full rounded-lg px-3 py-2 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+          style={{ borderColor: "var(--theme-input-border)" }}
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls="assignee-autocomplete-list"
+        />
+        {selected && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
+            style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)", color: "var(--theme-textSecondary)" }}
+            onClick={() => { setSelected(null); setValue(""); setOpen(false); onClear?.(); }}
+            aria-label="Clear assignee"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div
+          id="assignee-autocomplete-list"
+          role="listbox"
+          className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-lg border shadow-lg"
+          style={{ background: "var(--theme-components-card-bg)", borderColor: "var(--theme-components-card-border)" }}
+        >
+          {loading ? (
+            <div className="px-3 py-2 text-sm text-[var(--theme-textSecondary)]">Searching…</div>
+          ) : options.length ? (
+            options.map((opt) => (
+              <button
+                key={opt.employee_code}
+                role="option"
+                type="button"
+                onClick={() => {
+                  setSelected({ employee_code: opt.employee_code, name: opt.name });
+                  setValue("");
+                  setOpen(false);
+                  onPick?.(opt.employee_code);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-[var(--theme-surface)]"
+                style={{ color: "var(--theme-text)" }}
+              >
+                <div className="text-sm font-medium truncate">
+                  {opt.name} <span className="opacity-70">({opt.employee_code})</span>
+                </div>
+                {opt.role && (
+                  <div className="text-[11px] text-[var(--theme-textSecondary)]">{opt.role}</div>
+                )}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-[var(--theme-textSecondary)]">No matches</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Pill-styled select like Assignee
+function ResponseSelectPill({ value, onChange, options = [] }) {
+  return (
+    <div className="relative w-[220px]">
+      <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5">
+        Response
+      </label>
+
+      <div className="relative">
+        <select
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+          className="w-full rounded-lg px-3 py-2 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+          style={{ borderColor: "var(--theme-input-border)" }}
+        >
+          <option value="">All Responses</option>
+          {options.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+
+        {value != null && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
+            style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)", color: "var(--theme-textSecondary)" }}
+            onClick={() => onChange(null)}
+            aria-label="Clear response"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Pill-styled date input like Assignee
+function DateInputPill({ label = "Date", value, onChange, placeholder = "yyyy-mm-dd" }) {
+  return (
+    <div className="relative w-[180px]">
+      <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5">
+        {label}
+      </label>
+
+      <div className="relative">
+        <input
+          type="date"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-lg px-3 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+          style={{ borderColor: "var(--theme-input-border)" }}
+        />
+        {value && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
+            style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)", color: "var(--theme-textSecondary)" }}
+            onClick={() => onChange("")}
+            aria-label={`Clear ${label.toLowerCase()} date`}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+  // --- cookie helpers (client-side) ---
+function getCookie(name) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/([$?*|{}\[\]\\/+^])/g, "\\$1") + "=([^;]*)"));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function readUserFromCookies() {
+  try {
+    const raw = getCookie("user_info");
+    if (!raw) return null;
+    // if your cookie stores raw JSON
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+const normalizeRoleKey = (r) =>
+  (r ?? "").toString().trim().toUpperCase().replace(/\s+/g, "_");
+
+const pickBranchId = (u) =>
+  u?.branch_id ??
+  u?.user?.branch_id ??
+  u?.branch?.id ??
+  u?.assigned_user?.branch_id ??
+  null;
+
+const pickEmployeeCode = (u) =>
+  u?.employee_code ?? u?.user?.employee_code ?? null;
+
+// If your user objects carry a reporting field; we’ll check multiple common keys:
+const reportsToMe = (u, myCode) => {
+  const mgrKeys = ["reporting_to", "reporting_manager", "manager_code", "manager_employee_code", "sba_code"];
+  return mgrKeys.some((k) => String(u?.[k] ?? "").trim() === String(myCode).trim());
+};
 
 // Base button layout classes (spacing/shape)
 const BTN_BASE =
@@ -98,6 +304,9 @@ const Show = (v) =>
   );
 
 export default function OldLeadsTable() {
+  const [myRole, setMyRole] = useState("");       // e.g. "SUPERADMIN", "BRANCH_MANAGER", "SBA", "BA"
+const [myBranchId, setMyBranchId] = useState(null);
+const [myEmployeeCode, setMyEmployeeCode] = useState(null);
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
   const [sources, setSources] = useState([]);
@@ -132,17 +341,89 @@ export default function OldLeadsTable() {
 
   const [ftServiceType, setFTServiceType] = useState("Call");
 
+const [uiFromDate, setUiFromDate] = useState("");
+const [uiToDate, setUiToDate] = useState("");
+
+// under other state hooks
+const [selectedAssignee, setSelectedAssignee] = useState(null); // { employee_code, name }
+const [assigneeQuery, setAssigneeQuery] = useState("");
+const [assigneeOptions, setAssigneeOptions] = useState([]);
+const [assigneeLoading, setAssigneeLoading] = useState(false);
+const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
+const assigneeTimer = useRef(null);
+
+// extend the appliedFilters shape to carry assigned user (for team view)
+const [appliedFilters, setAppliedFilters] = useState({
+  from: "",
+  to: "",
+  assignedUser: null, // <-- NEW
+});
+
   const router = useRouter();
 
-  useEffect(() => {
-    const userInfo = JSON.parse(localStorage.getItem("user_info")) || {};
-    setUserId(userInfo.employee_code || "Admin001");
-  }, []);
+useEffect(() => {
+  // 1) Try cookies
+  const cookieUser = readUserFromCookies();
+
+  // 2) Fallback to localStorage if cookie missing (optional)
+  const lsUser = !cookieUser ? JSON.parse(localStorage.getItem("user_info") || "{}") : null;
+
+  const info = cookieUser || lsUser || {};
+
+  setUserId(info?.employee_code || info?.user?.employee_code || "Admin001");
+
+  const roleGuess =
+    info?.profile_role?.name ??
+    info?.role_name ??
+    info?.role ??
+    info?.user?.role_name ??
+    info?.user?.role ??
+    "";
+  setMyRole(normalizeRoleKey(roleGuess));
+  setMyBranchId(pickBranchId(info));
+  setMyEmployeeCode(pickEmployeeCode(info));
+}, []);
 
   useEffect(() => {
     fetchResponses();
     fetchSources();
   }, []);
+
+const searchAssignees = useCallback((q) => {
+  if (assigneeTimer.current) clearTimeout(assigneeTimer.current);
+
+  assigneeTimer.current = setTimeout(async () => {
+    const query = (q || "").trim();
+    if (query.length < 2) { setAssigneeOptions([]); return; }
+
+    try {
+      setAssigneeLoading(true);
+
+      // ✅ Only pass the search term. The API applies role/branch/team scoping from the cookie.
+      const { data } = await axiosInstance.get("/users-fiter/", {
+        params: { search: query }
+      });
+
+      const list = Array.isArray(data) ? data : [];
+
+      setAssigneeOptions(
+        list
+          // don’t show myself in the list
+          .filter(u => String(u.employee_code) !== String(myEmployeeCode))
+          .map(u => ({
+            employee_code: u.employee_code,
+            name: u.name,
+            role: u?.profile_role?.name ?? u?.role_id
+          }))
+      );
+    } catch {
+      setAssigneeOptions([]);
+    } finally {
+      setAssigneeLoading(false);
+      setAssigneeDropdownOpen(true);
+    }
+  }, 250);
+}, [myEmployeeCode]);
 
   const fetchLeads = async (customFrom = fromDate, customTo = toDate) => {
     setLoading(true);
@@ -203,68 +484,66 @@ export default function OldLeadsTable() {
   };
 
   const didRunOnceDev = useRef(false);
-  const doFetchLeads = useCallback(
-    async () => {
-      setLoading(true);
-      try {
-        const dateApplied = !!(
-          (fromDate && fromDate.trim()) || (toDate && toDate.trim())
-        );
 
-        const params = {
-          skip: dateApplied ? 0 : (page - 1) * limit,
-          limit: dateApplied ? 1000 : limit,
-          view: viewType || "self",
-        };
-        if (searchQuery?.trim()) params.search = searchQuery.trim();
-        if (responseFilterId != null) params.response_id = responseFilterId;
+const doFetchLeads = useCallback(
+  async () => {
+    setLoading(true);
+    try {
+      const { from, to, assignedUser } = appliedFilters;
+      const dateApplied = !!((from && from.trim()) || (to && to.trim()));
 
-        const { data } = await axiosInstance.get("/old-leads/my-assigned", {
-          params,
-        });
-        const all = data.assigned_old_leads || [];
+      const params = {
+        skip: dateApplied ? 0 : (page - 1) * limit,
+        limit: dateApplied ? 1000 : limit,
+        view: viewType || "self",
+      };
+      if (searchQuery?.trim()) params.search = searchQuery.trim();
 
-        if (!dateApplied) {
-          setLeads(all);
-          const serverTotal = data.count ?? data.total ?? 0;
-          setTotal(serverTotal);
-          const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
-          if (page > maxPages) setPage(maxPages);
-        } else {
-          const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
-          const f = (fromDate || "").trim();
-          const t = (toDate || "").trim();
-          const inRange = (d) => {
-            if (!f && !t) return true;
-            if (f && !t) return d === f;
-            if (!f && t) return d === t;
-            return d >= f && d <= t;
-          };
-          const filtered = all.filter((l) => inRange(day(l.response_changed_at)));
-          const start = (page - 1) * limit;
-          const end = start + limit;
-          setLeads(filtered.slice(start, end));
-          setTotal(filtered.length);
-          const maxPages = Math.max(1, Math.ceil(filtered.length / limit));
-          if (page > maxPages) setPage(maxPages);
-        }
-      } catch (error) {
-        ErrorHandling({ error, defaultError: "Failed to load leads" });
-      } finally {
-        setLoading(false);
+      // ✅ response filter is LIVE
+      if (responseFilterId != null) params.response_id = responseFilterId;
+
+      // team-assignee (still live)
+      if (viewType === "team" && assignedUser) {
+        params.assigned_user = assignedUser;
       }
-    },
-    [
-      axiosInstance,
-      page,
-      limit,
-      viewType,
-      searchQuery,
-      responseFilterId,
-      fromDate,
-      toDate,
-    ]
-  );
+
+      const { data } = await axiosInstance.get("/old-leads/my-assigned", { params });
+      const all = data.assigned_old_leads || [];
+
+      if (!dateApplied) {
+        setLeads(all);
+        const serverTotal = data.count ?? data.total ?? 0;
+        setTotal(serverTotal);
+        const maxPages = Math.max(1, Math.ceil(serverTotal / limit));
+        if (page > maxPages) setPage(maxPages);
+      } else {
+        const day = (iso) => (iso ? String(iso).slice(0, 10) : "");
+        const f = (from || "").trim();
+        const t = (to || "").trim();
+        const inRange = (d) => {
+          if (!f && !t) return true;
+          if (f && !t) return d === f;
+          if (!f && t) return d === t;
+          return d >= f && d <= t;
+        };
+
+        const filtered = all.filter((l) => inRange(day(l.response_changed_at)));
+        const start = (page - 1) * limit;
+        const end = start + limit;
+        setLeads(filtered.slice(start, end));
+        setTotal(filtered.length);
+        const maxPages = Math.max(1, Math.ceil(filtered.length / limit));
+        if (page > maxPages) setPage(maxPages);
+      }
+    } catch (error) {
+      ErrorHandling({ error, defaultError: "Failed to load leads" });
+    } finally {
+      setLoading(false);
+    }
+  },
+  // 👉 depend on live response + applied dates
+  [page, limit, viewType, searchQuery, appliedFilters, responseFilterId]
+);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "development" && !didRunOnceDev.current) {
@@ -274,17 +553,28 @@ export default function OldLeadsTable() {
     doFetchLeads();
   }, [doFetchLeads]);
 
-  const handleApply = () => {
-    setApplied(true);
-    setPage(1);
-  };
+const handleApplyFilters = () => {
+  setAppliedFilters(prev => ({
+    ...prev,
+    from: (uiFromDate || "").trim(),
+    to: (uiToDate || "").trim(),
+  }));
+  setPage(1);
+};
 
-  const handleClear = () => {
-    setFromDate("");
-    setToDate("");
-    setApplied(false);
-    setPage(1);
-  };
+const handleResetFilters = () => {
+  // clear ONLY date + team selection; response can be cleared too if you prefer
+  setUiFromDate("");
+  setUiToDate("");
+  setSelectedAssignee(null);
+  setAssigneeQuery("");
+  setAppliedFilters({ from: "", to: "", assignedUser: null });
+
+  // If "Reset" should also clear response, keep this; otherwise remove it:
+  setResponseFilterId(null);
+
+  setPage(1);
+};
 
   const fetchResponses = async () => {
     try {
@@ -556,7 +846,9 @@ export default function OldLeadsTable() {
                 onChange={(e) => handleResponseChange(lead, e.target.value)}
               >
                 <option value="">Select Response</option>
-                {responses.map((r) => (
+                {responses
+                .filter((r) => r.name !== "CLIENT")
+                .map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
                   </option>
@@ -613,7 +905,9 @@ export default function OldLeadsTable() {
                 onChange={(e) => handleResponseChange(lead, e.target.value)}
               >
                 <option value="">Select Response</option>
-                {responses.map((r) => (
+                {responses
+                .filter((r) => r.name !== "CLIENT")
+                .map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
                   </option>
@@ -631,7 +925,9 @@ export default function OldLeadsTable() {
             onChange={(e) => handleResponseChange(lead, e.target.value)}
           >
             <option value="">Select Response</option>
-            {responses.map((r) => (
+            {responses
+            .filter((r) => r.name !== "CLIENT")
+            .map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -696,7 +992,7 @@ export default function OldLeadsTable() {
       header: "Actions",
       render: (lead) => (
         <div className="flex gap-2">
-          <CallButton lead={lead} onRefresh={fetchLeads} />
+          {/* <CallButton lead={lead} onRefresh={fetchLeads} /> */}
 
           <button
             onClick={() => router.push(`/lead/${lead.id}`)}
@@ -704,7 +1000,7 @@ export default function OldLeadsTable() {
             className="group w-8 h-8 inline-flex items-center justify-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100"
             style={{ color: "var(--theme-primary)" }}
           >
-            <Pencil size={22} className="transition-transform duration-150 group-hover:scale-110" />
+            <Pencil size={20} className="transition-transform duration-150 group-hover:scale-110" />
           </button>
 
           <button
@@ -791,83 +1087,74 @@ export default function OldLeadsTable() {
           </ul>
         </div>
 
-        {/* Filter controls */}
-        <div className="w-full flex flex-wrap items-center justify-end gap-3 md:gap-4 p-2 md:p-2">
-          {/* Response */}
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs font-medium"
-              style={{ color: "var(--theme-textSecondary)" }}
-            >
-              Response
-            </span>
-            <select
-              value={responseFilterId || ""}
-              onChange={(e) => {
-                const newResponseId = e.target.value ? Number(e.target.value) : null;
-                setResponseFilterId(newResponseId);
-                setPage(1);
-              }}
-              className="rounded text-sm shadow-sm"
-              style={{ ...inputPillStyle, padding: "0.5rem 2rem 0.5rem 0.75rem" }}
-            >
-              <option value="">All Responses</option>
-              {responses.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
+{/* Filter controls */}
+<div className="w-full flex flex-wrap items-center justify-end gap-3 md:gap-4 p-2 md:p-2">
+  {/* Assignee (team view only) */}
+{viewType === "team" && (
+  <AssigneeAutoComplete
+    value={assigneeQuery}
+    setValue={setAssigneeQuery}
+    selected={selectedAssignee}
+    setSelected={setSelectedAssignee}
+    options={assigneeOptions}
+    loading={assigneeLoading}
+    open={assigneeDropdownOpen}
+    setOpen={setAssigneeDropdownOpen}
+    onSearch={searchAssignees}
+    // Clear → fetch immediately (assigned removed)
+   onClear={() => {
+     setAppliedFilters(prev => ({ ...prev, assignedUser: null }));
+     setPage(1);
+   }}
+   // Pick → fetch immediately (assigned applied)
+   onPick={(empCode) => {
+     setAppliedFilters(prev => ({ ...prev, assignedUser: empCode }));
+     setPage(1);
+   }}
+  />
+)}
+  {/* Response (draft only) */}
+<ResponseSelectPill
+  value={responseFilterId}
+  onChange={(val) => {
+    setResponseFilterId(val ?? null); // LIVE trigger
+    setPage(1);
+  }}
+  options={responses}
+/>
 
-          {/* Divider */}
-          <span
-            className="hidden sm:block h-6 w-px"
-            style={{ background: "var(--theme-border)" }}
-          />
+  {/* Divider */}
+  <span className="hidden mt-4 sm:block h-6 w-px" style={{ background: "var(--theme-border)" }} />
 
-          {/* Date range */}
-          <div className="flex items-center gap-2">
-            <label
-              className="text-xs font-medium"
-              style={{ color: "var(--theme-textSecondary)" }}
-            >
-              From
-            </label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setApplied(false);
-              }}
-              className="rounded text-sm shadow-sm"
-              style={{ ...inputPillStyle, padding: "0.5rem 0.75rem" }}
-            />
-            <label
-              className="text-xs font-medium"
-              style={{ color: "var(--theme-textSecondary)" }}
-            >
-              To
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setApplied(false);
-              }}
-              className="rounded text-sm shadow-sm"
-              style={{ ...inputPillStyle, padding: "0.5rem 0.75rem" }}
-            />
-          </div>
+  {/* Date range (draft only) */}
+  <DateInputPill label="From" value={uiFromDate} onChange={setUiFromDate} />
+<DateInputPill label="To" value={uiToDate} onChange={setUiToDate} />
 
-          {/* Divider */}
-          <span
-            className="hidden sm:block h-6 w-px"
-            style={{ background: "var(--theme-border)" }}
-          />
-        </div>
+  {/* Divider */}
+  <span className="hidden mt-4 sm:block h-6 w-px" style={{ background: "var(--theme-border)" }} />
+
+  {/* Actions */}
+  <div className="flex mt-6 items-center gap-2">
+    <button
+      onClick={handleResetFilters}
+      className={BTN_BASE}
+      style={btnSoftStyle}
+      title="Reset all filters"
+    >
+      Reset
+    </button>
+    <button
+      onClick={handleApplyFilters}
+      className={BTN_BASE}
+      style={btnPrimaryStyle}
+      onMouseDown={(e) => (e.currentTarget.style.boxShadow = btnPrimaryFocus.boxShadow)}
+      onMouseUp={(e) => (e.currentTarget.style.boxShadow = btnPrimaryStyle.boxShadow)}
+      title="Apply filters"
+    >
+      Apply
+    </button>
+  </div>
+</div>
       </div>
 
       {/* Table card */}

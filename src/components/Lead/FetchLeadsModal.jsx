@@ -24,11 +24,6 @@ export default function FetchLeadsModal({ open, onClose, onFetched }) {
       const { data } = await axiosInstance.get("/lead-fetch-source/sources");
       const arr = Array.isArray(data) ? data : [];
       setSources(arr);
-      if (arr.length === 1) setSelectedId(arr[0].source_id);
-      else {
-        const pick = arr.find((s) => s.can_fetch_now && (s.leads_remaining_today ?? 0) > 0);
-        if (pick) setSelectedId(pick.source_id);
-      }
     } catch (error) {
       ErrorHandling({ error, defaultError: "Failed to load fetch sources" });
     } finally {

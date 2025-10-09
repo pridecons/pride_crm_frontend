@@ -113,17 +113,37 @@ export default function LeadSourcesPage() {
     fetch_configs: [], // [{ role_id, per_request_limit, daily_call_limit }]
   });
 
-  // add this near your other useState hooks
-  const [openRows, setOpenRows] = useState(new Set());
+const [openRowId, setOpenRowId] = useState(null);
 
-  // helper to toggle one row open/closed
-  const toggleRow = (id) => {
-    setOpenRows((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const [fetchingBranches, setFetchingBranches] = useState(false);
+
+// ⬇ replace your role cell state + helpers with this
+const [openRoleCells, setOpenRoleCells] = useState(new Set());
+
+const toggleRoleCell = (rawId) => {
+  const key = Number(rawId);             // normalize
+  setOpenRoleCells((prev) => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+};
+
+const isRoleCellOpen = (rawId) => openRoleCells.has(Number(rawId)); // normalize everywhere
+const closeAllRoleCells = () => setOpenRoleCells(new Set());
+
+const roleNameById = (rolesArr, id) =>
+  (rolesArr.find((r) => Number(r.id) === Number(id))?.name) || `#${id}`;
+
+useEffect(() => {
+  const onDocDown = (e) => {
+    // if the click is inside a “safe” area (arrow/panel), do nothing
+    if (e.target.closest('[data-acc-safe]')) return;
+    setOpenRowId(null); // close accordion
   };
+  document.addEventListener('pointerdown', onDocDown, true); // capture
+  return () => document.removeEventListener('pointerdown', onDocDown, true);
+}, []);
 
   const isCreate = isCreateNew && !editingId;
 
@@ -182,7 +202,7 @@ export default function LeadSourcesPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchBranches(), fetchSources(), fetchRoles()]);
+      await Promise.all([fetchSources(), fetchRoles()]);
 
       if (!isSuperAdmin && userBranchId && userBranchName) {
         setBranchMap((prev) => ({
@@ -363,27 +383,27 @@ export default function LeadSourcesPage() {
   };
 
   /* --------------------------- filters --------------------------- */
-const filteredSources = useMemo(() => {
-  const term = (searchTerm || "").toLowerCase();
-  return (sources || []).filter((src) => {
-    const roleNames =
-      (src.fetch_configs || [])
-        .map((fc) => {
-          const r = roles.find((x) => x.id === fc.role_id);
-          return r?.name || "";
-        })
-        .join(", ") || "";
+  const filteredSources = useMemo(() => {
+    const term = (searchTerm || "").toLowerCase();
+    return (sources || []).filter((src) => {
+      const roleNames =
+        (src.fetch_configs || [])
+          .map((fc) => {
+            const r = roles.find((x) => x.id === fc.role_id);
+            return r?.name || "";
+          })
+          .join(", ") || "";
 
-    // 🔽 UPDATED: include branch_name in the searchable text
-    return (
-      (src?.name || "").toLowerCase().includes(term) ||
-      (src?.description || "").toLowerCase().includes(term) ||
-      (src?.branch_name || "").toLowerCase().includes(term) ||
-      String(src?.branch_id || "").toLowerCase().includes(term) ||
-      roleNames.toLowerCase().includes(term)
-    );
-  });
-}, [sources, searchTerm, roles]);
+      // 🔽 UPDATED: include branch_name in the searchable text
+      return (
+        (src?.name || "").toLowerCase().includes(term) ||
+        (src?.description || "").toLowerCase().includes(term) ||
+        (src?.branch_name || "").toLowerCase().includes(term) ||
+        String(src?.branch_id || "").toLowerCase().includes(term) ||
+        roleNames.toLowerCase().includes(term)
+      );
+    });
+  }, [sources, searchTerm, roles]);
 
   /* --------------------------- UI helpers --------------------------- */
   const renderBranchField = (isCreateMode) => {
@@ -563,9 +583,9 @@ const filteredSources = useMemo(() => {
   };
 
   // ⬇️ put this before the main return(...):
-if (loading) {
-  return <LoadingState message="Loading..." />;
-}
+  if (loading) {
+    return <LoadingState message="Loading..." />;
+  }
 
   return (
     <div className="p-6 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
@@ -573,26 +593,43 @@ if (loading) {
       <div className="flex items-center justify-end mb-6">
         {!isCreateNew && hasPermission("create_lead") && (
           <button
-            onClick={async () => {
-              setEditingId(null);
-              if (isSuperAdmin && branches.length === 0) {
-                try {
-                  await fetchBranches();
-                } catch { }
-              }
-              setForm({
-                name: "",
-                description: "",
-                branch_id: isSuperAdmin ? "" : userBranchId || "",
-                fetch_configs: makeDefaultConfigs(),
-              });
-              setIsCreateNew(true);
-            }}
-            className={`flex items-center gap-1 ${btnPrimary}`}
-          >
-            <Plus className="w-5 h-5" />
-            Add
-          </button>
+  onClick={async () => {
+    try {
+      setFetchingBranches(true);
+      // ✅ Always refresh branches when opening the create modal
+      await fetchBranches();
+
+      // (Optional) ensure current user's branch name is present in map
+      if (!isSuperAdmin && userBranchId && userBranchName) {
+        setBranchMap((prev) => ({
+          ...prev,
+          [Number(userBranchId)]: userBranchName,
+        }));
+      }
+
+      // Prepare default form
+      setEditingId(null);
+      setForm({
+        name: "",
+        description: "",
+        branch_id: isSuperAdmin ? "" : userBranchId || "",
+        fetch_configs: makeDefaultConfigs(),
+      });
+
+      setIsCreateNew(true);
+    } catch (err) {
+      ErrorHandling({ error: err, defaultError: "Failed to load branches" });
+    } finally {
+      setFetchingBranches(false);
+    }
+  }}
+  className={`flex items-center gap-1 ${btnPrimary}`}
+  disabled={fetchingBranches}
+  title={fetchingBranches ? "Loading branches..." : "Add"}
+>
+  <Plus className="w-5 h-5" />
+  {fetchingBranches ? "Loading..." : "Add"}
+</button>
         )}
       </div>
 
@@ -710,15 +747,15 @@ if (loading) {
                   Cancel
                 </button>
                 <button
-  type="submit"
-  disabled={isSubmitting}
-  className={`${btnPrimary} disabled:opacity-50 font-medium shadow-lg flex items-center gap-2`}
->
-  {isSubmitting && <MiniLoader />}
-  {editingId
-    ? (isSubmitting ? "Updating..." : "Update Source")
-    : (isSubmitting ? "Creating..." : "Create Source")}
-</button>
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`${btnPrimary} disabled:opacity-50 font-medium shadow-lg flex items-center gap-2`}
+                >
+                  {isSubmitting && <MiniLoader />}
+                  {editingId
+                    ? (isSubmitting ? "Updating..." : "Update Source")
+                    : (isSubmitting ? "Creating..." : "Create Source")}
+                </button>
               </div>
             </form>
           </div>
@@ -742,23 +779,23 @@ if (loading) {
       {/* Sources Table (full width) */}
       <div className="rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm border-separate border-spacing-0">
             {/* Header */}
             <thead className="bg-[var(--theme-surface)]">
               <tr className="text-[var(--theme-text-muted)]">
-                <th className="px-2 py-3 text-center w-8 font-semibold"></th> {/* arrow */}
-                <th className="px-4 py-3 text-left font-semibold">Source</th>
+                <th className="px-2 py-3 text-center w-8 font-semibold first:rounded-tl-2xl"></th>
+                <th className="px-4 py-3 text-left font-semibold first:rounded-tl-2xl">Source</th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total</th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Pending</th>
-<th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Available</th>
-                <th className="px-4 py-3 text-left font-semibold">Roles (per/daily)</th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Available</th>
+                <th className="px-4 py-3 text-left font-semibold">Roles</th>
                 {showBranchColumn && (
                   <th className="px-4 py-3 text-left font-semibold">Branch</th>
                 )}
                 <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">
                   Description
                 </th>
-                <th className="px-4 py-3 text-right font-semibold w-[150px]">Actions</th>
+                <th className="px-4 py-3 text-right font-semibold w-[150px] last:rounded-tr-2xl">Actions</th>
               </tr>
             </thead>
 
@@ -780,40 +817,44 @@ if (loading) {
                 const available = getAvailableFromSource(src);
                 const nonPending = getNonPendingBreakdown(breakdown);
                 const branchLabel =
-  src.branch_name ||                 // ✅ prefer API's branch_name
-  src?.branch?.name ||
-  branchMap[Number(src.branch_id)] ||// fallback to map if needed (for old data)
-  (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
+                  src.branch_name ||                 // ✅ prefer API's branch_name
+                  src?.branch?.name ||
+                  branchMap[Number(src.branch_id)] ||// fallback to map if needed (for old data)
+                  (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
 
-                const isOpen = openRows.has(src.id);
+                const isOpen = openRowId === src.id;
                 const COLS = showBranchColumn ? 9 : 8;
- // (Source, Total, Pending, Roles, [Branch], Description, Actions)
+                // (Source, Total, Pending, Roles, [Branch], Description, Actions)
 
                 return (
                   <React.Fragment key={src.id}>
                     {/* CLICKABLE DATA ROW */}
                     <tr
                       className={`hover:bg-[var(--theme-primary-softer)]/60 cursor-pointer ${isOpen ? "bg-[var(--theme-primary-softer)]/50" : ""}`}
-                      onClick={() => toggleRow(src.id)}
                       aria-expanded={isOpen}
                     >
                       <td className="px-2 py-3 text-center w-8 align-top">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); toggleRow(src.id); }}
-                          aria-label={isOpen ? "Collapse details" : "Expand details"}
-                          aria-expanded={isOpen}
-                          aria-controls={`panel-${src.id}`}
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
-                          title={isOpen ? "Collapse" : "Expand"}
-                        >
-                          {isOpen ? (
-                            <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
-                          ) : (
-                            <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
-                          )}
-                        </button>
-                      </td>
+  <button
+    type="button"
+    data-acc-safe
+    onPointerDown={(e) => e.stopPropagation()}
+    onClick={(e) => {
+      e.stopPropagation();
+      setOpenRowId((prev) => (prev === src.id ? null : src.id));
+    }}
+    aria-label={openRowId === src.id ? "Collapse details" : "Expand details"}
+    aria-expanded={openRowId === src.id}
+    aria-controls={`panel-${src.id}`}
+    className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
+    title={openRowId === src.id ? "Collapse" : "Expand"}
+  >
+    {openRowId === src.id ? (
+      <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
+    ) : (
+      <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
+    )}
+  </button>
+</td>
                       <td className="px-4 py-3 align-top">
                         <div className="font-semibold">{src.name}</div>
                         <div className="text-xs text-[var(--theme-text-muted)] truncate">
@@ -826,57 +867,115 @@ if (loading) {
                       </td>
 
                       {/* Pending */}
-<td className="px-4 py-3 align-top whitespace-nowrap">
-  {(pending?.total_leads ?? 0) > 0 ? (
-    <span
-      className="inline-flex px-2 py-0.5 rounded-full text-xs border"
-      style={{
-        background: "var(--theme-components-tag-warning-bg)",
-        color: "var(--theme-components-tag-warning-text)",
-        borderColor: "var(--theme-components-tag-warning-border)",
-      }}
-      title="Pending leads"
-    >
-      {pending.total_leads}
-    </span>
-  ) : (
-    <span className="text-[var(--theme-text-muted)]">0</span>
-  )}
-</td>
-
-{/* Available */}
-<td className="px-4 py-3 align-top whitespace-nowrap">
-  <span
-    className="inline-flex px-2 py-0.5 rounded-full text-xs border"
-    style={{
-      background:
-        "var(--theme-components-tag-info-bg, color-mix(in srgb, var(--theme-primary) 10%, transparent))",
-      color: "var(--theme-components-tag-info-text, var(--theme-primary))",
-      borderColor: "var(--theme-components-tag-info-border, var(--theme-border))",
-    }}
-    title="Available leads"
-  >
-    {available}
-  </span>
-</td>
-
-                      <td className="px-4 py-3 align-top max-w-[520px]">
-                        <div className="text-xs text-[var(--theme-text)] truncate" title={fcPreview}>
-                          {fc.length ? (
-                            <>
-                              <span className="inline-flex px-2 py-0.5 mr-2 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-                                {fc.length} role{fc.length > 1 ? "s" : ""}
-                              </span>
-                              <span className="align-middle hidden xl:inline">{fcPreview}</span>
-                              <span className="align-middle xl:hidden text-[var(--theme-text-muted)]">
-                                (details on wide screens)
-                              </span>
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </div>
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        {(pending?.total_leads ?? 0) > 0 ? (
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-xs border"
+                            style={{
+                              background: "var(--theme-components-tag-warning-bg)",
+                              color: "var(--theme-components-tag-warning-text)",
+                              borderColor: "var(--theme-components-tag-warning-border)",
+                            }}
+                            title="Pending leads"
+                          >
+                            {pending.total_leads}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--theme-text-muted)]">0</span>
+                        )}
                       </td>
+
+                      {/* Available */}
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        <span
+                          className="inline-flex px-2 py-0.5 rounded-full text-xs border"
+                          style={{
+                            background:
+                              "var(--theme-components-tag-info-bg, color-mix(in srgb, var(--theme-primary) 10%, transparent))",
+                            color: "var(--theme-components-tag-info-text, var(--theme-primary))",
+                            borderColor: "var(--theme-components-tag-info-border, var(--theme-border))",
+                          }}
+                          title="Available leads"
+                        >
+                          {available}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 align-top">
+  <div
+   className="relative"
+   data-acc-safe
+   onPointerDown={(e) => e.stopPropagation()}
+ >
+    {/* Head: only the count is visible */}
+    <button
+      type="button"
+       onClick={(e) => { e.stopPropagation(); toggleRoleCell(src.id); }}
+      aria-expanded={isRoleCellOpen(src.id)}
+      className="inline-flex items-center gap-2 px-2 py-1 rounded-md border border-[var(--theme-border)] bg-[var(--theme-surface)] hover:bg-[var(--theme-primary-softer)] transition"
+      title="Show role limits"
+    >
+      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+        {fc.length} role{fc.length !== 1 ? "s" : ""}
+      </span>
+      <ChevronDown
+        className={`w-4 h-4 text-[var(--theme-text-muted)] transition-transform ${
+         isRoleCellOpen(src.id) ? "rotate-180" : ""
+        }`}
+      />
+    </button>
+
+    {/* Body: accordion panel */}
+    {isRoleCellOpen(src.id) && (
+      <div
+        id={`roles-panel-${src.id}`}
+        className="absolute z-50 mt-2 w-60 right-0 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] shadow-xl"
+        role="region"
+      >
+        <div className="p-3 border-b border-[var(--theme-border)] text-xs font-semibold text-[var(--theme-text-muted)]">
+          Roles & limits
+        </div>
+
+        <ul className="max-h-64 overflow-auto p-2">
+          {fc
+            .slice()
+            .sort((a, b) => (roleNameById(roles, a.role_id)).localeCompare(roleNameById(roles, b.role_id)))
+            .map((x, i) => (
+              <li
+                key={i}
+                className="flex items-center justify-between gap-2 px-2 py-2 rounded hover:bg-[var(--theme-primary-softer)]/60"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-[var(--theme-text)] truncate">
+                    {roleNameById(roles, x.role_id)}
+                  </div>
+                  <div className="text-xs text-[var(--theme-text-muted)]">
+                    per-request / daily
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+                    {x.per_request_limit ?? 0}/{x.daily_call_limit ?? 0}
+                  </span>
+                </div>
+              </li>
+            ))}
+        </ul>
+
+        <div className="p-2 border-t border-[var(--theme-border)] flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => toggleRoleCell(src.id)}
+            className="text-xs px-2 py-1 rounded hover:bg-[var(--theme-primary-softer)]"
+            title="Close"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+</td>
 
                       {showBranchColumn && (
                         <td className="px-4 py-3 align-top">
@@ -924,7 +1023,12 @@ if (loading) {
                     {isOpen && (
                       <tr className="bg-[var(--theme-surface)]">
                         <td className="px-0 py-0" colSpan={COLS}>
-                          <div className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]">
+                          <div
+         id={`panel-${src.id}`}
+         data-acc-safe
+         onPointerDown={(e) => e.stopPropagation()}
+         className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]"
+       >
                             {/* Put the “accordion panel” content here (same as earlier) */}
                             <div className="mb-3">
                               <h4 className="text-sm font-semibold text-[var(--theme-text)]">

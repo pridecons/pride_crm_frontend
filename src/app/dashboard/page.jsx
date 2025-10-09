@@ -182,15 +182,15 @@ export default function Dashboard() {
       try {
         setOptLoading(true);
         setOptError('');
-        const [profRes, deptRes, usersRes, branchesRes, respRes] = await Promise.all([
+        const [profRes,  usersRes, branchesRes, respRes] = await Promise.all([
           axiosInstance.get('/profile-role', { params: { skip: 0, limit: 50, order_by: 'hierarchy_level' } }),
-          axiosInstance.get('/departments', { params: { skip: 0, limit: 50, order_by: 'name' } }),
+          
           axiosInstance.get('/users', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/branches', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/lead-config/responses/', { params: { skip: 0, limit: 100 } }),
         ]);
         setProfiles((profRes.data || []).map((p) => ({ id: p.id, name: p.name, lvl: p.hierarchy_level })));
-        setDepartments((deptRes.data || []).map((d) => ({ id: d.id, name: d.name })));
+
         const ulist = (usersRes.data?.data || []).map((u) => ({
           employee_code: u.employee_code,
           name: u.name,

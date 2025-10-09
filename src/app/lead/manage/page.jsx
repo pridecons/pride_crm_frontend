@@ -492,44 +492,19 @@ const LeadManage = () => {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--theme-text)] mb-2">Lead Management</h1>
-            <p className="text-[var(--theme-text-muted)] flex items-center gap-2">
-              <Activity size={16} />
-              Manage and track your leads efficiently
-            </p>
-          </div>
-          <div className="hidden sm:flex items-center gap-3">
-            <div className="bg-[var(--theme-surface)] rounded-full px-4 py-2 shadow-sm border border-[var(--theme-border)]">
-              <span className="text-sm font-medium text-[var(--theme-text)]">
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* ================= Date Filter ================= */}
-      <div className="flex flex-wrap items-end gap-4 py-4">
-        {/* From Date */}
-        <div>
-          <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
-            From Date
-          </label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="border border-[var(--theme-border)] rounded-lg px-3 py-2 
-                 bg-[var(--theme-input-background)] text-[var(--theme-text)] 
-                 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]
-                 hover:bg-[var(--theme-primary-softer)]"
-          />
-        </div>
+  {/* Date Filter */}
+<div className="flex flex-wrap items-end gap-4">
+  <div>
+    <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+      From Date
+    </label>
+    <input
+      type="date"
+      value={fromDate}
+      onChange={(e) => setFromDate(e.target.value)}
+      className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
+    />
+  </div>
 
         {/* To Date */}
         <div>
@@ -552,25 +527,37 @@ const LeadManage = () => {
           <button
             type="button"
             onClick={() => setApplyDateFilter((prev) => !prev)} // ✅ trigger API refetch
-            className="px-4 py-2 rounded-lg bg-[var(--theme-primary)] text-white 
+            className="px-3 py-2 rounded-lg bg-[var(--theme-primary)] text-white 
                  hover:opacity-90 transition-all border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
           >
-            Apply
+            Apply 
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setFromDate("");
-              setToDate("");
-              setApplyDateFilter((prev) => !prev); // ✅ trigger API refetch (reset)
-            }}
-            className="px-4 py-2 rounded-lg border border-[var(--theme-border)] 
-                 bg-[var(--theme-surface)] text-[var(--theme-text)] 
-                  transition-all  hover:bg-[var(--theme-primary-softer)]"
-          >
-            Reset
-          </button>
+    <button
+      type="button"
+      onClick={() => {
+        setFromDate("");
+        setToDate("");
+        setApplyDateFilter((prev) => !prev); // reset trigger
+      }}
+      className="px-2 py-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)]"
+    >
+      Reset
+    </button>
+  </div>
+</div>
+          <div className="hidden sm:flex items-center gap-3">
+            <div className="bg-[var(--theme-surface)] rounded-full px-4 py-2 shadow-sm border border-[var(--theme-border)]">
+              <span className="text-sm font-medium text-[var(--theme-text)]">
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

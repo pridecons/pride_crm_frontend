@@ -299,6 +299,14 @@ export default function SMSModalWithLogs({
     offset: 0, // local-only helper to compute pages
   });
 
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => String(t.id) === String(templateId)),
+    [templates, templateId]
+  );
+  const selectedTitle = selectedTemplate
+    ? `${selectedTemplate.label} (#${selectedTemplate.id})`
+    : "Select template";
+
   const fetchLogs = async (params = filters) => {
     try {
       setLoadingLogs(true);
@@ -481,32 +489,35 @@ export default function SMSModalWithLogs({
             {tab === "send" && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-sm font-medium mb-1">Template</label>
                     {templates.length > 0 ? (
                       <select
+                        title={selectedTitle}           // <-- shows full text on hover
+                        aria-label={selectedTitle}
                         value={templateId}
                         onChange={(e) => {
                           const selectedId = e.target.value;
                           setTemplateId(selectedId);
-                          const selectedTemplate = templates.find(
-                            (t) => String(t.id) === String(selectedId)
-                          );
-                          if (selectedTemplate?.body) {
-                            setMessageOverride(selectedTemplate.body);
-                          } else {
-                            setMessageOverride("");
-                          }
+                          const st = templates.find((t) => String(t.id) === String(selectedId));
+                          setMessageOverride(st?.body || "");
                         }}
-                        onFocus={(e) =>
-                        (e.currentTarget.style.boxShadow =
-                          "0 0 0 3px var(--theme-primary-soft)")
-                        }
+                        onFocus={(e) => (e.currentTarget.style.boxShadow = "0 0 0 3px var(--theme-primary-soft)")}
                         onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
+                        className="w-full rounded-xl px-3 py-2 text-sm truncate"
+                        style={{
+                          background: "var(--theme-card)",
+                          color: "var(--theme-text)",
+                          border: "1px solid var(--theme-border)",
+                          outline: "none",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                        }}
                       >
                         <option value="">Select template</option>
                         {templates.map((t) => (
-                          <option key={t.id} value={t.id}>
+                          <option key={t.id} value={t.id} title={t.label}>
                             {t.label} (#{t.id})
                           </option>
                         ))}
@@ -538,7 +549,7 @@ export default function SMSModalWithLogs({
                     )}
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-sm font-medium mb-1">Recipient Phone</label>
                     <input
                       value={phone}

@@ -309,7 +309,6 @@ const [myBranchId, setMyBranchId] = useState(null);
 const [myEmployeeCode, setMyEmployeeCode] = useState(null);
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
-  const [sources, setSources] = useState([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [editId, setEditId] = useState(null);
@@ -386,7 +385,6 @@ useEffect(() => {
 
   useEffect(() => {
     fetchResponses();
-    fetchSources();
   }, []);
 
 const searchAssignees = useCallback((q) => {
@@ -587,16 +585,6 @@ const handleResetFilters = () => {
     }
   };
 
-  const fetchSources = async () => {
-    try {
-      const { data } = await axiosInstance.get("/lead-config/sources/", {
-        params: { skip: 0, limit: 100 },
-      });
-      setSources(data);
-    } catch (error) {
-      console.error("Error fetching sources:", error);
-    }
-  };
 
   const handleSaveComment = async (lead) => {
     if (!userId) {
@@ -938,16 +926,23 @@ const handleResetFilters = () => {
     },
 
     {
-      header: "Source",
-      render: (lead) => (
-        <span
-          className="inline-block px-2 py-1 text-xs font-medium rounded"
-          style={tagSuccessStyle}
-        >
-          {sources.find((s) => s.id === lead.lead_source_id)?.name || "N/A"}
-        </span>
-      ),
-    },
+  header: "Source",
+  render: (lead) => {
+    const name =
+      lead?.lead_source?.name ??
+      (lead?.lead_source_id ? `ID: ${lead.lead_source_id}` : "N/A");
+
+    return (
+      <span
+        className="inline-block px-2 py-1 text-xs font-medium rounded"
+        style={tagSuccessStyle}
+        title={name}
+      >
+        {name}
+      </span>
+    );
+  },
+},
   ];
 
   const assignedUserColumn = {
@@ -1034,7 +1029,6 @@ const handleResetFilters = () => {
   }, [
     viewType,
     responses,
-    sources,
     editId,
     ftFromDate,
     ftToDate,

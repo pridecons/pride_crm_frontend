@@ -340,7 +340,7 @@ const handleEnter = () => {
           { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
         ]
       },
-      { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
+      // { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
       { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
       { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
 

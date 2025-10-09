@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from '@/api/Axios';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, } from 'lucide-react';
+import { Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, Trophy, } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import DashboardSkeleton from '@/components/common/skeletonloader';
 
@@ -388,6 +388,24 @@ export default function Dashboard() {
   
 
   /* ----------------------------- Render ----------------------------- */
+
+  const pay = data?.cards?.payments || {};
+const leadsCard = data?.cards?.leads || {};
+
+const totalTarget = N(pay.total_target);
+const achievedTarget = N(pay.achieved_target);
+
+const teamTarget = N(pay.team_target);
+const teamAchieved = N(pay.achive_team_target ?? pay.achieved_team_target);
+
+const hideTeamPairForAdmin =
+  (isSuperAdmin || isBranchManager) &&
+  teamTarget === 0 &&
+  teamAchieved === 0;
+
+// If SA/BM & team zero -> keep old 4-card layout
+const useExistingAdminLayout = hideTeamPairForAdmin;
+
   return (
     <>
       {loading ? (
@@ -569,13 +587,70 @@ export default function Dashboard() {
             {!!data && (
               <>
                 <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 ">
-                  <Card title="Total Target" value={inr(data?.cards?.payments?.total_target)} icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />} themeConfig={themeConfig} />
-                  <Card title="Achieved Target" value={inr(data?.cards?.payments?.achieved_target)} icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />} themeConfig={themeConfig} />
-                  <Card title="Running FT Leads" value={num(data?.cards?.leads?.running_ft)} icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />} themeConfig={themeConfig} />
-                  <Card title="Today FT Leads" value={num(data?.cards?.leads?.total_ft)} icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />} themeConfig={themeConfig} />
-                </div>
 
+{useExistingAdminLayout ? (
+  /* ---- EXISTING LAYOUT for SA/BM when team cards are zero ---- */
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <Card
+      title="Total Target"
+      value={inr(totalTarget)}
+      icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
+      themeConfig={themeConfig}
+    />
+    <Card
+      title="Achieved Target"
+      value={inr(achievedTarget)}
+      icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />}
+      themeConfig={themeConfig}
+    />
+    <Card
+      title="Running FT Leads"
+      value={num(leadsCard?.running_ft)}
+      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
+      themeConfig={themeConfig}
+    />
+    <Card
+      title="Today FT Leads"
+      value={num(leadsCard?.total_ft)}
+      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
+      themeConfig={themeConfig}
+    />
+  </div>
+) : (
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <SingleLineTargetCard
+    title="Targets (Overall)"
+    achieved={achievedTarget}
+    total={totalTarget}
+    icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
+    themeConfig={themeConfig}
+  />
+
+  {!(isSuperAdmin || isBranchManager) || teamTarget > 0 || teamAchieved > 0 ? (
+    <SingleLineTargetCard
+      title="Team Targets"
+      achieved={teamAchieved}
+      total={teamTarget}
+      icon={<Trophy className="h-5 w-5 text-[var(--theme-success)]" />}
+      themeConfig={themeConfig}
+    />
+  ) : null}
+
+  <Card
+    title="Running FT Leads"
+    value={num(leadsCard?.running_ft)}
+    icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
+    themeConfig={themeConfig}
+  />
+  <Card
+    title="Today FT Leads"
+    value={num(leadsCard?.total_ft)}
+    icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
+    themeConfig={themeConfig}
+  />
+</div>
+)}
                 <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <Card
@@ -697,24 +772,51 @@ export default function Dashboard() {
                 <TableWrap className="mb-6" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
                   <div className="max-h-72 overflow-y-auto pr-1">
                     <SimpleTable
-                      cols={['Profile', 'Leads', 'Paid Revenue']}
-                      rows={(data?.breakdowns?.profile_wise || []).map((p) => {
-                        const prof = profiles.find((x) => x.id === p.profile_id);
-                        return [
-                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
-                            {prof?.name || (p.profile_id ?? '—')}
-                          </span>,
-                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
-                            {num(p.total_leads)}
-                          </span>,
-                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
-                            {inr(p.paid_revenue)}
-                          </span>,
-                        ];
-                      })}
-                      themeConfig={themeConfig}
-                      className="w-full rounded-2xl"
-                    />
+  cols={[
+    'Profile',
+    'Employees',
+    'Total Leads',
+    'Old Leads',
+    'FT Leads',
+    'Paid Revenue',
+  ]}
+  rows={(data?.breakdowns?.profile_wise || []).map((p) => {
+    const prof = profiles.find((x) => x.id === p.profile_id);
+    return [
+      // Profile name
+      <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
+        {prof?.name || p.profile_name || (p.profile_id ?? '—')}
+      </span>,
+
+      // Employees
+      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-emps`}>
+        {num(p.total_employees ?? 0)}
+      </span>,
+
+      // Total leads
+      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
+        {num(p.total_leads ?? 0)}
+      </span>,
+
+      // Old leads
+      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-old`}>
+        {num(p.old_leads ?? 0)}
+      </span>,
+
+      // FT leads
+      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-ft`}>
+        {num(p.ft_leads ?? 0)}
+      </span>,
+
+      // Paid revenue
+      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
+        {inr(p.paid_revenue ?? 0)}
+      </span>,
+    ];
+  })}
+  themeConfig={themeConfig}
+  className="w-full rounded-2xl"
+/>
                   </div>
                 </TableWrap>
               </div>
@@ -1216,6 +1318,102 @@ function Card({ title, value, sub = '', icon, delta, className = '', themeConfig
               {icon}
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+/* --- Single-line Achieved / Total card --- */
+function SingleLineTargetCard({
+  title,
+  achieved = 0,
+  total = 0,
+  icon,
+  themeConfig,
+  prefix = '₹ ' // or '' if you don’t want the symbol here
+}) {
+  const pct = total > 0 ? Math.min(100, Math.round((achieved / total) * 100)) : 0;
+
+  return (
+    <div className="overflow-hidden rounded-xl bg-[var(--theme-card-bg)] shadow-lg hover:shadow-xl transition-all duration-300 p-5 border border-[var(--theme-border)]">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-sm font-semibold tracking-wide mb-2" style={{ color: themeConfig.textSecondary }}>
+            {title}
+          </div>
+
+          {/* Achieved / Total in one line */}
+          <div className="flex items-baseline gap-2">
+            <span className="text-[22px] font-bold rupee" style={{ color: themeConfig.primary }}>
+              {prefix}{Number(achieved).toLocaleString('en-IN')}
+            </span>
+            <span className="text-[18px] font-semibold" style={{ color: themeConfig.textSecondary }}>/</span>
+            <span className="text-[18px] font-semibold rupee" style={{ color: themeConfig.text }}>
+              {prefix}{Number(total).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          {/* Progress */}
+          <div className="mt-3 h-2 w-full rounded-full" style={{ backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15) }}>
+            <div
+              className="h-2 rounded-full transition-all"
+              style={{
+                width: `${pct}%`,
+                background: `linear-gradient(90deg, ${themeConfig.primary} 0%, ${themeConfig.accent} 100%)`
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: hexToRgba(themeConfig.primary, 0.08) }}>
+            {icon}
+          </div>
+          <span className="text-sm font-semibold px-2 py-1 rounded-md"
+                style={{ color: themeConfig.primary, backgroundColor: hexToRgba(themeConfig.primary, 0.08), border: `1px solid ${hexToRgba(themeConfig.primary, 0.2)}` }}>
+            {pct}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* --- Two stats in one card --- */
+function TwoStatCard({
+  title,
+  icon,
+  primaryLabel,
+  primaryValue,
+  secondaryLabel,
+  secondaryValue,
+  themeConfig,
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl group bg-[var(--theme-card-bg)] shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
+            {title}
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between rounded-md px-3 py-2"
+                 style={{ backgroundColor: hexToRgba(themeConfig.primary, 0.06), border: `1px solid ${hexToRgba(themeConfig.primary, 0.18)}` }}>
+              <span className="text-xs font-semibold" style={{ color: themeConfig.textSecondary }}>{primaryLabel}</span>
+              <span className="text-base font-bold rupee" style={{ color: themeConfig.primary }}>{primaryValue ?? '—'}</span>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md px-3 py-2"
+                 style={{ backgroundColor: hexToRgba(themeConfig.accent, 0.06), border: `1px solid ${hexToRgba(themeConfig.accent, 0.18)}` }}>
+              <span className="text-xs font-semibold" style={{ color: themeConfig.textSecondary }}>{secondaryLabel}</span>
+              <span className="text-base font-bold rupee" style={{ color: themeConfig.accent }}>{secondaryValue ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--theme-primary-softer)]">
+          {icon}
         </div>
       </div>
     </div>

@@ -69,6 +69,7 @@ function parseCodes(input = "") {
     )
   );
 }
+
 // cookie/jwt readers
 function readFromSession(keys = []) {
   try {
@@ -77,14 +78,14 @@ function readFromSession(keys = []) {
       const u = JSON.parse(raw);
       for (const k of keys) if (u?.[k] !== undefined && u?.[k] !== null) return u[k];
     }
-  } catch { }
+  } catch {}
   try {
     const token = Cookies.get("access_token");
     if (token) {
       const payload = jwtDecode(token);
       for (const k of keys) if (payload?.[k] !== undefined && payload?.[k] !== null) return payload[k];
     }
-  } catch { }
+  } catch {}
   return null;
 }
 const getRole = () => (readFromSession(["role", "role_name", "roleName"]) || "").toString().toUpperCase();
@@ -98,7 +99,8 @@ const isSuper = (r) => ["SUPERADMIN", "SUPER_ADMIN"].includes((r || "").toString
    UI
 ----------------------------- */
 export default function NoticeBoardPage() {
-  const { theme, themeConfig, toggleTheme } = useTheme();
+  const { theme } = useTheme();
+
   // mode: "users" | "branch" | "all"
   const [mode, setMode] = useState("users");
 
@@ -112,8 +114,9 @@ export default function NoticeBoardPage() {
   const [role, setRole] = useState("");
   const [superadmin, setSuperadmin] = useState(false);
 
-  // branch
-  const [branchId, setBranchId] = useState(null);
+  // branches
+  const [branchId, setBranchId] = useState(null); // used by superadmin
+  const [myBranchId, setMyBranchId] = useState(null); // enforced branch for non-superadmin
   const [branches, setBranches] = useState([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
 
@@ -126,11 +129,12 @@ export default function NoticeBoardPage() {
   useEffect(() => {
     const r = getRole();
     setRole(r);
-    setSuperadmin(isSuper(r));
+    const _isSuper = isSuper(r);
+    setSuperadmin(_isSuper);
 
-    // default branch (superadmin can change later)
     const b = getBranchIdFromSession();
-    setBranchId(b);
+    setBranchId(b);    // superadmin can change this
+    setMyBranchId(b);  // non-superadmin enforced branch
   }, []);
 
   // fetch branches (superadmin only)
@@ -154,7 +158,7 @@ export default function NoticeBoardPage() {
     })();
   }, [superadmin]);
 
-  // fetch users (for "users" mode list)
+  // fetch users (for listing)
   useEffect(() => {
     (async () => {
       try {
@@ -175,14 +179,18 @@ export default function NoticeBoardPage() {
   // derived
   const userCodes = useMemo(() => parseCodes(userCodesRaw), [userCodesRaw]);
 
+  // Non-superadmin: ALWAYS scoped to myBranchId
+  // Superadmin: list filtered by currently selected branchId
   const visibleUsers = useMemo(() => {
-    const bid = String(branchId || "");
-    const filtered = bid ? users.filter((u) => String(u?.branch_id) === bid) : users;
+    const targetBranch = superadmin ? branchId : myBranchId;
+
+    let list = users;
+    if (targetBranch) list = list.filter((u) => String(u?.branch_id) === String(targetBranch));
 
     const q = userSearch.trim().toLowerCase();
-    if (!q) return filtered.slice(0, 12);
+    if (!q) return list.slice(0, 12);
 
-    return filtered
+    return list
       .filter((u) => {
         const code = String(u?.employee_code || "").toLowerCase();
         const name = String(u?.name || "").toLowerCase();
@@ -190,9 +198,9 @@ export default function NoticeBoardPage() {
         return code.includes(q) || name.includes(q) || phone.includes(q);
       })
       .slice(0, 12);
-  }, [users, userSearch, branchId]);
+  }, [users, userSearch, branchId, myBranchId, superadmin]);
 
-  // permissions: non-superadmins cannot use "all" mode
+  // make sure non-superadmins never sit in "all" mode
   useEffect(() => {
     if (!superadmin && mode === "all") setMode("branch");
   }, [superadmin, mode]);
@@ -201,11 +209,15 @@ export default function NoticeBoardPage() {
     const hasText = title.trim() && message.trim();
     if (!hasText || sending) return false;
 
-    if (mode === "all") return true; // system-wide broadcast
-    if (mode === "branch") return Boolean(branchId);
+    if (mode === "all") return superadmin; // only superadmin can system-wide
+
+    if (mode === "branch") {
+      return superadmin ? Boolean(branchId) : Boolean(myBranchId);
+    }
+
     // users
     return userCodes.length > 0;
-  }, [title, message, sending, mode, branchId, userCodes.length]);
+  }, [title, message, sending, mode, branchId, myBranchId, superadmin, userCodes.length]);
 
   // actions
   const addChip = (code) => {
@@ -222,7 +234,10 @@ export default function NoticeBoardPage() {
       ErrorHandling({ defaultError: "Please complete required fields." });
       return;
     }
-    if (mode === "branch" && !branchId) {
+
+    const effectiveBranchId = superadmin ? branchId : myBranchId;
+
+    if (mode === "branch" && !effectiveBranchId) {
       ErrorHandling({ defaultError: "Branch is required for Branch mode." });
       return;
     }
@@ -233,8 +248,30 @@ export default function NoticeBoardPage() {
 
     // build payload exactly as API expects
     const payload = { mode, title: title.trim(), message: message.trim() };
-    if (mode === "branch") payload.branch_id = isNaN(Number(branchId)) ? branchId : Number(branchId);
-    if (mode === "users") payload.user_ids = userCodes;
+
+    if (mode === "branch") {
+      payload.branch_id = isNaN(Number(effectiveBranchId))
+        ? effectiveBranchId
+        : Number(effectiveBranchId);
+    }
+
+    if (mode === "users") {
+      // non-superadmins can only DM users in their own branch
+      if (!superadmin) {
+        const allowed = new Set(
+          users
+            .filter((u) => String(u.branch_id) === String(myBranchId))
+            .map((u) => String(u.employee_code))
+        );
+        const filtered = userCodes.filter((c) => allowed.has(String(c)));
+        if (filtered.length !== userCodes.length) {
+          toast.error("You can only send to users in your branch.");
+        }
+        payload.user_ids = filtered;
+      } else {
+        payload.user_ids = userCodes;
+      }
+    }
 
     setSending(true);
     try {
@@ -263,13 +300,12 @@ export default function NoticeBoardPage() {
           mode === "all"
             ? ["ALL_CONNECTED_USERS"]
             : mode === "branch"
-              ? [`BRANCH_${payload.branch_id}`]
-              : payload.user_ids,
+            ? [`BRANCH_${payload.branch_id}`]
+            : payload.user_ids,
         results: [],
       };
 
       if (mode === "all") {
-        // e.g. { delivered_sockets, connected_users }
         toast.success(
           `Broadcasted to all (connected ${entry.metrics?.connected_users ?? "?"}); delivered sockets ${entry.metrics?.delivered_sockets ?? "?"}`
         );
@@ -281,20 +317,16 @@ export default function NoticeBoardPage() {
           },
         ];
       } else if (mode === "branch") {
-        // e.g. { requested_users, delivered_users, failed_users } + arrays
         toast.success(
-          `Branch ${entry.branch_id}: delivered ${entry.metrics?.delivered_users ?? 0}/${entry.metrics?.requested_users ?? 0
-          }`
+          `Branch ${entry.branch_id}: delivered ${entry.metrics?.delivered_users ?? 0}/${entry.metrics?.requested_users ?? 0}`
         );
         entry.results = [
           ...entry.delivered_to.map((c) => ({ code: c, ok: true })),
           ...entry.failed_to.map((c) => ({ code: c, ok: false })),
         ];
       } else {
-        // users mode
         toast.success(
-          `Users: delivered ${entry.metrics?.delivered_users ?? 0}/${entry.metrics?.requested_users ?? userCodes.length
-          }`
+          `Users: delivered ${entry.metrics?.delivered_users ?? 0}/${entry.metrics?.requested_users ?? userCodes.length}`
         );
         entry.results = [
           ...entry.delivered_to.map((c) => ({ code: c, ok: true })),
@@ -337,18 +369,19 @@ export default function NoticeBoardPage() {
               </div>
 
               <div className="flex flex-wrap gap-4">
-                <label className={`inline-flex items-center gap-2 ${!superadmin ? "opacity-50 cursor-not-allowed" : ""}`}>
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="all"
-                    disabled={!superadmin}
-                    checked={mode === "all"}
-                    onChange={() => setMode("all")}
-                    className="h-4 w-4 border-[var(--theme-border)] [accent-color:var(--theme-primary)]"
-                  />
-                  <span className={`text-sm ${ink}`}>All (system-wide)</span>
-                </label>
+                {superadmin && (
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="mode"
+                      value="all"
+                      checked={mode === "all"}
+                      onChange={() => setMode("all")}
+                      className="h-4 w-4 border-[var(--theme-border)] [accent-color:var(--theme-primary)]"
+                    />
+                    <span className={`text-sm ${ink}`}>All (system-wide)</span>
+                  </label>
+                )}
 
                 <label className="inline-flex items-center gap-2">
                   <input
@@ -359,7 +392,9 @@ export default function NoticeBoardPage() {
                     onChange={() => setMode("branch")}
                     className="h-4 w-4 border-[var(--theme-border)] [accent-color:var(--theme-primary)]"
                   />
-                  <span className="text-sm text-[var(--theme-text)]">Branch</span>
+                  <span className="text-sm text-[var(--theme-text)]">
+                    {superadmin ? "Branch" : "All"}
+                  </span>
                 </label>
 
                 <label className="inline-flex items-center gap-2">
@@ -375,44 +410,44 @@ export default function NoticeBoardPage() {
                 </label>
               </div>
 
-              {/* Branch selector (for superadmin; others just see fixed branch) */}
-              {/* Branch selector (hide for ALL mode) */}
-              {mode !== "all" && (
+              {/* Branch selector (superadmin only) */}
+              {mode !== "all" && superadmin && (
                 <div className="mt-6">
                   <div className="flex items-center gap-3 mb-2">
                     <Building2 className="w-5 h-5 text-[var(--theme-primary)]" />
                     <h3 className="text-sm font-semibold text-[var(--theme-text)]">Branch</h3>
                   </div>
 
-                  {superadmin ? (
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={branchId || ""}
-                        onChange={(e) => setBranchId(e.target.value)}
-                        className={`flex-1 ${inputClass}`}
-                        disabled={loadingBranches}
-                      >
-                        {!branchId && <option value="">Choose a branch...</option>}
-                        {branches.map((b) => {
-                          const val = String(b?.id ?? b?.branch_id ?? "").trim();
-                          const label = b?.name || b?.branch_name || `Branch ${val || ""}`;
-                          return (
-                            <option key={val} value={val}>
-                              {label} ({val})
-                            </option>
-                          );
-                        })}
-                      </select>
-                      {loadingBranches && (<Loader2 className="w-5 h-5 animate-spin text-[var(--theme-primary)]" />)}
-                    </div>
-                  ) : (
-                    <div className={`px-4 py-3 rounded-xl border text-sm ${ink} bg-[var(--theme-surface)] border-[var(--theme-border)]`}>
-                      Locked to your branch: <b>{branchId ?? "—"}</b>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={branchId || ""}
+                      onChange={(e) => setBranchId(e.target.value)}
+                      className={`flex-1 ${inputClass}`}
+                      disabled={loadingBranches}
+                    >
+                      {!branchId && <option value="">Choose a branch...</option>}
+                      {branches.map((b) => {
+                        const val = String(b?.id ?? b?.branch_id ?? "").trim();
+                        const label = b?.name || b?.branch_name || `Branch ${val || ""}`;
+                        return (
+                          <option key={val} value={val}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {loadingBranches && (
+                      <Loader2 className="w-5 h-5 animate-spin text-[var(--theme-primary)]" />
+                    )}
+                  </div>
 
                   {mode === "branch" && !branchId && (
-                    <p className="mt-2 text-xs" style={{ color: "var(--theme-components-tag-warning-text)" }}>Branch is required for Branch mode.</p>
+                    <p
+                      className="mt-2 text-xs"
+                      style={{ color: "var(--theme-components-tag-warning-text)" }}
+                    >
+                      Branch is required for Branch mode.
+                    </p>
                   )}
                 </div>
               )}
@@ -444,7 +479,7 @@ export default function NoticeBoardPage() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Loading employees...</span>
                     </div>
-                  ) : !branchId ? (
+                  ) : superadmin && !branchId ? (
                     <div className="text-center p-6 text-[var(--theme-text-muted)]">
                       <Users className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--theme-primary-softer)" }} />
                       <p>Select a branch to view employees</p>
@@ -462,12 +497,14 @@ export default function NoticeBoardPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className={`font-medium ${ink}`}>{u.name || "—"}</span>
-                                <span className={`px-2 py-0.5 text-xs rounded-full border`}
+                                <span
+                                  className={`px-2 py-0.5 text-xs rounded-full border`}
                                   style={{
                                     background: "var(--theme-components-tag-neutral-bg)",
                                     color: "var(--theme-components-tag-neutral-text)",
                                     borderColor: "var(--theme-components-tag-neutral-border)",
-                                  }}>
+                                  }}
+                                >
                                   {u.employee_code}
                                 </span>
                               </div>
@@ -475,10 +512,7 @@ export default function NoticeBoardPage() {
                                 {u.phone_number || "—"} • Branch {String(u.branch_id ?? "—")}
                               </div>
                             </div>
-                            <button
-                              onClick={() => addChip(u.employee_code)}
-                              className={btnSoft}
-                            >
+                            <button onClick={() => addChip(u.employee_code)} className={btnSoft}>
                               <UserPlus className="w-4 h-4" />
                               Add
                             </button>
@@ -530,7 +564,8 @@ export default function NoticeBoardPage() {
                     onChange={(e) => setUserCodesRaw(e.target.value)}
                     placeholder="e.g. EMP021, EMP017"
                     rows={2}
-                    className={textareaClass} />
+                    className={textareaClass}
+                  />
                 </div>
               </div>
             )}
@@ -559,7 +594,8 @@ export default function NoticeBoardPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter notice title..."
-                  className={inputClass} />
+                  className={inputClass}
+                />
               </div>
 
               <div className="mb-6">
@@ -569,20 +605,30 @@ export default function NoticeBoardPage() {
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type your notice message here..."
                   rows={4}
-                  className={textareaClass} />
+                  className={textareaClass}
+                />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className={`text-sm ${muted}`}>
-                  {mode === "all" ? (
-                    <span>Ready to broadcast to <b>ALL</b> connected users</span>
+                  {superadmin && mode === "all" ? (
+                    <span>
+                      Ready to broadcast to <b>ALL</b> connected users
+                    </span>
                   ) : mode === "branch" ? (
                     <span>
-                      Ready to notify <b>Branch {branchId || "—"}</b>
+                      {superadmin ? (
+                        <>
+                          Ready to notify <b>Branch {branchId || "—"}</b>
+                        </>
+                      ) : (
+                        <>Ready to notify <b>all users in your branch</b></>
+                      )}
                     </span>
                   ) : userCodes.length > 0 ? (
                     <span>
-                      Ready to send to <b>{userCodes.length}</b> recipient{userCodes.length > 1 ? "s" : ""}
+                      Ready to send to <b>{userCodes.length}</b> recipient
+                      {userCodes.length > 1 ? "s" : ""}
                     </span>
                   ) : (
                     <span>Select recipients to continue</span>
@@ -592,12 +638,14 @@ export default function NoticeBoardPage() {
                 <button
                   disabled={!canSend}
                   onClick={handleSend}
-                  className={canSend
-                    ? btnPrimary
-                    : "px-6 py-3 rounded-xl font-medium bg-[var(--theme-surface)] text-[var(--theme-text-muted)] border border-[var(--theme-border)] cursor-not-allowed"}
+                  className={
+                    canSend
+                      ? btnPrimary
+                      : "px-6 py-3 rounded-xl font-medium bg-[var(--theme-surface)] text-[var(--theme-text-muted)] border border-[var(--theme-border)] cursor-not-allowed"
+                  }
                 >
                   {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  {mode === "all" ? "Broadcast" : "Send"}
+                  Send
                 </button>
               </div>
             </div>
@@ -613,8 +661,10 @@ export default function NoticeBoardPage() {
 
               {sentLog.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
-                    style={{ background: "var(--theme-primary-softer)" }}>
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
+                    style={{ background: "var(--theme-primary-softer)" }}
+                  >
                     <AlertCircle className="w-8 h-8 text-[var(--theme-text-muted)]" />
                   </div>
                   <p className={`${muted} text-sm`}>No notices sent yet</p>
@@ -623,7 +673,10 @@ export default function NoticeBoardPage() {
               ) : (
                 <div className="space-y-4 max-h-96 overflow-auto">
                   {sentLog.map((item) => (
-                    <div key={item.id} className="rounded-xl p-4 border bg-[var(--theme-card-bg)]/60 border-[var(--theme-border)]">
+                    <div
+                      key={item.id}
+                      className="rounded-xl p-4 border bg-[var(--theme-card-bg)]/60 border-[var(--theme-border)]"
+                    >
                       <div className="flex items-start justify-between mb-2">
                         <h3 className={`font-medium ${ink}`}>{item.title}</h3>
                         <span className={`text-xs ${muted}`}>{new Date(item.at).toLocaleTimeString()}</span>
@@ -645,15 +698,15 @@ export default function NoticeBoardPage() {
                         {item.results.map((r, idx) => {
                           const palette = r.ok
                             ? {
-                              bg: "var(--theme-components-tag-success-bg)",
-                              text: "var(--theme-components-tag-success-text)",
-                              border: "var(--theme-components-tag-success-border)",
-                            }
+                                bg: "var(--theme-components-tag-success-bg)",
+                                text: "var(--theme-components-tag-success-text)",
+                                border: "var(--theme-components-tag-success-border)",
+                              }
                             : {
-                              bg: "var(--theme-components-tag-error-bg)",
-                              text: "var(--theme-components-tag-error-text)",
-                              border: "var(--theme-components-tag-error-border)",
-                            };
+                                bg: "var(--theme-components-tag-error-bg)",
+                                text: "var(--theme-components-tag-error-text)",
+                                border: "var(--theme-components-tag-error-border)",
+                              };
                           return (
                             <span
                               key={idx}

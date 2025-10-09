@@ -632,7 +632,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
               <ShowNotifications setIsConnect={setIsConnect} employee_code={user?.employee_code} />
 
-              {hasPermission("chat_page") && <ShowChatCount user={user?.employee_code} />}
+              {/* {hasPermission("chat_page") && <ShowChatCount user={user?.employee_code} />} */}
 
             </div>
             {/* Clock */}

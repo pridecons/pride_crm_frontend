@@ -551,11 +551,9 @@ export default function LeadForm() {
           <Field label="Aadhaar Number">
             <input
               name="aadhaar"
-              inputMode="numeric"
               value={formData.aadhaar}
               onChange={handleChange}
               maxLength={12}
-              pattern="^[0-9]{12}$"
               placeholder="12-digit Aadhaar"
               disabled={panLocked.aadhaar}
               className={baseInput}

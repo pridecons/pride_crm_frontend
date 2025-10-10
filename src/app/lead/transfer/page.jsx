@@ -1,15 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
-import {
-  ChevronDown,
-  ChevronRight,
-  Settings2,
-  Send,
-  Trash2,
-  Archive,
-  Info,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Settings2, Send, Info } from "lucide-react";
 
 const scopes = [
   { value: "all", label: "All leads in this source" },
@@ -18,18 +10,13 @@ const scopes = [
   { value: "lead_ids", label: "Only selected lead IDs" },
 ];
 
-const tabs = [
-  { key: "transfer", label: "Transfer Leads", icon: Send },
-  { key: "deleteLeads", label: "Delete Leads (in Source)", icon: Trash2 },
-  { key: "deleteSource", label: "Delete/Archive Source", icon: Archive },
-];
-
 export default function SourceToolsPage() {
-  const [activeTab, setActiveTab] = useState("transfer");
+  // tab is just transfer for now
+  const [activeTab] = useState("transfer");
 
-  // dropdown data
-  const [sources, setSources] = useState([]);     // [{id,name}]
-  const [responses, setResponses] = useState([]); // [{id,name}]
+  // dropdown data (sources already contain responses per-source)
+  const [sources, setSources] = useState([]); // [{id, name, count, responses:[{id,name,count}]}]
+  const [responses, setResponses] = useState([]);
 
   // Common
   const [sourceId, setSourceId] = useState("");
@@ -37,127 +24,143 @@ export default function SourceToolsPage() {
   // ===== Transfer state =====
   const [targetSourceId, setTargetSourceId] = useState("");
   const [scope, setScope] = useState("all");
-  const [responseIds, setResponseIds] = useState([]); // array of ints, from dropdown
-  const [leadIdsText, setLeadIdsText] = useState(""); // fallback free type-in
-  const [selectedLeadIds, setSelectedLeadIds] = useState([]); // from LeadMulti
+  const [responseIds, setResponseIds] = useState([]);
+  const [leadIdsText, setLeadIdsText] = useState("");
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+
+  // Clear core flags
   const [clearAssigned, setClearAssigned] = useState(true);
   const [clearResponse, setClearResponse] = useState(true);
   const [clearDates, setClearDates] = useState(true);
 
-  // NEW: extra clear options (transfer)
+  // Clear profile/contact fields
+  const [clearName, setClearName] = useState(false);
+  const [clearEmail, setClearEmail] = useState(false);
+  const [clearMobile, setClearMobile] = useState(false);
+  const [clearAddress, setClearAddress] = useState(false);
+  const [clearPincode, setClearPincode] = useState(false);
+  const [clearCity, setClearCity] = useState(false);
+  const [clearState, setClearState] = useState(false);
+  const [clearOccupation, setClearOccupation] = useState(false);
+  const [clearSegment, setClearSegment] = useState(false);
+  const [extraFieldsCsv, setExtraFieldsCsv] = useState("");
+
+  // date window + limit
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [limitCount, setLimitCount] = useState("");
+  const [distributeEqual, setDistributeEqual] = useState(false);
+
+  // clear related records
   const [clearSmsLogs, setClearSmsLogs] = useState(false);
   const [clearEmailLogs, setClearEmailLogs] = useState(false);
   const [clearComments, setClearComments] = useState(false);
   const [clearStories, setClearStories] = useState(false);
   const [clearRecordings, setClearRecordings] = useState(false);
 
-  // ===== Delete leads (in source) =====
-  const [delScope, setDelScope] = useState("all");
-  const [delMode, setDelMode] = useState("soft"); // soft | hard
-  const [delResponseIds, setDelResponseIds] = useState([]);
-  const [delLeadIdsText, setDelLeadIdsText] = useState("");
-  const [delSelectedLeadIds, setDelSelectedLeadIds] = useState([]);
-
-  // ===== Delete/Archive source =====
-  const [srcDeleteMode, setSrcDeleteMode] = useState("soft"); // soft | hard
-  const [onLeads, setOnLeads] = useState("nullify"); // nullify | delete_soft | delete_hard
-  const [archivePrefix, setArchivePrefix] = useState("[ARCHIVED]");
-
   // Result / errors
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
-  // ---------- load dropdown options ----------
+  // ---------- load sources ONCE (sources already include responses per source) ----------
   useEffect(() => {
     let isMounted = true;
     (async () => {
       try {
         const { data } = await axiosInstance.get("/source-tools/options");
         if (!isMounted) return;
-        setSources(Array.isArray(data?.sources) ? data.sources : []);
-        setResponses(Array.isArray(data?.responses) ? data.responses : []);
+        const srcs = Array.isArray(data?.sources) ? data.sources : [];
+        setSources(srcs);
       } catch (e) {
-        console.error("Failed to load options", e);
+        console.error("Failed to load sources", e);
       }
     })();
     return () => { isMounted = false; };
   }, []);
 
-// ---------- helpers ----------
-function parseCsvInts(csv) {
-  return (csv || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map(Number)
-    .filter((n) => !Number.isNaN(n));
-}
+  // ---------- set responses when source changes (source-wise responses only) ----------
+  useEffect(() => {
+    setSelectedLeadIds([]);
+    setResponseIds([]);
+    if (!sourceId) { setResponses([]); return; }
+    const sid = Number(sourceId);
+    const src = sources.find(s => s.id === sid);
+    setResponses(src?.responses || []);
+  }, [sourceId, sources]);
 
-/* ✅ MOVE THIS UP — it must come before transferPayload & deleteLeadsPayload */
-const fromSourceIdNum = useMemo(
-  () => (sourceId ? Number(sourceId) : undefined),
-  [sourceId]
-);
-
-/* now it's safe to compute transferPayload */
-const transferPayload = useMemo(() => {
-  const p = {
-    from_source_id: fromSourceIdNum,
-    scope,
-    target_source_id: targetSourceId ? Number(targetSourceId) : undefined,
-    clear_assigned: clearAssigned,
-    clear_response: clearResponse,
-    clear_response_dates: clearDates,
-
-    // extra clear flags
-    clear_sms_logs: clearSmsLogs,
-    clear_email_logs: clearEmailLogs,
-    clear_comments: clearComments,
-    clear_stories: clearStories,
-    clear_recordings: clearRecordings,
-  };
-  if (scope === "by_response") p.response_ids = responseIds;
-  if (scope === "lead_ids") {
-    p.lead_ids =
-      selectedLeadIds.length > 0
-        ? selectedLeadIds
-        : parseCsvInts(leadIdsText);
+  // ---------- helpers ----------
+  function parseCsvInts(csv) {
+    return (csv || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter(n => !Number.isNaN(n));
   }
-  return p;
-}, [
-  fromSourceIdNum,
-  scope,
-  targetSourceId,
-  clearAssigned,
-  clearResponse,
-  clearDates,
-  responseIds,
-  leadIdsText,
-  selectedLeadIds,
-  clearSmsLogs,
-  clearEmailLogs,
-  clearComments,
-  clearStories,
-  clearRecordings,
-]);
 
-/* and deleteLeadsPayload can stay after that */
-const deleteLeadsPayload = useMemo(() => {
-  const p = { from_source_id: fromSourceIdNum, scope: delScope, mode: delMode };
-  if (delScope === "by_response") p.response_ids = delResponseIds;
-  if (delScope === "lead_ids") {
-    p.lead_ids =
-      delSelectedLeadIds.length > 0
-        ? delSelectedLeadIds
-        : parseCsvInts(delLeadIdsText);
+  function parseCsvStrings(csv) {
+    return (csv || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
   }
-  return p;
-}, [fromSourceIdNum, delScope, delMode, delResponseIds, delLeadIdsText, delSelectedLeadIds]);
+
+  const transferPayload = useMemo(() => {
+    const p = {
+      scope,
+      target_source_id: targetSourceId ? Number(targetSourceId) : undefined,
+
+      // core clears
+      clear_assigned: clearAssigned,
+      clear_response: clearResponse,
+      clear_response_dates: clearDates,
+
+      // profile clears
+      clear_name: clearName,
+      clear_email: clearEmail,
+      clear_mobile: clearMobile,
+      clear_address: clearAddress,
+      clear_pincode: clearPincode,
+      clear_city: clearCity,
+      clear_state: clearState,
+      clear_occupation: clearOccupation,
+      clear_segment: clearSegment,
+      extra_fields_to_clear: parseCsvStrings(extraFieldsCsv),
+
+      // related clears
+      clear_sms_logs: clearSmsLogs,
+      clear_email_logs: clearEmailLogs,
+      clear_comments: clearComments,
+      clear_stories: clearStories,
+      clear_recordings: clearRecordings,
+    };
+
+    // date window
+    if (fromDate) p.from_date = fromDate;
+    if (toDate) p.to_date = toDate;
+
+    // limit & distribution
+    if (limitCount) p.limit_count = Number(limitCount);
+    if (distributeEqual) p.distribute_equal_by_assignee = true;
+
+    if (scope === "by_response") p.response_ids = responseIds;
+    if (scope === "lead_ids") {
+      p.lead_ids =
+        selectedLeadIds.length > 0 ? selectedLeadIds : parseCsvInts(leadIdsText);
+    }
+    return p;
+  }, [
+    scope, targetSourceId,
+    clearAssigned, clearResponse, clearDates,
+    clearName, clearEmail, clearMobile, clearAddress, clearPincode, clearCity, clearState, clearOccupation, clearSegment, extraFieldsCsv,
+    clearSmsLogs, clearEmailLogs, clearComments, clearStories, clearRecordings,
+    fromDate, toDate, limitCount, distributeEqual,
+    responseIds, selectedLeadIds, leadIdsText
+  ]);
 
   // ---------- actions ----------
-  async function doTransfer(e) {
-    e.preventDefault();
+  async function callTransfer(dry_run) {
     setError(""); setResult(null);
 
     if (!sourceId) return setError("From Source is required.");
@@ -167,57 +170,23 @@ const deleteLeadsPayload = useMemo(() => {
     if (scope === "lead_ids" && (!transferPayload.lead_ids || transferPayload.lead_ids.length === 0))
       return setError("Select or enter at least one lead ID.");
 
+    const body = { ...transferPayload, dry_run };
+
     setLoading(true);
     try {
-      const { data } = await axiosInstance.post(`/source-tools/${Number(sourceId)}/transfer`, transferPayload);
+      const { data } = await axiosInstance.post(
+        `/source-tools/${Number(sourceId)}/transfer`,
+        body
+      );
       setResult(data);
     } catch (err) {
-      setError(err?.response?.data?.detail || err.message || "Failed to transfer.");
+      setError(err?.response?.data?.detail || err.message || "Request failed.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function doDeleteLeads(e) {
-    e.preventDefault();
-    setError(""); setResult(null);
-
-    if (!sourceId) return setError("Source is required.");
-    if (delScope === "by_response" && (!deleteLeadsPayload.response_ids || deleteLeadsPayload.response_ids.length === 0))
-      return setError("Select at least one response.");
-    if (delScope === "lead_ids" && (!deleteLeadsPayload.lead_ids || deleteLeadsPayload.lead_ids.length === 0))
-      return setError("Select or enter at least one lead ID.");
-
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.post(`/source-tools/${Number(sourceId)}/delete`, deleteLeadsPayload);
-      setResult(data);
-    } catch (err) {
-      setError(err?.response?.data?.detail || err.message || "Failed to delete leads.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function doDeleteSource(e) {
-    e.preventDefault();
-    setError(""); setResult(null);
-
-    if (!sourceId) return setError("Source is required.");
-    const payload = { source_id: fromSourceIdNum, mode: srcDeleteMode, on_leads: onLeads, archive_prefix: archivePrefix };
-
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.post(`/source-tools/${Number(sourceId)}/delete-source`, payload);
-      setResult(data);
-    } catch (err) {
-      setError(err?.response?.data?.detail || err.message || "Failed to delete/archive source.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // ---------- UI helpers (styled) ----------
+  // ---------- UI helpers ----------
   function Field({ label, children, hint }) {
     return (
       <div className="space-y-1.5">
@@ -228,39 +197,36 @@ const deleteLeadsPayload = useMemo(() => {
     );
   }
 
-function ScopePicker({ value, onChange }) {
-  return (
-    <div className="w-full">
-      <div className="flex flex-row w-full gap-3">
-        {scopes.map((opt) => (
-          <label key={opt.value} className="w-full">
-            <input
-              type="radio"
-              name="scope"
-              value={opt.value}
-              checked={value === opt.value}
-              onChange={() => onChange(opt.value)}
-              className="peer sr-only"
-            />
-            <span
-              className="
-                flex w-full h-full items-center justify-center rounded-xl border px-3 py-3 text-sm
-                border-gray-200 hover:border-gray-300
-                peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200 peer-checked:bg-indigo-50
-                text-gray-800 text-center whitespace-normal
-              "
-              title={opt.label}
-            >
-              {opt.label}
-            </span>
-          </label>
-        ))}
+  function ScopePicker({ value, onChange }) {
+    return (
+      <div className="w-full">
+        <div className="flex flex-row w-full gap-3">
+          {scopes.map((opt) => (
+            <label key={opt.value} className="w-full">
+              <input
+                type="radio"
+                name="scope"
+                value={opt.value}
+                checked={value === opt.value}
+                onChange={() => onChange(opt.value)}
+                className="peer sr-only"
+              />
+              <span
+                className="
+                  flex w-full h-full items-center justify-center rounded-xl border px-3 py-3 text-sm
+                  border-gray-200 hover:border-gray-300
+                  peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200 peer-checked:bg-indigo-50
+                  text-gray-800 text-center whitespace-normal
+                "
+              >
+                {opt.label}
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
-    </div>
-  );
-}
-
-
+    );
+  }
 
   const inputBase =
     "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm " +
@@ -270,65 +236,61 @@ function ScopePicker({ value, onChange }) {
     "inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-sky-600 to-blue-600 " +
     "px-4 py-2 text-sm font-medium text-white shadow hover:opacity-95 active:opacity-90 transition disabled:opacity-60";
 
-  const btnDanger =
-    "inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white shadow " +
-    "hover:bg-red-700 active:bg-red-700 transition disabled:opacity-60";
+  const btnSecondary =
+    "inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white " +
+    "px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 active:bg-gray-100 transition disabled:opacity-60";
 
-  // shared drop-downs
-  const SourceSelect = ({ value, onChange, placeholder = "Select source" }) => (
-    <select
-      className={inputBase}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">{placeholder}</option>
-      {sources.map((s) => (
-        <option key={s.id} value={s.id}>{s.name} ({s.count})</option>
-      ))}
-    </select>
-  );
+  function SourceSelect({ value, onChange, placeholder = "Select source" }) {
+    return (
+      <select className={inputBase} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{placeholder}</option>
+        {sources.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name} ({s.count})
+          </option>
+        ))}
+      </select>
+    );
+  }
 
-  const ResponseMulti = ({ values, onChange }) => (
-    <div className="rounded-xl border border-gray-200 p-3 shadow-sm">
-      <div className="flex flex-wrap gap-2">
-        {responses.map((r) => {
-          const checked = values.includes(r.id);
-          return (
-            <label
-              key={r.id}
-              className={`flex items-center gap-2 rounded-lg border px-2 py-1 text-sm transition
-              ${checked ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-gray-300"}`}
-            >
-              <input
-                type="checkbox"
-                className="accent-indigo-600"
-                checked={checked}
-                onChange={(e) => {
-                  if (e.target.checked) onChange([...values, r.id]);
-                  else onChange(values.filter((x) => x !== r.id));
-                }}
-              />
-              <span>{r.name} ({r.count})</span>
-            </label>
-          );
-        })}
+  function ResponseMulti({ values, onChange }) {
+    return (
+      <div className="rounded-xl border border-gray-200 p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {responses.map((r) => {
+            const checked = values.includes(r.id);
+            return (
+              <label
+                key={r.id}
+                className={`flex items-center gap-2 rounded-lg border px-2 py-1 text-sm transition
+                ${checked ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-gray-300"}`}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-indigo-600"
+                  checked={checked}
+                  onChange={(e) => {
+                    if (e.target.checked) onChange([...values, r.id]);
+                    else onChange(values.filter((x) => x !== r.id));
+                  }}
+                />
+                <span>{r.name} ({r.count})</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+          <Info className="h-3.5 w-3.5" /> Responses are **source-wise**.
+        </p>
       </div>
-      <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-        <Info className="h-3.5 w-3.5" /> Select one or more responses.
-      </p>
-    </div>
-  );
+    );
+  }
 
-  // --------- Lightweight Accordion ----------
   function Accordion({ title, icon: Icon = Settings2, defaultOpen = true, children, subtle = false }) {
     const [open, setOpen] = useState(defaultOpen);
     return (
       <div className={`rounded-2xl border ${subtle ? "border-gray-100" : "border-gray-200"} bg-white shadow-sm`}>
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-3"
-        >
+        <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             {open ? <ChevronDown className="h-4 w-4 text-indigo-600" /> : <ChevronRight className="h-4 w-4 text-indigo-600" />}
             <span className="text-sm font-semibold text-gray-800 flex items-center gap-2">
@@ -342,9 +304,8 @@ function ScopePicker({ value, onChange }) {
     );
   }
 
-  // --------- Lead Multi (loads from source) ----------
   function LeadMulti({ sourceId, values, onChange, hint }) {
-    const [items, setItems] = useState([]); // [{id, full_name, mobile, email}]
+    const [items, setItems] = useState([]);
     const [q, setQ] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -448,62 +409,49 @@ function ScopePicker({ value, onChange }) {
 
   return (
     <div className="min-h-screen bg-white">
+      <main className="mx-2 px-4 py-6 space-y-6">
 
-<main className="mx-2 px-4 py-6 space-y-6">
-  {/* Sticky Tabs — inside the SAME scrolling container */}
-  <div className="sticky top-[64px] bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 shadow-lg border-b border-white/20 rounded-b-2xl [overflow-anchor:none]">
-    <div className="px-2 sm:px-4">
-      <div className="flex gap-2 overflow-x-auto py-3">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const active = activeTab === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => { setActiveTab(t.key); setResult(null); setError(""); }}
-              className={`group relative whitespace-nowrap rounded-2xl px-1 py-1 text-sm transition
-                ${active ? "text-indigo-900" : "text-white/90 hover:text-white"}`}
-            >
-              <span
-                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 transition backdrop-blur-sm
-                  ${active
-                    ? "border-white/80 bg-white text-indigo-700 shadow-md"
-                    : "border-white/25 bg-white/10 text-white hover:bg-white/20"}`}
-              >
-                <Icon className={`h-4 w-4 ${active ? "text-indigo-600" : "text-white/90"}`} />
-                {t.label}
-              </span>
-              <span className={`absolute inset-x-4 -bottom-2 h-0.5 rounded-full transition ${active ? "bg-white/70" : "bg-transparent"}`} />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  </div>
-
-
-        {/* Card Shell */}
-        <div className="rounded-3xl border border-indigo-100/70 bg-white p-6 shadow-xl shadow-indigo-100/60 [overflow-anchor:none]">
-          {/* Common: From Source */}
+        {/* Card */}
+        <div className="rounded-3xl border border-indigo-100/70 bg-white p-6 shadow-xl shadow-indigo-100/60">
+          {/* Source (from) */}
           <div className="mb-6">
             <Field label="Source (from)">
-              <SourceSelect value={sourceId} onChange={(v) => {
-                setSourceId(v);
-                setSelectedLeadIds([]);
-                setDelSelectedLeadIds([]);
-              }} placeholder="Select source to operate on" />
+              <SourceSelect
+                value={sourceId}
+                onChange={(v) => { setSourceId(v); setSelectedLeadIds([]); }}
+                placeholder="Select source to operate on"
+              />
             </Field>
           </div>
 
-          {/* === Tab: Transfer === */}
+          {/* === Transfer === */}
           {activeTab === "transfer" && (
-            <form onSubmit={doTransfer} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} className="space-y-6 w-full">
+            <div className="space-y-6 w-full">
               <Accordion title="Target & Scope" icon={Send}>
                 <div className="flex flex-col gap-4 w-full">
                   <Field label="Target Source">
                     <SourceSelect value={targetSourceId} onChange={setTargetSourceId} placeholder="Select target source" />
                   </Field>
-                  <br />
+
+                  {/* Date range + Limit + Distribution */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Field label="From Date">
+                      <input type="date" className={inputBase} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    </Field>
+                    <Field label="To Date">
+                      <input type="date" className={inputBase} value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    </Field>
+                    <Field label="Count (max leads to transfer)">
+                      <input type="number" min={1} className={inputBase} value={limitCount} onChange={(e) => setLimitCount(e.target.value)} placeholder="e.g. 10000" />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
+                      <input type="checkbox" className="accent-indigo-600" checked={distributeEqual} onChange={(e) => setDistributeEqual(e.target.checked)} />
+                      <span className="text-sm text-gray-800">Distribute equally by current assignee</span>
+                    </label>
+                  </div>
+
                   <div className="w-full">
                     <label className="block text-sm font-medium text-gray-800 mb-2">Scope</label>
                     <ScopePicker value={scope} onChange={setScope} />
@@ -512,7 +460,7 @@ function ScopePicker({ value, onChange }) {
 
                 {scope === "by_response" && (
                   <div className="mt-4">
-                    <Field label="Responses">
+                    <Field label="Responses (source-wise)">
                       <ResponseMulti values={responseIds} onChange={setResponseIds} />
                     </Field>
                   </div>
@@ -540,7 +488,7 @@ function ScopePicker({ value, onChange }) {
                 )}
               </Accordion>
 
-              <Accordion title="Field Clearing on Transfer" icon={Settings2} subtle>
+              <Accordion title="Field Clearing on Transfer (core)" icon={Settings2} subtle>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
                     <input type="checkbox" className="accent-indigo-600" checked={clearAssigned} onChange={(e) => setClearAssigned(e.target.checked)} />
@@ -556,8 +504,39 @@ function ScopePicker({ value, onChange }) {
                   </label>
                 </div>
                 <p className="mt-2 text-xs text-gray-500">
-                  By default all three are cleared and <code className="rounded bg-gray-100 px-1">is_old_lead</code> is set to false on transfer.
+                  By default all three are cleared and <code className="rounded bg-gray-100 px-1">is_old_lead</code> false ho jata hai.
                 </p>
+              </Accordion>
+
+              <Accordion title="Clear Profile / Contact Fields (optional)" icon={Settings2} subtle>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    ["Name", clearName, setClearName],
+                    ["Email", clearEmail, setClearEmail],
+                    ["Mobile", clearMobile, setClearMobile],
+                    ["Address", clearAddress, setClearAddress],
+                    ["Pincode", clearPincode, setClearPincode],
+                    ["City", clearCity, setClearCity],
+                    ["State", clearState, setClearState],
+                    ["Occupation", clearOccupation, setClearOccupation],
+                    ["Segment", clearSegment, setClearSegment],
+                  ].map(([label, val, set]) => (
+                    <label key={label} className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
+                      <input type="checkbox" className="accent-indigo-600" checked={val} onChange={(e) => set(e.target.checked)} />
+                      <span className="text-sm text-gray-800">Clear {label}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Field label="Extra fields to clear (comma-separated)">
+                    <input
+                      className={inputBase}
+                      placeholder="e.g. address_line1,address_line2,zip"
+                      value={extraFieldsCsv}
+                      onChange={(e) => setExtraFieldsCsv(e.target.value)}
+                    />
+                  </Field>
+                </div>
               </Accordion>
 
               <Accordion title="Also clear related data (optional)" icon={Settings2} subtle>
@@ -584,143 +563,20 @@ function ScopePicker({ value, onChange }) {
                   </label>
                 </div>
                 <p className="mt-2 text-xs text-amber-600">
-                  Use carefully: these deletions are permanent if your backend performs a hard delete.
+                  Dhyan se use karein — agar backend hard delete karta hai to irreversible hai.
                 </p>
               </Accordion>
 
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={loading} className={btnPrimary}>
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" disabled={loading} className={btnSecondary} onClick={() => callTransfer(true)}>
+                  {loading ? "Working..." : "Preview"}
+                </button>
+                <button type="button" disabled={loading} className={btnPrimary} onClick={() => callTransfer(false)}>
                   {loading ? "Transferring..." : "Transfer Leads"}
                 </button>
                 {error && <span className="text-sm text-red-600">{error}</span>}
               </div>
-            </form>
-          )}
-
-          {/* === Tab: Delete Leads (in Source) === */}
-          {activeTab === "deleteLeads" && (
-            <form onSubmit={doDeleteLeads} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} className="space-y-6">
-              <Accordion title="Delete Settings" icon={Trash2}>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-2">Delete Mode</label>
-                    <div className="flex flex-wrap gap-3">
-                      {["soft", "hard"].map((m) => (
-                        <label key={m} className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition cursor-pointer
-                          ${delMode === m ? "border-indigo-500 bg-indigo-50/60" : "border-gray-200 hover:bg-gray-50"}`}>
-                          <input type="radio" className="accent-indigo-600" name="delmode" checked={delMode === m} onChange={() => setDelMode(m)} />
-                          <span className="text-sm capitalize text-gray-800">{m}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-2">Scope</label>
-                    <ScopePicker value={delScope} onChange={setDelScope} />
-                  </div>
-                </div>
-
-                {delScope === "by_response" && (
-                  <div className="mt-4">
-                    <Field label="Responses">
-                      <ResponseMulti values={delResponseIds} onChange={setDelResponseIds} />
-                    </Field>
-                  </div>
-                )}
-
-                {delScope === "lead_ids" && (
-                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <Field label="Select Leads (from chosen Source)">
-                      <LeadMulti
-                        sourceId={sourceId}
-                        values={delSelectedLeadIds}
-                        onChange={setDelSelectedLeadIds}
-                      />
-                    </Field>
-                    <Field label="Or, enter Lead IDs (comma-separated)">
-                      <input
-                        className={inputBase}
-                        placeholder="e.g. 101,102,103"
-                        value={delLeadIdsText}
-                        onChange={(e) => setDelLeadIdsText(e.target.value)}
-                      />
-                    </Field>
-                  </div>
-                )}
-              </Accordion>
-
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={loading} className={btnDanger}>
-                  {loading ? "Deleting..." : "Delete Leads"}
-                </button>
-                {error && <span className="text-sm text-red-600">{error}</span>}
-              </div>
-            </form>
-          )}
-
-          {/* === Tab: Delete/Archive Source === */}
-          {activeTab === "deleteSource" && (
-            <form onSubmit={doDeleteSource} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} className="space-y-6">
-              <Accordion title="Source Deletion / Archival" icon={Archive}>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-2">Source Delete Mode</label>
-                    <div className="flex flex-wrap gap-3">
-                      {["soft", "hard"].map((m) => (
-                        <label key={m} className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition cursor-pointer
-                          ${srcDeleteMode === m ? "border-indigo-500 bg-indigo-50/60" : "border-gray-200 hover:bg-gray-50"}`}>
-                          <input type="radio" className="accent-indigo-600" name="srcmode" checked={srcDeleteMode === m} onChange={() => setSrcDeleteMode(m)} />
-                          <span className="text-sm capitalize text-gray-800">{m}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-800 mb-2">On Leads</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {[
-                        { value: "nullify", label: "Nullify lead_source_id" },
-                        { value: "delete_soft", label: "Soft delete leads" },
-                        { value: "delete_hard", label: "Hard delete leads" },
-                      ].map((o) => (
-                        <label key={o.value} className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition cursor-pointer
-                          ${onLeads === o.value ? "border-indigo-500 bg-indigo-50/60" : "border-gray-200 hover:bg-gray-50"}`}>
-                          <input type="radio" className="accent-indigo-600" name="onleads" checked={onLeads === o.value} onChange={() => setOnLeads(o.value)} />
-                          <span className="text-sm text-gray-800">{o.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {srcDeleteMode === "soft" && (
-                  <div className="mt-4">
-                    <Field label="Archive Prefix" hint="Only used for soft delete (archiving).">
-                      <input
-                        className={inputBase}
-                        value={archivePrefix}
-                        onChange={(e) => setArchivePrefix(e.target.value)}
-                      />
-                    </Field>
-                  </div>
-                )}
-              </Accordion>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className={srcDeleteMode === "soft" ? btnPrimary : btnDanger}
-                >
-                  {loading
-                    ? (srcDeleteMode === "soft" ? "Archiving..." : "Deleting...")
-                    : (srcDeleteMode === "soft" ? "Archive Source" : "Delete Source")}
-                </button>
-                {error && <span className="text-sm text-red-600">{error}</span>}
-              </div>
-            </form>
+            </div>
           )}
         </div>
 

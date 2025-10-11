@@ -1,73 +1,82 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
-import { useState, useEffect } from "react";
 import PermissionsModal from "./permission";
 
-export default function AddDepartmentModal({ isOpen, onClose, onSave, department }) {
+export default function AddDepartmentModal({
+  isOpen,
+  onClose,
+  onSaveLocal,           // (dept) => void
+  department,            // editing target or null
+  getGlobalPermissions,  // async () => string[]  (lazy + cached upstream)
+}) {
+  const isEdit = !!department;
+
   const [newDeptName, setNewDeptName] = useState("");
   const [newDeptDesc, setNewDeptDesc] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [availablePermissions, setAvailablePermissions] = useState([]);
   const [selectedPerms, setSelectedPerms] = useState([]);
   const [openPermModal, setOpenPermModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [availablePermissions, setAvailablePermissions] = useState([]);
 
-  // Prefill form if editing
+  // Prefill / reset
   useEffect(() => {
-    if (department) {
-      setNewDeptName(department.name || "");
-      setNewDeptDesc(department.description || "");
-      setIsActive(department.is_active ?? true);
-      setSelectedPerms(department.available_permissions || []);
+    if (!isOpen) return;
+    if (isEdit) {
+      setNewDeptName(department?.name || "");
+      setNewDeptDesc(department?.description || "");
+      setIsActive(department?.is_active ?? true);
+      setSelectedPerms(department?.available_permissions || []);
     } else {
       setNewDeptName("");
       setNewDeptDesc("");
       setIsActive(true);
       setSelectedPerms([]);
     }
-  }, [department, isOpen]);
+  }, [isOpen, isEdit, department]);
 
-  // Fetch permissions
+  // Lazy load permissions only when modal opens (cached via parent)
   useEffect(() => {
-    const fetchPermissions = async () => {
+    let ignore = false;
+    (async () => {
+      if (!isOpen) return;
       try {
-        const res = await axiosInstance.get("/permissions/");
-        setAvailablePermissions(res.data || []);
-      } catch (error) {
-        console.error("Error fetching permissions:", error);
-      } finally {
-        setLoading(true);
+        const perms = await getGlobalPermissions();
+        if (!ignore) setAvailablePermissions(perms || []);
+      } catch {
+        if (!ignore) setAvailablePermissions([]);
       }
-    };
-    if (isOpen) fetchPermissions();
-  }, [isOpen]);
+    })();
+    return () => { ignore = true; };
+  }, [isOpen, getGlobalPermissions]);
 
-  const handlePermChange = (perms) => {
-    setSelectedPerms(perms);
-  };
+  const handlePermChange = (perms) => setSelectedPerms(perms);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!newDeptName.trim()) return;
+
+    const payload = {
+      name: newDeptName.trim(),
+      description: newDeptDesc.trim(),
+      is_active: !!isActive,
+      available_permissions: selectedPerms,
+    };
+
     try {
-      const payload = {
-        name: newDeptName,
-        description: newDeptDesc,
-        is_active: isActive,
-        available_permissions: selectedPerms,
-      };
+      setSaving(true);
+      const res = isEdit
+        ? await axiosInstance.patch(`/departments/${department.id}`, payload)
+        : await axiosInstance.post("/departments/", payload);
 
-      let res;
-      if (department) {
-        res = await axiosInstance.patch(`/departments/${department.id}`, payload);
-      } else {
-        res = await axiosInstance.post("/departments/", payload);
-      }
-
-      onSave(res.data);
+      onSaveLocal(res.data);
       onClose();
-    } catch (error) {
-      console.error("Error saving department:", error);
+    } catch (err) {
+      console.error("Error saving department:", err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -113,10 +122,10 @@ export default function AddDepartmentModal({ isOpen, onClose, onSave, department
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold mb-1">
-              {department ? "Edit Department" : "Create New Department"}
+              {isEdit ? "Edit Department" : "Create New Department"}
             </h2>
             <p style={{ color: "var(--theme-text-muted, #6b7280)" }}>
-              {department
+              {isEdit
                 ? "Update department information"
                 : "Add a new department to your organization"}
             </p>
@@ -125,11 +134,6 @@ export default function AddDepartmentModal({ isOpen, onClose, onSave, department
             onClick={onClose}
             className="p-2 rounded-full transition-colors duration-200"
             style={{ color: "var(--theme-text-muted, #6b7280)" }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background =
-                "color-mix(in oklab, var(--theme-text, #0f172a) 8%, transparent)")
-            }
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             aria-label="Close"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -277,26 +281,20 @@ export default function AddDepartmentModal({ isOpen, onClose, onSave, department
                 color: "var(--theme-text, #0f172a)",
                 border: "1px solid var(--theme-border, #e5e7eb)",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background =
-                  "color-mix(in oklab, var(--theme-text, #0f172a) 6%, transparent)")
-              }
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-8 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
+              disabled={saving}
+              className="px-8 py-3 rounded-xl font-medium shadow-lg transition-all duration-200 disabled:opacity-60"
               style={{
                 color: "#fff",
                 background:
                   "linear-gradient(90deg, var(--theme-success, #16a34a), color-mix(in oklab, var(--theme-success, #16a34a) 85%, var(--theme-success-weak, #22c55e)))",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.98)")}
-              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
             >
-              {department ? "Update Department" : "Create Department"}
+              {isEdit ? "Update Department" : "Create Department"}
             </button>
           </div>
         </form>
@@ -304,4 +302,3 @@ export default function AddDepartmentModal({ isOpen, onClose, onSave, department
     </div>
   );
 }
-

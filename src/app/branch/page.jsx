@@ -198,8 +198,19 @@ const BranchesPage = () => {
 
   const fileInputRef = useRef(null);
 
+  // Normalizes both absolute and relative URLs against BASE_URL
+  const safeDocUrl = (u) => {
+    if (!u) return "";
+    const base = (BASE_URL || "").replace(/\/$/, "");
+    const path = String(u).trim();
+    if (/^https?:\/\//i.test(path)) return path;               // already absolute
+    return `${base}/${path.replace(/^\//, "")}`;               // join with BASE_URL
+  };
+
   const openAgreementModal = (url) => {
-    setDocUrl(url || "");
+    const finalUrl = safeDocUrl(url || "");
+    if (!finalUrl) return; // optional: toast or ignore if missing
+    setDocUrl(finalUrl);
     setDocTitle("Agreement Document");
     setDocOpen(true);
   };
@@ -1178,17 +1189,24 @@ const BranchesPage = () => {
                           {hasPermission("branch_agreement_view") && (
                             <div className="md:col-span-2">
                               <label className="block text-sm font-medium text-gray-600 mb-1">Agreement</label>
-                              <a
-                                href={branchDetails.branch.agreement_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"
-                              >
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
-                                View Agreement PDF
-                              </a>
+
+                              {branchDetails?.branch?.agreement_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openAgreementModal(branchDetails.branch.agreement_url)}
+                                  className="inline-flex items-center px-3 py-2 text-sm font-medium
+                   text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)]
+                   hover:bg-[var(--theme-primary-softer)] rounded-lg transition-colors duration-200"
+                                >
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                  View Agreement PDF
+                                </button>
+                              ) : (
+                                <span className="text-[var(--theme-text-muted)]">No agreement uploaded</span>
+                              )}
                             </div>
                           )}
                         </div>

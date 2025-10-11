@@ -1106,7 +1106,7 @@ const applyDate = useCallback(() => {
               <div className="inline-flex rounded-lg shadow-sm self-start" role="group">
                 <button
                   type="button"
-                  className="px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-semibold border rounded-l-lg transition-all duration-200"
+                  className="px-4 sm:px-5 py-1.5 text-sm font-semibold border rounded-l-lg transition-all duration-200"
                   onClick={() => setView("card")}
                   style={{
                     background: view === "card" ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",
@@ -1119,7 +1119,7 @@ const applyDate = useCallback(() => {
                 </button>
                 <button
                   type="button"
-                  className="px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-semibold border rounded-r-lg transition-all duration-200"
+                  className="px-4 sm:px-5 py-1.5 text-sm font-semibold border rounded-r-lg transition-all duration-200"
                   onClick={() => setView("table")}
                   style={{
                     background: view === "table" ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",

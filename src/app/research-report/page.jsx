@@ -423,7 +423,14 @@ export default function NewResearchReportPage() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
+                  <label
+  className="absolute -top-1.5 left-3 px-1 text-xs
+             text-[var(--theme-text)]
+             bg-[var(--theme-surface)]
+             rounded-sm leading-none z-10 pointer-events-none
+             border-0 outline-none ring-0
+             shadow-[0_0_0_2px_var(--theme-surface)]"  /* masks the input border */
+>
                     Title
                   </label>
                 </div>
@@ -433,10 +440,17 @@ export default function NewResearchReportPage() {
                     className="w-full px-4 py-2 rounded-lg transition   bg-[var(--theme-components-input-bg)]   text-[var(--theme-components-input-text)]   placeholder:text-[var(--theme-components-input-placeholder)]   border border-[var(--theme-components-input-border)]   focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
-                  />                  <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
+                  />                  <label
+  className="absolute -top-1.5 left-3 px-1 text-xs
+             text-[var(--theme-text)]
+             bg-[var(--theme-surface)]
+             rounded-sm leading-none z-10 pointer-events-none
+             border-0 outline-none ring-0
+             shadow-[0_0_0_2px_var(--theme-surface)]"  /* masks the input border */
+>
+  Report Date
+</label>
 
-                    Report Date
-                  </label>
                 </div>
                 <div className="relative">
                   <input
@@ -445,7 +459,14 @@ export default function NewResearchReportPage() {
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
                   />
-                  <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
+                  <label
+  className="absolute -top-1.5 left-3 px-1 text-xs
+             text-[var(--theme-text)]
+             bg-[var(--theme-surface)]
+             rounded-sm leading-none z-10 pointer-events-none
+             border-0 outline-none ring-0
+             shadow-[0_0_0_2px_var(--theme-surface)]"  /* masks the input border */
+>
                     Tags
                   </label>
                 </div>
@@ -457,7 +478,14 @@ export default function NewResearchReportPage() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-                <label className="absolute -top-2 left-3 px-1 text-xs text-[var(--theme-text)]">
+                <label
+  className="absolute -top-1.5 left-3 px-1 text-xs
+             text-[var(--theme-text)]
+             bg-[var(--theme-surface)]
+             rounded-sm leading-none z-10 pointer-events-none
+             border-0 outline-none ring-0
+             shadow-[0_0_0_2px_var(--theme-surface)]"  /* masks the input border */
+>
                   Notes
                 </label>
               </div>

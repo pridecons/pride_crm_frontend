@@ -1,71 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { axiosInstance } from "@/api/Axios";
+import { useState } from "react";
 import { Edit, Trash, ChevronDown, ChevronRight, Building2, Users } from "lucide-react";
-import AddDepartmentModal from "@/components/Department/DepartmentAddModel";
-import ProfileModal from "@/components/Department/ProfileAddModel";
+import { axiosInstance } from "@/api/Axios";
 
-export default function DepartmentAccordion() {
-  const [departments, setDepartments] = useState([]);
-  const [profiles, setProfiles] = useState({});
-  const [loadingDept, setLoadingDept] = useState(true);
-  const [loadingProfiles, setLoadingProfiles] = useState({});
+export default function DepartmentAccordion({
+  departments,
+  loadingDept,
+  profilesByDept,
+  fetchProfilesForDept,    // (deptId) => Promise<Profile[]>
+  onAddDept,
+  onEditDept,
+  onDeleteDeptLocal,       // (deptId) => void
+  onAddProfile,
+  onEditProfile,
+  removeProfileLocal,      // (profileId, deptId) => void
+}) {
   const [expandedDept, setExpandedDept] = useState(null);
-  const [editDept, setEditDept] = useState(null);
-  const [editProfile, setEditProfile] = useState(null);
-  const [openAddDeptModal, setOpenAddDeptModal] = useState(false);
-  const [openAddProfileModal, setOpenAddProfileModal] = useState(false);
-  const [selectedDept, setSelectedDept] = useState(null);
+  const [loadingProfiles, setLoadingProfiles] = useState({}); // { [deptId]: boolean }
 
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
-
-  const fetchDepartments = async () => {
-    try {
-      setLoadingDept(true);
-      const res = await axiosInstance.get("/departments/?skip=0&limit=50&order_by=name");
-      setDepartments(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingDept(false);
-    }
-  };
-
-  const fetchProfiles = async (departmentId) => {
-    try {
-      setLoadingProfiles((prev) => ({ ...prev, [departmentId]: true }));
-      const res = await axiosInstance.get(
-        `/profile-role/?department_id=${departmentId}&skip=0&limit=50&order_by=hierarchy_level`
-      );
-      setProfiles((prev) => ({ ...prev, [departmentId]: res.data }));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingProfiles((prev) => ({ ...prev, [departmentId]: false }));
-    }
-  };
-
-  const toggleDepartment = (deptId) => {
+  const toggleDepartment = async (deptId) => {
     if (expandedDept === deptId) {
       setExpandedDept(null);
-    } else {
-      setExpandedDept(deptId);
-      if (!profiles[deptId]) {
-        fetchProfiles(deptId);
+      return;
+    }
+    setExpandedDept(deptId);
+    if (!profilesByDept[deptId]) {
+      setLoadingProfiles((p) => ({ ...p, [deptId]: true }));
+      try {
+        await fetchProfilesForDept(deptId); // cached upstream
+      } finally {
+        setLoadingProfiles((p) => ({ ...p, [deptId]: false }));
       }
     }
   };
 
   const deleteDepartment = async (deptId) => {
     if (!confirm("Are you sure you want to delete this department?")) return;
-
     try {
-      const res = await axiosInstance.delete(`/departments/${deptId}?hard_delete=true`);
-      console.log(res.data.message);
-      setDepartments((prev) => prev.filter((d) => d.id !== deptId));
+      await axiosInstance.delete(`/departments/${deptId}?hard_delete=true`);
+      onDeleteDeptLocal(deptId);
       if (expandedDept === deptId) setExpandedDept(null);
       alert("Department deleted successfully");
     } catch (err) {
@@ -78,10 +52,8 @@ export default function DepartmentAccordion() {
     if (!confirm("Are you sure you want to delete this profile?")) return;
     try {
       await axiosInstance.delete(`/profile-role/${profileId}?hard_delete=true`);
-      setProfiles((prev) => ({
-        ...prev,
-        [departmentId]: (prev[departmentId] || []).filter((p) => p.id !== profileId),
-      }));
+      // mutate locally without refetch
+      removeProfileLocal(profileId, departmentId);
     } catch (err) {
       console.error("Failed to delete profile:", err);
       alert("Failed to delete profile");
@@ -118,54 +90,39 @@ export default function DepartmentAccordion() {
 
   return (
     <div className="w-full mt-2">
-      {/* Action Bar (Sticky) */}
-     <div className="flex justify-end px-3 py-3">
-          <div className="flex gap-3">
-            <button
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
-              style={btnPrimaryStyle}
-              onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.98)")}
-              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
-              onClick={() => setOpenAddDeptModal(true)}
-            >
-              <Building2 className="w-4 h-4" />
-              Add Department
-            </button>
+      {/* Action Bar */}
+      <div className="flex justify-end px-3 py-3">
+        <div className="flex gap-3">
+          <button
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
+            style={btnPrimaryStyle}
+            onClick={onAddDept}
+          >
+            <Building2 className="w-4 h-4" />
+            Add Department
+          </button>
 
-            <button
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
-              style={btnSuccessStyle}
-              onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(0.98)")}
-              onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
-              onClick={() => {
-                setSelectedDept(departments[0] || null);
-                setOpenAddProfileModal(true);
-              }}
-            >
-              <Users className="w-4 h-4" />
-              Add Profile
-            </button>
-          </div>
+          <button
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium shadow-lg transition-all duration-200"
+            style={btnSuccessStyle}
+            onClick={onAddProfile}
+          >
+            <Users className="w-4 h-4" />
+            Add Profile
+          </button>
         </div>
+      </div>
 
       {/* Department List */}
       {loadingDept ? (
         <div className="flex items-center justify-center py-12">
           <div className="flex items-center space-x-3">
-            <div
-              className="animate-spin rounded-full h-6 w-6 border-b-2"
-              style={{ borderColor: primary }}
-            ></div>
-            <span className="font-medium" style={muted}>
-              Loading departments...
-            </span>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: primary }} />
+            <span className="font-medium" style={muted}>Loading departments...</span>
           </div>
         </div>
       ) : (
-        <div
-          className="rounded-2xl shadow-lg border overflow-hidden"
-          style={{ ...surface, ...borderColor }}
-        >
+        <div className="rounded-2xl shadow-lg border overflow-hidden" style={{ ...surface, ...borderColor }}>
           {departments.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-12 h-12 mx-auto mb-4" style={{ color: "color-mix(in oklab, var(--theme-text, #0f172a) 30%, transparent)" }} />
@@ -173,183 +130,135 @@ export default function DepartmentAccordion() {
               <p className="text-sm" style={muted}>Create your first department to get started</p>
             </div>
           ) : (
-            departments.map((dept, index) => (
-              <div
-                key={dept.id}
-                className={index < departments.length - 1 ? "border-b" : ""}
-                style={borderColor}
-              >
-                {/* Accordion Header */}
-                <div
-                  className="flex justify-between items-center px-6 py-4 cursor-pointer transition-all duration-200 group"
-                  style={surface}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      "color-mix(in oklab, var(--theme-text, #0f172a) 3%, var(--theme-card-bg, #ffffff))";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--theme-card-bg, #ffffff)";
-                  }}
-                  onClick={() => toggleDepartment(dept.id)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className="p-2 rounded-lg transition-colors duration-200"
-                      style={{
-                        background: "color-mix(in oklab, var(--theme-primary, #4f46e5) 12%, transparent)",
-                      }}
-                    >
-                      {expandedDept === dept.id ? (
-                        <ChevronDown className="w-5 h-5" style={{ color: primary }} />
-                      ) : (
-                        <ChevronRight className="w-5 h-5" style={{ color: primary }} />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold transition-colors duration-200">
-                        {dept.name}
-                      </h3>
-                      {dept.description && (
-                        <p className="text-sm mt-1" style={muted}>
-                          {dept.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border"
-                      style={{
-                        background: dept.is_active ? successWeak : dangerWeak,
-                        color: dept.is_active ? success : danger,
-                        borderColor: dept.is_active
-                          ? `color-mix(in oklab, ${success} 35%, transparent)`
-                          : `color-mix(in oklab, ${danger} 35%, transparent)`,
-                      }}
-                    >
-                      {dept.is_active ? "Active" : "Inactive"}
-                    </span>
-                    <button
-                      className="p-2 rounded-full transition-colors duration-200 group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditDept(dept);
-                      }}
-                      aria-label={`Edit ${dept.name} Department`}
-                      title="Edit Department"
-                      onMouseEnter={(e) => (e.currentTarget.style.background = primaryWeak)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <Edit className="w-4 h-4" style={{ color: primary }} />
-                    </button>
-                    <button
-                      className="p-2 rounded-full transition-colors duration-200 group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteDepartment(dept.id);
-                      }}
-                      aria-label={`Delete ${dept.name} Department`}
-                      title="Delete Department"
-                      onMouseEnter={(e) => (e.currentTarget.style.background = dangerWeak)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <Trash className="w-4 h-4" style={{ color: danger }} />
-                    </button>
-                  </div>
-                </div>
+            departments.map((dept, index) => {
+              const isOpen = expandedDept === dept.id;
+              const rows = profilesByDept[dept.id] || [];
+              const isLoadingProfiles = !!loadingProfiles[dept.id];
 
-                {/* Accordion Content */}
-                {expandedDept === dept.id && (
+              return (
+                <div
+                  key={dept.id}
+                  className={index < departments.length - 1 ? "border-b" : ""}
+                  style={borderColor}
+                >
+                  {/* Accordion Header */}
                   <div
-                    className="border-t"
-                    style={{
-                      ...borderColor,
-                      background:
-                        "linear-gradient(180deg, color-mix(in oklab, var(--theme-text, #0f172a) 4%, transparent), transparent)",
-                    }}
+                    className="flex justify-between items-center px-6 py-4 cursor-pointer transition-all duration-200 group"
+                    style={surface}
+                    onClick={() => toggleDepartment(dept.id)}
                   >
-                    {loadingProfiles[dept.id] ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className="animate-spin rounded-full h-5 w-5 border-b-2"
-                            style={{ borderColor: primary }}
-                          ></div>
-                          <span style={muted}>Loading profiles...</span>
-                        </div>
+                    <div className="flex items-center space-x-3">
+                      <div
+                        className="p-2 rounded-lg transition-colors duration-200"
+                        style={{ background: "color-mix(in oklab, var(--theme-primary, #4f46e5) 12%, transparent)" }}
+                      >
+                        {isOpen ? (
+                          <ChevronDown className="w-5 h-5" style={{ color: primary }} />
+                        ) : (
+                          <ChevronRight className="w-5 h-5" style={{ color: primary }} />
+                        )}
                       </div>
-                    ) : (
-                      <>
-                        {/* Header with profile count */}
-                        <div
-                          className="flex items-center justify-between px-6 py-3 border-b"
-                          style={{ ...borderColor, background: "color-mix(in oklab, var(--theme-text, #0f172a) 2%, var(--theme-card-bg, #ffffff))" }}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <Users className="w-4 h-4" style={{ color: muted.color }} />
-                            <span className="text-sm font-medium">
-                              {(profiles[dept.id]?.length ?? 0)} Profile{profiles[dept.id]?.length === 1 ? "" : "s"}
-                            </span>
+                      <div>
+                        <h3 className="font-semibold">{dept.name}</h3>
+                        {dept.description && <p className="text-sm mt-1" style={muted}>{dept.description}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border"
+                        style={{
+                          background: dept.is_active ? successWeak : dangerWeak,
+                          color: dept.is_active ? success : danger,
+                          borderColor: dept.is_active
+                            ? `color-mix(in oklab, ${success} 35%, transparent)`
+                            : `color-mix(in oklab, ${danger} 35%, transparent)`,
+                        }}
+                      >
+                        {dept.is_active ? "Active" : "Inactive"}
+                      </span>
+                      <button
+                        className="p-2 rounded-full transition-colors duration-200 group"
+                        onClick={(e) => { e.stopPropagation(); onEditDept(dept); }}
+                        aria-label={`Edit ${dept.name} Department`}
+                        title="Edit Department"
+                        style={{ background: "transparent" }}
+                      >
+                        <Edit className="w-4 h-4" style={{ color: primary }} />
+                      </button>
+                      <button
+                        className="p-2 rounded-full transition-colors duration-200 group"
+                        onClick={(e) => { e.stopPropagation(); deleteDepartment(dept.id); }}
+                        aria-label={`Delete ${dept.name} Department`}
+                        title="Delete Department"
+                        style={{ background: "transparent" }}
+                      >
+                        <Trash className="w-4 h-4" style={{ color: danger }} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Accordion Content */}
+                  {isOpen && (
+                    <div
+                      className="border-t"
+                      style={{
+                        ...borderColor,
+                        background:
+                          "linear-gradient(180deg, color-mix(in oklab, var(--theme-text, #0f172a) 4%, transparent), transparent)",
+                      }}
+                    >
+                      {isLoadingProfiles ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: primary }} />
+                            <span style={muted}>Loading profiles...</span>
                           </div>
                         </div>
+                      ) : (
+                        <>
+                          <div
+                            className="flex items-center justify-between px-6 py-3 border-b"
+                            style={{ ...borderColor, background: "color-mix(in oklab, var(--theme-text, #0f172a) 2%, var(--theme-card-bg, #ffffff))" }}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <Users className="w-4 h-4" style={{ color: muted.color }} />
+                              <span className="text-sm font-medium">
+                                {rows.length} Profile{rows.length === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                          </div>
 
-                        {profiles[dept.id]?.length > 0 ? (
-                          <div className="overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <table className="min-w-full">
-                                <thead>
-                                  <tr
-                                    style={{
-                                      background: "color-mix(in oklab, var(--theme-text, #0f172a) 2%, var(--theme-card-bg, #ffffff))",
-                                    }}
+                          {rows.length > 0 ? (
+                            <div className="overflow-hidden">
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full">
+                                  <thead>
+                                    <tr
+                                      style={{
+                                        background: "color-mix(in oklab, var(--theme-text, #0f172a) 2%, var(--theme-card-bg, #ffffff))",
+                                      }}
+                                    >
+                                      {["Profile Name","Description","Status","Level","Permissions","Actions"].map((h) => (
+                                        <th key={h} className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider" style={muted}>
+                                          {h === "Status" || h === "Level" || h === "Actions" ? (
+                                            <span className="block text-center">{h}</span>
+                                          ) : h}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody
+                                    className="divide-y"
+                                    style={{ borderColor: "color-mix(in oklab, var(--theme-text, #0f172a) 12%, transparent)" }}
                                   >
-                                    {[
-                                      "Profile Name",
-                                      "Description",
-                                      "Status",
-                                      "Level",
-                                      "Permissions",
-                                      "Actions",
-                                    ].map((h) => (
-                                      <th
-                                        key={h}
-                                        className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider"
-                                        style={muted}
-                                      >
-                                        {h === "Status" || h === "Level" || h === "Actions" ? (
-                                          <span className="block text-center">{h}</span>
-                                        ) : (
-                                          h
-                                        )}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody
-                                  className="divide-y"
-                                  style={{ borderColor: "color-mix(in oklab, var(--theme-text, #0f172a) 12%, transparent)" }}
-                                >
-                                  {Array.isArray(profiles[dept.id]) &&
-                                    profiles[dept.id].map((profile) => (
-                                      <tr
-                                        key={profile.id}
-                                        className="transition-colors duration-200"
-                                        onMouseEnter={(e) => {
-                                          e.currentTarget.style.background =
-                                            "color-mix(in oklab, var(--theme-text, #0f172a) 2.5%, transparent)";
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          e.currentTarget.style.background = "transparent";
-                                        }}
-                                      >
+                                    {rows.map((profile) => (
+                                      <tr key={profile.id} className="transition-colors duration-200">
                                         {/* Name */}
                                         <td className="px-6 py-4">
                                           <div className="flex items-center space-x-3">
                                             <div
                                               className="w-2 h-2 rounded-full"
-                                              style={{
-                                                background: `linear-gradient(90deg, ${primary}, ${accent})`,
-                                              }}
+                                              style={{ background: `linear-gradient(90deg, ${primary}, ${accent})` }}
                                             />
                                             <span className="font-medium">{profile.name}</span>
                                           </div>
@@ -357,11 +266,7 @@ export default function DepartmentAccordion() {
 
                                         {/* Description */}
                                         <td className="px-6 py-4" style={muted}>
-                                          {profile.description || (
-                                            <span className="italic" style={muted}>
-                                              No description
-                                            </span>
-                                          )}
+                                          {profile.description || <span className="italic">No description</span>}
                                         </td>
 
                                         {/* Active badge */}
@@ -404,8 +309,7 @@ export default function DepartmentAccordion() {
 
                                         {/* Permissions as chips */}
                                         <td className="px-6 py-4">
-                                          {Array.isArray(profile.default_permissions) &&
-                                          profile.default_permissions.length > 0 ? (
+                                          {Array.isArray(profile.default_permissions) && profile.default_permissions.length > 0 ? (
                                             <div className="flex flex-wrap gap-1 max-w-xs">
                                               {profile.default_permissions.slice(0, 3).map((perm, i) => (
                                                 <span
@@ -425,8 +329,7 @@ export default function DepartmentAccordion() {
                                                 <span
                                                   className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
                                                   style={{
-                                                    background:
-                                                      "color-mix(in oklab, var(--theme-text, #0f172a) 6%, transparent)",
+                                                    background: "color-mix(in oklab, var(--theme-text, #0f172a) 6%, transparent)",
                                                     color: "var(--theme-text-muted, #6b7280)",
                                                     borderColor: "var(--theme-border, #e5e7eb)",
                                                   }}
@@ -447,19 +350,8 @@ export default function DepartmentAccordion() {
                                           <div className="flex items-center justify-center gap-2">
                                             <button
                                               className="inline-flex items-center justify-center rounded-lg p-2 shadow-sm transition-all duration-200"
-                                              style={{
-                                                background: primaryWeak,
-                                                color: primary,
-                                                boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
-                                              }}
-                                              onMouseEnter={(e) =>
-                                                (e.currentTarget.style.background =
-                                                  "color-mix(in oklab, var(--theme-primary, #4f46e5) 18%, transparent)")
-                                              }
-                                              onMouseLeave={(e) =>
-                                                (e.currentTarget.style.background = primaryWeak)
-                                              }
-                                              onClick={() => setEditProfile(profile)}
+                                              style={{ background: primaryWeak, color: primary, boxShadow: "0 1px 0 rgba(0,0,0,0.02)" }}
+                                              onClick={() => onEditProfile(profile)}
                                               aria-label={`Edit ${profile.name} Profile`}
                                               title="Edit Profile"
                                             >
@@ -468,18 +360,7 @@ export default function DepartmentAccordion() {
 
                                             <button
                                               className="inline-flex items-center justify-center rounded-lg p-2 shadow-sm transition-all duration-200"
-                                              style={{
-                                                background: dangerWeak,
-                                                color: danger,
-                                                boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
-                                              }}
-                                              onMouseEnter={(e) =>
-                                                (e.currentTarget.style.background =
-                                                  "color-mix(in oklab, var(--theme-danger, #dc2626) 18%, transparent)")
-                                              }
-                                              onMouseLeave={(e) =>
-                                                (e.currentTarget.style.background = dangerWeak)
-                                              }
+                                              style={{ background: dangerWeak, color: danger, boxShadow: "0 1px 0 rgba(0,0,0,0.02)" }}
                                               onClick={() => handleDeleteProfile(profile.id, dept.id)}
                                               aria-label={`Delete ${profile.name} Profile`}
                                               title="Delete Profile"
@@ -490,68 +371,27 @@ export default function DepartmentAccordion() {
                                         </td>
                                       </tr>
                                     ))}
-                                </tbody>
-                              </table>
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8">
-                            <Users
-                              className="w-8 h-8 mx-auto mb-3"
-                              style={{ color: "color-mix(in oklab, var(--theme-text, #0f172a) 30%, transparent)" }}
-                            />
-                            <p className="font-medium" style={muted}>No profiles found</p>
-                            <p className="text-sm" style={muted}>Add profiles to this department</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <Users className="w-8 h-8 mx-auto mb-3" style={{ color: "color-mix(in oklab, var(--theme-text, #0f172a) 30%, transparent)" }} />
+                              <p className="font-medium" style={muted}>No profiles found</p>
+                              <p className="text-sm" style={muted}>Add profiles to this department</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
-
-      {/* Modals */}
-      <AddDepartmentModal
-        isOpen={openAddDeptModal || !!editDept}
-        onClose={() => {
-          setOpenAddDeptModal(false);
-          setEditDept(null);
-        }}
-        department={editDept}
-        onSave={(dept) => {
-          setDepartments((prev) =>
-            editDept ? prev.map((d) => (d.id === dept.id ? dept : d)) : [...prev, dept]
-          );
-          setEditDept(null);
-          setOpenAddDeptModal(false);
-        }}
-      />
-
-      <ProfileModal
-        isOpen={openAddProfileModal || !!editProfile}
-        onClose={() => {
-          setOpenAddProfileModal(false);
-          setEditProfile(null);
-        }}
-        profile={editProfile}
-        departmentId={selectedDept?.id || editProfile?.department_id}
-        departments={departments}
-        onSave={(profile) => {
-          setProfiles((prev) => ({
-            ...prev,
-            [profile.department_id]: [
-              ...(prev[profile.department_id] || []).filter((p) => p.id !== profile.id),
-              profile,
-            ],
-          }));
-          setEditProfile(null);
-          setOpenAddProfileModal(false);
-        }}
-      />
     </div>
   );
 }

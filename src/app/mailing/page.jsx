@@ -5,7 +5,7 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from "@/api/Axios";
 import { useTheme } from "@/context/ThemeContext";
-import {Mail} from "lucide-react";
+import { Mail } from "lucide-react";
 
 /* -------------------- Autocomplete -------------------- */
 function EmployeeAutocomplete({
@@ -145,11 +145,10 @@ function EmployeeAutocomplete({
                   onMouseEnter={() => setHighlight(idx)}
                   onMouseDown={(e) => e.preventDefault()} // prevent input blur before click
                   onClick={() => selectItem(emp)}
-                  className={`w-full text-left px-3 py-2 text-sm transition ${
-                    active
+                  className={`w-full text-left px-3 py-2 text-sm transition ${active
                       ? "bg-[color:color-mix(in_oklab,var(--theme-text)_10%,transparent)]"
                       : ""
-                  }`}
+                    }`}
                   style={{
                     color: "var(--theme-text)",
                   }}
@@ -254,7 +253,7 @@ export default function InternalMailingForm() {
     const fetchProfiles = async () => {
       try {
         const { data } = await axiosInstance.get(
-          "/profile-role/?department_id=7&skip=0&limit=50&order_by=hierarchy_level"
+          "/profile-role/?skip=0&limit=200&order_by=hierarchy_level"
         );
         setProfiles(data);
       } catch (err) {
@@ -362,11 +361,10 @@ export default function InternalMailingForm() {
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-        active
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${active
           ? "bg-[color:color-mix(in_oklab,var(--theme-primary)_14%,transparent)] text-[var(--theme-primary)] border-[color:color-mix(in_oklab,var(--theme-primary)_36%,transparent)]"
           : "bg-[var(--theme-card-bg)] text-[var(--theme-text)] hover:bg-[color:color-mix(in_oklab,var(--theme-text)_6%,transparent)] border-[var(--theme-border)]"
-      } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+        } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
     >
       {children}
     </button>
@@ -394,7 +392,7 @@ export default function InternalMailingForm() {
           <div
             className="px-4 py-4 border-b rounded-t-lg"
             style={{
-             background: "var(--theme-components-header-bg)",
+              background: "var(--theme-components-header-bg)",
               color: "var(--theme-components-header-text)",
               borderColor: "var(--theme-components-header-border, var(--theme-border))",
               boxShadow: "0 1px 0 var(--theme-components-header-shadow, transparent)"
@@ -573,16 +571,16 @@ export default function InternalMailingForm() {
 
                       {/* Employee list (appears when branch is known) */}
                       {branchId && (
-  <EmployeeAutocomplete
-    items={employees}
-    value={employeeId}
-    onChange={setEmployeeId}
-    placeholder="Search employee by name or code..."
-    getLabel={(emp) =>
-      `${emp?.name || emp?.full_name || "Employee"} (${emp?.employee_code || ""})`
-    }
-  />
-)}
+                        <EmployeeAutocomplete
+                          items={employees}
+                          value={employeeId}
+                          onChange={setEmployeeId}
+                          placeholder="Search employee by name or code..."
+                          getLabel={(emp) =>
+                            `${emp?.name || emp?.full_name || "Employee"} (${emp?.employee_code || ""})`
+                          }
+                        />
+                      )}
 
                       {!isSuperAdmin && branchId && (
                         <span
@@ -613,7 +611,7 @@ export default function InternalMailingForm() {
                     if (!mode || !txt) return null;
                     return (
                       <span
-                       className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm border"
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm border"
                         style={{
                           background: "var(--theme-components-tag-info-bg)",
                           color: "var(--theme-components-tag-info-text)",
@@ -684,8 +682,8 @@ export default function InternalMailingForm() {
                     color: "var(--theme-primary-contrast)",
                     opacity: loading ? 0.8 : 1,
                   }}
-                  onMouseEnter={(e)=>{ e.currentTarget.style.background = "var(--theme-primary-hover)"; }}
-                  onMouseLeave={(e)=>{ e.currentTarget.style.background = "var(--theme-primary)"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--theme-primary-hover)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--theme-primary)"; }}
                 >
                   {loading ? (
                     <>

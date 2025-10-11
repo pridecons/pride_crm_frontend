@@ -528,7 +528,7 @@ export default function PermissionsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[ // four cards
+          {[ 
             {
               title: "Total Users",
               value: usersTotal || permissions.length,
@@ -554,13 +554,13 @@ export default function PermissionsPage() {
               pill: styles.softPill("--theme-warning"),
             },
           ].map((c, i) => (
-            <div key={i} className="rounded-2xl shadow-lg p-6 border" style={styles.card}>
+            <div key={i} className="rounded-2xl shadow-lg px-3 py-6 border" style={styles.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium uppercase tracking-wide mb-1" style={{ color: "var(--theme-text-muted)" }}>
                     {c.title}
                   </p>
-                  <p className="text-3xl font-bold" style={{ color: "var(--theme-text)" }}>
+                  <p className="text-xl font-bold" style={{ color: "var(--theme-text)" }}>
                     {c.value}
                   </p>
                 </div>

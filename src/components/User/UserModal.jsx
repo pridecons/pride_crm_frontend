@@ -435,25 +435,6 @@ export default function UserModal({
     setFormData((p) => ({ ...p, branch_id: selectedBranchId }));
   }, [selectedBranchId]);
 
-  useEffect(() => {
-    setBranchManager(null);
-    if (!selectedBranchId) return;
-
-    (async () => {
-      try {
-        // If your path is different, adjust (e.g., `/api/v1/branches/${id}/details`)
-        const res = await axiosInstance.get(`/branches/${selectedBranchId}/details`);
-        const mgrRaw =
-          res?.data?.manager || res?.data?.branch_manager || res?.data?.manager_user || null;
-
-        const mgr = normalizeManagerUser(mgrRaw);
-        setBranchManager(mgr);
-      } catch (e) {
-        setBranchManager(null);
-      }
-    })();
-  }, [selectedBranchId]);
-
   // Reset profile and permissions when department changes
   useEffect(() => {
     if (!selectedDepartmentId) {
@@ -515,56 +496,86 @@ export default function UserModal({
     setFormData((p) => ({ ...p, senior_profile_id: "" }));
   }, [selectedBranchId, isEdit, user?.branch_id]);
 
-  // 🔎 Load senior options (users) — show only SuperAdmin if no branch selected
-  useEffect(() => {
-    if (!isOpen) return;
+  // One-shot seniors fetch per open/branch change, with manager injected.
+// Removes double /users/ calls on edit modal open.
+const openRunRef = useRef(0);
 
-    const fetchSeniors = async () => {
-      try {
-        // Build query: if a branch is chosen, restrict by it; else fetch across all
-        const q = selectedBranchId
-          ? `/users/?skip=0&limit=500&active_only=true&branch_id=${encodeURIComponent(selectedBranchId)}`
-          : `/users/?skip=0&limit=500&active_only=true`;
+useEffect(() => {
+  if (!isOpen) return;
+  // bump a token every time modal opens; used to ignore stale async sets
+  openRunRef.current += 1;
+  const runId = openRunRef.current;
 
-        const res = await axiosInstance.get(q);
-        const raw = res?.data?.data || [];
+  const controller = new AbortController();
 
-        // Exclude self when editing; sort by role_id then by name
-        let cleaned = raw
-          .filter((u) => !isEdit || u.employee_code !== user?.employee_code)
-          .sort((a, b) => {
-            const ra = String(a.role_id || "");
-            const rb = String(b.role_id || "");
-            if (ra !== rb) return ra.localeCompare(rb);
-            return String(a.name || "").localeCompare(String(b.name || ""));
-          });
+  (async () => {
+    try {
+      // 1) fetch manager (optional)
+      let mgr = null;
+      if (selectedBranchId) {
+        try {
+          const r = await axiosInstance.get(`/branches/${selectedBranchId}/details`, { signal: controller.signal });
+          const mgrRaw = r?.data?.manager || r?.data?.branch_manager || r?.data?.manager_user || null;
+          mgr = normalizeManagerUser(mgrRaw);
+        } catch { /* ignore manager errors */ }
+      }
 
-        // If no branch selected → show only SuperAdmin users
-        if (!selectedBranchId) {
-          cleaned = cleaned.filter((u) => {
-            const roleName = profileById[String(u.role_id)]?.name || "";
-            return roleName.toString().toUpperCase().replace(/\s+/g, "_") === "SUPERADMIN";
-          });
-        }
-        // ⬇️ Ensure Branch Manager appears in the list for the selected branch
-        if (selectedBranchId && branchManager) {
-          const exists = cleaned.some(
-            (u) => String(u.employee_code) === String(branchManager.employee_code)
-          );
-          if (!exists) {
-            // put BM at the top
-            cleaned.unshift(branchManager);
-          }
-        }
+      // 2) fetch seniors once
+      const q = selectedBranchId
+        ? `/users/?skip=0&limit=500&active_only=true&branch_id=${encodeURIComponent(selectedBranchId)}`
+        : `/users/?skip=0&limit=500&active_only=true`;
 
-        setSeniorOptions(cleaned);
-      } catch {
+      const res = await axiosInstance.get(q, { signal: controller.signal });
+      let list = Array.isArray(res?.data?.data) ? res.data.data
+               : Array.isArray(res?.data) ? res.data
+               : [];
+
+      // exclude self in edit
+      if (isEdit && user?.employee_code) {
+        list = list.filter(u => String(u.employee_code) !== String(user.employee_code));
+      }
+
+      // if no branch selected → show only SUPERADMIN
+      if (!selectedBranchId) {
+        list = list.filter(u => {
+          const roleName =
+            u?.role ||
+            u?.profile_role?.name ||
+            u?.role_name ||
+            "";
+        return (roleName || "").toString().toUpperCase().replace(/\s+/g, "_") === "SUPERADMIN";
+        });
+      }
+
+      // stable sort
+      list.sort((a, b) => {
+        const ra = String(a.role_id || "");
+        const rb = String(b.role_id || "");
+        if (ra !== rb) return ra.localeCompare(rb);
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
+
+      // inject manager at top if not already in list
+      if (selectedBranchId && mgr && !list.some(u => String(u.employee_code) === String(mgr.employee_code))) {
+        list.unshift(mgr);
+      }
+
+      // apply only if still the latest open/run and not aborted
+      if (openRunRef.current === runId) {
+        setSeniorOptions(list);
+        setBranchManager(mgr); // keep for badge flag only; doesn't trigger refetch
+      }
+    } catch (e) {
+      if (e?.name !== "CanceledError" && e?.code !== "ERR_CANCELED") {
         setSeniorOptions([]);
       }
-    };
+    }
+  })();
 
-    fetchSeniors();
-  }, [isOpen, selectedBranchId, isEdit, user?.employee_code, profileById, branchManager]);
+  return () => controller.abort();
+// ⛔️ Intentionally exclude profileById and branchManager to avoid re-fetches.
+// Including them causes the second /users/ call you’re seeing.
+}, [isOpen, selectedBranchId, isEdit, user?.employee_code, axiosInstance]);
 
   // Initialize / reset form values on open or edit
   useEffect(() => {

@@ -120,7 +120,7 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
     >
       <div
         ref={dialogRef}
-        className="w-full max-w-md rounded-2xl shadow-2xl border outline-none"
+        className="w-[min(85vw,600px)] max-h-[85vh] rounded-2xl shadow-2xl border outline-none overflow-hidden"
         role="document"
         style={{
           background: "var(--theme-card-bg)",
@@ -132,10 +132,10 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
       >
         {/* Header */}
         <div
-          className="p-4 flex items-center justify-between border-b rounded-t-2xl"
+          className="p-5 flex items-center justify-between border-b rounded-t-2xl"
           style={{ borderColor: "var(--theme-border)" }}
         >
-          <h3 id="new-group-title" className="text-lg font-semibold">
+          <h3 id="new-group-title" className="text-xl font-semibold">
             Create Group
           </h3>
           <button
@@ -152,7 +152,7 @@ export default function NewChatModal({ isOpen, onClose, users, onCreateGroup }) 
         </div>
 
         {/* Body */}
-        <div className="p-4 space-y-4">
+        <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(85vh-64px)]">
           <p id="new-group-desc" className="sr-only">
             Enter a group name and choose participants to create a group chat.
           </p>

@@ -182,9 +182,9 @@ export default function Dashboard() {
       try {
         setOptLoading(true);
         setOptError('');
-        const [profRes,  usersRes, branchesRes, respRes] = await Promise.all([
+        const [profRes, usersRes, branchesRes, respRes] = await Promise.all([
           axiosInstance.get('/profile-role', { params: { skip: 0, limit: 50, order_by: 'hierarchy_level' } }),
-          
+
           axiosInstance.get('/users', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/branches', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/lead-config/responses/', { params: { skip: 0, limit: 100 } }),
@@ -273,7 +273,7 @@ export default function Dashboard() {
   useEffect(() => {
     setEmpPage(1);
   }, [appliedFilters, effectiveBranchId, employeesTable]);
-  
+
 
   const queryParams = useMemo(() => {
     const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedFilters;
@@ -385,26 +385,26 @@ export default function Dashboard() {
   const COLORS_PER = [themeConfig.accent, themeConfig.primaryHover || themeConfig.primary, themeConfig.success];
 
 
-  
+
 
   /* ----------------------------- Render ----------------------------- */
 
   const pay = data?.cards?.payments || {};
-const leadsCard = data?.cards?.leads || {};
+  const leadsCard = data?.cards?.leads || {};
 
-const totalTarget = N(pay.total_target);
-const achievedTarget = N(pay.achieved_target);
+  const totalTarget = N(pay.total_target);
+  const achievedTarget = N(pay.achieved_target);
 
-const teamTarget = N(pay.team_target);
-const teamAchieved = N(pay.achive_team_target ?? pay.achieved_team_target);
+  const teamTarget = N(pay.team_target);
+  const teamAchieved = N(pay.achive_team_target ?? pay.achieved_team_target);
 
-const hideTeamPairForAdmin =
-  (isSuperAdmin || isBranchManager) &&
-  teamTarget === 0 &&
-  teamAchieved === 0;
+  const hideTeamPairForAdmin =
+    (isSuperAdmin || isBranchManager) &&
+    teamTarget === 0 &&
+    teamAchieved === 0;
 
-// If SA/BM & team zero -> keep old 4-card layout
-const useExistingAdminLayout = hideTeamPairForAdmin;
+  // If SA/BM & team zero -> keep old 4-card layout
+  const useExistingAdminLayout = hideTeamPairForAdmin;
 
   return (
     <>
@@ -420,7 +420,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
         >
           <div className="p-4 md:p-6 space-y-6 mx-2">
             {/* Greeting header (BM & Employees) */}
-{user && !isSuperAdmin && (
+            {user && !isSuperAdmin && (
               <div className="w-fit">
                 <h1 className="text-2xl font-semibold" style={{ color: themeConfig.text }}>
                   {getGreeting()}, {firstName}!
@@ -588,69 +588,69 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
               <>
                 <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
 
-{useExistingAdminLayout ? (
-  /* ---- EXISTING LAYOUT for SA/BM when team cards are zero ---- */
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <Card
-      title="Total Target"
-      value={inr(totalTarget)}
-      icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
-      themeConfig={themeConfig}
-    />
-    <Card
-      title="Achieved Target"
-      value={inr(achievedTarget)}
-      icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />}
-      themeConfig={themeConfig}
-    />
-    <Card
-      title="Running FT Leads"
-      value={num(leadsCard?.running_ft)}
-      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
-      themeConfig={themeConfig}
-    />
-    <Card
-      title="Today FT Leads"
-      value={num(leadsCard?.total_ft)}
-      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
-      themeConfig={themeConfig}
-    />
-  </div>
-) : (
+                {useExistingAdminLayout ? (
+                  /* ---- EXISTING LAYOUT for SA/BM when team cards are zero ---- */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <Card
+                      title="Total Target"
+                      value={inr(totalTarget)}
+                      icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Achieved Target"
+                      value={inr(achievedTarget)}
+                      icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Running FT Leads"
+                      value={num(leadsCard?.running_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Today FT Leads"
+                      value={num(leadsCard?.total_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
+                      themeConfig={themeConfig}
+                    />
+                  </div>
+                ) : (
 
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <SingleLineTargetCard
-    title="Targets (Overall)"
-    achieved={achievedTarget}
-    total={totalTarget}
-    icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
-    themeConfig={themeConfig}
-  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <SingleLineTargetCard
+                      title="Targets (Overall)"
+                      achieved={achievedTarget}
+                      total={totalTarget}
+                      icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
+                      themeConfig={themeConfig}
+                    />
 
-  {!(isSuperAdmin || isBranchManager) || teamTarget > 0 || teamAchieved > 0 ? (
-    <SingleLineTargetCard
-      title="Team Targets"
-      achieved={teamAchieved}
-      total={teamTarget}
-      icon={<Trophy className="h-5 w-5 text-[var(--theme-success)]" />}
-      themeConfig={themeConfig}
-    />
-  ) : null}
+                    {!(isSuperAdmin || isBranchManager) || teamTarget > 0 || teamAchieved > 0 ? (
+                      <SingleLineTargetCard
+                        title="Team Targets"
+                        achieved={teamAchieved}
+                        total={teamTarget}
+                        icon={<Trophy className="h-5 w-5 text-[var(--theme-success)]" />}
+                        themeConfig={themeConfig}
+                      />
+                    ) : null}
 
-  <Card
-    title="Running FT Leads"
-    value={num(leadsCard?.running_ft)}
-    icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
-    themeConfig={themeConfig}
-  />
-  <Card
-    title="Today FT Leads"
-    value={num(leadsCard?.total_ft)}
-    icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
-    themeConfig={themeConfig}
-  />
-</div>
-)}
+                    <Card
+                      title="Running FT Leads"
+                      value={num(leadsCard?.running_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Today FT Leads"
+                      value={num(leadsCard?.total_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
+                      themeConfig={themeConfig}
+                    />
+                  </div>
+                )}
                 <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <Card
@@ -772,51 +772,51 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
                 <TableWrap className="mb-6" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
                   <div className="max-h-72 overflow-y-auto pr-1">
                     <SimpleTable
-  cols={[
-    'Profile',
-    'Employees',
-    'Total Leads',
-    'Old Leads',
-    'FT Leads',
-    'Paid Revenue',
-  ]}
-  rows={(data?.breakdowns?.profile_wise || []).map((p) => {
-    const prof = profiles.find((x) => x.id === p.profile_id);
-    return [
-      // Profile name
-      <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
-        {prof?.name || p.profile_name || (p.profile_id ?? '—')}
-      </span>,
+                      cols={[
+                        'Profile',
+                        'Employees',
+                        'Total Leads',
+                        'Old Leads',
+                        'FT Leads',
+                        'Paid Revenue',
+                      ]}
+                      rows={(data?.breakdowns?.profile_wise || []).map((p) => {
+                        const prof = profiles.find((x) => x.id === p.profile_id);
+                        return [
+                          // Profile name
+                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
+                            {prof?.name || p.profile_name || (p.profile_id ?? '—')}
+                          </span>,
 
-      // Employees
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-emps`}>
-        {num(p.total_employees ?? 0)}
-      </span>,
+                          // Employees
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-emps`}>
+                            {num(p.total_employees ?? 0)}
+                          </span>,
 
-      // Total leads
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
-        {num(p.total_leads ?? 0)}
-      </span>,
+                          // Total leads
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
+                            {num(p.total_leads ?? 0)}
+                          </span>,
 
-      // Old leads
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-old`}>
-        {num(p.old_leads ?? 0)}
-      </span>,
+                          // Old leads
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-old`}>
+                            {num(p.old_leads ?? 0)}
+                          </span>,
 
-      // FT leads
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-ft`}>
-        {num(p.ft_leads ?? 0)}
-      </span>,
+                          // FT leads
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-ft`}>
+                            {num(p.ft_leads ?? 0)}
+                          </span>,
 
-      // Paid revenue
-      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
-        {inr(p.paid_revenue ?? 0)}
-      </span>,
-    ];
-  })}
-  themeConfig={themeConfig}
-  className="w-full rounded-2xl"
-/>
+                          // Paid revenue
+                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
+                            {inr(p.paid_revenue ?? 0)}
+                          </span>,
+                        ];
+                      })}
+                      themeConfig={themeConfig}
+                      className="w-full rounded-2xl"
+                    />
                   </div>
                 </TableWrap>
               </div>
@@ -1342,16 +1342,29 @@ function SingleLineTargetCard({
             {title}
           </div>
 
-          {/* Achieved / Total in one line */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-[22px] font-bold rupee" style={{ color: themeConfig.primary }}>
-              {prefix}{Number(achieved).toLocaleString('en-IN')}
-            </span>
-            <span className="text-[18px] font-semibold" style={{ color: themeConfig.textSecondary }}>/</span>
-            <span className="text-[18px] font-semibold rupee" style={{ color: themeConfig.text }}>
-              {prefix}{Number(total).toLocaleString('en-IN')}
-            </span>
-          </div>
+          {/* Achieved / Total in one line (no wrap) */}
+<div className="flex items-baseline gap-2 whitespace-nowrap overflow-hidden">
+  <span
+    className="inline-flex items-baseline font-bold rupee shrink-0"
+    style={{ color: themeConfig.primary, fontSize: 22, lineHeight: 1 }}
+  >
+    ₹&nbsp;{Number(achieved).toLocaleString('en-IN')}
+  </span>
+
+  <span
+    className="inline-flex items-baseline font-semibold shrink-0"
+    style={{ color: themeConfig.textSecondary, fontSize: 18, lineHeight: 1 }}
+  >
+    /
+  </span>
+
+  <span
+    className="inline-flex items-baseline font-semibold rupee min-w-0"
+    style={{ color: themeConfig.text, fontSize: 18, lineHeight: 1 }}
+  >
+    ₹&nbsp;{Number(total).toLocaleString('en-IN')}
+  </span>
+</div>
 
           {/* Progress */}
           <div className="mt-3 h-2 w-full rounded-full" style={{ backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15) }}>
@@ -1370,7 +1383,7 @@ function SingleLineTargetCard({
             {icon}
           </div>
           <span className="text-sm font-semibold px-2 py-1 rounded-md"
-                style={{ color: themeConfig.primary, backgroundColor: hexToRgba(themeConfig.primary, 0.08), border: `1px solid ${hexToRgba(themeConfig.primary, 0.2)}` }}>
+            style={{ color: themeConfig.primary, backgroundColor: hexToRgba(themeConfig.primary, 0.08), border: `1px solid ${hexToRgba(themeConfig.primary, 0.2)}` }}>
             {pct}%
           </span>
         </div>
@@ -1399,13 +1412,13 @@ function TwoStatCard({
 
           <div className="mt-3 space-y-2">
             <div className="flex items-center justify-between rounded-md px-3 py-2"
-                 style={{ backgroundColor: hexToRgba(themeConfig.primary, 0.06), border: `1px solid ${hexToRgba(themeConfig.primary, 0.18)}` }}>
+              style={{ backgroundColor: hexToRgba(themeConfig.primary, 0.06), border: `1px solid ${hexToRgba(themeConfig.primary, 0.18)}` }}>
               <span className="text-xs font-semibold" style={{ color: themeConfig.textSecondary }}>{primaryLabel}</span>
               <span className="text-base font-bold rupee" style={{ color: themeConfig.primary }}>{primaryValue ?? '—'}</span>
             </div>
 
             <div className="flex items-center justify-between rounded-md px-3 py-2"
-                 style={{ backgroundColor: hexToRgba(themeConfig.accent, 0.06), border: `1px solid ${hexToRgba(themeConfig.accent, 0.18)}` }}>
+              style={{ backgroundColor: hexToRgba(themeConfig.accent, 0.06), border: `1px solid ${hexToRgba(themeConfig.accent, 0.18)}` }}>
               <span className="text-xs font-semibold" style={{ color: themeConfig.textSecondary }}>{secondaryLabel}</span>
               <span className="text-base font-bold rupee" style={{ color: themeConfig.accent }}>{secondaryValue ?? '—'}</span>
             </div>

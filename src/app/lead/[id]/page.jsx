@@ -265,16 +265,28 @@ const Lead = () => {
     }
   };
 
-  const apiCall = async (method, endpoint, data = null) => {
-    try {
-      const config = { method, url: endpoint };
-      if (data) config.data = data;
-      const response = await axiosInstance(config);
-      return response.data;
-    } catch (err) {
-      throw err;
-    }
-  };
+const apiCall = async (method, endpoint, data = null) => {
+  try {
+    const config = { method, url: endpoint };
+    if (data) config.data = data;
+    const response = await axiosInstance(config);
+    return response.data;
+  } catch (err) {
+    // Normalize axios error → Error object with .status and .detail
+    const status = err?.response?.status ?? null;
+    const detail =
+      err?.response?.data?.detail ??
+      err?.response?.data?.message ??
+      err?.message ??
+      "Something went wrong";
+
+    const e = new Error(detail);
+    e.status = status;
+    e.detail = detail;
+    e.raw = err;
+    throw e;
+  }
+};
 
   const fetchCurrentLead = async () => {
     try {
@@ -590,6 +602,52 @@ const Lead = () => {
       }));
     }
   };
+
+  // ✅ Permission denied view for 403
+if (!loading && !currentLead && error?.status === 403) {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{ background: "var(--theme-page-bg)", color: "var(--theme-text)" }}
+    >
+      <div
+        className="max-w-lg w-full rounded-xl p-6 shadow"
+        style={{
+          background: "var(--theme-card-bg)",
+          border: "1px solid var(--theme-border)",
+        }}
+      >
+        <div className="flex items-start">
+          <AlertCircle
+            className="mr-3 flex-shrink-0"
+            size={22}
+            style={{ color: "var(--theme-warning)" }}
+          />
+          <div>
+            <h2 className="text-lg font-semibold">Access denied</h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--theme-muted)" }}>
+              {error?.detail || "You do not have permission to view this lead."}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => history.back()}
+            className="px-3 py-1.5 rounded-lg text-sm"
+            style={{
+              border: "1px solid var(--theme-border)",
+              background: "var(--theme-surface)",
+              color: "var(--theme-text)",
+            }}
+          >
+            Go back
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
   if (loading && !currentLead) return <LoadingState />;
   if (error && !currentLead)

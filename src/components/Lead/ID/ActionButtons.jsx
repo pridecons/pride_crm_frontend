@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   PhoneCall,
   Eye,
@@ -12,6 +12,8 @@ import {
   Share2,
   ShieldCheck,
   Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 // import CallButton from "../CallButton";
@@ -25,6 +27,8 @@ export function ActionButtons({
   onRefresh,
   onKycClick,
   kycLoading = false,
+  kycSigningUrl,
+  onCopyKycLink,
   onPaymentClick,
   onSendEmailClick,
   onSendSMSClick,
@@ -35,6 +39,18 @@ export function ActionButtons({
   onShareClick,
 }) {
   const { hasPermission } = usePermissions();
+
+  const [copied, setCopied] = useState(false);
+
+
+  const handleCopyClick = async () => {
+    if (!onCopyKycLink || copied) return;
+    const ok = await onCopyKycLink();
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // reset after 2s
+    }
+  };
 
   return (
     <div className="flex flex-wrap gap-3 mb-5 justify-center">
@@ -49,7 +65,7 @@ export function ActionButtons({
       </CallButton> */}
 
       {/* Agreement / KYC */}
-      {currentLead?.kyc ? (
+            {currentLead?.kyc ? (
         <button
           onClick={onViewKycClick}
           className={`${btnBase} border-blue-500 text-blue-600 hover:bg-blue-100`}
@@ -58,19 +74,48 @@ export function ActionButtons({
           Agreement
         </button>
       ) : (
-        <button
-          onClick={onKycClick}
-          disabled={kycLoading || !currentLead?.email}
-          className={`${btnBase} border-purple-500 text-purple-600 hover:bg-purple-100`}
-        >
-          {kycLoading ? (
-            <Loader2 size={16} className="mr-2 animate-spin" />
-          ) : (
-            <ShieldCheck size={16} className="mr-2" />
-          )}
-          KYC
-        </button>
+        <>
+          <button
+            onClick={onKycClick}
+            disabled={kycLoading || !currentLead?.email}
+            className={`${btnBase} border-purple-500 text-purple-600 hover:bg-purple-100`}
+          >
+            {kycLoading ? (
+              <Loader2 size={16} className="mr-2 animate-spin" />
+            ) : (
+              <ShieldCheck size={16} className="mr-2" />
+            )}
+            KYC
+          </button>
+         {Boolean(kycSigningUrl) && (
+           <button
+             onClick={handleCopyClick}
+             disabled={copied}
+             className={`${btnBase} ${
+               copied
+                 ? "border-green-600 text-green-700 hover:bg-green-100"
+                 : "border-emerald-500 text-emerald-600 hover:bg-emerald-100"
+             }`}
+             title={copied ? "Copied" : "Copy signing URL"}
+             aria-live="polite"
+           >
+             {copied ? (
+               <>
+                 <Check size={16} className="mr-2" />
+                 Copied
+              </>
+            ) : (
+               <>
+                 <Copy size={16} className="mr-2" />
+                 Copy KYC Link
+               </>
+             )}
+           </button>
+         )}
+        </>
       )}
+
+      
 
       {/* Payment */}
       <button

@@ -16,6 +16,7 @@ import {
   X,
   BookOpenText,
   MessageCircle,
+  ChevronRight,
 } from "lucide-react";
 import LoadingState from "@/components/LoadingState";
 import StoryModal from "@/components/Lead/StoryModal";
@@ -169,6 +170,12 @@ const LeadManage = () => {
   // Cards
   const [dashboardData, setDashboardData] = useState(null);
 
+  /* ---------- pagination ---------- */
+  const [page, setPage] = useState(1);      // 1-based
+  const [limit, setLimit] = useState(50);   // match your API limit
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   // Role / branch (use role_name!)
   const [role, setRole] = useState(null); // normalized role_name
   const roleKey = useRoleKey();
@@ -177,14 +184,27 @@ const LeadManage = () => {
   const prevBranchRef = useRef(branchFilter);
 
   const isSuperAdmin = roleKey === "SUPERADMIN";
-  const ALLOWED_ROLES_FOR_CARDS = new Set(["SUPERADMIN", "BRANCH MANAGER"]);
-  const canViewCards = ALLOWED_ROLES_FOR_CARDS.has(roleKey);
 
   // Story & Comments modals
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [storyLeadId, setStoryLeadId] = useState(null);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [commentLeadId, setCommentLeadId] = useState(null);
+
+  async function fetchAllPaginated(path, { limit = 100, dataKey = "data" } = {}) {
+    const out = [];
+    let skip = 0;
+    while (true) {
+      const { data } = await axiosInstance.get(path, { params: { skip, limit } });
+      const pageItems = data?.[dataKey] || [];
+      out.push(...pageItems);
+
+      const total = data?.pagination?.total ?? pageItems.length;
+      if (out.length >= total || pageItems.length < limit) break;
+      skip += limit;
+    }
+    return out;
+  }
 
   /* ---------- read role + branch once (uses dynamic roleKey) ---------- */
   useEffect(() => {
@@ -226,36 +246,36 @@ const LeadManage = () => {
 
     const loadFilterLists = async () => {
       try {
-        const [bRes, uRes, sRes, rRes] = await Promise.all([
+        const [bRes, allEmps, sRes, rRes] = await Promise.all([
           axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
-          axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
+          fetchAllPaginated("/users/", { limit: 100, dataKey: "data" }), // <— fetch ALL pages
           axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
           axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
         ]);
 
         const allBranches = bRes.data || [];
-        const allEmps = uRes?.data?.data || [];
         const allSrc = Array.isArray(sRes.data) ? sRes.data : [];
         const allResp = Array.isArray(rRes.data) ? rRes.data : [];
+
+        // Save the master list once
         setAllEmployees(allEmps);
 
         if (isSuperAdmin) {
           setBranches(allBranches);
+          // IMPORTANT: use freshly fetched array (allEmps), not state (allEmployees)
           const scopedEmployees =
             branchFilter !== "All"
-              ? allEmployees.filter((e) => String(e.branch_id) === String(branchFilter))
+              ? allEmps.filter((e) => String(e.branch_id) === String(branchFilter))
               : allEmps;
-          if (!cancelled) setEmployees(scopedEmployees);
+          setEmployees(scopedEmployees);
         } else {
           const safeBranchId = String(branchId || "");
           setBranches(allBranches.filter((b) => String(b.id) === safeBranchId));
           setEmployees(allEmps.filter((e) => String(e.branch_id) === safeBranchId));
         }
 
-        if (!cancelled) {
-          setAllSources(allSrc);
-          setResponsesList(allResp);
-        }
+        setAllSources(allSrc);
+        setResponsesList(allResp);
       } catch (err) {
         console.error("Failed to load filters", err);
       }
@@ -276,8 +296,8 @@ const LeadManage = () => {
         setLoading(true);
 
         const params = {
-          skip: 0,
-          limit: 100,
+          skip: (page - 1) * limit,
+          limit,
           kyc_only: false,
           view: "all",
         };
@@ -310,6 +330,9 @@ const LeadManage = () => {
 
         const { data } = await axiosInstance.get("/leads/", { params });
         setLeadData(Array.isArray(data?.leads) ? data.leads : []);
+        // read server meta
+        setTotalItems(Number(data?.total_items ?? 0));
+        setTotalPages(Number(data?.total_pages ?? 0));
       } catch (error) {
         console.error("Lead fetch failed:", error);
         setLeadData([]);
@@ -329,24 +352,36 @@ const LeadManage = () => {
     responseFilter,
     kycFilter,
     searchQuery,
-    applyDateFilter
+    applyDateFilter,
+    page,
+    limit,
   ]);
 
   /* ---------- quick cards (admins only) ---------- */
+  /* ---------- quick cards (everyone, branch-scoped) ---------- */
   useEffect(() => {
-    if (!canViewCards) {
-      setDashboardData(null);
-      return;
-    }
+    if (!ready) return;
 
     let cancelled = false;
     (async () => {
       try {
+        const params = { days: 30 };
+
+        // Scope by role:
+        // - SUPERADMIN: all branches if "All", else the selected branch
+        // - Others: always their own branch
+        if (isSuperAdmin) {
+          if (branchFilter !== "All") params.branch_id = branchFilter;
+        } else if (branchId) {
+          params.branch_id = branchId;
+        }
+
         const { data } = await axiosInstance.get(
-          "/analytics/leads/admin/dashboard-card?days=30"
+          "/analytics/leads/admin/dashboard-card",
+          { params }
         );
         if (!cancelled) setDashboardData(data);
-      } catch (error) {
+      } catch {
         if (!cancelled) setDashboardData(null);
       }
     })();
@@ -354,17 +389,89 @@ const LeadManage = () => {
     return () => {
       cancelled = true;
     };
-  }, [canViewCards]);
+  }, [ready, isSuperAdmin, branchId, branchFilter]);
 
-  /* ---------- name helpers ---------- */
-  const getSourceName = (id) =>
-    allSources.find((s) => String(s.id) === String(id))?.name || (id == null ? "—" : id);
+  /* ---------- name helpers (prefer embedded object, fall back to cached lists) ---------- */
+  const sourcesMap = useMemo(() => {
+    const m = new Map();
+    (Array.isArray(allSources) ? allSources : []).forEach(s => m.set(String(s.id), s.name));
+    return m;
+  }, [allSources]);
 
-  const getResponseName = (id) =>
-    responsesList.find((r) => String(r.id) === String(id))?.name || (id == null ? "—" : id);
+  const responsesMap = useMemo(() => {
+    const m = new Map();
+    (Array.isArray(responsesList) ? responsesList : []).forEach(r => m.set(String(r.id), r.name));
+    return m;
+  }, [responsesList]);
 
-  const getBranchName = (id) =>
-    branches.find((b) => String(b.id) === String(id))?.name || (id == null ? "—" : id);
+  const branchesMap = useMemo(() => {
+    const m = new Map();
+    (Array.isArray(branches) ? branches : []).forEach(b => m.set(String(b.id), b.name));
+    return m;
+  }, [branches]);
+
+  // Map employee_code → display name
+  const employeesMap = useMemo(() => {
+    const m = new Map();
+    (Array.isArray(allEmployees) ? allEmployees : []).forEach((e) => {
+      const code = String(e?.employee_code || "").trim().toUpperCase();
+      if (!code) return;
+      const display =
+        e?.name ||
+        e?.full_name ||
+        e?.email ||
+        e?.username ||
+        code; // sensible fallback
+      m.set(code, display);
+    });
+    return m;
+  }, [allEmployees]);
+
+  // Prefer embedded assigned_user.name; fallback to employeesMap by code
+  function getAssignedName(leadOrCode) {
+    // If a lead object is passed
+    if (leadOrCode && typeof leadOrCode === "object") {
+      const embedded = leadOrCode?.assigned_user?.name;
+      if (embedded) return embedded;
+      const code = String(leadOrCode?.assigned_to_user || "").trim().toUpperCase();
+      if (!code) return "—";
+      return employeesMap.get(code) || code;
+    }
+    // If a plain code is passed
+    const code = String(leadOrCode || "").trim().toUpperCase();
+    if (!code) return "—";
+    return employeesMap.get(code) || code;
+  }
+
+  function getSourceName(leadOrId) {
+    // prefer embedded name
+    if (leadOrId && typeof leadOrId === "object") {
+      const embedded = leadOrId?.lead_source?.name;
+      if (embedded) return embedded;
+      const id = leadOrId?.lead_source_id;
+      return id == null ? "—" : (sourcesMap.get(String(id)) || String(id));
+    }
+    // called with id
+    const id = leadOrId;
+    return id == null ? "—" : (sourcesMap.get(String(id)) || String(id));
+  }
+
+  function getResponseName(leadOrId) {
+    if (leadOrId && typeof leadOrId === "object") {
+      const embedded = leadOrId?.lead_response?.name;
+      if (embedded) return embedded;
+      const id = leadOrId?.lead_response_id;
+      return id == null ? "—" : (responsesMap.get(String(id)) || String(id));
+    }
+    const id = leadOrId;
+    return id == null ? "—" : (responsesMap.get(String(id)) || String(id));
+  }
+
+  function getBranchName(idOrLead) {
+    // (No embedded branch object in your sample; keep id→name map)
+    const id = typeof idOrLead === "object" ? idOrLead?.branch_id : idOrLead;
+    return id == null ? "—" : (branchesMap.get(String(id)) || String(id));
+  }
 
   const getEmployeeName = (code) => {
     const c = String(code ?? "").trim();
@@ -421,19 +528,11 @@ const LeadManage = () => {
   /* ---------- filtering (server already did it) ---------- */
   const filteredLeads = useMemo(() => leadData, [leadData]);
 
-  /* ---------- pagination ---------- */
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
-  const totalPages = Math.ceil(filteredLeads.length / pageSize);
-  const paginatedLeads = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredLeads.slice(startIndex, startIndex + pageSize);
-  }, [filteredLeads, currentPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    setPage(1);
     setOpenLead(null);
-  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter]);
+  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter, applyDateFilter]);
 
   useEffect(() => {
     if (prevBranchRef.current !== branchFilter) {
@@ -447,9 +546,22 @@ const LeadManage = () => {
 
   useEffect(() => {
     setOpenLead(null);
-  }, [currentPage]);
+  }, [page]);
 
   const totalLeads = leadData.length;
+
+  // helper near top or inside component
+  const buildPageList = (curr, total) => {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages = new Set([1, 2, total - 1, total, curr - 1, curr, curr + 1]);
+    const sorted = [...pages].filter(p => p >= 1 && p <= total).sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < sorted.length; i++) {
+      out.push(sorted[i]);
+      if (i < sorted.length - 1 && sorted[i + 1] - sorted[i] > 1) out.push("…");
+    }
+    return out;
+  };
 
   /* ---------- employee autocomplete ---------- */
   const empMatches = useMemo(() => {
@@ -491,61 +603,84 @@ const LeadManage = () => {
     <div className="min-h-screen bg-[var(--theme-background)] p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
-  {/* Date Filter */}
-<div className="flex flex-wrap items-end gap-4">
-  <div>
-    <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
-      From Date
-    </label>
-    <input
-      type="date"
-      value={fromDate}
-      onChange={(e) => setFromDate(e.target.value)}
-      className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
-    />
-  </div>
+        {/* Branches*/}
+        <div className="flex flex-col gap-4">
+          {/* Branch Tabs → SUPERADMIN only */}
+          {isSuperAdmin && (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))].map(
+                (opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setBranchFilter(opt.value)}
+                    className={`px-4 py-2 rounded-lg border whitespace-nowrap transition-colors ${branchFilter === opt.value
+                      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
+                      : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
+                      }`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              )}
+            </div>
+          )}
+        </div>
 
-        {/* To Date */}
-        <div>
-          <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
-            To Date
-          </label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="border border-[var(--theme-border)] rounded-lg px-3 py-2 
+        <div className="flex items-center justify-between">
+          {/* Date Filter */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+                From
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="border border-[var(--theme-border)] rounded-lg px-3 py-2 bg-[var(--theme-input-background)] text-[var(--theme-text)]"
+              />
+            </div>
+
+            {/* To Date */}
+            <div>
+              <label className="block text-sm text-[var(--theme-text-muted)] mb-1">
+                To
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="border border-[var(--theme-border)] rounded-lg px-3 py-2 
                  bg-[var(--theme-input-background)] text-[var(--theme-text)] 
                  focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]
                  hover:bg-[var(--theme-primary-softer)]"
-          />
-        </div>
+              />
+            </div>
 
-        {/* Buttons */}
-        <div className="flex gap-2 mb-1">
-          <button
-            type="button"
-            onClick={() => setApplyDateFilter((prev) => !prev)} // ✅ trigger API refetch
-            className="px-3 py-2 rounded-lg bg-[var(--theme-primary)] text-white 
+            {/* Buttons */}
+            <div className="flex gap-2 mb-1">
+              <button
+                type="button"
+                onClick={() => setApplyDateFilter((prev) => !prev)} // ✅ trigger API refetch
+                className="px-3 py-2 rounded-lg bg-[var(--theme-primary)] text-white 
                  hover:opacity-90 transition-all border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
-          >
-            Apply 
-          </button>
+              >
+                Apply
+              </button>
 
-    <button
-      type="button"
-      onClick={() => {
-        setFromDate("");
-        setToDate("");
-        setApplyDateFilter((prev) => !prev); // reset trigger
-      }}
-      className="px-2 py-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)]"
-    >
-      Reset
-    </button>
-  </div>
-</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                  setApplyDateFilter((prev) => !prev); // reset trigger
+                }}
+                className="px-2 py-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-surface)] text-[var(--theme-text)]"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
           <div className="hidden sm:flex items-center gap-3">
             <div className="bg-[var(--theme-surface)] rounded-full px-4 py-2 shadow-sm border border-[var(--theme-border)]">
               <span className="text-sm font-medium text-[var(--theme-text)]">
@@ -561,224 +696,205 @@ const LeadManage = () => {
         </div>
       </div>
 
-
       {/* Quick Stats */}
-      {canViewCards && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Leads */}
-          <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
-                  Total Leads
-                </p>
-                <p className="text-3xl font-bold text-[var(--theme-text)]">
-                  {dashboardData?.overall?.total_leads ?? "--"}
-                </p>
-                <p className="text-xs text-[var(--theme-success)] flex items-center gap-1">
-                  <TrendingUp size={12} /> Active pipeline
-                </p>
-              </div>
-              <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
-                <Users size={24} className="text-[var(--theme-primary)]" />
-              </div>
+      {/* Quick Stats (visible to all) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Leads */}
+        <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
+                Total Leads
+              </p>
+              <p className="text-3xl font-bold text-[var(--theme-text)]">
+                {totalItems}
+              </p>
+              <p className="text-xs text-[var(--theme-success)] flex items-center gap-1">
+                <TrendingUp size={12} /> Active pipeline
+              </p>
             </div>
-          </div>
-
-          {/* Old Leads */}
-          <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
-                  Old Leads
-                </p>
-                <p className="text-3xl font-bold text-[var(--theme-text)]">
-                  {dashboardData?.overall?.old_leads ?? "--"}
-                </p>
-                <p className="text-xs text-[var(--theme-warning)] flex items-center gap-1">
-                  <Clock size={12} /> Existing pipeline
-                </p>
-              </div>
-              <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
-                <Clock size={24} className="text-[var(--theme-warning)]" />
-              </div>
-            </div>
-          </div>
-
-          {/* New Leads */}
-          <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
-                  New Leads
-                </p>
-                <p className="text-3xl font-bold text-[var(--theme-text)]">
-                  {dashboardData?.overall?.new_leads ?? "--"}
-                </p>
-                <p className="text-xs text-[var(--theme-success)] flex items-center gap-1">
-                  <CheckCircle size={12} /> Recently added
-                </p>
-              </div>
-              <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
-                <CheckCircle size={24} className="text-[var(--theme-success)]" />
-              </div>
-            </div>
-          </div>
-
-          {/* Clients */}
-          <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
-                  Clients
-                </p>
-                <p className="text-3xl font-bold text-[var(--theme-text)]">
-                  {dashboardData?.overall?.total_clients ?? "--"}
-                </p>
-                <p className="text-xs text-[var(--theme-accent)] flex items-center gap-1">
-                  <Database size={12} /> Converted leads
-                </p>
-              </div>
-              <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
-                <Database size={24} className="text-[var(--theme-accent)]" />
-              </div>
+            <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
+              <Users size={24} className="text-[var(--theme-primary)]" />
             </div>
           </div>
         </div>
-      )}
 
-      {/* Search & Filters */}
-      <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow-lg p-6 mb-4 border border-[var(--theme-border)]">
-        <div className="flex flex-col gap-4">
-          {/* Branch Tabs → SUPERADMIN only */}
-          {isSuperAdmin && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {[{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))].map(
-                (opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setBranchFilter(opt.value)}
-                    className={`px-4 py-2 rounded-lg border whitespace-nowrap transition-colors ${branchFilter === opt.value
-                        ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
-                        : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
-                      }`}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              )}
+        {/* Old Leads */}
+        <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
+                Old Leads
+              </p>
+              <p className="text-3xl font-bold text-[var(--theme-text)]">
+                {dashboardData?.overall?.old_leads ?? "--"}
+              </p>
+              <p className="text-xs text-[var(--theme-warning)] flex items-center gap-1">
+                <Clock size={12} /> Existing pipeline
+              </p>
             </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search
-                size={20}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]"
-              />
-              <input
-                type="text"
-                placeholder="Search by name, email, or phone..."
-                className="w-full pl-10 pr-4 py-3 border border-[var(--theme-border)] rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
+              <Clock size={24} className="text-[var(--theme-warning)]" />
             </div>
+          </div>
+        </div>
 
-            {/* Employee Autocomplete */}
-            <div className="relative w-full sm:w-64">
-              <div className="flex items-center gap-2">
+        {/* New Leads */}
+        <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
+                New Leads
+              </p>
+              <p className="text-3xl font-bold text-[var(--theme-text)]">
+                {dashboardData?.overall?.new_leads ?? "--"}
+              </p>
+              <p className="text-xs text-[var(--theme-success)] flex items-center gap-1">
+                <CheckCircle size={12} /> Recently added
+              </p>
+            </div>
+            <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
+              <CheckCircle size={24} className="text-[var(--theme-success)]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Clients */}
+        <div className="group bg-[var(--theme-card-bg)] rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-[var(--theme-border)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[var(--theme-text-muted)] uppercase tracking-wide mb-1">
+                Clients
+              </p>
+              <p className="text-3xl font-bold text-[var(--theme-text)]">
+                {dashboardData?.overall?.total_clients ?? "--"}
+              </p>
+              <p className="text-xs text-[var(--theme-accent)] flex items-center gap-1">
+                <Database size={12} /> Converted leads
+              </p>
+            </div>
+            <div className="rounded-full p-3 bg-[var(--theme-primary-softer)]">
+              <Database size={24} className="text-[var(--theme-accent)]" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ========= Leads Panel (sticky header + sticky footer) ========= */}
+      <div className="relative rounded-2xl shadow-lg border border-[var(--theme-border)] overflow-hidden mt-8 bg-[var(--theme-card-bg)]">
+        {/* Sticky Header (columns / caption) */}
+        <div className="sticky top-0 z-20 bg-[var(--theme-card-bg)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--theme-card-bg)]/80 border-b border-[var(--theme-border)]">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              {/* Search */}
+              <div className="relative flex-1 max-w-md">
+                <Search
+                  size={20}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]"
+                />
                 <input
                   type="text"
-                  placeholder="Search Employee..."
-                  className="w-full px-4 py-2 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-input-background)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
-                  value={employeeQuery}
-                  onChange={(e) => {
-                    setEmployeeQuery(e.target.value);
-                    setShowEmpDrop(true);
-                    if (employeeFilter !== "All") setEmployeeFilter("All");
-                  }}
-                  onFocus={() => setShowEmpDrop(Boolean(employeeQuery))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.preventDefault();
-                  }}
+                  placeholder="Search by name, email, or phone..."
+                  className="w-full pl-10 pr-4 py-2 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-input-background)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                {(employeeFilter !== "All" || employeeQuery) && (
-                  <button
-                    className="p-2 rounded hover:bg-[var(--theme-primary-softer)] text-[var(--theme-text)]"
-                    onClick={clearEmployee}
-                    title="Clear"
+              </div>
+
+              {/* Employee Autocomplete */}
+              <div className="relative w-full sm:w-64">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search Employee..."
+                    className="w-full px-4 py-2 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-input-background)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
+                    value={employeeQuery}
+                    onChange={(e) => {
+                      setEmployeeQuery(e.target.value);
+                      setShowEmpDrop(true);
+                      if (employeeFilter !== "All") setEmployeeFilter("All");
+                    }}
+                    onFocus={() => setShowEmpDrop(Boolean(employeeQuery))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.preventDefault();
+                    }}
+                  />
+                  {(employeeFilter !== "All" || employeeQuery) && (
+                    <button
+                      className="p-2 rounded hover:bg-[var(--theme-primary-softer)] text-[var(--theme-text)]"
+                      onClick={clearEmployee}
+                      title="Clear"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {showEmpDrop && empMatches.length > 0 && (
+                  <div
+                    className="absolute top-full left-0 w-full bg-[var(--theme-card-bg)] border border-[var(--theme-border)] rounded-lg shadow max-h-56 overflow-y-auto z-10"
+                    onMouseDown={(e) => e.preventDefault()}
                   >
-                    <X size={16} />
-                  </button>
+                    {empMatches.map((emp) => (
+                      <div
+                        key={emp.employee_code}
+                        onClick={() => handleEmployeeSelect(emp)}
+                        className="px-4 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
+                      >
+                        <div className="font-medium text-[var(--theme-text)]">{emp.name}</div>
+                        <div className="text-xs text-[var(--theme-text-muted)]">
+                          Code: {emp.employee_code}
+                          {emp.branch_id ? ` • ${getBranchName(emp.branch_id)}` : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {showEmpDrop && empMatches.length > 0 && (
-                <div
-                  className="absolute top-full left-0 w-full bg-[var(--theme-card-bg)] border border-[var(--theme-border)] rounded-lg shadow max-h-56 overflow-y-auto z-10"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  {empMatches.map((emp) => (
-                    <div
-                      key={emp.employee_code}
-                      onClick={() => handleEmployeeSelect(emp)}
-                      className="px-4 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
-                    >
-                      <div className="font-medium text-[var(--theme-text)]">{emp.name}</div>
-                      <div className="text-xs text-[var(--theme-text-muted)]">
-                        Code: {emp.employee_code}
-                        {emp.branch_id ? ` • ${getBranchName(emp.branch_id)}` : ""}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* KYC */}
+              <select
+                value={kycFilter}
+                onChange={(e) => setKycFilter(e.target.value)}
+                className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)]  focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
+                title="Filter by KYC status"
+              >
+                <option value="All">All KYC</option>
+                <option value="Completed">KYC Completed</option>
+                <option value="Pending">KYC Pending</option>
+              </select>
+
+              {/* Source */}
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
+              >
+                {sourceOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Response */}
+              <select
+                value={responseFilter}
+                onChange={(e) => setResponseFilter(e.target.value)}
+                className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
+              >
+                {responseOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {/* KYC */}
-            <select
-              value={kycFilter}
-              onChange={(e) => setKycFilter(e.target.value)}
-              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)]  focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
-              title="Filter by KYC status"
-            >
-              <option value="All">All KYC</option>
-              <option value="Completed">KYC Completed</option>
-              <option value="Pending">KYC Pending</option>
-            </select>
-
-            {/* Source */}
-            <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
-            >
-              {sourceOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            {/* Response */}
-            <select
-              value={responseFilter}
-              onChange={(e) => setResponseFilter(e.target.value)}
-              className="px-4 py-3 border border-[var(--theme-border)] rounded-lg bg-[var(--theme-surface)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all duration-200 placeholder-[var(--theme-text-muted)]"
-            >
-              {responseOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
-        {/* Accordion List */}
-        <div className="bg-[var(--theme-card-bg)] rounded-2xl shadow-lg overflow-hidden border border-[var(--theme-border)] mt-8">
+        {/* Scrollable Body */}
+        <div className="max-h-[66vh] overflow-auto divide-y divide-[var(--theme-border)]">
           {loading ? (
             <LoadingState message="Loading leads..." />
           ) : filteredLeads.length === 0 ? (
@@ -786,33 +902,117 @@ const LeadManage = () => {
               <div className="bg-[var(--theme-surface)] rounded-full p-6 mb-4">
                 <Users size={48} className="text-[var(--theme-text-muted)]" />
               </div>
-              <p className="text-[var(--theme-text-muted)] text-lg font-medium mb-2">No leads found</p>
-              <p className="text-[var(--theme-text-muted)] text-sm">Try adjusting your search or filters</p>
+              <p className="text-[var(--theme-text-muted)] text-lg font-medium mb-2">
+                No leads found
+              </p>
+              <p className="text-[var(--theme-text-muted)] text-sm">
+                Try adjusting your search or filters
+              </p>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--theme-border)]">
-              {paginatedLeads.map((lead) => {
-                const isOpen = openLead === lead.id;
-                return (
-                  <div key={lead.id} className="bg-[var(--theme-card-bg)]">
-                    <div className="w-full flex justify-between items-center px-4 sm:px-6 py-4 hover:bg-[var(--theme-primary-softer)] transition">
-                      {/* Left: Lead summary */}
-                      <button
-                        onClick={() => setOpenLead(isOpen ? null : lead.id)}
-                        className="text-left flex-1"
+            leadData.map((lead) => {
+              const isOpen = openLead === lead.id;
+              return (
+                <div key={lead.id} className="bg-[var(--theme-card-bg)]">
+                  <div className="w-full flex justify-between items-center px-4 sm:px-6 py-4 hover:bg-[var(--theme-primary-softer)] transition">
+                    {/* Left: Lead summary with chevron */}
+                    <button
+                      onClick={() => setOpenLead(isOpen ? null : lead.id)}
+                      aria-expanded={isOpen}
+                      className="text-left flex-1 flex items-start gap-3"
+                      title={isOpen ? "Collapse" : "Expand"}
+                    >
+                      {/* Chevron on the left */}
+                      <span
+                        className={[
+                          "mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded",
+                          "text-[var(--theme-text-muted)] transition-transform duration-200",
+                          isOpen ? "rotate-90" : "rotate-0",
+                        ].join(" ")}
                       >
-                        <div className="font-semibold text-[var(--theme-text)]">
+                        <ChevronRight size={18} />
+                      </span>
+
+                      {/* Texts */}
+                      <span className="min-w-0">
+                        <div className="font-semibold text-[var(--theme-text)] truncate">
                           {lead.full_name || "—"}{" "}
                           <span className="text-xs text-[var(--theme-text-muted)]">#{lead.id}</span>
                         </div>
-                        <div className="text-sm text-[var(--theme-text-muted)]">
-                          {lead.mobile || "—"} • {getResponseName(lead.lead_response_id)} •{" "}
-                          {getSourceName(lead.lead_source_id)}
+                        <div className="text-sm text-[var(--theme-text-muted)] truncate">
+                          {lead.mobile || "—"} • {getResponseName(lead)} • {getSourceName(lead)} • {getAssignedName(lead)}
                         </div>
+                      </span>
+                    </button>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => router.push(`/lead/${lead.id}`)}
+                        className="p-2 text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
+                        title="Edit lead"
+                      >
+                        <Edit3 size={16} />
                       </button>
 
-                      {/* Right: Actions */}
-                      <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => openStory(lead.id)}
+                        className="p-2 text-[var(--theme-accent)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
+                        title="View Story"
+                      >
+                        <BookOpenText size={18} />
+                      </button>
+
+                      <button
+                        onClick={() => openComments(lead.id)}
+                        className="p-2 text-[var(--theme-success)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
+                        title="Comments"
+                      >
+                        <MessageCircle size={16} />
+                      </button>
+
+                      <button
+                        className="p-2 text-[var(--theme-danger)] hover:bg-[var(--theme-danger-soft)] rounded-lg transition"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded details */}
+                  {isOpen && (
+                    <div className="px-4 sm:px-6 pb-5 text-sm text-[var(--theme-text)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div><span className="font-medium">Email:</span> {lead.email || "—"}</div>
+                      <div><span className="font-medium">PAN:</span> {lead.pan || "—"}</div>
+                      {isSuperAdmin && (
+                        <div><span className="font-medium">Branch:</span> {getBranchName(lead)}</div>
+                      )}
+                      <div>
+                        <span className="font-medium">Assigned To:</span>{" "}
+                        {getAssignedName(lead)}
+                      </div>
+                      <div><span className="font-medium">City:</span> {lead.city || "—"}</div>
+                      <div><span className="font-medium">State:</span> {lead.state || "—"}</div>
+                      <div>
+                        <span className="font-medium">Segment:</span>{" "}
+                        {Array.isArray(lead.segment) ? lead.segment.join(", ") : lead.segment || "—"}
+                      </div>
+                      <div><span className="font-medium">Investment:</span> {lead.investment ?? "—"}</div>
+                      <div>
+                        <span className="font-medium">Response Changed:</span>{" "}
+                        {lead.response_changed_at ? new Date(lead.response_changed_at).toLocaleString("en-IN") : "—"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Conversion Deadline:</span>{" "}
+                        {lead.conversion_deadline ? new Date(lead.conversion_deadline).toLocaleString("en-IN") : "—"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Created At:</span>{" "}
+                        {lead.created_at ? new Date(lead.created_at).toLocaleString("en-IN") : "—"}
+                      </div>
+
+                      <div className="col-span-full flex items-center gap-2 pt-2">
                         <button
                           onClick={() => router.push(`/lead/${lead.id}`)}
                           className="p-2 text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
@@ -845,151 +1045,73 @@ const LeadManage = () => {
                         </button>
                       </div>
                     </div>
-
-                    {/* Expanded details */}
-                    {isOpen && (
-                      <div className="px-4 sm:px-6 pb-5 text-sm text-[var(--theme-text)] grid grid-cols-1 md/grid-cols-2 lg/grid-cols-3 gap-3">
-                        <div>
-                          <span className="font-medium">Email:</span> {lead.email || "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">PAN:</span> {lead.pan || "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Branch:</span> {getBranchName(lead.branch_id)}
-                        </div>
-                        <div>
-                          <span className="font-medium">Assigned To:</span>{" "}
-                          {getEmployeeName(lead.assigned_to_user)}
-                        </div>
-                        <div>
-                          <span className="font-medium">City:</span> {lead.city || "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">State:</span> {lead.state || "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Segment:</span>{" "}
-                          {Array.isArray(lead.segment) ? lead.segment.join(", ") : lead.segment || "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Investment:</span> {lead.investment ?? "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Response Changed:</span>{" "}
-                          {lead.response_changed_at
-                            ? new Date(lead.response_changed_at).toLocaleString("en-IN")
-                            : "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Conversion Deadline:</span>{" "}
-                          {lead.conversion_deadline
-                            ? new Date(lead.conversion_deadline).toLocaleString("en-IN")
-                            : "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Created At:</span>{" "}
-                          {lead.created_at
-                            ? new Date(lead.created_at).toLocaleString("en-IN")
-                            : "—"}
-                        </div>
-
-                        <div className="col-span-full flex items-center gap-2 pt-2">
-                          <button
-                            onClick={() => router.push(`/lead/${lead.id}`)}
-                            className="p-2 text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
-                            title="Edit lead"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-
-                          <button
-                            onClick={() => openStory(lead.id)}
-                            className="p-2 text-[var(--theme-accent)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
-                            title="View Story"
-                          >
-                            <BookOpenText size={18} />
-                          </button>
-
-                          <button
-                            onClick={() => openComments(lead.id)}
-                            className="p-2 text-[var(--theme-success)] hover:bg-[var(--theme-primary-softer)] rounded-lg transition"
-                            title="Comments"
-                          >
-                            <MessageCircle size={16} />
-                          </button>
-
-                          <button
-                            className="p-2 text-[var(--theme-danger)] hover:bg-[var(--theme-danger-soft)] rounded-lg transition"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
+
+        {/* Sticky Footer (results + pagination) */}
+        {!loading && totalItems > 0 && (
+          <div className="sticky bottom-0 z-20 bg-[var(--theme-card-bg)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--theme-card-bg)]/80 border-t border-[var(--theme-border)]">
+            <div className="px-3 sm:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              {/* Results Summary */}
+              <p className="text-xs sm:text-sm text-[var(--theme-text-muted)] text-center sm:text-left">
+                Showing{" "}
+                <span className="font-medium text-[var(--theme-text)]">
+                  {(page - 1) * limit + 1}–{Math.min(page * limit, totalItems)}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-[var(--theme-text)]">{totalItems}</span>{" "}
+                leads
+                {searchQuery && (
+                  <span>
+                    {" "}
+                    matching "<span className="font-medium text-[var(--theme-primary)]">{searchQuery}</span>"
+                  </span>
+                )}
+              </p>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center sm:justify-end gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1 border border-[var(--theme-border)] rounded bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  {buildPageList(page, totalPages).map((p, idx) =>
+                    p === "…" ? (
+                      <span key={`gap-${idx}`} className="px-2 select-none">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        className={`px-3 py-1 border rounded ${page === p
+                          ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
+                          : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
+                          }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    disabled={page === totalPages}
+                    className="px-3 py-1 border border-[var(--theme-border)] rounded bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Results Summary */}
-      {!loading && filteredLeads.length > 0 && (
-        <div className="mt-6 bg-[var(--theme-card-bg)] rounded-xl shadow-sm p-4 border border-[var(--theme-border)]">
-          <p className="text-sm text-center text-[var(--theme-text-muted)]">
-            Showing{" "}
-            <span className="font-medium text-[var(--theme-text)]">
-              {(currentPage - 1) * pageSize + 1}
-              {"–"}
-              {Math.min(currentPage * pageSize, filteredLeads.length)}
-            </span>{" "}
-            of{" "}
-            <span className="font-medium text-[var(--theme-text)]">{filteredLeads.length}</span>{" "}
-            filtered leads (out of {totalLeads} total)
-            {searchQuery && (
-              <span>
-                {" "}
-                matching "<span className="font-medium text-[var(--theme-primary)]">{searchQuery}</span>"
-              </span>
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-3">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-            disabled={currentPage === 1}
-            className="px-3 py-1 border border-[var(--theme-border)] rounded bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-50"
-          >
-            Prev
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 border rounded ${currentPage === i + 1
-                  ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
-                  : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
-                }`}
-            >
-              {i + 1}
-            </button>
-          ))}
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1 border border-[var(--theme-border)] rounded bg-[var(--theme-surface)] text-[var(--theme-text)] disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
 
       {/* Modals */}
       {storyLeadId && (

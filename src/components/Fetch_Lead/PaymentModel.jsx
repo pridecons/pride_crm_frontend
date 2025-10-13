@@ -217,6 +217,10 @@ const CreatePaymentLink = ({
     total_paid_limit: 0,
   });
 
+  const [sharing, setSharing] = useState(false);
+
+  const waWindowRef = useRef(null);
+
   const remaining = Math.max(0, Number(paymentLimit?.remaining_limit || 0));
   const totalPaid = Number(paymentLimit?.total_paid || 0);
   const totalLimit = Number(paymentLimit?.total_paid_limit || 0);
@@ -314,15 +318,81 @@ const CreatePaymentLink = ({
     }
   };
 
-  const handleCopy = () => {
-    const link = response?.cashfreeResponse?.payment_link;
-    if (link) {
-      navigator.clipboard.writeText(link).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+// CHANGE: make copy work for either link and prefer web_url
+const handleCopy = (linkOverride) => {
+  const link =
+    linkOverride ||
+    response?.web_url ||
+    response?.cashfreeResponse?.payment_link;
+
+  if (link) {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+};
+
+// call like: handleShare(undefined, { windowName: "wa-share", phone: "919876543210" })
+
+const handleShare = async (linkOverride) => {
+  const windowName = "whatsapp_share"
+
+  const url =
+    linkOverride ||
+    response?.web_url ||
+    response?.cashfreeResponse?.payment_link;
+
+  if (!url) return;
+
+  // Build message
+  const msg = `Please complete the payment using this link:\n${url}`;
+
+  // 1) Try native share first
+  if (navigator.share) {
+    try {
+      setSharing(true);
+      await navigator.share({
+        title: "Payment Link",
+        text: "Please complete the payment using this link:",
+        url,
       });
+      return;
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSharing(false);
     }
-  };
+  }
+
+  // 2) Desktop WhatsApp Web URL (named window will be reused)
+  // If you want to preselect a recipient, pass E.164 number (no +, no spaces), e.g. "919876543210"
+  const encoded = encodeURIComponent(msg);
+  const waUrl = `https://web.whatsapp.com/send?text=${encoded}`;
+
+  try {
+    // Reuse previously opened named window/tab (only if opened by this code)
+    if (waWindowRef.current && !waWindowRef.current.closed) {
+      waWindowRef.current.location.href = waUrl;
+      // Some browsers might block focus across origins — best-effort:
+      try { waWindowRef.current.focus(); } catch {}
+      return;
+    }
+
+    // Open (or reuse) a window with a FIXED NAME
+    // IMPORTANT: Don't use 'noopener'/'noreferrer' if you want to keep control of the window object.
+    waWindowRef.current = window.open(waUrl, windowName);
+
+    // If popup blocked, optionally fall back to same-tab
+    if (!waWindowRef.current) {
+      window.location.href = waUrl;
+    }
+  } catch (e) {
+    console.error(e);
+    // optional last fallback:
+    // window.location.href = waUrl;
+  }
+};
 
   const grouped = PAYMENT_METHODS.reduce((acc, m) => {
     (acc[m.category] ??= []).push(m);
@@ -841,73 +911,150 @@ const CreatePaymentLink = ({
       )}
 
       {/* If Payment Link Generated */}
-      {!isSuccess && response?.cashfreeResponse?.payment_link && (
-        <div className="space-y-6">
-          {/* Payment Link */}
-          <div
-            className="rounded-lg p-4 border"
+      {/* If Payment Link Generated */}
+{!isSuccess && response?.cashfreeResponse?.payment_link && (
+  <div className="space-y-6">
+    {/* Branded Client Payment Page (web_url) */}
+    {response?.web_url && (
+      <div
+        className="rounded-lg p-4 border"
+        style={{
+          background:
+            "color-mix(in srgb, var(--theme-primary,#4f46e5) 8%, var(--theme-card-bg,#fff))",
+          borderColor:
+            "color-mix(in srgb, var(--theme-primary,#4f46e5) 35%, var(--theme-border,#e5e7eb))",
+        }}
+      >
+        <h4
+          className="font-bold mb-3 flex items-center gap-2"
+          style={{ color: "var(--theme-primary,#4f46e5)" }}
+        >
+          <LinkIcon size={18} /> Payment Link Generated
+        </h4>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            readOnly
+            value={response.web_url}
+            className="flex-1 rounded-lg px-3 py-2 text-sm"
             style={{
-              background:
-                "color-mix(in srgb, var(--theme-success,#16a34a) 10%, var(--theme-card-bg,#fff))",
-              borderColor:
-                "color-mix(in srgb, var(--theme-success,#16a34a) 35%, var(--theme-border,#e5e7eb))",
+              background: "var(--theme-card-bg,#fff)",
+              color: "var(--theme-text)",
+              border: "1px solid var(--theme-border,#e5e7eb)",
+            }}
+          />
+          <button
+            onClick={() => handleCopy(response.web_url)}
+            className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+            style={{
+              background: copied
+                ? "var(--theme-muted-100,#e2e8f0)"
+                : "var(--theme-success,#16a34a)",
+              color: copied ? "var(--theme-text)" : "var(--theme-on-success,#fff)",
             }}
           >
-            <h4
-              className="font-medium mb-3 flex items-center gap-2"
-              style={{ color: "var(--theme-success,#16a34a)" }}
-            >
-              <CheckCircle2 size={18} /> Payment Link Generated
-            </h4>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={response.cashfreeResponse.payment_link}
-                className="flex-1 rounded-lg px-3 py-2 text-sm"
-                style={{
-                  background: "var(--theme-card-bg,#fff)",
-                  color: "var(--theme-text)",
-                  border: "1px solid var(--theme-border,#e5e7eb)",
-                }}
-              />
-              <button
-                onClick={handleCopy}
-                className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
-                style={{
-                  background: copied
-                    ? "var(--theme-muted-100,#e2e8f0)"
-                    : "var(--theme-success,#16a34a)",
-                  color: copied ? "var(--theme-text)" : "var(--theme-on-success,#fff)",
-                }}
-              >
-                {copied ? (
-                  <>
-                    <Check size={16} /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} /> Copy
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+            {copied ? (
+              <>
+                <Check size={16} /> Copied
+              </>
+            ) : (
+              <>
+                <Copy size={16} /> Copy
+              </>
+            )}
+          </button>
+          <button
+  onClick={() => handleShare(response.web_url)}
+  disabled={sharing}
+  className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+  style={{
+    background: "var(--theme-accent,#6366f1)",
+    color: "var(--theme-primary-contrast,#fff)",
+    opacity: sharing ? 0.8 : 1,
+  }}
+>
+  {sharing ? (
+    <>
+      <Loader2 className="animate-spin" size={16} /> Sharing...
+    </>
+  ) : (
+    <>
+      <Share2 size={16} /> Share
+    </>
+  )}
+</button>
 
-          {/* QR Code (disabled via flag) */}
-          {FEATURES.qr && (
-            <QRCodeSection
-              orderId={response.cashfreeResponse.order_id}
-              paymentLink={response.cashfreeResponse.payment_link}
-            />
-          )}
-
-          {/* UPI Section (disabled via flag) */}
-          {FEATURES.upi && (
-            <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
-          )}
         </div>
-      )}
+      </div>
+    )}
+
+    {/* Cashfree Checkout URL (gateway link) */}
+    {/* <div
+      className="rounded-lg p-4 border"
+      style={{
+        background:
+          "color-mix(in srgb, var(--theme-success,#16a34a) 10%, var(--theme-card-bg,#fff))",
+        borderColor:
+          "color-mix(in srgb, var(--theme-success,#16a34a) 35%, var(--theme-border,#e5e7eb))",
+      }}
+    >
+      <h4
+        className="font-medium mb-3 flex items-center gap-2"
+        style={{ color: "var(--theme-success,#16a34a)" }}
+      >
+        <CheckCircle2 size={18} /> Gateway Checkout Link
+      </h4>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          readOnly
+          value={response.cashfreeResponse.payment_link}
+          className="flex-1 rounded-lg px-3 py-2 text-sm"
+          style={{
+            background: "var(--theme-card-bg,#fff)",
+            color: "var(--theme-text)",
+            border: "1px solid var(--theme-border,#e5e7eb)",
+          }}
+        />
+        <button
+          onClick={() => handleCopy(response.cashfreeResponse.payment_link)}
+          className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+          style={{
+            background: copied
+              ? "var(--theme-muted-100,#e2e8f0)"
+              : "var(--theme-success,#16a34a)",
+            color: copied ? "var(--theme-text)" : "var(--theme-on-success,#fff)",
+          }}
+        >
+          {copied ? (
+            <>
+              <Check size={16} /> Copied
+            </>
+          ) : (
+            <>
+              <Copy size={16} /> Copy
+            </>
+          )}
+        </button>
+       
+      </div>
+      <p className="mt-2 text-xs" style={{ color: "var(--theme-muted,#64748b)" }}>
+        Direct Cashfree session URL. Use if the branded page is blocked or not loading.
+      </p> 
+    </div> */}
+
+    {/* QR / UPI sections respect your feature flags */}
+    {FEATURES.qr && (
+      <QRCodeSection
+        orderId={response.cashfreeResponse.order_id}
+        paymentLink={response.cashfreeResponse.payment_link}
+      />
+    )}
+    {FEATURES.upi && (
+      <UPIRequestSection orderId={response.cashfreeResponse.order_id} />
+    )}
+  </div>
+)}
     </div>
   );
 };

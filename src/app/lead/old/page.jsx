@@ -10,7 +10,7 @@ import {
   Pencil,
   BookOpenText,
   MessageCircle,
-} from "lucide-react";
+} from "lucide-react";  
 import { useRouter } from "next/navigation";
 import { useCallback, memo, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -135,19 +135,21 @@ function ResponseSelectPill({ value, onChange, options = [] }) {
         <select
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-          className="w-full rounded-lg px-3 py-2 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+          className="w-full rounded-lg px-3 py-2 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2  border-[var(--theme-border)]focus:ring-[var(--theme-primary)]"
           style={{ borderColor: "var(--theme-input-border)" }}
         >
-          <option value="">All Responses</option>
+          <option value="" 
+          className="bg-[var(--theme-surface)] ">All Responses</option>
           {options.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
+            <option key={r.id} value={r.id}
+            className="bg-[var(--theme-surface)]">{r.name}</option>
           ))}
         </select>
 
         {value != null && (
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
             style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)", color: "var(--theme-textSecondary)" }}
             onClick={() => onChange(null)}
             aria-label="Clear response"

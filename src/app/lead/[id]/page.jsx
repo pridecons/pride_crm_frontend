@@ -211,6 +211,7 @@ const Lead = () => {
   const [isCommentsModalOpen, setIsCommentsModalOpen] = useState(false);
   const [isRecordingsModalOpen, setIsRecordingsModalOpen] = useState(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+  const [kycSigningUrl, setKycSigningUrl] = useState(null);
   const [kycUrl, setKycUrl] = useState(null);
   const [kycLoading, setKycLoading] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
@@ -265,6 +266,37 @@ const Lead = () => {
     }
   };
 
+// Put this helper above apiCall (or inside it)
+function extractErrorDetail(err) {
+  // Raw payloads we might see
+  const data = err?.response?.data;
+
+  // 1) Your case: { detail: { message: "...", errors: ["...","..."] } }
+  if (data?.detail && typeof data.detail === "object") {
+    const msg = String(data.detail.message || data.detail.msg || "").trim();
+    const arr = Array.isArray(data.detail.errors) ? data.detail.errors : [];
+    const joined = arr.filter(Boolean).join("; ");
+    if (msg && joined) return `${msg} — ${joined}`;
+    if (msg) return msg;
+    if (joined) return joined;
+  }
+
+  // 2) Sometimes backends send plain string detail
+  if (typeof data?.detail === "string" && data.detail.trim()) {
+    return data.detail.trim();
+  }
+
+  // 3) Alternate top-level message
+  if (typeof data?.message === "string" && data.message.trim()) {
+    return data.message.trim();
+  }
+
+  // 4) Axios/network/message fallback
+  if (err?.message) return err.message;
+
+  return "Something went wrong";
+}
+
 const apiCall = async (method, endpoint, data = null) => {
   try {
     const config = { method, url: endpoint };
@@ -272,21 +304,17 @@ const apiCall = async (method, endpoint, data = null) => {
     const response = await axiosInstance(config);
     return response.data;
   } catch (err) {
-    // Normalize axios error → Error object with .status and .detail
     const status = err?.response?.status ?? null;
-    const detail =
-      err?.response?.data?.detail ??
-      err?.response?.data?.message ??
-      err?.message ??
-      "Something went wrong";
+    const detailStr = extractErrorDetail(err); // <-- normalized for ErrorHandling/toast
 
-    const e = new Error(detail);
+    const e = new Error(detailStr);
     e.status = status;
-    e.detail = detail;
+    e.detail = detailStr;
     e.raw = err;
     throw e;
   }
 };
+
 
   const fetchCurrentLead = async () => {
     try {
@@ -303,6 +331,7 @@ const apiCall = async (method, endpoint, data = null) => {
   };
 
   const fetchKycUserDetails = async () => {
+    setKycSigningUrl(null);
     if (!currentLead?.mobile) {
       ErrorHandling({ defaultError: "Mobile number not found for this lead." });
       return;
@@ -310,19 +339,49 @@ const apiCall = async (method, endpoint, data = null) => {
     setKycLoading(true);
     const formData = { mobile: currentLead?.mobile };
     try {
-      await axiosInstance.post("/kyc_user_details", formData, {
+      const { data } = await axiosInstance.post("/kyc_user_details", formData, {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           Accept: "application/json",
         },
       });
-      toast.success("KYC initiated successfully!");
+      const url =
+       data?.signing_url ||
+       data?.signer_details?.requests?.[0]?.signing_url ||
+       data?.signer_details?.signing_url ||
+       null;
+     if (url) setKycSigningUrl(url);
+     toast.success("KYC initiated successfully!");
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Failed to initiate KYC:" });
     } finally {
       setKycLoading(false);
     }
   };
+
+   const handleCopyKycLink = async () => {
+   try {
+     if (!kycSigningUrl) return false;
+     await navigator.clipboard.writeText(kycSigningUrl);
+     toast.success("Signing link copied!");
+     return true;
+ } catch {
+     // Fallback for older browsers
+     try {
+       const ta = document.createElement("textarea");
+       ta.value = kycSigningUrl;
+       document.body.appendChild(ta);
+       ta.select();
+       document.execCommand("copy");
+       document.body.removeChild(ta);
+       toast.success("Signing link copied!");
+       return true;
+     } catch {
+       toast.error("Unable to copy link");
+       return false;
+     }
+   }
+ };
 
   const handleFileChange = (e, setter, previewSetter) => {
     const file = e.target.files[0];
@@ -771,6 +830,8 @@ if (!loading && !currentLead && error?.status === 403) {
             onRefresh={fetchCurrentLead}
             onKycClick={fetchKycUserDetails}
             kycLoading={kycLoading}
+            kycSigningUrl={kycSigningUrl}
+            onCopyKycLink={handleCopyKycLink}
             onPaymentClick={() => setIsOpenPayment(true)}
             onSendEmailClick={() => setIsEmailModalOpen(true)}
             onSendSMSClick={() => setIsSMSModalOpen(true)}

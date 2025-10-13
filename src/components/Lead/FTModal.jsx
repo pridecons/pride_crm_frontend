@@ -100,7 +100,7 @@ export default function FTModal({
       setSegmentsError("");
       try {
         const { data } = await axiosInstance.get(
-          "/profile-role/recommendation-type"
+          "/profile-role/recommendation-type?include_all=false"
         );
         if (!cancelled) {
           const labels = Array.isArray(data) ? data : [];

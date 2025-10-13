@@ -25,7 +25,6 @@ const canonRole = (s) => {
   let x = String(s).trim().toUpperCase().replace(/\s+/g, "_");
   if (x === "SUPER_ADMINISTRATOR") x = "SUPERADMIN";
   if (x === "COMPLIANCE_OFFICER") x = "COMPLIANCE OFFICER";
-  if (x === "BRANCH_MANAGER") x = "BRANCH MANAGER";
   return x;
 };
 
@@ -155,8 +154,6 @@ const getRoleColorClass = (roleName) => {
   const roleColors = {
     SUPERADMIN:
       "bg-[var(--theme-primary-softer)] text-[var(--theme-primary)] border-[var(--theme-primary)]/30",
-    "BRANCH MANAGER":
-      "bg-[var(--theme-warning-soft,rgba(250,204,21,.15))] text-[var(--theme-warning,#ca8a04)] border-[var(--theme-warning,#ca8a04)]/30",
     SALES_MANAGER:
       "bg-[var(--theme-success-soft,rgba(16,185,129,.12))] text-[var(--theme-success,#10b981)] border-[var(--theme-success,#10b981)]/30",
     HR: "bg-[var(--theme-info-soft,rgba(59,130,246,.12))] text-[var(--theme-info,#3b82f6)] border-[var(--theme-info,#3b82f6)]/30",
@@ -176,7 +173,6 @@ const getRoleColorClass = (roleName) => {
 /* ------------------------------ main component ------------------------------ */
 export default function UserTable({
   users = [],
-  branchMap = {},
   onEdit,
   onDelete,
   refreshUsers,
@@ -188,7 +184,6 @@ export default function UserTable({
   codeToName = {},
 }) {
   const isSuperAdmin = useViewerIsSuperAdmin();
-  const showBranchCol = isSuperAdmin;
 
   const {
     page = 1,
@@ -200,7 +195,7 @@ export default function UserTable({
   const totalPages = Number(tp || 1);
 
   // expander + remaining columns (serial already removed)
-  const COLS = showBranchCol ? 10 : 9;
+  const COLS = 9;
 
   const [expandedId, setExpandedId] = useState(null);
 
@@ -224,14 +219,13 @@ export default function UserTable({
         roleName: canonRole(roleName),
         reporting: reportingName || "—",
         target: inr(u?.target),
-        branch: branchMap?.[u?.branch_id] || "—",
         phone: u?.phone_number || "—",
         email: (u?.email || "").toLowerCase(),
         active: !!u?.is_active,
         raw: u,
       };
     });
-  }, [users, branchMap, codeToName]);
+  }, [users, codeToName]);
 
   return (
     <div
@@ -256,7 +250,6 @@ export default function UserTable({
                 <th className="px-5 py-4 text-left font-semibold">Role</th>
                 <th className="px-5 py-4 text-left font-semibold">Reporting</th>
                 <th className="px-5 py-4 text-left font-semibold">Target</th>
-                {showBranchCol && <th className="px-5 py-4 text-left font-semibold">Branch</th>}
                 <th className="px-5 py-4 text-left font-semibold">Phone</th>
                 <th className="px-5 py-4 text-left font-semibold">Email</th>
                 <th className="px-5 py-4 text-left font-semibold">Status</th>
@@ -279,7 +272,6 @@ export default function UserTable({
                       key={r.id}
                       row={r}
                       isOpen={isOpen}
-                      showBranchCol={showBranchCol}
                       onToggle={() => setExpandedId(isOpen ? null : r.id)}
                       onEdit={onEdit}
                       onDelete={onDelete}
@@ -384,7 +376,6 @@ export default function UserTable({
 
 UserTable.propTypes = {
   users: PropTypes.array.isRequired,
-  branchMap: PropTypes.object,
   onEdit: PropTypes.func,
   onDelete: PropTypes.func,
   refreshUsers: PropTypes.func,
@@ -397,7 +388,7 @@ UserTable.propTypes = {
 };
 
 /* ----------------------- Row + Accordion detail ---------------------- */
-function FragmentRow({ row, isOpen, showBranchCol, onToggle, onEdit, onDelete }) {
+function FragmentRow({ row, isOpen, onToggle, onEdit, onDelete }) {
   const u = row.raw;
 
   return (
@@ -469,12 +460,6 @@ function FragmentRow({ row, isOpen, showBranchCol, onToggle, onEdit, onDelete })
           {row.target}
         </td>
 
-        {showBranchCol && (
-          <td className="px-5 py-4 align-top" title={row.branch}>
-            <span className="truncate block max-w-[10rem] md:max-w-[12rem]">{row.branch}</span>
-          </td>
-        )}
-
         <td className="px-5 py-4 align-top" title={row.phone}>
           <div className="flex items-center gap-2" style={{ color: "var(--theme-text)" }}>
             <Phone className="w-4 h-4" style={{ color: "var(--theme-text-muted)" }} />
@@ -534,7 +519,7 @@ function FragmentRow({ row, isOpen, showBranchCol, onToggle, onEdit, onDelete })
       {/* ACCORDION DETAIL — 4 cols per row; no repeats */}
 {isOpen && (
   <tr>
-    <td colSpan={showBranchCol ? 10 : 9} className="px-0 pb-4">
+    <td colSpan={9} className="px-0 pb-4">
       <div
         className="mx-5 mt-0 rounded-2xl p-5"
         style={{

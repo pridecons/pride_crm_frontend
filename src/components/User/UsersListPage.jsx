@@ -154,7 +154,6 @@ export default function UsersListPage() {
         active_only: false,
       };
       if (roleId && roleId !== "All") params.role_id = Number(roleId);
-      if (branch && branch !== "All") params.branch_id = Number(branch);
       if (q && q.trim()) params.search = q.trim();
 
       const res = await axiosInstance.get("/users/", { params, signal });
@@ -166,7 +165,6 @@ export default function UsersListPage() {
         total_employee: Number(card.total_employee) || 0,
         active_employee: Number(card.active_employee) || 0,
         inactive_employee: Number(card.inactive_employee) || 0,
-        branches: Number(card.branches) || 0,
         roles: Number(card.roles) || 0,
       }));
 
@@ -215,7 +213,6 @@ export default function UsersListPage() {
       fetchUsers({
         page,
         roleId: selectedRole,
-        branch: selectedBranch,
         q: searchQuery,
         signal: controller.signal,
       });
@@ -226,7 +223,7 @@ export default function UsersListPage() {
       clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roleMap, selectedRole, selectedBranch, page, searchQuery]);
+  }, [roleMap, selectedRole, page, searchQuery]);
 
   // If roles arrive later/changed, refresh users' readable role labels
   useEffect(() => {
@@ -437,7 +434,6 @@ const handleDownloadUsers = async () => {
         <StatsCards
           totalUsers={cards.total_employee}
           activeUsers={cards.active_employee}
-          branchesCount={cards.branches || branches.length}
           rolesCount={cards.roles || roles.length}
         />
 
@@ -448,10 +444,7 @@ const handleDownloadUsers = async () => {
             setSearchQuery={setSearchQuery}
             selectedRole={selectedRole}
             setSelectedRole={setSelectedRole}
-            selectedBranch={selectedBranch}
-            setSelectedBranch={setSelectedBranch}
             roles={roles}
-            branches={branches}
           />
         </div>
 
@@ -459,7 +452,6 @@ const handleDownloadUsers = async () => {
         <div className="theme-table-wrap">
           <UserTable
             users={users}
-            branchMap={branchMap}
             onEdit={openEdit}
             onDelete={handleDelete}
             refreshUsers={() => fetchUsers({ page })}
@@ -480,7 +472,6 @@ const handleDownloadUsers = async () => {
           onClose={() => setModalMode(null)}
           user={modalUser}
           roles={roles}
-          branches={branches}
           onSuccess={() => {
             fetchUsers();
             setModalMode(null);
@@ -497,7 +488,6 @@ const handleDownloadUsers = async () => {
             setBulkOpen(false);
           }}
           roles={roles}
-          branches={branches}
         />
       </div>
     </div>

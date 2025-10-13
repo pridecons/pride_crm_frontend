@@ -30,6 +30,7 @@ export function ActionButtons({
   kycSigningUrl,
   onCopyKycLink,
   onPaymentClick,
+  onManualePaymentClick,
   onSendEmailClick,
   onSendSMSClick,
   onRecordingsClick,
@@ -124,6 +125,14 @@ export function ActionButtons({
       >
         ₹ Payment
       </button>
+     {hasPermission("lead_manuale_payment_create") &&
+      <button
+        onClick={onManualePaymentClick}
+        className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100 rupee`}
+      >
+        ₹ Manuale Payment
+      </button>
+}
 
       {/* Email */}
       <button

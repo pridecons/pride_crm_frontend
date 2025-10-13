@@ -15,6 +15,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import PaymentModel from "@/components/Fetch_Lead/PaymentModel";
+import CreateManualePayment from "@/components/manuale/CreateManualePayment";
 import toast from "react-hot-toast";
 import LoadingState from "@/components/LoadingState";
 import StoryModal from "@/components/Lead/StoryModal";
@@ -187,6 +188,7 @@ const Lead = () => {
   const isSuperAdmin = useIsSuperAdmin();
 
   const [isOpenPayment, setIsOpenPayment] = useState(false);
+  const [isOpenManualePayment, setIsOpenManualePayment] = useState(false);
   const [currentLead, setCurrentLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -833,6 +835,7 @@ if (!loading && !currentLead && error?.status === 403) {
             kycSigningUrl={kycSigningUrl}
             onCopyKycLink={handleCopyKycLink}
             onPaymentClick={() => setIsOpenPayment(true)}
+            onManualePaymentClick={() => setIsOpenManualePayment(true)}
             onSendEmailClick={() => setIsEmailModalOpen(true)}
             onSendSMSClick={() => setIsSMSModalOpen(true)}
             onViewEmailLogsClick={() => setIsEmailModalOpen(true)}
@@ -1103,6 +1106,18 @@ if (!loading && !currentLead && error?.status === 403) {
         <PaymentModel
           open
           setOpen={setIsOpenPayment}
+          name={currentLead?.full_name}
+          phone={currentLead?.mobile}
+          email={currentLead?.email}
+          service={displaySegment}
+          lead_id={currentLead?.id}
+        />
+      )}
+
+      {isOpenManualePayment &&(
+        <CreateManualePayment
+          open={isOpenManualePayment}
+          setOpen={setIsOpenManualePayment}
           name={currentLead?.full_name}
           phone={currentLead?.mobile}
           email={currentLead?.email}

@@ -21,7 +21,6 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import { useTheme } from "@/context/ThemeContext";
-import LoadingState from "@/components/LoadingState";
 
 /* --------------------------- helpers --------------------------- */
 const btnPrimary =
@@ -34,7 +33,7 @@ const btnDangerGhost =
 const getUserMeta = () => {
   try {
     const raw = Cookies.get("user_info");
-    if (!raw) return { role: "", branch_id: null, branch_name: "" };
+    if (!raw) return { role: "" };
     const p = JSON.parse(raw);
 
     const rawRole =
@@ -47,23 +46,9 @@ const getUserMeta = () => {
       "";
     const role = String(rawRole).trim().toUpperCase();
 
-    const branch_id =
-      p?.branch_id ??
-      p?.user?.branch_id ??
-      p?.branch?.id ??
-      p?.user?.branch?.id ??
-      null;
-
-    const branch_name =
-      p?.branch_name ||
-      p?.branch?.name ||
-      p?.user?.branch_name ||
-      p?.user?.branch?.name ||
-      (branch_id ? `Branch-${branch_id}` : "");
-
-    return { role, branch_id, branch_name };
+    return { role };
   } catch {
-    return { role: "", branch_id: null, branch_name: "" };
+    return { role: "" };
   }
 };
 
@@ -74,29 +59,27 @@ const toInt = (v) => {
 
 // NEW: helpers for breakdown
 const getPendingFromBreakdown = (breakdown = []) =>
-  breakdown.find((x) => x?.response_id == null) || { total_leads: 0, percentage: 0 };
+  breakdown.find((x) => x?.response_id == null) || {
+    total_leads: 0,
+    percentage: 0,
+  };
 
 const getNonPendingBreakdown = (breakdown = []) =>
   (breakdown || []).filter((x) => x?.response_id != null);
 
 // NEW: available leads helper (tries a few likely field names)
 const getAvailableFromSource = (src) =>
-  Number(
-    src?.available_leads ?? src?.available ?? src?.available_count ?? 0
-  ) || 0;
-
+  Number(src?.available_leads ?? src?.available ?? src?.available_count ?? 0) ||
+  0;
 
 export default function LeadSourcesPage() {
   const { theme, toggleTheme } = useTheme();
   const { hasPermission } = usePermissions();
   const router = useRouter();
 
-  const { role, branch_id: userBranchId, branch_name: userBranchName } =
-    getUserMeta();
+  const { role } = getUserMeta();
   const isSuperAdmin = role === "SUPERADMIN";
 
-  const [branches, setBranches] = useState([]);
-  const [branchMap, setBranchMap] = useState({});
   const [sources, setSources] = useState([]);
   const [roles, setRoles] = useState([]); // from /profile-role/
 
@@ -104,71 +87,42 @@ export default function LeadSourcesPage() {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
     name: "",
     description: "",
-    branch_id: isSuperAdmin ? "" : userBranchId || "",
     fetch_configs: [], // [{ role_id, per_request_limit, daily_call_limit }]
   });
 
-const [openRowId, setOpenRowId] = useState(null);
+  const [openRowId, setOpenRowId] = useState(null);
 
-  const [fetchingBranches, setFetchingBranches] = useState(false);
+  // ⬇ replace your role cell state + helpers with this
+  const [openRoleCells, setOpenRoleCells] = useState(new Set());
 
-// ⬇ replace your role cell state + helpers with this
-const [openRoleCells, setOpenRoleCells] = useState(new Set());
-
-const toggleRoleCell = (rawId) => {
-  const key = Number(rawId);             // normalize
-  setOpenRoleCells((prev) => {
-    const next = new Set(prev);
-    next.has(key) ? next.delete(key) : next.add(key);
-    return next;
-  });
-};
-
-const isRoleCellOpen = (rawId) => openRoleCells.has(Number(rawId)); // normalize everywhere
-const closeAllRoleCells = () => setOpenRoleCells(new Set());
-
-const roleNameById = (rolesArr, id) =>
-  (rolesArr.find((r) => Number(r.id) === Number(id))?.name) || `#${id}`;
-
-useEffect(() => {
-  const onDocDown = (e) => {
-    // if the click is inside a “safe” area (arrow/panel), do nothing
-    if (e.target.closest('[data-acc-safe]')) return;
-    setOpenRowId(null); // close accordion
+  const toggleRoleCell = (rawId) => {
+    const key = Number(rawId); // normalize
+    setOpenRoleCells((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   };
-  document.addEventListener('pointerdown', onDocDown, true); // capture
-  return () => document.removeEventListener('pointerdown', onDocDown, true);
-}, []);
 
-  const isCreate = isCreateNew && !editingId;
+  const isRoleCellOpen = (rawId) => openRoleCells.has(Number(rawId)); // normalize everywhere
 
-  const showBranchColumn = isSuperAdmin;
+  const roleNameById = (rolesArr, id) =>
+    rolesArr.find((r) => Number(r.id) === Number(id))?.name || `#${id}`;
 
-  /* --------------------------- load data --------------------------- */
-  const fetchBranches = async () => {
-    try {
-      const { data } = await axiosInstance.get(
-        "/branches/?skip=0&limit=100&active_only=false"
-      );
-      const list = Array.isArray(data) ? data : [];
-      setBranches(list);
-      setBranchMap(
-        Object.fromEntries(
-          list.map((b) => [Number(b.id), b.name || `Branch-${b.id}`])
-        )
-      );
-    } catch (err) {
-      ErrorHandling({
-        error: err,
-        defaultError: "Failed to load branches",
-      });
-    }
-  };
+  useEffect(() => {
+    const onDocDown = (e) => {
+      // if the click is inside a “safe” area (arrow/panel), do nothing
+      if (e.target.closest("[data-acc-safe]")) return;
+      setOpenRowId(null); // close accordion
+    };
+    document.addEventListener("pointerdown", onDocDown, true); // capture
+    return () => document.removeEventListener("pointerdown", onDocDown, true);
+  }, []);
+
 
   const fetchSources = async () => {
     try {
@@ -184,43 +138,14 @@ useEffect(() => {
     }
   };
 
-  const fetchRoles = async () => {
-    try {
-      const { data } = await axiosInstance.get(
-        "/profile-role/?skip=0&limit=50&order_by=hierarchy_level"
-      );
-      const list = Array.isArray(data) ? data.filter((r) => r?.is_active) : [];
-      setRoles(list);
-    } catch (err) {
-      ErrorHandling({
-        error: err,
-        defaultError: "Failed to load profiles",
-      });
-    }
-  };
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await Promise.all([fetchSources(), fetchRoles()]);
-
-      if (!isSuperAdmin && userBranchId && userBranchName) {
-        setBranchMap((prev) => ({
-          ...prev,
-          [Number(userBranchId)]: userBranchName,
-        }));
-      }
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   /* --------------------------- role visibility + defaults --------------------------- */
   const visibleRoles = useMemo(() => {
     if (isSuperAdmin) return roles;
     return roles.filter(
       (r) =>
-        String(r?.name ?? r?.role ?? "").trim().toUpperCase() !== "SUPERADMIN"
+        String(r?.name ?? r?.role ?? "")
+          .trim()
+          .toUpperCase() !== "SUPERADMIN"
     );
   }, [roles, isSuperAdmin]);
 
@@ -242,7 +167,6 @@ useEffect(() => {
     setForm({
       name: "",
       description: "",
-      branch_id: isSuperAdmin ? "" : userBranchId || "",
       fetch_configs: [],
     });
     setEditingId(null);
@@ -285,20 +209,15 @@ useEffect(() => {
     });
   };
 
+  useEffect(()=>{
+    fetchSources()
+  },[])
+
   const canAddConfig = visibleRoles.some((r) => !roleAlreadyUsed(r.id));
 
   /* --------------------------- submit --------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (isSuperAdmin && !form.branch_id) {
-      ErrorHandling({ defaultError: "Please select a branch" });
-      return;
-    }
-    if (!isSuperAdmin && !form.branch_id) {
-      ErrorHandling({ defaultError: "No branch assigned to your account" });
-      return;
-    }
 
     const cleanedFetchConfigs = (form.fetch_configs || [])
       .filter((fc) => fc && fc.role_id)
@@ -313,7 +232,8 @@ useEffect(() => {
       const key = String(fc.role_id);
       if (seen.has(key)) {
         ErrorHandling({
-          defaultError: "Duplicate roles in fetch configs. Please remove duplicates.",
+          defaultError:
+            "Duplicate roles in fetch configs. Please remove duplicates.",
         });
         return;
       }
@@ -322,11 +242,9 @@ useEffect(() => {
 
     setIsSubmitting(true);
     try {
-      const branchIdToSend = isSuperAdmin ? Number(form.branch_id) : Number(userBranchId);
       const payload = {
         name: form.name,
         description: form.description,
-        branch_id: Number(branchIdToSend),
         fetch_configs: cleanedFetchConfigs,
       };
 
@@ -359,7 +277,6 @@ useEffect(() => {
     setForm({
       name: src.name || "",
       description: src.description || "",
-      branch_id: isSuperAdmin ? (src.branch_id ?? "") : (userBranchId || ""),
       fetch_configs: fromApi.map((fc) => ({
         role_id: fc.role_id ?? "",
         per_request_limit: fc.per_request_limit ?? 50,
@@ -394,61 +311,13 @@ useEffect(() => {
           })
           .join(", ") || "";
 
-      // 🔽 UPDATED: include branch_name in the searchable text
       return (
         (src?.name || "").toLowerCase().includes(term) ||
         (src?.description || "").toLowerCase().includes(term) ||
-        (src?.branch_name || "").toLowerCase().includes(term) ||
-        String(src?.branch_id || "").toLowerCase().includes(term) ||
         roleNames.toLowerCase().includes(term)
       );
     });
   }, [sources, searchTerm, roles]);
-
-  /* --------------------------- UI helpers --------------------------- */
-  const renderBranchField = (isCreateMode) => {
-    if (!isSuperAdmin) return null;
-
-    if (isCreateMode) {
-      return (
-        <div>
-          <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
-            Branch <span className="text-[var(--theme-danger)]">*</span>
-          </label>
-          <select
-            value={String(form.branch_id ?? "")}
-            onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
-            required
-            className="w-full px-4 py-2.5 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all text-[var(--theme-text)]"
-          >
-            <option value="" disabled>
-              {branches.length ? "Select branch…" : "Loading branches…"}
-            </option>
-            {branches.map((b) => (
-              <option key={b.id} value={String(b.id)}>
-                {b.name || `Branch-${b.id}`}
-              </option>
-            ))}
-          </select>
-        </div>
-      );
-    }
-
-    return (
-      <div>
-        <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">Branch</label>
-        <input
-          type="text"
-          value={
-            branchMap[Number(form.branch_id)] ||
-            (form.branch_id ? `Branch-${form.branch_id}` : "")
-          }
-          readOnly
-          className="w-full px-4 py-2.5 bg-[var(--theme-surface)] border border-[var(--theme-border)] rounded-lg text-[var(--theme-text-muted)]"
-        />
-      </div>
-    );
-  };
 
   const renderFetchConfigs = () => {
     return (
@@ -459,7 +328,9 @@ useEffect(() => {
               <Users className="w-4 h-4 text-[var(--theme-primary)]" />
               Fetch Configurations
             </h3>
-            <p className="text-xs text-[var(--theme-text-muted)] mt-1">Set role-specific fetch limits</p>
+            <p className="text-xs text-[var(--theme-text-muted)] mt-1">
+              Set role-specific fetch limits
+            </p>
           </div>
           <button
             type="button"
@@ -475,19 +346,27 @@ useEffect(() => {
         {form.fetch_configs?.length === 0 && (
           <div className="border-2 border-dashed border-[var(--theme-border)] rounded-lg p-6 text-center bg-[var(--theme-surface)]">
             <Users className="w-8 h-8 text-[var(--theme-text-muted)] mx-auto mb-2" />
-            <p className="text-sm text-[var(--theme-text-muted)]">No fetch configurations added</p>
-            <p className="text-xs text-[var(--theme-text-muted)] mt-1">Click "Add Config" to set role-specific limits</p>
+            <p className="text-sm text-[var(--theme-text-muted)]">
+              No fetch configurations added
+            </p>
+            <p className="text-xs text-[var(--theme-text-muted)] mt-1">
+              Click "Add Config" to set role-specific limits
+            </p>
           </div>
         )}
 
         <div className="space-y-3">
           {form.fetch_configs?.map((fc, idx) => {
             const usedIds = new Set(
-              form.fetch_configs.map((x, i) => (i === idx ? null : Number(x.role_id)))
+              form.fetch_configs.map((x, i) =>
+                i === idx ? null : Number(x.role_id)
+              )
             );
             const currentId = Number(fc.role_id ?? 0);
             const currentRole = roles.find((r) => Number(r.id) === currentId);
-            const currentInVisible = visibleRoles.some((r) => Number(r.id) === currentId);
+            const currentInVisible = visibleRoles.some(
+              (r) => Number(r.id) === currentId
+            );
 
             return (
               <div
@@ -502,7 +381,9 @@ useEffect(() => {
                     <select
                       value={String(fc.role_id ?? "")}
                       onChange={(e) =>
-                        updateFetchConfig(idx, { role_id: Number(e.target.value) })
+                        updateFetchConfig(idx, {
+                          role_id: Number(e.target.value),
+                        })
                       }
                       className="w-full px-3 py-2 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent text-sm text-[var(--theme-text)]"
                     >
@@ -582,10 +463,6 @@ useEffect(() => {
     );
   };
 
-  // ⬇️ put this before the main return(...):
-  if (loading) {
-    return <LoadingState message="Loading..." />;
-  }
 
   return (
     <div className="p-6 bg-[var(--theme-background)] text-[var(--theme-text)] min-h-screen">
@@ -593,43 +470,20 @@ useEffect(() => {
       <div className="flex items-center justify-end mb-6">
         {!isCreateNew && hasPermission("create_lead") && (
           <button
-  onClick={async () => {
-    try {
-      setFetchingBranches(true);
-      // ✅ Always refresh branches when opening the create modal
-      await fetchBranches();
+            onClick={async () => {
+              setEditingId(null);
+              setForm({
+                name: "",
+                description: "",
+                fetch_configs: makeDefaultConfigs(),
+              });
 
-      // (Optional) ensure current user's branch name is present in map
-      if (!isSuperAdmin && userBranchId && userBranchName) {
-        setBranchMap((prev) => ({
-          ...prev,
-          [Number(userBranchId)]: userBranchName,
-        }));
-      }
-
-      // Prepare default form
-      setEditingId(null);
-      setForm({
-        name: "",
-        description: "",
-        branch_id: isSuperAdmin ? "" : userBranchId || "",
-        fetch_configs: makeDefaultConfigs(),
-      });
-
-      setIsCreateNew(true);
-    } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Failed to load branches" });
-    } finally {
-      setFetchingBranches(false);
-    }
-  }}
-  className={`flex items-center gap-1 ${btnPrimary}`}
-  disabled={fetchingBranches}
-  title={fetchingBranches ? "Loading branches..." : "Add"}
->
-  <Plus className="w-5 h-5" />
-  {fetchingBranches ? "Loading..." : "Add"}
-</button>
+              setIsCreateNew(true);
+            }}
+            className={`flex items-center gap-1 ${btnPrimary}`}
+          >
+            <Plus className="w-5 h-5" />
+          </button>
         )}
       </div>
 
@@ -641,8 +495,12 @@ useEffect(() => {
               <Database className="w-5 h-5 text-[var(--theme-primary)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[var(--theme-primary)]">Total Sources</p>
-              <p className="text-2xl font-bold text-[var(--theme-text)]">{sources.length}</p>
+              <p className="text-sm font-medium text-[var(--theme-primary)]">
+                Total Sources
+              </p>
+              <p className="text-2xl font-bold text-[var(--theme-text)]">
+                {sources.length}
+              </p>
             </div>
           </div>
         </div>
@@ -652,8 +510,12 @@ useEffect(() => {
               <CheckCircle className="w-5 h-5 text-[var(--theme-success)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[var(--theme-success)]">Active</p>
-              <p className="text-2xl font-bold text-[var(--theme-text)]">{sources.length}</p>
+              <p className="text-sm font-medium text-[var(--theme-success)]">
+                Active
+              </p>
+              <p className="text-2xl font-bold text-[var(--theme-text)]">
+                {sources.length}
+              </p>
             </div>
           </div>
         </div>
@@ -663,7 +525,9 @@ useEffect(() => {
               <Search className="w-5 h-5 text-[var(--theme-accent)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[var(--theme-accent)]">Filtered</p>
+              <p className="text-sm font-medium text-[var(--theme-accent)]">
+                Filtered
+              </p>
               <p className="text-2xl font-bold text-[var(--theme-text)]">
                 {filteredSources.length}
               </p>
@@ -684,7 +548,9 @@ useEffect(() => {
                     {editingId ? "Edit Lead Source" : "Create New Lead Source"}
                   </h2>
                   <p className="text-sm text-[var(--theme-text-muted)] mt-1">
-                    {editingId ? "Update source configuration" : "Set up a new lead source"}
+                    {editingId
+                      ? "Update source configuration"
+                      : "Set up a new lead source"}
                   </p>
                 </div>
                 <button
@@ -699,31 +565,35 @@ useEffect(() => {
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {/* Basic Information */}
               <div className="rounded-xl p-6 border border-[var(--theme-border)] bg-[var(--theme-surface)]">
-                <div className={`grid grid-cols-1 ${isSuperAdmin ? "md:grid-cols-2" : ""} gap-5`}>
+                <div className={`gap-5`}>
                   <div>
                     <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
-                      Source Name <span className="text-[var(--theme-danger)]">*</span>
+                      Source Name{" "}
+                      <span className="text-[var(--theme-danger)]">*</span>
                     </label>
                     <input
                       type="text"
                       value={form.name}
-                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, name: e.target.value }))
+                      }
                       required
                       placeholder="Enter source name"
                       className="w-full px-4 py-2.5 bg-[var(--theme-input-background)] border border-[var(--theme-border)] rounded-lg focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent transition-all text-[var(--theme-text)] placeholder-[var(--theme-text-muted)]"
                     />
                   </div>
-
-                  {renderBranchField(isCreate)}
                 </div>
 
                 <div className="mt-5">
                   <label className="block text-sm font-semibold text-[var(--theme-text)] mb-2">
-                    Description <span className="text-[var(--theme-danger)]">*</span>
+                    Description{" "}
+                    <span className="text-[var(--theme-danger)]">*</span>
                   </label>
                   <textarea
                     value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, description: e.target.value }))
+                    }
                     rows={3}
                     required
                     placeholder="Describe this lead source"
@@ -753,8 +623,12 @@ useEffect(() => {
                 >
                   {isSubmitting && <MiniLoader />}
                   {editingId
-                    ? (isSubmitting ? "Updating..." : "Update Source")
-                    : (isSubmitting ? "Creating..." : "Create Source")}
+                    ? isSubmitting
+                      ? "Updating..."
+                      : "Update Source"
+                    : isSubmitting
+                    ? "Creating..."
+                    : "Create Source"}
                 </button>
               </div>
             </form>
@@ -784,25 +658,34 @@ useEffect(() => {
             <thead className="bg-[var(--theme-surface)]">
               <tr className="text-[var(--theme-text-muted)]">
                 <th className="px-2 py-3 text-center w-8 font-semibold first:rounded-tl-2xl"></th>
-                <th className="px-4 py-3 text-left font-semibold first:rounded-tl-2xl">Source</th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total</th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Pending</th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Available</th>
+                <th className="px-4 py-3 text-left font-semibold first:rounded-tl-2xl">
+                  Source
+                </th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                  Total
+                </th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                  Pending
+                </th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                  Available
+                </th>
                 <th className="px-4 py-3 text-left font-semibold">Roles</th>
-                {showBranchColumn && (
-                  <th className="px-4 py-3 text-left font-semibold">Branch</th>
-                )}
                 <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">
                   Description
                 </th>
-                <th className="px-4 py-3 text-right font-semibold w-[150px] last:rounded-tr-2xl">Actions</th>
+                <th className="px-4 py-3 text-right font-semibold w-[150px] last:rounded-tr-2xl">
+                  Actions
+                </th>
               </tr>
             </thead>
 
             {/* Body */}
             <tbody className="divide-y divide-[var(--theme-border)] text-[var(--theme-text)]">
               {filteredSources.map((src) => {
-                const fc = Array.isArray(src.fetch_configs) ? src.fetch_configs : [];
+                const fc = Array.isArray(src.fetch_configs)
+                  ? src.fetch_configs
+                  : [];
                 const fcPreview =
                   fc
                     .map((x) => {
@@ -812,49 +695,60 @@ useEffect(() => {
                     })
                     .join(", ") || "—";
 
-                const breakdown = Array.isArray(src.response_breakdown) ? src.response_breakdown : [];
+                const breakdown = Array.isArray(src.response_breakdown)
+                  ? src.response_breakdown
+                  : [];
                 const pending = getPendingFromBreakdown(breakdown);
                 const available = getAvailableFromSource(src);
                 const nonPending = getNonPendingBreakdown(breakdown);
-                const branchLabel =
-                  src.branch_name ||                 // ✅ prefer API's branch_name
-                  src?.branch?.name ||
-                  branchMap[Number(src.branch_id)] ||// fallback to map if needed (for old data)
-                  (src.branch_id != null ? `Branch-${src.branch_id}` : "—");
 
                 const isOpen = openRowId === src.id;
-                const COLS = showBranchColumn ? 9 : 8;
-                // (Source, Total, Pending, Roles, [Branch], Description, Actions)
+                const COLS = 8;
+                // (Source, Total, Pending, Roles, Description, Actions)
 
                 return (
                   <React.Fragment key={src.id}>
                     {/* CLICKABLE DATA ROW */}
                     <tr
-                      className={`hover:bg-[var(--theme-primary-softer)]/60 cursor-pointer ${isOpen ? "bg-[var(--theme-primary-softer)]/50" : ""}`}
+                      className={`hover:bg-[var(--theme-primary-softer)]/60 cursor-pointer ${
+                        isOpen ? "bg-[var(--theme-primary-softer)]/50" : ""
+                      }`}
                       aria-expanded={isOpen}
                     >
                       <td className="px-2 py-3 text-center w-8 align-top">
-  <button
-    type="button"
-    data-acc-safe
-    onPointerDown={(e) => e.stopPropagation()}
-    onClick={(e) => {
-      e.stopPropagation();
-      setOpenRowId((prev) => (prev === src.id ? null : src.id));
-    }}
-    aria-label={openRowId === src.id ? "Collapse details" : "Expand details"}
-    aria-expanded={openRowId === src.id}
-    aria-controls={`panel-${src.id}`}
-    className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
-    title={openRowId === src.id ? "Collapse" : "Expand"}
-  >
-    {openRowId === src.id ? (
-      <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
-    ) : (
-      <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
-    )}
-  </button>
-</td>
+                        <button
+                          type="button"
+                          data-acc-safe
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenRowId((prev) =>
+                              prev === src.id ? null : src.id
+                            );
+                          }}
+                          aria-label={
+                            openRowId === src.id
+                              ? "Collapse details"
+                              : "Expand details"
+                          }
+                          aria-expanded={openRowId === src.id}
+                          aria-controls={`panel-${src.id}`}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
+                          title={openRowId === src.id ? "Collapse" : "Expand"}
+                        >
+                          {openRowId === src.id ? (
+                            <ChevronDown
+                              className="w-5 h-5 text-[var(--theme-text-muted)]"
+                              strokeWidth={3}
+                            />
+                          ) : (
+                            <ChevronRight
+                              className="w-5 h-5 text-[var(--theme-text-muted)]"
+                              strokeWidth={3}
+                            />
+                          )}
+                        </button>
+                      </td>
                       <td className="px-4 py-3 align-top">
                         <div className="font-semibold">{src.name}</div>
                         <div className="text-xs text-[var(--theme-text-muted)] truncate">
@@ -872,16 +766,20 @@ useEffect(() => {
                           <span
                             className="inline-flex px-2 py-0.5 rounded-full text-xs border"
                             style={{
-                              background: "var(--theme-components-tag-warning-bg)",
+                              background:
+                                "var(--theme-components-tag-warning-bg)",
                               color: "var(--theme-components-tag-warning-text)",
-                              borderColor: "var(--theme-components-tag-warning-border)",
+                              borderColor:
+                                "var(--theme-components-tag-warning-border)",
                             }}
                             title="Pending leads"
                           >
                             {pending.total_leads}
                           </span>
                         ) : (
-                          <span className="text-[var(--theme-text-muted)]">0</span>
+                          <span className="text-[var(--theme-text-muted)]">
+                            0
+                          </span>
                         )}
                       </td>
 
@@ -892,8 +790,10 @@ useEffect(() => {
                           style={{
                             background:
                               "var(--theme-components-tag-info-bg, color-mix(in srgb, var(--theme-primary) 10%, transparent))",
-                            color: "var(--theme-components-tag-info-text, var(--theme-primary))",
-                            borderColor: "var(--theme-components-tag-info-border, var(--theme-border))",
+                            color:
+                              "var(--theme-components-tag-info-text, var(--theme-primary))",
+                            borderColor:
+                              "var(--theme-components-tag-info-border, var(--theme-border))",
                           }}
                           title="Available leads"
                         >
@@ -902,88 +802,91 @@ useEffect(() => {
                       </td>
 
                       <td className="px-4 py-3 align-top">
-  <div
-   className="relative"
-   data-acc-safe
-   onPointerDown={(e) => e.stopPropagation()}
- >
-    {/* Head: only the count is visible */}
-    <button
-      type="button"
-       onClick={(e) => { e.stopPropagation(); toggleRoleCell(src.id); }}
-      aria-expanded={isRoleCellOpen(src.id)}
-      className="inline-flex items-center gap-2 px-2 py-1 rounded-md border border-[var(--theme-border)] bg-[var(--theme-surface)] hover:bg-[var(--theme-primary-softer)] transition"
-      title="Show role limits"
-    >
-      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-        {fc.length} role{fc.length !== 1 ? "s" : ""}
-      </span>
-      <ChevronDown
-        className={`w-4 h-4 text-[var(--theme-text-muted)] transition-transform ${
-         isRoleCellOpen(src.id) ? "rotate-180" : ""
-        }`}
-      />
-    </button>
+                        <div
+                          className="relative"
+                          data-acc-safe
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          {/* Head: only the count is visible */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleRoleCell(src.id);
+                            }}
+                            aria-expanded={isRoleCellOpen(src.id)}
+                            className="inline-flex items-center gap-2 px-2 py-1 rounded-md border border-[var(--theme-border)] bg-[var(--theme-surface)] hover:bg-[var(--theme-primary-softer)] transition"
+                            title="Show role limits"
+                          >
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+                              {fc.length} role{fc.length !== 1 ? "s" : ""}
+                            </span>
+                            <ChevronDown
+                              className={`w-4 h-4 text-[var(--theme-text-muted)] transition-transform ${
+                                isRoleCellOpen(src.id) ? "rotate-180" : ""
+                              }`}
+                            />
+                          </button>
 
-    {/* Body: accordion panel */}
-    {isRoleCellOpen(src.id) && (
-      <div
-        id={`roles-panel-${src.id}`}
-        className="absolute z-50 mt-2 w-60 right-0 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] shadow-xl"
-        role="region"
-      >
-        <div className="p-3 border-b border-[var(--theme-border)] text-xs font-semibold text-[var(--theme-text-muted)]">
-          Roles & limits
-        </div>
+                          {/* Body: accordion panel */}
+                          {isRoleCellOpen(src.id) && (
+                            <div
+                              id={`roles-panel-${src.id}`}
+                              className="absolute z-50 mt-2 w-60 right-0 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] shadow-xl"
+                              role="region"
+                            >
+                              <div className="p-3 border-b border-[var(--theme-border)] text-xs font-semibold text-[var(--theme-text-muted)]">
+                                Roles & limits
+                              </div>
 
-        <ul className="max-h-64 overflow-auto p-2">
-          {fc
-            .slice()
-            .sort((a, b) => (roleNameById(roles, a.role_id)).localeCompare(roleNameById(roles, b.role_id)))
-            .map((x, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between gap-2 px-2 py-2 rounded hover:bg-[var(--theme-primary-softer)]/60"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-[var(--theme-text)] truncate">
-                    {roleNameById(roles, x.role_id)}
-                  </div>
-                  <div className="text-xs text-[var(--theme-text-muted)]">
-                    per-request / daily
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-[var(--theme-border)] bg-[var(--theme-surface)]">
-                    {x.per_request_limit ?? 0}/{x.daily_call_limit ?? 0}
-                  </span>
-                </div>
-              </li>
-            ))}
-        </ul>
+                              <ul className="max-h-64 overflow-auto p-2">
+                                {fc
+                                  .slice()
+                                  .sort((a, b) =>
+                                    roleNameById(
+                                      roles,
+                                      a.role_id
+                                    ).localeCompare(
+                                      roleNameById(roles, b.role_id)
+                                    )
+                                  )
+                                  .map((x, i) => (
+                                    <li
+                                      key={i}
+                                      className="flex items-center justify-between gap-2 px-2 py-2 rounded hover:bg-[var(--theme-primary-softer)]/60"
+                                    >
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium text-[var(--theme-text)] truncate">
+                                          {roleNameById(roles, x.role_id)}
+                                        </div>
+                                        <div className="text-xs text-[var(--theme-text-muted)]">
+                                          per-request / daily
+                                        </div>
+                                      </div>
+                                      <div className="shrink-0">
+                                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+                                          {x.per_request_limit ?? 0}/
+                                          {x.daily_call_limit ?? 0}
+                                        </span>
+                                      </div>
+                                    </li>
+                                  ))}
+                              </ul>
 
-        <div className="p-2 border-t border-[var(--theme-border)] flex items-center justify-end">
-          <button
-            type="button"
-            onClick={() => toggleRoleCell(src.id)}
-            className="text-xs px-2 py-1 rounded hover:bg-[var(--theme-primary-softer)]"
-            title="Close"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-</td>
-
-                      {showBranchColumn && (
-                        <td className="px-4 py-3 align-top">
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs border border-[var(--theme-border)] bg-[var(--theme-surface)]">
-                            {branchLabel}
-                          </span>
-                        </td>
-                      )}
+                              <div className="p-2 border-t border-[var(--theme-border)] flex items-center justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRoleCell(src.id)}
+                                  className="text-xs px-2 py-1 rounded hover:bg-[var(--theme-primary-softer)]"
+                                  title="Close"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
 
                       <td className="px-4 py-3 align-top hidden lg:table-cell">
                         <div
@@ -995,8 +898,12 @@ useEffect(() => {
                       </td>
 
                       <td className="px-4 py-3 align-top">
-                        <div className="flex items-center justify-end gap-1"
-                          onClick={(e) => e.stopPropagation() /* prevent row toggle */}>
+                        <div
+                          className="flex items-center justify-end gap-1"
+                          onClick={
+                            (e) => e.stopPropagation() /* prevent row toggle */
+                          }
+                        >
                           {hasPermission("edit_lead") && (
                             <button
                               onClick={() => handleEdit(src)}
@@ -1024,11 +931,11 @@ useEffect(() => {
                       <tr className="bg-[var(--theme-surface)]">
                         <td className="px-0 py-0" colSpan={COLS}>
                           <div
-         id={`panel-${src.id}`}
-         data-acc-safe
-         onPointerDown={(e) => e.stopPropagation()}
-         className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]"
-       >
+                            id={`panel-${src.id}`}
+                            data-acc-safe
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]"
+                          >
                             {/* Put the “accordion panel” content here (same as earlier) */}
                             <div className="mb-3">
                               <h4 className="text-sm font-semibold text-[var(--theme-text)]">
@@ -1043,9 +950,16 @@ useEffect(() => {
                             ) : (
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                                 {[...nonPending]
-                                  .sort((a, b) => (b.total_leads || 0) - (a.total_leads || 0))
+                                  .sort(
+                                    (a, b) =>
+                                      (b.total_leads || 0) -
+                                      (a.total_leads || 0)
+                                  )
                                   .map((b, i) => {
-                                    const pct = Math.max(0, Math.min(100, Number(b.percentage) || 0));
+                                    const pct = Math.max(
+                                      0,
+                                      Math.min(100, Number(b.percentage) || 0)
+                                    );
                                     const count = Number(b.total_leads) || 0;
                                     return (
                                       <div
@@ -1057,7 +971,8 @@ useEffect(() => {
                                         </div>
                                         <div className="mt-1 flex items-center justify-between text-xs">
                                           <span className="text-[var(--theme-text-muted)]">
-                                            {count} {count === 1 ? "lead" : "leads"}
+                                            {count}{" "}
+                                            {count === 1 ? "lead" : "leads"}
                                           </span>
                                           <span className="font-semibold text-[var(--theme-text)]">
                                             {pct.toFixed(2)}%
@@ -1082,14 +997,15 @@ useEffect(() => {
                 );
               })}
 
-              {/* Empty & Loading states */}
-              {!loading && filteredSources.length === 0 && (
+              {/* Empty */}
+              { filteredSources.length === 0 && (
                 <tr>
                   <td
                     className="px-4 py-10 text-center text-[var(--theme-text-muted)]"
-                    colSpan={showBranchColumn ? 9 : 8}
+                    colSpan={8}
                   >
-                    No sources {searchTerm ? `matching “${searchTerm}”` : "available"}.
+                    No sources{" "}
+                    {searchTerm ? `matching “${searchTerm}”` : "available"}.
                   </td>
                 </tr>
               )}
@@ -1097,7 +1013,6 @@ useEffect(() => {
           </table>
         </div>
       </div>
-
     </div>
   );
 }

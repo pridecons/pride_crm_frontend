@@ -325,7 +325,6 @@ const handleEnter = () => {
       {
         title: "CONFIGURATION", section: "configuration", icon: Settings,
         items: [
-          { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
           { href: "/department", icon: Building, label: "Department", access: "department_page" },
           { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
           // { href: "/user/attendance", icon: CalendarCheck, label: "Attendance", access: "attandance_page" },

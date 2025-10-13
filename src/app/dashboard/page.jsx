@@ -2,10 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
-import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from '@/api/Axios';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, Trophy, } from 'lucide-react';
+import { PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, Trophy, } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import DashboardSkeleton from '@/components/common/skeletonloader';
 
@@ -92,10 +91,8 @@ export default function Dashboard() {
 
   const roleName = (user?.role_name || '').toUpperCase();
   const isSuperAdmin = roleName === 'SUPERADMIN';
-  const isBranchManager = roleName === 'BRANCH_MANAGER';
-  const isEmployee = !isSuperAdmin && !isBranchManager;
+  const isEmployee = !isSuperAdmin;
 
-  const userBranchId = user?.branch_id ?? user?.user?.branch_id ?? '';
   const myCode = user?.sub || user?.employee_code || user?.user?.employee_code || '';
 
   const firstName = useMemo(() => {
@@ -127,8 +124,6 @@ export default function Dashboard() {
   }, [isEmployee, appliedFilters.view]);
   const [userSearch, setUserSearch] = useState('');
   const debUserSearch = useDebouncedValue(userSearch, 200);
-  const [branches, setBranches] = useState([]); // [{id, name}]
-  const [branchTabId, setBranchTabId] = useState(''); // '' means All for SA
   const baseDefaults = useMemo(
     () => ({
       days: 1,
@@ -152,23 +147,21 @@ export default function Dashboard() {
       !!a.employeeCode ||
       !!a.profileId ||
       !!a.departmentId ||
-      (isSuperAdmin && branchTabId !== '')
+      (isSuperAdmin)
     );
-  }, [appliedFilters, baseDefaults, isSuperAdmin, branchTabId]);
+  }, [appliedFilters, baseDefaults, isSuperAdmin]);
 
   const showReset = !!user && hasActiveFilters;
 
-  // one-click reset (clears draft, applied, and SA branch tab)
+  // one-click reset (clears draft, applied, and SA tab)
   const resetAllFilters = () => {
     setDraftFilters(baseDefaults);
     setAppliedFilters(baseDefaults);
-    if (isSuperAdmin) setBranchTabId('');
     setUserSearch('');
   };
 
   // Options + users
   const [profiles, setProfiles] = useState([]);
-  const [departments, setDepartments] = useState([]);
   const [usersList, setUsers] = useState([]);
   const [responses, setResponses] = useState([]);
 
@@ -182,11 +175,10 @@ export default function Dashboard() {
       try {
         setOptLoading(true);
         setOptError('');
-        const [profRes,  usersRes, branchesRes, respRes] = await Promise.all([
+        const [profRes,  usersRes, respRes] = await Promise.all([
           axiosInstance.get('/profile-role', { params: { skip: 0, limit: 50, order_by: 'hierarchy_level' } }),
           
           axiosInstance.get('/users', { params: { skip: 0, limit: 100, active_only: false } }),
-          axiosInstance.get('/branches', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/lead-config/responses/', { params: { skip: 0, limit: 100 } }),
         ]);
         setProfiles((profRes.data || []).map((p) => ({ id: p.id, name: p.name, lvl: p.hierarchy_level })));
@@ -197,11 +189,9 @@ export default function Dashboard() {
           email: u.email,
           phone: u.phone_number,
           role_name: u.profile_role?.name ?? String(u.role_id ?? ''),
-          branch_id: u.branch_id,
           senior_code: u.senior_profile_id || null,
         }));
         setUsers(ulist);
-        setBranches((branchesRes.data || []).map((b) => ({ id: b.id, name: b.name })));
         setResponses((respRes.data || []).map(r => ({ id: r.id, name: r.name })));
       } catch (e) {
         setOptError(e?.response?.data?.detail || e?.message || 'Failed to load filter options');
@@ -211,14 +201,10 @@ export default function Dashboard() {
     })();
   }, [user]);
 
-  // Effective branch for queries:
-  const effectiveBranchId = isSuperAdmin ? branchTabId : userBranchId || '';
-
   /* ---- Allowed users by scope ---- */
   const allowedUsers = useMemo(() => {
     if (!usersList?.length) return [];
     if (isSuperAdmin) return usersList;
-    if (isBranchManager) return usersList.filter((u) => String(u.branch_id) === String(userBranchId));
 
     // Others: team (BFS over seniors)
     const bySenior = usersList.reduce((m, u) => {
@@ -240,7 +226,7 @@ export default function Dashboard() {
       }
     }
     return usersList.filter((u) => teamSet.has(u.employee_code));
-  }, [usersList, isSuperAdmin, isBranchManager, userBranchId, myCode]);
+  }, [usersList, isSuperAdmin, myCode]);
 
   // If selected (draft) employee goes out of scope, clear it
   useEffect(() => {
@@ -272,7 +258,7 @@ export default function Dashboard() {
   const [empPage, setEmpPage] = useState(1);
   useEffect(() => {
     setEmpPage(1);
-  }, [appliedFilters, effectiveBranchId, employeesTable]);
+  }, [appliedFilters, employeesTable]);
   
 
   const queryParams = useMemo(() => {
@@ -280,12 +266,11 @@ export default function Dashboard() {
     const p = { days, view };
     if (fromDate) p.from_date = fromDate;
     if (toDate) p.to_date = toDate;
-    if (effectiveBranchId) p.branch_id = Number(effectiveBranchId);
     if (employeeCode) p.employee_id = employeeCode;
     if (profileId) p.profile_id = Number(profileId);
     if (departmentId) p.department_id = Number(departmentId);
     return p;
-  }, [appliedFilters, effectiveBranchId]);
+  }, [appliedFilters]);
 
   const fetchDashboard = async () => {
     try {
@@ -399,7 +384,7 @@ const teamTarget = N(pay.team_target);
 const teamAchieved = N(pay.achive_team_target ?? pay.achieved_team_target);
 
 const hideTeamPairForAdmin =
-  (isSuperAdmin || isBranchManager) &&
+  (isSuperAdmin) &&
   teamTarget === 0 &&
   teamAchieved === 0;
 
@@ -431,43 +416,6 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
               </div>
             )}
 
-            {/* Branch Tabs */}
-            {isSuperAdmin && (
-              <div
-                className="p-3 shadow-md rounded-xl"
-                style={{
-                  backgroundColor: hexToRgba(themeConfig.cardBackground, 0.9),
-                  border: `1px solid ${themeConfig.border}`,
-                }}
-              >
-                <div className="flex items-center gap-2 overflow-x-auto">
-                  <Tab
-                    active={branchTabId === ''}
-                    onClick={() => setBranchTabId('')}
-                    themeConfig={themeConfig}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      <span className="text-sm">All Branches</span>
-                    </div>
-                  </Tab>
-
-                  {(branches || []).map((b) => (
-                    <Tab
-                      key={b.id}
-                      active={String(branchTabId) === String(b.id)}
-                      onClick={() => setBranchTabId(b.id)}
-                      themeConfig={themeConfig}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Store className="h-4 w-4" />
-                        <span className="text-sm">{b.name}</span>
-                      </div>
-                    </Tab>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Filters Toolbar (chips show APPLIED) */}
             <div className="flex items-center justify-end">
@@ -627,7 +575,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
     themeConfig={themeConfig}
   />
 
-  {!(isSuperAdmin || isBranchManager) || teamTarget > 0 || teamAchieved > 0 ? (
+  {!(isSuperAdmin) || teamTarget > 0 || teamAchieved > 0 ? (
     <SingleLineTargetCard
       title="Team Targets"
       achieved={teamAchieved}
@@ -687,35 +635,6 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
             {/* Top performers */}
             {!!data && (
               <div className="gap-4">
-                {isSuperAdmin && (
-                  <TableWrap className="mb-6" title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5" style={{ color: themeConfig.primary }} />} themeConfig={themeConfig}>
-                    <div className="max-h-72 overflow-y-auto pr-1">
-                      <SimpleTable
-                        cols={['Branch', 'Revenue', 'Paid Count', 'Conversion %']}
-                        rows={(data?.top?.branches || []).map((b) => [
-                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${b.branch_code}-name`}>
-                            {b.branch_name || '—'}
-                          </span>,
-                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${b.branch_code}-rev`}>
-                            {inr(b.revenue)}
-                          </span>,
-                          <span style={{ color: themeConfig.text }} key={`${b.branch_code}-paid`}>
-                            {num(b.paid_count)}
-                          </span>,
-                          <span
-                            className="font-semibold"
-                            style={{ color: Number(b.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
-                            key={`${b.branch_code}-rate`}
-                          >
-                            {b.conversion_rate ?? 0}%
-                          </span>,
-                        ])}
-                        themeConfig={themeConfig}
-                        className="w-full rounded-2xl"
-                      />
-                    </div>
-                  </TableWrap>
-                )}
 
                 <div className="mt-6">
                   <TableWrap
@@ -767,7 +686,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
             )}
 
             {/* Profiles (admin & BM only) */}
-            {!!data && (isSuperAdmin || isBranchManager) && (
+            {!!data && (isSuperAdmin) && (
               <div className="grid grid-cols-1 gap-4">
                 <TableWrap className="mb-6" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
                   <div className="max-h-72 overflow-y-auto pr-1">
@@ -1094,7 +1013,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
                       </Field>
                     )}
 
-                    {(isSuperAdmin || isBranchManager) && (
+                    {(isSuperAdmin) && (
                       <>
                         <Field label={<LabelWithIcon icon={<Briefcase className="h-4 w-4" />} text="Role (Profile)" />} themeConfig={themeConfig}>
                           <select

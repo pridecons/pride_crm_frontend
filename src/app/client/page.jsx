@@ -24,8 +24,8 @@ const EmployeeAutoComplete = ({
   employeeDropdownOpen, setEmployeeDropdownOpen,
   selectedEmployee, setSelectedEmployee,
   searchEmployees,
-  isSuperAdmin, isBranchManager, myView,
-  branchId, appliedFrom, appliedTo,
+  isSuperAdmin, myView,
+  appliedFrom, appliedTo,
   fetchClients, fetchMyClients,
 }) => {
   const wrapRef = useRef(null);
@@ -35,15 +35,15 @@ const EmployeeAutoComplete = ({
     const from = appliedFrom || "";
     const to = appliedTo || "";
     const emp = ""; // cleared
-    if (isSuperAdmin || isBranchManager) {
-      fetchClients(branchId ?? null, from, to, emp);
+    if (isSuperAdmin) {
+      fetchClients(null, from, to, emp);
     } else if (myView === "other") {
       fetchMyClients("other", from, to, emp);
     } else {
       // for "self" view there is no employee filter; keep as-is
       fetchMyClients("self", from, to, emp);
     }
-  }, [appliedFrom, appliedTo, isSuperAdmin, isBranchManager, myView, branchId, fetchClients, fetchMyClients]);
+  }, [appliedFrom, appliedTo, isSuperAdmin, myView, fetchClients, fetchMyClients]);
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -130,8 +130,8 @@ const EmployeeAutoComplete = ({
                   setEmployeeQuery("");
                   setEmployeeDropdownOpen(false);
                   const emp = opt.employee_code;
-                  if (isSuperAdmin || isBranchManager) {
-                    fetchClients(branchId ?? null, appliedFrom || "", appliedTo || "", emp);
+                  if (isSuperAdmin) {
+                    fetchClients(null, appliedFrom || "", appliedTo || "", emp);
                   } else if (myView === "other") {
                     fetchMyClients("other", appliedFrom || "", appliedTo || "", emp);
                   } else {
@@ -174,7 +174,6 @@ const getMyEmployeeCodeFromCookie = () => {
 const normalizeRoleKey = (r) => {
   const key = (r || "").toString().trim().toUpperCase().replace(/\s+/g, "_");
   if (key === "SUPER_ADMINISTRATOR") return "SUPERADMIN";
-  if (key === "BRANCH_MANAGER") return "BRANCH MANAGER";
   return key;
 };
 const ROLE_CACHE_KEY = "role_map_v1";
@@ -182,7 +181,6 @@ const ROLE_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const toDisplayRole = (raw) => {
   const key = normalizeRoleKey(raw);
-  if (key === "BRANCH_MANAGER") return "BRANCH MANAGER";
   if (key === "COMPLIANCE_OFFICER") return "COMPLIANCE OFFICER";
   return key;
 };
@@ -190,14 +188,13 @@ const toDisplayRole = (raw) => {
 const getUserMeta = () => {
   try {
     const raw = Cookies.get("user_info");
-    if (!raw) return { role: "", branch_id: null };
+    if (!raw) return { role: ""};
     const p = JSON.parse(raw);
     const rawRole = p?.role || p?.role_name || p?.user?.role || p?.user?.role_name || "";
     const role = normalizeRoleKey(rawRole);
-    const branch_id = p?.branch_id ?? p?.user?.branch_id ?? p?.branch?.id ?? null;
-    return { role, branch_id };
+    return { role };
   } catch {
-    return { role: "", branch_id: null };
+    return { role: "" };
   }
 };
 
@@ -255,8 +252,6 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 export default function ClientsPage() {
   const { hasPermission } = usePermissions();
   const [role, setRole] = useState(null);
-  const [branchId, setBranchId] = useState(null);
-  const [branches, setBranches] = useState([]);
   const [clients, setClients] = useState([]);
   const [myClients, setMyClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -296,8 +291,6 @@ const [appliedTo, setAppliedTo] = useState("");
   const employeeSearchTimer = useRef(null);
 
   const isSuperAdmin = role === "SUPERADMIN";
-  const isBranchManager = role === "BRANCH MANAGER";
-  const showBranchColumn = isSuperAdmin;
 
   const roleFromId = useCallback((id) => {
     const k = String(id ?? "");
@@ -316,8 +309,6 @@ const searchEmployees = useCallback((q) => {
 
       // ✅ Only pass the search term. Backend uses the auth cookie to scope:
       // - Senior: only direct team
-      // - Branch Manager: whole branch
-      // - Superadmin: all branches
       const res = await axiosInstance.get("/users-fiter/", {
         params: { search: query }
       });
@@ -375,39 +366,23 @@ const searchEmployees = useCallback((q) => {
       }
     })();
 
-    const { role: r, branch_id: b } = getUserMeta();
+    const { role: r} = getUserMeta();
 setRole(r);
-setBranchId(b ?? null);
 setMyEmployeeCode(getMyEmployeeCodeFromCookie());
 
     if (r === "SUPERADMIN") {
-      fetchBranches();
       fetchClients(null);
-    } else if (r === "BRANCH MANAGER") {
-      fetchClients(b);
     } else {
       fetchMyClients("self");
       setMyView("self");
     }
   }, []);
 
-  const fetchBranches = async () => {
-    try {
-      const res = await axiosInstance.get("/branches/?skip=0&limit=100&active_only=false");
-      setBranches(res.data || []);
-    } catch (err) {
-      console.error("Failed to fetch branches:", err);
-    }
-  };
-
 // REPLACE fetchClients with this
-const fetchClients = async (branch = null, fromDate = "", toDate = "",  employeeCode = "") => {
+const fetchClients = async (fromDate = "", toDate = "",  employeeCode = "") => {
   try {
     setLoading(true);
-    const effectiveBranch = (branch !== null && branch !== undefined) ? branch : (branchId ?? null);
-
     const qs = new URLSearchParams({ page: "1", limit: "100", view: "all" });
-    if (effectiveBranch) qs.append("branch_id", String(effectiveBranch));
     if (fromDate) qs.append("from_date", fromDate);
     if (toDate) qs.append("to_date", toDate);
     if (employeeCode) qs.append("employee_code", employeeCode);
@@ -888,7 +863,6 @@ const fetchMyClients = async (scope, fromDate = "", toDate = "", employeeCode = 
           <LV label="Email" value={client.email} />
           <LV label="Mobile" value={client.mobile} />
           <LV label="City" value={client.city} />
-          {showBranchColumn && <LV label="Branch" value={client.branch_name} />}
           <LV
             label="Assigned"
             value={
@@ -1039,67 +1013,17 @@ const applyDate = useCallback(() => {
   // refetch based on role
   const emp = selectedEmployee?.employee_code || "";
   if (isSuperAdmin) {
-    fetchClients(branchId ?? null, from || "", to || "", emp);
-  } else if (isBranchManager) {
-    fetchClients(branchId ?? null, from || "", to || "", emp);
+    fetchClients( null, from || "", to || "", emp);
   } else {
     fetchMyClients(myView || "self", from || "", to || "", emp);
   }
-}, [dateFromInput, dateToInput, isSuperAdmin, isBranchManager, branchId, myView, selectedEmployee]);
+}, [dateFromInput, dateToInput, isSuperAdmin, myView, selectedEmployee]);
 
   return (
     <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
       <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8">
-        {(isSuperAdmin || isBranchManager) && (
+        {(isSuperAdmin) && (
           <div className="mb-5 sm:mb-6 space-y-4 sm:space-y-5">
-            {/* Branch picker (superadmin only) */}
-            {isSuperAdmin && hasPermission("client_select_branch") && (
-              <div>
-                <label className="text-sm font-bold text-[var(--theme-text)] mb-2 sm:mb-3 block">
-                  Select Branch
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-   setBranchId(null);
-   const emp = selectedEmployee?.employee_code || "";
-   fetchClients(null, appliedFrom || "", appliedTo || "", emp);
- }}
-                    className="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 hover:shadow-md"
-                    style={{
-                      background: !branchId ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",
-                      color: !branchId ? "var(--theme-components-button-primary-text)" : "var(--theme-text)",
-                      borderColor: !branchId ? "var(--theme-components-button-primary-bg)" : "var(--theme-border)",
-                      boxShadow: !branchId ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
-                    }}
-                  >
-                    All Branches
-                  </button>
-                  {branches.map((branch) => {
-                    const isActive = branchId === branch.id;
-                    return (
-                      <button
-                        key={branch.id}
-                        onClick={() => {
-       setBranchId(branch.id);
-       const emp = selectedEmployee?.employee_code || "";
-       fetchClients(branch.id, appliedFrom || "", appliedTo || "", emp);
-     }}
-                        className="px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold border transition-all duration-200 hover:shadow-md"
-                        style={{
-                          background: isActive ? "var(--theme-components-button-primary-bg)" : "var(--theme-surface)",
-                          color: isActive ? "var(--theme-components-button-primary-text)" : "var(--theme-text)",
-                          borderColor: isActive ? "var(--theme-components-button-primary-bg)" : "var(--theme-border)",
-                          boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
-                        }}
-                      >
-                        {branch.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Top controls */}
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4">
@@ -1145,9 +1069,7 @@ const applyDate = useCallback(() => {
   setSelectedEmployee={setSelectedEmployee}
   searchEmployees={searchEmployees}
   isSuperAdmin={isSuperAdmin}
-  isBranchManager={isBranchManager}
   myView={myView}
-  branchId={branchId}
   appliedFrom={appliedFrom}
   appliedTo={appliedTo}
   fetchClients={fetchClients}
@@ -1198,9 +1120,7 @@ const applyDate = useCallback(() => {
         setEmployeeQuery("");
 
         if (isSuperAdmin) {
-    fetchClients(branchId ?? null, "", "");
-  } else if (isBranchManager) {
-    fetchClients(branchId ?? null, "", "");
+    fetchClients( null, "", "");
   } else {
     fetchMyClients(myView || "self", "", "");
   }
@@ -1220,7 +1140,7 @@ const applyDate = useCallback(() => {
         {/* Content */}
         {loading ? (
           <LoadingState message="Loading Clients..." />
-        ) : (isSuperAdmin || isBranchManager) ? (
+        ) : (isSuperAdmin) ? (
           view === "card" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-stretch">
               {clients.map((client) => renderClientCard(client))}
@@ -1237,7 +1157,6 @@ const applyDate = useCallback(() => {
                         <div className="text-[12px] text-[var(--theme-textSecondary)] truncate">{c.email || "—"}</div>
                         <div className="text-[12px] text-[var(--theme-textSecondary)]">{c.mobile || "—"}</div>
                         <div className="text-[12px] text-[var(--theme-textSecondary)]">{c.city || "—"}</div>
-                        {showBranchColumn && <div className="text-[12px] text-[var(--theme-textSecondary)]">Branch: {c.branch_name || "—"}</div>}
                         <div className="text-[12px] text-[var(--theme-textSecondary)]">
                           Assigned: {c?.assigned_employee ? `${c.assigned_employee.name || "—"} (${roleFromId(c.assigned_employee.role_id)})` : "—"}
                         </div>
@@ -1278,7 +1197,7 @@ const applyDate = useCallback(() => {
                   <TableHeader
                     cols={[
                       "Name", "Email", "Mobile", "City",
-                      ...(showBranchColumn ? ["Branch"] : []),
+                      ...([]),
                       "Assigned", "KYC", "Paid", "Calls", "Actions",
                     ]}
                   />
@@ -1289,9 +1208,6 @@ const applyDate = useCallback(() => {
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.email || "—"}</td>
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.mobile || "—"}</td>
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.city || "—"}</td>
-                        {showBranchColumn && (
-                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.branch_name || "—"}</td>
-                        )}
                         <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">
                           {client?.assigned_employee ? `${client.assigned_employee.name || "—"} (${roleFromId(client.assigned_employee.role_id)})` : "—"}
                         </td>
@@ -1363,9 +1279,7 @@ const applyDate = useCallback(() => {
     setSelectedEmployee={setSelectedEmployee}
     searchEmployees={searchEmployees}
     isSuperAdmin={isSuperAdmin}
-    isBranchManager={isBranchManager}
     myView={myView}
-    branchId={branchId}
     appliedFrom={appliedFrom}
     appliedTo={appliedTo}
     fetchClients={fetchClients}
@@ -1423,9 +1337,7 @@ const applyDate = useCallback(() => {
         setEmployeeQuery("");
 
         if (isSuperAdmin) {
-    fetchClients(branchId ?? null, "", "");
-  } else if (isBranchManager) {
-    fetchClients(branchId ?? null, "", "");
+    fetchClients( null, "", "");
   } else {
     fetchMyClients(myView || "self", "", "");
   }
@@ -1529,7 +1441,7 @@ const applyDate = useCallback(() => {
         )}
 
         {/* Empty state */}
-        {!loading && ((isSuperAdmin || isBranchManager) ? clients.length === 0 : myClients.length === 0) && (
+        {!loading && ((isSuperAdmin) ? clients.length === 0 : myClients.length === 0) && (
           <div className="text-center py-12 sm:py-16">
             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 rounded-full bg-[var(--theme-surface)] flex items-center justify-center">
               <svg className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: "var(--theme-textSecondary)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1537,9 +1449,6 @@ const applyDate = useCallback(() => {
               </svg>
             </div>
             <h3 className="text-base sm:text-lg font-semibold text-[var(--theme-text)] mb-1 sm:mb-2">No clients found</h3>
-            <p className="text-sm" style={{ color: "var(--theme-textSecondary)" }}>
-              {branchId ? "Try selecting a different branch or date range." : "Try changing the date range."}
-            </p>
           </div>
         )}
 

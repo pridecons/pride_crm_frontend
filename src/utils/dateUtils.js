@@ -8,10 +8,13 @@ export const CALLBACK_SEND_MODE = "offset";
 const pad = (n) => String(n).padStart(2, "0");
 
 /** Build "YYYY-MM-DDTHH:MM:SS+HH:MM" from a datetime-local value */
+/** Build "YYYY-MM-DDTHH:MM:SS+HH:MM" from a datetime-local value */
 export function toISOWithOffset(datetimeLocalString) {
   if (!datetimeLocalString) return null;
-  // datetimeLocalString e.g. "2025-08-30T15:45" (local)
+
+  // Important: interpret as *local* wall time (what datetime-local gives us)
   const d = new Date(datetimeLocalString);
+  if (Number.isNaN(d.getTime())) return null;
 
   const year = d.getFullYear();
   const month = pad(d.getMonth() + 1);
@@ -26,6 +29,20 @@ export function toISOWithOffset(datetimeLocalString) {
   const offM = pad(Math.abs(tz) % 60);
 
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offH}:${offM}`;
+}
+
+
+/** For prefilling <input type="datetime-local"> from server values */
+export function isoToDatetimeLocal(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);            // handles "Z" or "+05:30"
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  return `${y}-${m}-${day}T${hh}:${mm}`;
 }
 
 /** Build "YYYY-MM-DDTHH:MM:SS" (no Z, no offset) from a datetime-local value */
@@ -48,25 +65,17 @@ export function formatCallbackForAPI(datetimeLocalString) {
     : toISOWithOffset(datetimeLocalString);
 }
 
-/** For prefilling <input type="datetime-local"> from server values */
-export function isoToDatetimeLocal(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mm = pad(d.getMinutes());
-  return `${y}-${m}-${day}T${hh}:${mm}`;
-}
+export function toIST(isoLike) {
+  if (!isoLike) return "N/A";
 
-export function toIST(dateString) {
-  if (!dateString) return "N/A";
+  // If it already includes a timezone (Z or ±HH:MM), don't append anything.
+  // If it's naïve (no tz), treat it as UTC for display.
+  const hasTZ = /Z|[+\-]\d{2}:\d{2}$/.test(isoLike);
+  const parsed = new Date(hasTZ ? isoLike : isoLike + "Z");
 
-  // Force treat input as UTC
-  const utcDate = new Date(dateString + "Z");
+  if (Number.isNaN(parsed.getTime())) return "N/A";
 
-  return utcDate.toLocaleString("en-IN", {
+  return parsed.toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
     dateStyle: "medium",
     timeStyle: "short",

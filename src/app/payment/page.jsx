@@ -1017,7 +1017,17 @@ export default function PaymentHistoryPage() {
                       </button>
                     </td>
                     <td className="py-2 px-3 text-left">{show(p.name)}</td>
-                    <td className="py-2 px-3 text-center">{show(p.email)}</td>
+                    <td className="py-2 px-3 text-center">
+  <span
+    title={p.email || ""}                  // tooltip: full email
+    aria-label={p.email || "no email"}
+    className="inline-block max-w-[10rem] truncate align-middle
+               text-[var(--theme-text)]"
+  >
+    {show(p.email)}
+  </span>
+</td>
+
                     <td className="py-2 px-3 text-center">{show(p.phone_number)}</td>
                     <td className="py-2 px-3 font-semibold text-center">{showINR(p.paid_amount)}</td>
                     <td className="py-2 px-3">

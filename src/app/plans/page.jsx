@@ -12,14 +12,13 @@ import { ErrorHandling } from '@/helper/ErrorHandling'
 const cfg = (signal) => (signal ? { signal } : {})
 
 export default function ServicesPage() {
-  const { hasPermission } = usePermissions()
+  const { hasPermission } = usePermissions();
 
   /* ---------- hydration-safe flags ---------- */
   const [isClient, setIsClient] = useState(false)
   useEffect(() => setIsClient(true), [])
-  const canCreate = isClient && hasPermission('service_create')
-  const canEdit = isClient && hasPermission('service_edit')
-  const canDelete = isClient && hasPermission('service_delete')
+  const canCreate = isClient && hasPermission('plans_create')
+
 
   /* ---------- state ---------- */
   const [services, setServices] = useState([])
@@ -44,57 +43,57 @@ export default function ServicesPage() {
   const [activePlanType, setActivePlanType] = useState('') // becomes 'All'
 
   // add next to your other state
-const [optionsLoaded, setOptionsLoaded] = useState(false) // cache so we don't refetch every open
+  const [optionsLoaded, setOptionsLoaded] = useState(false) // cache so we don't refetch every open
 
   const SERVICE_API = '/services'
 
   // keep cfg(signal) as-is
 
-const loadFormOptions = async (signal) => {
-  try {
-    const [typesRes, plansRes] = await Promise.all([
-      axiosInstance.get('/profile-role/recommendation-type', cfg(signal)),
-      axiosInstance.get('/services/plan-types', cfg(signal)),
-    ])
+  const loadFormOptions = async (signal) => {
+    try {
+      const [typesRes, plansRes] = await Promise.all([
+        axiosInstance.get('/profile-role/recommendation-type', cfg(signal)),
+        axiosInstance.get('/services/plan-types', cfg(signal)),
+      ])
 
-    setServiceTypeOptions(typesRes.data || [])
-    const types = plansRes.data || []
-    setPlanTypeOptions(types)
-    setActivePlanType((prev) => (prev ? prev : 'All'))
-    setOptionsLoaded(true)
-  } catch (err) {
-    if (err?.name !== 'CanceledError' && err?.name !== 'AbortError') {
-      ErrorHandling({ error: err, defaultError: 'Failed to load form options' })
+      setServiceTypeOptions(typesRes.data || [])
+      const types = plansRes.data || []
+      setPlanTypeOptions(types)
+      setActivePlanType((prev) => (prev ? prev : 'All'))
+      setOptionsLoaded(true)
+    } catch (err) {
+      if (err?.name !== 'CanceledError' && err?.name !== 'AbortError') {
+        ErrorHandling({ error: err, defaultError: 'Failed to load form options' })
+      }
     }
-  } 
-}
+  }
 
   const loadServices = async (signal) => {
     const res = await axiosInstance.get(SERVICE_API, cfg(signal))
     setServices(res.data || [])
   }
 
-// replace your current init effect with this:
-useEffect(() => {
-  const controller = new AbortController()
-  ;(async () => {
-    setLoading(true)
-    try {
-      await loadServices(controller.signal) // <-- only services on page load
-    } finally {
-      setLoading(false)
-    }
-  })()
-  return () => controller.abort()
-}, [])
+  // replace your current init effect with this:
+  useEffect(() => {
+    const controller = new AbortController()
+      ; (async () => {
+        setLoading(true)
+        try {
+          await loadServices(controller.signal) // <-- only services on page load
+        } finally {
+          setLoading(false)
+        }
+      })()
+    return () => controller.abort()
+  }, [])
 
-// new effect: when modal opens, fetch the two option lists (once)
-useEffect(() => {
-  if (!isModalOpen || optionsLoaded) return
-  const controller = new AbortController()
-  loadFormOptions(controller.signal)
-  return () => controller.abort()
-}, [isModalOpen, optionsLoaded])
+  // new effect: when modal opens, fetch the two option lists (once)
+  useEffect(() => {
+    if (!isModalOpen || optionsLoaded) return
+    const controller = new AbortController()
+    loadFormOptions(controller.signal)
+    return () => controller.abort()
+  }, [isModalOpen, optionsLoaded])
 
   /* ---------- derived ---------- */
   const filteredServices = useMemo(() => {
@@ -106,17 +105,17 @@ useEffect(() => {
     })
   }, [services, activePlanType])
 
-// replace your availablePlanTypes useMemo with this:
-const availablePlanTypes = useMemo(() => {
-  if (!services.length) return []
-  const set = new Set(
-    services
-      .filter((s) => s.billing_cycle === 'CALL')
-      .map((s) => s.plan_type)
-      .filter(Boolean)
-  )
-  return Array.from(set)
-}, [services])
+  // replace your availablePlanTypes useMemo with this:
+  const availablePlanTypes = useMemo(() => {
+    if (!services.length) return []
+    const set = new Set(
+      services
+        .filter((s) => s.billing_cycle === 'CALL')
+        .map((s) => s.plan_type)
+        .filter(Boolean)
+    )
+    return Array.from(set)
+  }, [services])
 
   useEffect(() => {
     if (!activePlanType && availablePlanTypes.length > 0) {
@@ -216,7 +215,7 @@ const availablePlanTypes = useMemo(() => {
     setIsModalOpen(false)
   }
 
-  const handleEdit = (srv) => { 
+  const handleEdit = (srv) => {
     setFormData({
       name: srv.name,
       description: srv.description,
@@ -278,11 +277,10 @@ const availablePlanTypes = useMemo(() => {
         <div className="flex flex-wrap gap-2 mb-8">
           <button
             onClick={() => setActivePlanType('All')}
-            className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
-              (activePlanType || 'All') === 'All'
+            className={`px-4 py-2 rounded-xl font-semibold transition-colors ${(activePlanType || 'All') === 'All'
                 ? 'bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]'
                 : 'bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]'
-            }`}
+              }`}
           >
             All Plans
           </button>
@@ -291,11 +289,10 @@ const availablePlanTypes = useMemo(() => {
             <button
               key={type}
               onClick={() => setActivePlanType(type)}
-              className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
-                activePlanType === type
+              className={`px-4 py-2 rounded-xl font-semibold transition-colors ${activePlanType === type
                   ? 'bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]'
                   : 'bg-[var(--theme-surface)] text-[var(--theme-text)] border border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]'
-              }`}
+                }`}
             >
               {type}
             </button>
@@ -346,8 +343,8 @@ const availablePlanTypes = useMemo(() => {
                       </div>
                     )}
 
-                    <div className="relative p-4 bg-[var(--theme-surface)] border-b border-[var(--theme-border)]">
-                      <h3 className="text-[12px] font-semibold leading-snug text-[var(--theme-text-muted)]">
+                    <div className="relative p-4  bg-[var(--theme-primary)] border-b border-[var(--theme-border)]">
+                      <h3 className="text-[12px] font-semibold leading-snug text-[var(--theme-text)]">
                         {srv.plan_type}
                       </h3>
                       <h3 className="text-lg font-semibold leading-snug text-[var(--theme-text)] pr-10">
@@ -370,28 +367,26 @@ const availablePlanTypes = useMemo(() => {
 
                     <div className="p-4 relative">
                       <div className="absolute right-2 top-2 flex items-center gap-1">
-                        {canEdit && (
-                          <>
-                            <button
-                              onClick={() => handleEdit(srv)}
-                              className="p-1 rounded-full hover:bg-[var(--theme-primary-softer)] text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] focus:outline-none"
-                              aria-label="Edit"
-                              title="Edit"
-                            >
-                              <Pencil size={18} />
-                            </button>
+                        {hasPermission("edit_plan") && (
 
-                            {canDelete && (
-                              <button
-                                onClick={() => handleDelete(srv.id)}
-                                className="p-1 rounded-full hover:bg-[var(--theme-danger-soft)] text-[var(--theme-danger)] hover:opacity-90 focus:outline-none"
-                                aria-label="Delete"
-                                title="Delete"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            )}
-                          </>
+                          <button
+                            onClick={() => handleEdit(srv)}
+                            className="p-1 rounded-full hover:bg-[var(--theme-primary-softer)] text-[var(--theme-primary)] hover:text-[var(--theme-primary-hover)] focus:outline-none"
+                            aria-label="Edit"
+                            title="Edit"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                        )}                   
+                          {hasPermission("delete_plane") && (
+                          <button
+                            onClick={() => handleDelete(srv.id)}
+                            className="p-1 rounded-full hover:bg-[var(--theme-danger-soft)] text-[var(--theme-danger)] hover:opacity-90 focus:outline-none"
+                            aria-label="Delete"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
                         )}
                       </div>
 
@@ -511,8 +506,8 @@ const availablePlanTypes = useMemo(() => {
                         {formData.service_type.length === 0
                           ? 'Select Service Type(s)'
                           : formData.service_type.length === serviceTypeOptions.length
-                          ? 'All'
-                          : formData.service_type.join(', ')}
+                            ? 'All'
+                            : formData.service_type.join(', ')}
                       </span>
                       <svg className={`w-4 h-4 ml-2 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>

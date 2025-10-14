@@ -104,50 +104,14 @@ export default function LeadResponsesPage() {
                        bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)]"
           >
             <Plus className="w-5 h-5" />
-            Create New Response
+            Add
           </button>
         )}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {/* Total */}
-        <div className="rounded-xl p-4 border bg-[var(--theme-primary-softer)] border-[var(--theme-border)]">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full p-2 bg-[var(--theme-primary-soft)]">
-              <MessageSquare className="w-5 h-5 text-[var(--theme-primary)]" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-[var(--theme-text-muted)]">
-                Total Responses
-              </p>
-              <p className="text-2xl font-bold text-[var(--theme-text)]">
-                {responses.length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Spacer card to keep layout symmetric on small screens */}
-        <div className="rounded-xl p-4 border bg-[var(--theme-surface)] border-[var(--theme-border)] sm:col-span-1 hidden sm:block" />
-
-        {/* Filtered */}
-        <div className="rounded-xl p-4 border bg-[var(--theme-warning, #f59e0b)]/10 border-[var(--theme-border)]">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full p-2 bg-[var(--theme-warning, #f59e0b)]/15">
-              <Search className="w-5 h-5 text-[var(--theme-warning, #f59e0b)]" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-[var(--theme-text-muted)]">
-                Filtered
-              </p>
-              <p className="text-2xl font-bold text-[var(--theme-text)]">
-                {filtered.length}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Form */}
       {isFormVisible && (
@@ -219,18 +183,33 @@ export default function LeadResponsesPage() {
       {/* Search */}
       <div className="flex items-center mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-2 w-4 h-4 text-[var(--theme-text-muted)]" />
+          <Search className="absolute left-3 top-3 w-4 h-4 text-[var(--theme-text-muted)]" />
           <input
             type="text"
             placeholder="Search responses..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 rounded-md w-64
+            className="pl-10 pr-4 py-2 rounded-lg w-64
                        bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)]
                        border border-[var(--theme-components-input-border)]
                        placeholder:text-[var(--theme-components-input-placeholder)]
                        focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
           />
+        </div>
+           <div className="flex items-center gap-2 pl-4 pr-10 py-1 border w-60 rounded-lg bg-[var(--theme-primary-softer)] border-[var(--theme-border)] ml-auto">
+          <div className="flex gap-3">
+          
+              <MessageSquare className="w-4 h-4 text-[var(--theme-text-muted)] mt-2" />
+
+              <p className="text-sm font-medium text-[var(--theme-text-muted)] mt-1.5">
+                Total Responses
+              </p>
+              <p className="text-xl font-bold text-[var(--theme-text)] m-0.5">
+
+                {responses.length}
+              </p>
+
+          </div>
         </div>
       </div>
 

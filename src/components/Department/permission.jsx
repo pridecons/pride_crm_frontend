@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -49,42 +48,46 @@ export default function PermissionsModal({
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gray-200 bg-opacity-30 z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-[500px] max-h-[600px]">
+    <div className="fixed inset-0 flex items-center justify-center mt-5 bg-[var(--theme-overlay)] backdrop-blur-3xl bg-opacity-30 z-50">
+      <div className="bg-[var(--theme-background)] rounded-lg shadow-lg p-4 w-[700px] max-h-[600px] border border-[var(--theme-border)]">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Permissions</h2>
+          <h2 className="text-xl font-semibold text-[var(--theme-text)]">Permissions</h2>
           <button
             onClick={handleCancel}
-            className="text-gray-500 hover:text-gray-800"
+            className="rounded-md p-1 text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
           >
             ✖
           </button>
         </div>
 
         {/* Permissions List */}
-        <div className="overflow-y-auto max-h-[400px] border rounded-md p-3">
+        <div className="overflow-y-auto max-h-[400px] border border-[var(--theme-border)] rounded-md p-3 bg-[var(--theme-surface)]">
           {availablePermissions.length > 0 ? (
             <div className="space-y-2">
               {availablePermissions.map((permission) => (
                 <label
                   key={permission}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer rounded"
+                  className="flex items-center gap-2 p-2 cursor-pointer rounded hover:bg-[var(--theme-surface-hover)]"
                 >
                   <input
                     type="checkbox"
                     checked={localSelected.includes(permission)}
                     onChange={() => handleTogglePermission(permission)}
                     className="w-4 h-4"
+                    style={{ accentColor: "var(--theme-primary)" }}
                   />
-                  <span className="text-sm">{formatPermissionName(permission)}</span>
+                  <span className="text-sm text-[var(--theme-text)]">
+                    {formatPermissionName(permission)}
+                  </span>
                 </label>
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-4">
-              No permissions available for this department.
-              <br />
-              <span className="text-xs">
+            <div className="text-center py-4">
+              <p className="text-[var(--theme-text-muted)]">
+                No permissions available for this department.
+              </p>
+              <span className="text-xs text-[var(--theme-text-muted)]">
                 Please select a department first or check department configuration.
               </span>
             </div>
@@ -93,22 +96,22 @@ export default function PermissionsModal({
 
         {/* Selected count */}
         {availablePermissions.length > 0 && (
-          <div className="mt-3 text-sm text-gray-600">
+          <div className="mt-3 text-sm text-[var(--theme-text-muted)]">
             {localSelected.length} of {availablePermissions.length} permissions selected
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="flex justify-end gap-2">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+            className="px-4 py-2 rounded-md border border-[var(--theme-border)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            className="px-4 py-2 rounded-md bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] hover:bg-[var(--theme-primary-hover)]"
           >
             Save
           </button>

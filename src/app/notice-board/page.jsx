@@ -512,7 +512,7 @@ export default function NoticeBoardPage() {
                                 {u.phone_number || "—"} • Branch {String(u.branch_id ?? "—")}
                               </div>
                             </div>
-                            <button onClick={() => addChip(u.employee_code)} className={btnSoft}>
+                            <button onClick={() => addChip(u.employee_code)} className={btnSoft + " flex items-center gap-2"}>
                               <UserPlus className="w-4 h-4" />
                               Add
                             </button>
@@ -641,10 +641,10 @@ export default function NoticeBoardPage() {
                   className={
                     canSend
                       ? btnPrimary
-                      : "px-6 py-3 rounded-xl font-medium bg-[var(--theme-surface)] text-[var(--theme-text-muted)] border border-[var(--theme-border)] cursor-not-allowed"
+                      : "px-6 py-2 rounded-xl font-medium flex items-center gap-2 bg-[var(--theme-surface)] text-[var(--theme-text-muted)] border border-[var(--theme-border)] cursor-not-allowed"
                   }
                 >
-                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   Send
                 </button>
               </div>

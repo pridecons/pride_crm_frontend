@@ -130,7 +130,7 @@ export default function ProfileModal({
       <style>{placeholderCss}</style>
 
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto border"
+        className="rounded-2xl shadow-2xl w-ful mx-4 max-h-[90vh] overflow-y-auto border"
         style={{
           background: "var(--theme-card-bg, #ffffff)",
           borderColor: "var(--theme-border, #e5e7eb)",

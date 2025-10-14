@@ -581,14 +581,14 @@ export default function SourceToolsPage() {
         </div>
 
         {/* Result */}
-        {result && (
+        {/* {result && (
           <div className="rounded-3xl border border-indigo-100/70 bg-white p-6 shadow-xl shadow-indigo-100/60">
             <h2 className="text-lg font-semibold text-gray-800 mb-3">Result</h2>
             <pre className="overflow-auto rounded-2xl bg-gray-900 p-4 text-sm text-gray-100">
 {JSON.stringify(result, null, 2)}
             </pre>
           </div>
-        )}
+        )} */}
       </main>
     </div>
   );

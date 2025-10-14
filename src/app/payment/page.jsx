@@ -94,10 +94,7 @@ const btnSecondary =
 /* =========================== Component =========================== */
 export default function PaymentHistoryPage() {
   const { theme, themeConfig, toggleTheme } = useTheme();
-  // Role/branch state
   const [role, setRole] = useState(null);
-  const [branchId, setBranchId] = useState("");
-  const [branches, setBranches] = useState([]);
   const router = useRouter();
   const [openRowId, setOpenRowId] = useState(null);
 
@@ -181,7 +178,7 @@ export default function PaymentHistoryPage() {
     return () => clearTimeout(t);
   }, [clientQuery]);
 
-  // Auth + branches
+  // Auth
   useEffect(() => {
     const token = Cookies.get("access_token");
     if (!token) {
@@ -193,19 +190,11 @@ export default function PaymentHistoryPage() {
     const userRole = (decoded.role_name || "").toUpperCase();
     setRole(userRole);
 
-    if (userRole === "BRANCH_MANAGER") {
-      setBranchId(decoded.branch_id?.toString() || "");
-    }
-    if (userRole === "SUPERADMIN" || userRole === "BRANCH_MANAGER") {
+    if (userRole === "SUPERADMIN" ) {
       setMyView("all");
     } else {
       setMyView("self");
     }
-
-    axiosInstance
-      .get("/branches/")
-      .then((res) => setBranches(res.data.branches || res.data || []))
-      .catch(() => setBranches([]));
   }, [router]);
 
   // Services list
@@ -228,11 +217,9 @@ export default function PaymentHistoryPage() {
   }, [service]);
 
   /* ---------------- Permissions + slide-over draft (INSIDE component) ---------------- */
-  const canPickBranch = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
-  const canSearchEmployees = role === "SUPERADMIN" || role === "BRANCH_MANAGER";
-  const isManagerOnly = role === "BRANCH_MANAGER";
-  const isNonManager = !(role === "SUPERADMIN" || role === "BRANCH_MANAGER");
-  const isEmployeeOnly = !(role === "SUPERADMIN" || role === "BRANCH_MANAGER");
+  const canSearchEmployees = role === "SUPERADMIN";
+  const isNonManager = !(role === "SUPERADMIN");
+  const isEmployeeOnly = !(role === "SUPERADMIN");
 
   // Draft panel state
   const baseDefaults = React.useMemo(
@@ -240,14 +227,13 @@ export default function PaymentHistoryPage() {
       days: 30,
       fromDate: "",
       toDate: "",
-      view: canPickBranch ? "all" : "self",
-      branchId: canPickBranch ? (branchId || "") : "",
+      view: "self",
       service: service || "",
       planId: plan || "",
       employeeId: selectedUserId || "",
       clientText: clientQuery || "",
     }),
-    [canPickBranch, branchId, service, plan, selectedUserId, clientQuery]
+    [service, plan, selectedUserId, clientQuery]
   );
 
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -263,7 +249,6 @@ export default function PaymentHistoryPage() {
       fromDate: date_from || "",
       toDate: date_to || "",
       view: isEmployeeOnly ? "self" : myView,
-      branchId: canPickBranch ? branchId || "" : "",
       service: service || "",
       planId: plan || "",
       employeeId: selectedUserId || "",
@@ -295,9 +280,8 @@ export default function PaymentHistoryPage() {
     setShowClientDropdown(false);
     setClientSuggestions([]);
 
-    // 5) Branch + scope
-    if (canPickBranch) setBranchId("");     // SUPERADMIN can go back to all branches
-    setMyView(canPickBranch ? "all" : "self");
+
+    setMyView("self");
 
     // 6) Paging
     setOffset(0);
@@ -306,23 +290,19 @@ export default function PaymentHistoryPage() {
   const hasActive = React.useMemo(() => {
     const isCustomDate = !!date_from || !!date_to;
     const notBaseView = isEmployeeOnly ? myView !== "self" : myView !== "all";
-    const branchMoved = canPickBranch && String(branchId) !== "";
     return (
       isCustomDate ||
       service ||
       plan ||
       selectedUserId ||
       clientQuery ||
-      notBaseView ||
-      branchMoved
+      notBaseView
     );
   }, [
     date_from,
     date_to,
     isEmployeeOnly,
     myView,
-    canPickBranch,
-    branchId,
     service,
     plan,
     selectedUserId,
@@ -350,7 +330,6 @@ export default function PaymentHistoryPage() {
         const params = {
           search,
           limit: 10,
-          branch_id: isManagerOnly ? branchId : undefined,
         };
 
         const res = await axiosInstance.get(`/users/`, {
@@ -382,7 +361,7 @@ export default function PaymentHistoryPage() {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userSearch, role, branchId]);
+  }, [userSearch, role]);
 
   /* ---------------- Client suggestions with role restrictions ---------------- */
   useEffect(() => {
@@ -410,7 +389,6 @@ export default function PaymentHistoryPage() {
             limit: 20,
             offset: 0,
             view: isNonManager ? myView : undefined,
-            branch_id: isManagerOnly ? Number(branchId) : undefined,
           };
 
           const res = await axiosInstance.get(`/payment/all/employee/history`, {
@@ -482,7 +460,7 @@ export default function PaymentHistoryPage() {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedClientQuery, role, branchId, myView]);
+  }, [debouncedClientQuery, role, myView]);
 
   /* ---------------- Handlers ---------------- */
   const handleUserSelect = (user) => {
@@ -533,11 +511,6 @@ export default function PaymentHistoryPage() {
     fetchAbortRef.current = controller;
 
     try {
-      const branchParam =
-        canPickBranch && branchId !== "" && branchId !== null && branchId !== undefined
-          ? Number(branchId)
-          : undefined;
-
       const raisedByParam = canSearchEmployees ? selectedUserId || undefined : undefined;
 
       const parsed =
@@ -551,15 +524,13 @@ export default function PaymentHistoryPage() {
         name: parsed.name || undefined,
         email: parsed.email || undefined,
         phone_number: parsed.phone_number || undefined,
-        branch_id: branchParam,
-        branch: branchParam,
         date_from: date_from || undefined,
         date_to: date_to || undefined,
         limit,
         offset,
         user_id: raisedByParam,
         raised_by: raisedByParam,
-        view: canPickBranch ? "all" : myView,
+        view: "all",
       };
       Object.keys(params).forEach((k) => {
         if (params[k] === "" || params[k] === null) delete params[k];
@@ -594,7 +565,6 @@ export default function PaymentHistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     role,
-    branchId,
     service,
     plan,
     clientFilter,
@@ -688,7 +658,7 @@ export default function PaymentHistoryPage() {
       </div>
 
       {/* Scope toggle for non-managers */}
-      {!(role === "SUPERADMIN" || role === "BRANCH_MANAGER") && (
+      {!(role === "SUPERADMIN") && (
         <div className="mb-4 inline-flex rounded-md shadow-sm" role="group">
           {["self", "other"].map((v, i) => (
             <button
@@ -703,47 +673,6 @@ export default function PaymentHistoryPage() {
               {v === "self" ? "My Payments" : "Team Payments"}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* Branch chips */}
-      {/* Branch chips — visible only to SUPERADMIN */}
-      {role === "SUPERADMIN" && (
-        <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 gap-4">
-          <div className="flex space-x-2 overflow-x-auto">
-            <button
-              onClick={() => {
-                setBranchId("");
-                setOffset(0);
-              }}
-              className={`px-4 py-2 rounded border border-[var(--theme-border)] ${branchId === ""
-                  ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-                  : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
-                }`}
-            >
-              All Branches
-            </button>
-
-            {branches.map((b) => {
-              const bid = b.id ?? b.branch_id;
-              const isActive = String(branchId) === String(bid);
-              return (
-                <button
-                  key={bid}
-                  onClick={() => {
-                    setBranchId(String(bid));
-                    setOffset(0);
-                  }}
-                  className={`px-4 py-2 rounded border border-[var(--theme-border)] ${isActive
-                      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-                      : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
-                    }`}
-                >
-                  {b.name || b.branch_name || `Branch ${bid}`}
-                </button>
-              );
-            })}
-          </div>
         </div>
       )}
 
@@ -1342,28 +1271,6 @@ export default function PaymentHistoryPage() {
                   </select>
                 </div>
               )}
-
-              {/* Branch (managers) */}
-              {canPickBranch && (
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Branch</label>
-                  <select
-                    className={inputClass}
-                    value={draft.branchId}
-                    onChange={(e) => setDraft((d) => ({ ...d, branchId: e.target.value }))}
-                  >
-                    <option value="">All Branches</option>
-                    {branches.map((b) => {
-                      const bid = b.id ?? b.branch_id;
-                      return (
-                        <option key={bid} value={String(bid)}>
-                          {b.name || b.branch_name || `Branch ${bid}`}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
             </div>
 
             {/* Footer */}
@@ -1382,8 +1289,6 @@ export default function PaymentHistoryPage() {
                 <button
                   className={`${btnPrimary}`}
                   onClick={() => {
-                    // 1) Branch + view
-                    if (canPickBranch) setBranchId(draft.branchId || "");
                     setMyView(isEmployeeOnly ? "self" : draft.view || "all");
 
                     // 2) Service/Plan

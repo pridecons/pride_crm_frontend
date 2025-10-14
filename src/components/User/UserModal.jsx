@@ -467,16 +467,6 @@ useEffect(() => {
         list = list.filter(u => String(u.employee_code) !== String(user.employee_code));
       }
 
-
-        list = list.filter(u => {
-          const roleName =
-            u?.role ||
-            u?.profile_role?.name ||
-            u?.role_name ||
-            "";
-        return (roleName || "").toString().toUpperCase().replace(/\s+/g, "_") === "SUPERADMIN";
-        });
-
       // stable sort
       list.sort((a, b) => {
         const ra = String(a.role_id || "");

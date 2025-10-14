@@ -1481,8 +1481,8 @@ const applyDate = useCallback(() => {
                   <TableHeader
    cols={
      myView === "other"
-       ? ["Name", "Email", "Mobile", "Assigned", "Total Paid", "Last Payment", "Calls", "Actions"]
-       : ["Name", "Email", "Mobile", "Total Paid", "Last Payment", "Calls", "Actions"]
+       ? ["Name", "Email", "Mobile", "Assigned", "Total Paid", "Last Payment","kyc_status", "Calls", "Actions"]
+       : ["Name", "Email", "Mobile", "Total Paid", "Last Payment","kyc_status", "Calls", "Actions"]
    }
  />
                   <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
@@ -1504,6 +1504,17 @@ const applyDate = useCallback(() => {
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">
                             {lastPaidAt ? new Date(lastPaidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                           </td>
+<td className="px-5 lg:px-6 py-3 lg:py-4">
+  <span
+    className={`px-3 py-1 rounded-full text-sm font-semibold ${
+      client.kyc_status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+    }`}
+  >
+    {client.kyc_status ? "DONE" : "PENDING"}
+  </span>
+</td>
+
+
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.used_calls ?? 0}/{client.total_calls ?? 0}</td>
                           <td className="px-5 lg:px-6 py-3 lg:py-4">
                             <div className="flex flex-wrap gap-2">

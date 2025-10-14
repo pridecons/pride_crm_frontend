@@ -55,25 +55,6 @@ export default function LeadHeader({ currentLead, isSuperAdmin = false }) {
                 );
               })()}
             </div>
-
-            {/* only for SUPERADMIN */}
-            {isSuperAdmin && (
-              <div
-                className="group inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs shadow-sm"
-                style={{
-                  border: `1px solid var(--theme-border)`,
-                  background: "var(--theme-card-bg)",
-                  color: "var(--theme-text)",
-                }}
-              >
-                <span
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full"
-                  style={{ background: "color-mix(in srgb, var(--theme-success) 12%, transparent)" }}
-                >
-                  <Building size={14} style={{ color: "var(--theme-success)" }} />
-                </span>
-              </div>
-            )}
           </div>
       )}
 

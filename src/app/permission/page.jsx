@@ -301,37 +301,65 @@ export default function PermissionsPage() {
     setFilteredPermissions([]);
   };
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      const [permRes, usersRes] = await Promise.all([
-        axiosInstance.get("/permissions/?skip=0&limit=100"),
-        axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
-      ]);
+// Helper: fetch all pages of users in one go (keeps your API & shapes)
+async function fetchAllUsers({ pageSize = 100 } = {}) {
+  let all = [];
+  let skip = 0;
 
-      const usersArray = Array.isArray(usersRes?.data?.data)
-        ? usersRes.data.data
-        : [];
+  // Defensive loop guard (avoid infinite loops on bad backends)
+  for (let i = 0; i < 200; i++) {
+    const res = await axiosInstance.get(`/users/?skip=${skip}&limit=${pageSize}&active_only=false`);
+    const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+    const pagination = res?.data?.pagination || {};
+    all = all.concat(data);
 
-      const map = {};
-      for (const u of usersArray) map[u.employee_code] = u;
+    const total = typeof pagination.total === "number" ? pagination.total : all.length;
+    // If we've reached or exceeded total, or the page returned less than pageSize, we’re done
+    if (all.length >= total || data.length < pageSize) break;
 
-      const permList = usersArray.map((user) => ({
-        user_id: user.employee_code,
-        user,
-        permissions: user.permissions || [],
-      }));
+    skip += pageSize;
+  }
 
-      setPermissions(permList);
-      setUsersByCode(map);
-      setUsersTotal(usersRes?.data?.pagination?.total ?? usersArray.length);
-    } catch (err) {
-      console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to load users/permissions" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  return all;
+}
+
+const fetchAllData = async () => {
+  try {
+    setLoading(true);
+
+    // 1) Pull all users across pages
+    const usersArray = await fetchAllUsers({ pageSize: 100 });
+
+    // 2) You still hit /permissions/?skip=0&limit=100 — keep if you need it elsewhere
+    //    (Left as-is since you asked to keep everything intact)
+    const permRes = await axiosInstance.get("/permissions/?skip=0&limit=100");
+
+    // 3) Build maps and lists exactly like before
+    const map = {};
+    for (const u of usersArray) map[u.employee_code] = u;
+
+    const permList = usersArray.map((user) => ({
+      user_id: user.employee_code,
+      user,
+      permissions: user.permissions || [],
+    }));
+
+    setPermissions(permList);
+    setUsersByCode(map);
+
+    // Prefer backend total if present on ANY page; else fallback to full length
+    const totalFromAny =
+      (permRes?.data?.pagination?.total) ??
+      usersArray.length;
+
+    setUsersTotal(totalFromAny);
+  } catch (err) {
+    console.error(err);
+    ErrorHandling({ error: err, defaultError: "Failed to load users/permissions" });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchAllPermissions = async () => {
     await fetchAllData();

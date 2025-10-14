@@ -3,8 +3,6 @@ import React, { useMemo, useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { Avatar } from "./atoms";
 import { clsx, humanTime } from "./utils";
-import Cookies from "js-cookie";
-import { jwtDecode } from "jwt-decode";
 
 /* ----------------------------- helpers ----------------------------- */
 // NEW: strict label = Today / Yesterday / YYYY-MM-DD (from API ISO)
@@ -57,42 +55,12 @@ const getRoleKeyLike = (obj) => {
 
 const getEmpCode = (obj) => toStr(obj?.employee_code || obj?.code || obj?.id);
 
-const ALWAYS_INCLUDE_ADMIN_CODES = new Set(["ADMIN001"]); // extend if needed
-
 // Read unseen (unread) count strictly from API response: unseen_count
 function getUnseen(t) {
   if (!t) return 0;
   let v = t.unseen_count;
   if (typeof v === "string") v = parseInt(v, 10);
   return Number.isFinite(v) && v > 0 ? v : 0;
-}
-
-function useCurrentUserRB() {
-  const [state, setState] = useState({ role: null });
-
-  useEffect(() => {
-    try {
-      const ui = Cookies.get("user_info");
-      if (ui) {
-        const obj = JSON.parse(ui);
-        const role = normalizeRoleKey(
-          obj?.role || obj?.user_role || obj?.role_name
-        );
-        setState({ role });
-        return;
-      }
-      const tok = Cookies.get("access_token");
-      if (tok) {
-        const p = jwtDecode(tok);
-        const role = normalizeRoleKey(p?.role);
-        setState({ role });
-        return;
-      }
-    } catch {}
-    setState({ role: null });
-  }, []);
-
-  return state; // {role}
 }
 
 export default function ThreadList({
@@ -106,8 +74,6 @@ export default function ThreadList({
   onOpenNewChat,
 }) {
   const q = (searchQuery || "").toLowerCase();
-  const { role } = useCurrentUserRB();
-  const isSuperAdmin = normalizeRoleKey(role) === "SUPERADMIN";
 
   // Threads search
   const filteredThreads = useMemo(() => {
@@ -123,48 +89,17 @@ export default function ThreadList({
     if (!q) return [];
 
     const base = Array.isArray(users) ? users : [];
-    const queryHintsSuper = q.includes("super");
-    const queryHintsAdmin = q.includes("admin");
-
-    const byQuery = base.filter((u) => {
+    
+    return base.filter((u) => {
       const code = getEmpCode(u);
       const roleK = getRoleKeyLike(u);
-      const phantom = [];
-
-      if (ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())) {
-        phantom.push("superadmin", "super admin", "admin", "admin001");
-      }
-      if (roleK === "SUPERADMIN" || u?.is_super_admin || u?.isSuperAdmin) {
-        phantom.push("superadmin", "super admin");
-      }
-
-      const hay = [
-        toStr(u.full_name || u.name),
-        toStr(code),
-        toStr(roleK),
-        ...phantom,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return (
-        hay.includes(q) ||
-        ((queryHintsSuper || queryHintsAdmin) &&
-          (roleK === "SUPERADMIN" ||
-            ALWAYS_INCLUDE_ADMIN_CODES.has(String(code).toUpperCase())))
-      );
-    });
-
-    if (isSuperAdmin) return byQuery;
-
-    return byQuery.filter((u) => {
-      const roleK = getRoleKeyLike(u);
-      const code = getEmpCode(u).toUpperCase();
-      if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code))
-        return true;
-    });
-  }, [users, q, isSuperAdmin]);
+      const hay = [toStr(u.full_name || u.name), toStr(code), toStr(roleK)]
+       .filter(Boolean)
+       .join(" ")
+       .toLowerCase();
+     return hay.includes(q);
+      });
+}, [users, q]);
 
   // Reusable thread row (shows unread badge consistently)
   const ThreadRow = ({ thread }) => {

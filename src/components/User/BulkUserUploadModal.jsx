@@ -26,7 +26,6 @@ function getSessionRoleAndBranch() {
         roleKey: toRoleKey(
           ui?.role_name || ui?.role || ui?.user?.role_name || ui?.user?.role || ui?.profile_role?.name
         ),
-        branchId: ui?.branch_id ?? ui?.user?.branch_id ?? ui?.user_info?.branch_id ?? null,
       };
     }
   } catch {}
@@ -36,11 +35,10 @@ function getSessionRoleAndBranch() {
       const p = jwtDecode(tok);
       return {
         roleKey: toRoleKey(p?.role_name || p?.role),
-        branchId: p?.branch_id ?? null,
       };
     }
   } catch {}
-  return { roleKey: "", branchId: null };
+  return { roleKey: "" };
 }
 
 export default function BulkUserUploadModal({
@@ -48,21 +46,17 @@ export default function BulkUserUploadModal({
   onClose,
   onSuccess,
   roles = [],
-  branches = [],
 }) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [dryRunResult, setDryRunResult] = useState(null);
   const [finalResult, setFinalResult] = useState(null);
 
-  // Forced role & branch (applied to all rows on backend)
   const [roleId, setRoleId] = useState("");
-  const [branchId, setBranchId] = useState("");
 
   // Session context
-  const [{ roleKey, branchId: sessionBranchId }, setSession] = useState({
-    roleKey: "",
-    branchId: null,
+  const [{ roleKey }, setSession] = useState({
+    roleKey: ""
   });
   const isSuper = roleKey === "SUPERADMIN";
 
@@ -79,24 +73,14 @@ export default function BulkUserUploadModal({
     if (!stillVisible) setRoleId("");
   }, [visibleRoles, roleId]);
 
-  // Pre-load session + lock branch for non-super on open
   useEffect(() => {
     if (!isOpen) return;
     const s = getSessionRoleAndBranch();
     setSession(s);
-    if (s.roleKey !== "SUPERADMIN") {
-      setBranchId(String(s.branchId ?? "")); // lock immediately (can be "")
-    }
   }, [isOpen]);
 
-  // Friendly locked branch name (kept for SUPERADMIN select only)
-  const lockedBranchName = useMemo(() => {
-    if (!sessionBranchId) return "-";
-    const b = (branches || []).find((x) => String(x.id) === String(sessionBranchId));
-    return b?.name || `Branch #${sessionBranchId}`;
-  }, [branches, sessionBranchId]);
 
-  const disabled = !file || uploading || !roleId || !branchId;
+  const disabled = !file || uploading || !roleId
 
   const resetState = () => {
     setFile(null);
@@ -104,7 +88,6 @@ export default function BulkUserUploadModal({
     setDryRunResult(null);
     setFinalResult(null);
     setRoleId("");
-    setBranchId(isSuper ? "" : String(sessionBranchId ?? "")); // keep lock after close
   };
 
   const closeAll = () => {
@@ -116,16 +99,11 @@ export default function BulkUserUploadModal({
 
   const appendCommon = (fd) => {
     fd.append("force_role_id", String(roleId));
-    fd.append("force_branch_id", String(branchId));
   };
 
   const assertSelections = () => {
     if (!file) return "Please choose a CSV or XLSX file.";
     if (!roleId) return "Please select a Role.";
-    if (!branchId) {
-      if (!isSuper) return "Your account doesn’t have a branch_id. Contact SUPERADMIN.";
-      return "Please select a Branch.";
-    }
     return null;
   };
 
@@ -399,7 +377,7 @@ export default function BulkUserUploadModal({
           </div>
 
           <div className="p-6 space-y-6" style={{ color: "var(--theme-text)" }}>
-            <div className={`grid gap-4 ${isSuper ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+            <div className={`grid gap-4 ${"grid-cols-1"}`}>
               <div>
                 <label className="block text-sm font-semibold mb-1" style={{ color: "var(--theme-text)" }}>
                   Select Role (apply to all rows)
@@ -411,20 +389,6 @@ export default function BulkUserUploadModal({
                   ))}
                 </select>
               </div>
-
-              {isSuper && (
-                <div>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: "var(--theme-text)" }}>
-                    Select Branch (apply to all rows)
-                  </label>
-                  <select className="theme-input" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-                    <option value="">-- Select Branch --</option>
-                    {(branches || []).map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
 
             <div className="rounded-xl p-6" style={{ border: "2px dashed var(--theme-border)", background: "var(--theme-surface)" }}>
@@ -435,7 +399,7 @@ export default function BulkUserUploadModal({
                     Upload CSV or XLSX exported from your sheet
                   </div>
                   <div className="text-xs theme-muted">
-                    <b>Required columns:</b> <b>name</b>, <b>email</b>, <b>phone_number</b>, <b>date_of_joining</b> (ISO <code>YYYY-MM-DD</code>). Role &amp; Branch are applied from the selectors above.
+                    <b>Required columns:</b> <b>name</b>, <b>email</b>, <b>phone_number</b>, <b>date_of_joining</b> (ISO <code>YYYY-MM-DD</code>).
                   </div>
                 </div>
               </div>

@@ -27,7 +27,6 @@ const normalizeRoleKey = (r) =>
 
 const toDisplayRole = (raw) => {
   const key = normalizeRoleKey(raw);
-  if (key === "BRANCH_MANAGER") return "BRANCH MANAGER";
   if (key === "COMPLIANCE_OFFICER") return "COMPLIANCE OFFICER";
   return key; // SUPERADMIN, HR, SALES_MANAGER, TL, SBA, BA, RESEARCHER, etc.
 };
@@ -44,13 +43,10 @@ const normalizeUsers = (list, roleMap) =>
 
 export default function UsersListPage() {
   const { hasPermission } = usePermissions();
-  const { branchId } = useParams(); // (reserved)
   const didFetch = useRef(false);
 
   const [users, setUsers] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [branchMap, setBranchMap] = useState({});
   const [roleMap, setRoleMap] = useState({}); // {"1":"SUPERADMIN", ...}
 
   // Create/Edit Modal control
@@ -64,7 +60,6 @@ export default function UsersListPage() {
 
   // Filters
   const [selectedRole, setSelectedRole] = useState("All");
-  const [selectedBranch, setSelectedBranch] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [codeToName, setCodeToName] = useState({});
 
@@ -83,7 +78,6 @@ export default function UsersListPage() {
     total_employee: 0,
     active_employee: 0,
     inactive_employee: 0,
-    branches: 0,
     roles: 0,
   });
 
@@ -110,18 +104,9 @@ export default function UsersListPage() {
 
     const load = async () => {
       try {
-        const [branchesRes, rolesRes] = await Promise.all([
-          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+        const [rolesRes] = await Promise.all([
           axiosInstance.get("/profile-role/?skip=0&limit=200&order_by=hierarchy_level"),
         ]);
-
-        // Branches + map
-        const b = branchesRes.data || [];
-        setBranches(b);
-        const bmap = {};
-        b.forEach((x) => (bmap[x.id] = x.name));
-        setBranchMap(bmap);
-
         // Roles + dynamic role map
         const rlist = rolesRes.data || [];
         setRoles(rlist);
@@ -142,7 +127,6 @@ export default function UsersListPage() {
   const fetchUsers = async ({
     page: p = page,
     roleId = selectedRole,
-    branch = selectedBranch,
     q = searchQuery,
     signal,
   } = {}) => {

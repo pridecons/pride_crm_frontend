@@ -79,11 +79,10 @@ function normalizeManagerUser(m) {
   return {
     // match /users response shape as much as possible
     employee_code: m.employee_code ?? m.code ?? m.emp_code ?? "",
-    name: m.name ?? m.full_name ?? m.employee_name ?? "Branch Manager",
+    name: m.name ?? m.full_name ?? m.employee_name,
     role_id: m.role_id ?? m.profile_role_id ?? m.roleId ?? "",
     // anything else coming from your backend stays on the object
-    ...m,
-    __isBranchManager: true, // flag for UI badge
+    ...m
   };
 }
 
@@ -142,7 +141,6 @@ export default function UserModal({
   const { currentUser, hasPermission } = usePermissions();
   const currentRoleKey = getRoleKeyFromEverywhere(currentUser);
   const isSuperAdmin = currentRoleKey === "SUPERADMIN";
-  const showBranchField = isSuperAdmin;
 
   // password gate
   const canResetPassword = hasPermission("user_reset_password");
@@ -151,11 +149,9 @@ export default function UserModal({
   const passwordRegex =
     /^(?=.*[0-9])(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
 
-  // ----- Branches (fetched), Departments, Profiles -----
-  const [branches, setBranches] = useState([]);
+
   const [departments, setDepartments] = useState([]);
   const [profiles, setProfiles] = useState([]); // from /profile-role/
-  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [selectedProfileId, setSelectedProfileId] = useState("");
 
@@ -196,7 +192,6 @@ export default function UserModal({
     date_of_joining: "",
     date_of_birth: "",
     // org
-    branch_id: "",
     target: "",
     // optional supervisor/telephony
     senior_profile_id: "",
@@ -218,8 +213,6 @@ export default function UserModal({
   const [seniorIndex, setSeniorIndex] = useState(0);
   const seniorInputRef = useRef(null);
   const [seniorPopup, setSeniorPopup] = useState({ top: 0, left: 0, width: 0 });
-
-  const [branchManager, setBranchManager] = useState(null);
 
   // ADD: track which fields are locked by PAN & remember last locked set while editing PAN
   const [panLocked, setPanLocked] = useState({
@@ -289,15 +282,10 @@ export default function UserModal({
   );
 
   // ⬇️ Add this block
-  const BRANCH_FREE_DEPTS = new Set(["COMPLIANCE_TEAM", "RESEARCH_TEAM", "ACCOUNTING"]);
   const deptKeySafe = (selectedDepartment?.name || "")
     .toString()
     .toUpperCase()
     .replace(/\s+/g, "_");
-
-  // If a department is selected, branch is required unless it's one of the branch-free departments.
-  // If no department is selected yet, keep branch required by default (UI below will still allow picking department first).
-  const isBranchRequired = selectedDepartment ? !BRANCH_FREE_DEPTS.has(deptKeySafe) : true;
 
   const departmentPermissions = selectedDepartment?.available_permissions || [];
 
@@ -319,11 +307,10 @@ export default function UserModal({
     return map;
   }, [profiles]);
 
-  // ✅ Always give Branch Manager a proper roleLabel; otherwise map via profileById
   const labeledSeniors = useMemo(() => {
     return seniorOptions.map((u) => ({
       ...u,
-      roleLabel: u.__isBranchManager ? "Branch Manager" : profileById[String(u.role_id)]?.name || "",
+      roleLabel: profileById[String(u.role_id)]?.name || "",
     }));
   }, [seniorOptions, profileById]);
 
@@ -360,40 +347,18 @@ export default function UserModal({
     };
   }, [showSeniorList]);
 
-  // ---- Fetch branches / deps / profiles on open ----
   useEffect(() => {
     if (!isOpen) return;
     (async () => {
       try {
-        const [branchRes, depRes, profRes, statesRes] = await Promise.all([
-          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+        const [depRes, profRes, statesRes] = await Promise.all([
           axiosInstance.get("/departments/?skip=0&limit=50&order_by=name"),
           axiosInstance.get("/profile-role/?skip=0&limit=50&order_by=hierarchy_level"),
           axiosInstance.get("/state/"),
         ]);
-        setBranches(branchRes.data || []);
         setDepartments(depRes.data || []);
         setProfiles(profRes.data || []);
         setStates(statesRes?.data?.states || []);
-
-        // branch preselect rules
-        if (isEdit && user?.branch_id) {
-          setSelectedBranchId(String(user.branch_id));
-        } else if (!isSuperAdmin) {
-          const eff =
-            currentUser?.branch_id ??
-            (() => {
-              try {
-                const raw = Cookies.get("user_info");
-                if (!raw) return "";
-                const p = JSON.parse(raw);
-                return p?.branch_id ?? p?.user?.branch_id ?? p?.user_info?.branch_id;
-              } catch {
-                return "";
-              }
-            })();
-          if (eff) setSelectedBranchId(String(eff));
-        }
 
         // If editing, pre-select department/profile by role_id
         if (isEdit && user?.role_id) {
@@ -412,7 +377,7 @@ export default function UserModal({
           }
         }
       } catch (err) {
-        ErrorHandling({ error: err, defaultError: "Failed to load branches/departments/roles" });
+        ErrorHandling({ error: err, defaultError: "Failed to load departments/roles" });
       }
     })();
   }, [isOpen, isEdit, user, currentRoleKey, currentUser]);
@@ -428,12 +393,6 @@ export default function UserModal({
       window.removeEventListener("resize", onScrollOrResize);
     };
   }, [showStateList]);
-
-  // Keep formData.branch_id in sync with selectedBranchId
-  useEffect(() => {
-    if (!selectedBranchId) return;
-    setFormData((p) => ({ ...p, branch_id: selectedBranchId }));
-  }, [selectedBranchId]);
 
   // Reset profile and permissions when department changes
   useEffect(() => {
@@ -482,21 +441,6 @@ export default function UserModal({
     return () => clearTimeout(t);
   }, [isOpen, isEdit, user?.role_id, profiles, selectedDepartmentId, selectedProfileId]);
 
-  // 🔁 Clear selected senior when branch CHANGES (but keep it on initial edit load)
-  useEffect(() => {
-    if (!selectedBranchId) return;
-
-    // If editing and the branch equals the user's original branch, don't clear
-    const originalBranch = String(user?.branch_id ?? "");
-    if (isEdit && originalBranch && String(selectedBranchId) === originalBranch) {
-      return;
-    }
-
-    // For new users OR when branch changes away from original -> clear senior
-    setFormData((p) => ({ ...p, senior_profile_id: "" }));
-  }, [selectedBranchId, isEdit, user?.branch_id]);
-
-  // One-shot seniors fetch per open/branch change, with manager injected.
 // Removes double /users/ calls on edit modal open.
 const openRunRef = useRef(0);
 
@@ -510,20 +454,8 @@ useEffect(() => {
 
   (async () => {
     try {
-      // 1) fetch manager (optional)
-      let mgr = null;
-      if (selectedBranchId) {
-        try {
-          const r = await axiosInstance.get(`/branches/${selectedBranchId}/details`, { signal: controller.signal });
-          const mgrRaw = r?.data?.manager || r?.data?.branch_manager || r?.data?.manager_user || null;
-          mgr = normalizeManagerUser(mgrRaw);
-        } catch { /* ignore manager errors */ }
-      }
-
       // 2) fetch seniors once
-      const q = selectedBranchId
-        ? `/users/?skip=0&limit=500&active_only=true&branch_id=${encodeURIComponent(selectedBranchId)}`
-        : `/users/?skip=0&limit=500&active_only=true`;
+      const q =`/users/?skip=0&limit=500&active_only=true`;
 
       const res = await axiosInstance.get(q, { signal: controller.signal });
       let list = Array.isArray(res?.data?.data) ? res.data.data
@@ -535,8 +467,7 @@ useEffect(() => {
         list = list.filter(u => String(u.employee_code) !== String(user.employee_code));
       }
 
-      // if no branch selected → show only SUPERADMIN
-      if (!selectedBranchId) {
+
         list = list.filter(u => {
           const roleName =
             u?.role ||
@@ -545,7 +476,6 @@ useEffect(() => {
             "";
         return (roleName || "").toString().toUpperCase().replace(/\s+/g, "_") === "SUPERADMIN";
         });
-      }
 
       // stable sort
       list.sort((a, b) => {
@@ -555,15 +485,9 @@ useEffect(() => {
         return String(a.name || "").localeCompare(String(b.name || ""));
       });
 
-      // inject manager at top if not already in list
-      if (selectedBranchId && mgr && !list.some(u => String(u.employee_code) === String(mgr.employee_code))) {
-        list.unshift(mgr);
-      }
-
       // apply only if still the latest open/run and not aborted
       if (openRunRef.current === runId) {
         setSeniorOptions(list);
-        setBranchManager(mgr); // keep for badge flag only; doesn't trigger refetch
       }
     } catch (e) {
       if (e?.name !== "CanceledError" && e?.code !== "ERR_CANCELED") {
@@ -573,9 +497,9 @@ useEffect(() => {
   })();
 
   return () => controller.abort();
-// ⛔️ Intentionally exclude profileById and branchManager to avoid re-fetches.
+// ⛔️ Intentionally exclude profileById to avoid re-fetches.
 // Including them causes the second /users/ call you’re seeing.
-}, [isOpen, selectedBranchId, isEdit, user?.employee_code, axiosInstance]);
+}, [isOpen, isEdit, user?.employee_code, axiosInstance]);
 
   // Initialize / reset form values on open or edit
   useEffect(() => {
@@ -598,7 +522,6 @@ useEffect(() => {
         experience: user.experience?.toString() || "",
         date_of_joining: user.date_of_joining ? dateToDMY(new Date(user.date_of_joining)) : "",
         date_of_birth: user.date_of_birth ? dateToDMY(new Date(user.date_of_birth)) : "",
-        branch_id: user.branch_id?.toString() || "",
         target: user.target != null ? String(user.target) : "",
         senior_profile_id: user.senior_profile_id || "",
         vbc_extension_id: user.vbc_extension_id || "",
@@ -623,7 +546,6 @@ useEffect(() => {
         experience: "",
         date_of_joining: "",
         date_of_birth: "",
-        branch_id: "",
         target: "",
         senior_profile_id: "",
         vbc_extension_id: "",
@@ -741,7 +663,6 @@ useEffect(() => {
     e.preventDefault();
 
     // Flow validations
-    if (isBranchRequired && !selectedBranchId) return ErrorHandling({ defaultError: "Please select a Branch first" });
     if (!selectedDepartmentId) return ErrorHandling({ defaultError: "Please select a Department" });
     if (!selectedProfileId) return ErrorHandling({ defaultError: "Please select a Profile" });
 
@@ -805,9 +726,6 @@ useEffect(() => {
       state: formData.state || undefined,
       pincode: formData.pincode || undefined,
       comment: formData.comment || undefined,
-
-      // ORG
-      branch_id: Number(selectedBranchId) || undefined,
 
       // IMPORTANT: role_id not role name
       role_id: String(selectedProfileId),
@@ -881,31 +799,8 @@ useEffect(() => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="w-full">
           <div className="p-4 sm:p-6 md:p-8 space-y-8">
-            {/* === Step 1: Branch (first), then Department & Profile === */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Branch — only SUPERADMIN can see/select; others are auto-locked */}
-              {showBranchField && (
-                <div className="md:col-span-1">
-                  <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
-                    Branch {isBranchRequired ? "*" : "(optional)"}
-                  </label>
-                  <select
-                    className="w-full p-3 rounded-xl bg-[var(--theme-input-background)] text-[var(--theme-text)] border border-[var(--theme-input-border)] focus:ring-2 focus:ring-[var(--theme-input-focus)] outline-none"
-                    style={SELECT_NO_CARET_STYLE}
-                    value={selectedBranchId}
-                    onChange={(e) => setSelectedBranchId(e.target.value)}
-                    required={isBranchRequired}
-                  >
-                    <option value="">Select Branch</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
+            {/* === Step 1:` then Department & Profile === */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Department */}
               <div>
                 <label className="block text-sm font-medium mb-1 text-[var(--theme-text)]/80">
@@ -919,7 +814,7 @@ useEffect(() => {
                   required
                 >
                   <option value="">
-                    {showBranchField ? (selectedBranchId ? "Select Department" : "Select Branch first") : "Select Department"}
+                    Select Department
                   </option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -1205,7 +1100,7 @@ useEffect(() => {
                           setShowSeniorList(false);
                         }
                       }}
-                      placeholder={selectedBranchId ? "Type name / code / role…" : "SuperAdmin only (no branch selected)"}
+                      placeholder={"Type name / code / role…"}
                       autoComplete="off"
                     />
                     {formData.senior_profile_id && (
@@ -1234,7 +1129,6 @@ useEffect(() => {
                         style={{ top: seniorPopup.top, left: seniorPopup.left, width: seniorPopup.width }}
                       >
                         {filteredSeniors.map((u, idx) => {
-                          const isBM = !!u.__isBranchManager;
                           return (
                             <button
                               type="button"
@@ -1251,14 +1145,9 @@ useEffect(() => {
                                 <div className="font-medium">
                                   {u.name} ({u.employee_code})
                                 </div>
-                                {isBM && (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--theme-success-soft)] text-[var(--theme-success)] border border-[color:rgba(16,185,129,.35)]">
-                                    Branch Manager
-                                  </span>
-                                )}
                               </div>
                               <div className="text-xs text-[var(--theme-text-muted)]">
-                                {u.roleLabel || (isBM ? "Branch Manager" : "")}
+                                {u.roleLabel || ""}
                               </div>
                             </button>
                           );
@@ -1268,9 +1157,7 @@ useEffect(() => {
                     )}
 
                   <p className="mt-1 text-xs text-[var(--theme-text-muted)]">
-                    {selectedBranchId
-                      ? "Start typing to search users in this branch. The Branch Manager is included."
-                      : "No branch selected: searching within SuperAdmin users."}
+                    Start typing to search users
                   </p>
                 </div>
 

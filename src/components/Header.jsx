@@ -123,8 +123,6 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   const [respOptions, setRespOptions] = useState([]);
   const [respMatches, setRespMatches] = useState([]);
 
-  // ---- Branch & Source ----
-  const [branchOptions, setBranchOptions] = useState([]);
   const [sourceOptions, setSourceOptions] = useState([]);
 
   // ---- Clock ----
@@ -163,15 +161,13 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     if (lookupsLoadedRef.current) return;
     lookupsLoadedRef.current = true;
     try {
-      const [{ data: responses }, { data: sources }, { data: branches }] =
+      const [{ data: responses }, { data: sources }] =
         await Promise.all([
           axiosInstance.get('/lead-config/responses/'),
           axiosInstance.get('/lead-config/sources/'),
-          axiosInstance.get('/branches/?skip=0&limit=200'),
         ]);
       setRespOptions(Array.isArray(responses) ? responses : []);
       setSourceOptions(Array.isArray(sources) ? sources : []);
-      setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
     } catch (e) {
       ErrorHandling({ error: e, defaultError: "Failed loading lookups." });
     }
@@ -189,12 +185,6 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     for (const r of respOptions || []) if (r?.id != null && r.name) m[r.id] = r.name;
     return m;
   }, [respOptions]);
-
-  const branchMap = useMemo(() => {
-    const m = {};
-    for (const b of branchOptions || []) if (b?.id != null && b.name) m[b.id] = b.name;
-    return m;
-  }, [branchOptions]);
 
   const sourceMap = useMemo(() => {
     const m = {};
@@ -357,7 +347,6 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           lead_response_id: l?.lead_response_id ?? null,
           lead_response_name: l?.lead_response_name ?? "",
           source_id: l?.lead_source_id ?? null,
-          branch_id: l?.branch_id ?? null,
 
           assigned_user: au,
           assigned_to_code: au?.employee_code ?? "",
@@ -614,10 +603,8 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                     setHighlight={setHighlight}
                     handleSelect={handleSelect}
                     respMap={respMap}
-                    branchMap={branchMap}
                     sourceMap={sourceMap}
                     onEnterNoPick={handleEnterNoPick}
-                    showBranch={viewerIsSuperAdmin}
                   />
                 )}
               </div>
@@ -753,10 +740,9 @@ function SearchOverlay({
   activeResponse, setActiveResponse,
   groupedByResponse, openGroups, setOpenGroups,
   visibleLeads, highlight, setHighlight,
-  handleSelect, respMap, branchMap, sourceMap,
+  handleSelect, respMap, sourceMap,
   onEnterNoPick,
   overlayRef,
-  showBranch,
 }) {
   const { themeConfig } = useTheme();
 
@@ -926,7 +912,6 @@ function SearchOverlay({
                     {items.map((lead, index) => {
                       const active = visibleLeads[highlight]?.id === lead.id;
                       const rName = lead.lead_response_name || respMap[lead.lead_response_id] || 'No Response';
-                      const bName = branchMap[lead.branch_id] || lead.branch_name || '—';
                       const sName =
                         sourceMap[lead.source_id ?? lead.lead_source_id] ||
                         lead.source_name ||
@@ -980,14 +965,6 @@ function SearchOverlay({
                                 >
                                   {rName}
                                 </span>
-                                {showBranch && (
-                                  <span
-                                    className="px-1.5 py-0.5 rounded-full"
-                                    style={{ border: `1px solid ${themeConfig.border}`, backgroundColor: themeConfig.surface, color: themeConfig.text }}
-                                  >
-                                    Branch: {bName}
-                                  </span>
-                                )}
                                 <span
                                   className="px-1.5 py-0.5 rounded-full"
                                   style={{ border: `1px solid ${themeConfig.border}`, backgroundColor: themeConfig.surface, color: themeConfig.text }}

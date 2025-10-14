@@ -19,9 +19,9 @@ function formatInboxTimeStrict(iso) {
 
   const now = new Date();
   const diffMs = now.getTime() - dt.getTime();
-  const mins  = Math.floor(diffMs / 60000);
+  const mins = Math.floor(diffMs / 60000);
   const hours = Math.floor(diffMs / 3600000);
-  const days  = Math.floor(diffMs / 86400000);
+  const days = Math.floor(diffMs / 86400000);
 
   if (mins < 60) {
     const m = Math.max(1, mins);
@@ -38,15 +38,9 @@ function formatInboxTimeStrict(iso) {
 }
 
 const toStr = (v) => (v == null ? "" : String(v));
-const normalizeRoleKey = (r) => toStr(r).trim().toUpperCase().replace(/\s+/g, "_") || "";
+const normalizeRoleKey = (r) =>
+  toStr(r).trim().toUpperCase().replace(/\s+/g, "_") || "";
 
-const getBranchIdLike = (obj) => {
-  if (!obj) return null;
-  if (obj.branch_id != null) return String(obj.branch_id);
-  if (obj.branchId != null) return String(obj.branchId);
-  if (obj.branch && obj.branch.id != null) return String(obj.branch.id);
-  return null;
-};
 const getRoleKeyLike = (obj) => {
   const r =
     obj?.role ??
@@ -74,31 +68,31 @@ function getUnseen(t) {
 }
 
 function useCurrentUserRB() {
-  const [state, setState] = useState({ role: null, branchId: null });
+  const [state, setState] = useState({ role: null });
 
   useEffect(() => {
     try {
       const ui = Cookies.get("user_info");
       if (ui) {
         const obj = JSON.parse(ui);
-        const role = normalizeRoleKey(obj?.role || obj?.user_role || obj?.role_name);
-        const branchId = getBranchIdLike(obj);
-        setState({ role, branchId });
+        const role = normalizeRoleKey(
+          obj?.role || obj?.user_role || obj?.role_name
+        );
+        setState({ role });
         return;
       }
       const tok = Cookies.get("access_token");
       if (tok) {
         const p = jwtDecode(tok);
         const role = normalizeRoleKey(p?.role);
-        const branchId = getBranchIdLike(p);
-        setState({ role, branchId });
+        setState({ role });
         return;
       }
     } catch {}
-    setState({ role: null, branchId: null });
+    setState({ role: null });
   }, []);
 
-  return state; // {role, branchId}
+  return state; // {role}
 }
 
 export default function ThreadList({
@@ -112,17 +106,19 @@ export default function ThreadList({
   onOpenNewChat,
 }) {
   const q = (searchQuery || "").toLowerCase();
-  const { role, branchId } = useCurrentUserRB();
+  const { role } = useCurrentUserRB();
   const isSuperAdmin = normalizeRoleKey(role) === "SUPERADMIN";
 
   // Threads search
   const filteredThreads = useMemo(() => {
     if (!q) return threads || [];
     const safe = Array.isArray(threads) ? threads : [];
-    return safe.filter((t) => (t?.name || "Direct Chat").toLowerCase().includes(q));
+    return safe.filter((t) =>
+      (t?.name || "Direct Chat").toLowerCase().includes(q)
+    );
   }, [threads, q]);
 
-  // Users search: SUPERADMIN sees all; others only same-branch users
+  // Users search: SUPERADMIN sees all; others only
   const filteredUsers = useMemo(() => {
     if (!q) return [];
 
@@ -162,23 +158,13 @@ export default function ThreadList({
 
     if (isSuperAdmin) return byQuery;
 
-    const myBranch = branchId != null ? String(branchId) : null;
-    if (!myBranch) {
-      return byQuery.filter((u) => {
-        const roleK = getRoleKeyLike(u);
-        const code = getEmpCode(u).toUpperCase();
-        return roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code);
-      });
-    }
-
     return byQuery.filter((u) => {
       const roleK = getRoleKeyLike(u);
       const code = getEmpCode(u).toUpperCase();
-      if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code)) return true;
-      const ub = getBranchIdLike(u);
-      return ub != null && String(ub) === myBranch;
+      if (roleK === "SUPERADMIN" || ALWAYS_INCLUDE_ADMIN_CODES.has(code))
+        return true;
     });
-  }, [users, q, isSuperAdmin, branchId]);
+  }, [users, q, isSuperAdmin]);
 
   // Reusable thread row (shows unread badge consistently)
   const ThreadRow = ({ thread }) => {
@@ -271,8 +257,13 @@ export default function ThreadList({
             style={{
               color: "var(--theme-text)",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--theme-primary-softer)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor =
+                "var(--theme-primary-softer)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
           >
             <Plus size={18} />
           </button>
@@ -296,7 +287,10 @@ export default function ThreadList({
               color: "var(--theme-text)",
               boxShadow: "none",
             }}
-            onFocus={(e) => (e.currentTarget.style.boxShadow = "0 0 0 2px color-mix(in oklab, var(--theme-primary) 30%, transparent)")}
+            onFocus={(e) =>
+              (e.currentTarget.style.boxShadow =
+                "0 0 0 2px color-mix(in oklab, var(--theme-primary) 30%, transparent)")
+            }
             onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
           />
         </div>
@@ -314,7 +308,9 @@ export default function ThreadList({
               const roleK = getRoleKeyLike(user);
               const code = getEmpCode(user);
               const displayName =
-                roleK === "SUPERADMIN" ? "SuperAdmin" : (user.full_name || user.name || code);
+                roleK === "SUPERADMIN"
+                  ? "SuperAdmin"
+                  : user.full_name || user.name || code;
 
               return (
                 <button
@@ -324,30 +320,30 @@ export default function ThreadList({
                   style={{
                     borderColor: "var(--theme-border)",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--theme-primary-softer)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      "var(--theme-primary-softer)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
                 >
                   <div className="flex">
                     <div className="w-[44px] pt-1">
                       <Avatar name={displayName} id={code} size="lg" />
                     </div>
                     <div className="pl-4 min-w-0 flex-1">
-                      <h5 className="text-[15px] font-semibold mb-1 truncate" style={{ color: "var(--theme-text)" }}>
+                      <h5
+                        className="text-[15px] font-semibold mb-1 truncate"
+                        style={{ color: "var(--theme-text)" }}
+                      >
                         {displayName}
                       </h5>
-                      <p className="text-[13px] truncate" style={{ color: "var(--theme-text-muted)" }}>
+                      <p
+                        className="text-[13px] truncate"
+                        style={{ color: "var(--theme-text-muted)" }}
+                      >
                         {code}
-                        {roleK === "SUPERADMIN" ? (
-                          <span className="ml-2 text-[11px]" style={{ color: "var(--theme-text-muted)" }}>
-                            · All branches
-                          </span>
-                        ) : (
-                          user.branch_id != null && (
-                            <span className="ml-2 text-[11px]" style={{ color: "var(--theme-text-muted)" }}>
-                              · B{String(user.branch_id)}
-                            </span>
-                          )
-                        )}
                       </p>
                     </div>
                   </div>

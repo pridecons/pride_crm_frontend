@@ -7,7 +7,7 @@ const Loader =
         <div className="p-6 text-gray-500">{message || "Loading..."}</div>
     ));
 
-function DashboardTables({ isSuperAdmin, branchId }) {
+function DashboardTables({ isSuperAdmin }) {
     // Lead Source (left) state
     const [sourceCard, setSourceCard] = useState({ source_analytics: [] });
     const [srcLoading, setSrcLoading] = useState(true);
@@ -20,13 +20,11 @@ function DashboardTables({ isSuperAdmin, branchId }) {
     const [responseRows, setResponseRows] = useState([]);
 
     // Lookups
-    const [branches, setBranches] = useState([]);
     const [sources, setSources] = useState([]);
     const [employees, setEmployees] = useState([]);
 
     // Filters (right card)
     const ROLE_OPTIONS = ["BA", "SBA", "TL", "SALES MANAGER"];
-    const [branchFilter, setBranchFilter] = useState("All"); // tabs (SA only)
     const [employeeRole, setEmployeeRole] = useState("");
     const [selectedSourceId, setSelectedSourceId] = useState("");
     const [selectedUserId, setSelectedUserId] = useState(""); // employee_code
@@ -43,26 +41,19 @@ function DashboardTables({ isSuperAdmin, branchId }) {
         const load = async () => {
             try {
                 const [bRes, sRes, uRes] = await Promise.all([
-                    axiosInstance.get("/branches/?skip=0&limit=200&active_only=false"),
                     axiosInstance.get("/lead-config/sources/?skip=0&limit=500"),
                     axiosInstance
                         .get("/users/?skip=0&limit=1000&active_only=false")
                         .catch(() => axiosInstance.get("/employee?skip=0&limit=1000")),
                 ]);
 
-                const allBranches = Array.isArray(bRes.data) ? bRes.data : [];
                 const allEmployees = uRes?.data?.data ?? uRes?.data ?? [];
 
                 if (isSuperAdmin) {
-                    setBranches(allBranches);
                     setEmployees(allEmployees);
                 } else {
-                    const safeBranchId = String(branchId || "");
-                    setBranches(allBranches.filter((b) => String(b.id) === safeBranchId));
                     setEmployees(
-                        allEmployees.filter(
-                            (e) => String(e.branch_id) === safeBranchId
-                        )
+                        allEmployees
                     );
                 }
                 setSources(Array.isArray(sRes.data) ? sRes.data : []);
@@ -70,28 +61,15 @@ function DashboardTables({ isSuperAdmin, branchId }) {
                 console.error("lookup load failed", e);
             }
         };
-        if (isSuperAdmin || branchId) load();
-    }, [isSuperAdmin, branchId]);
+        if (isSuperAdmin) load();
+    }, [isSuperAdmin]);
 
-    // Default branch for non-SA
-    useEffect(() => {
-        if (!isSuperAdmin && branchId) setBranchFilter(String(branchId));
-    }, [isSuperAdmin, branchId]);
-
-    // Lead Source (left) — from admin/dashboard (30-day window; scope by branch for non-SA)
+    // Lead Source (left) — from admin/dashboard (30-day window; scope for non-SA)
     useEffect(() => {
         const fetchSourceCard = async () => {
             try {
                 setSrcLoading(true);
                 const qs = new URLSearchParams({ days: "30" });
-
-                // If SA selects a branch tab, scope to it; non-SA always scoped to own branch
-                const br = isSuperAdmin
-                    ? branchFilter !== "All"
-                        ? branchFilter
-                        : null
-                    : branchId;
-                if (br) qs.set("branch_id", String(br));
 
                 const { data } = await axiosInstance.get(
                     `/analytics/leads/admin/dashboard?${qs.toString()}`
@@ -110,8 +88,8 @@ function DashboardTables({ isSuperAdmin, branchId }) {
                 setSrcLoading(false);
             }
         };
-        if (isSuperAdmin || branchId) fetchSourceCard();
-    }, [isSuperAdmin, branchId, branchFilter]);
+        if (isSuperAdmin) fetchSourceCard();
+    }, [isSuperAdmin]);
 
     // Response Distribution (right) — NEW endpoint with all filters
     // const fetchResponseAnalytics = async () => {
@@ -126,14 +104,6 @@ function DashboardTables({ isSuperAdmin, branchId }) {
     //         } else {
     //             qs.set("days", "30");
     //         }
-
-    //         // branch scope (SA can choose; non-SA fixed)
-    //         const br = isSuperAdmin
-    //             ? branchFilter !== "All"
-    //                 ? branchFilter
-    //                 : null
-    //             : branchId;
-    //         if (br) qs.set("branch_id", String(br));
 
     //         // extra filters
     //         if (employeeRole) qs.set("employee_role", employeeRole);
@@ -156,20 +126,6 @@ function DashboardTables({ isSuperAdmin, branchId }) {
     //     }
     // };
 
-    useEffect(() => {
-        if (isSuperAdmin || branchId);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        isSuperAdmin,
-        branchId,
-        branchFilter,
-        employeeRole,
-        selectedSourceId,
-        selectedUserId,
-        applied,
-        fromDate,
-        toDate,
-    ]);
 
     // Handle dates
     const handleClearDates = () => {
@@ -194,17 +150,10 @@ function DashboardTables({ isSuperAdmin, branchId }) {
     };
 
     // ===== Derived lists for enhanced UX =====
-    // Filter employees dropdown by selected branch (and role if chosen)
+    // Filter employees dropdown by selected  (and role if chosen)
     const employeesForUI = useMemo(() => {
         let list = [...employees];
-        const br = isSuperAdmin
-            ? branchFilter !== "All"
-                ? branchFilter
-                : null
-            : branchId;
-        if (br) {
-            list = list.filter((e) => String(e.branch_id) === String(br));
-        }
+
         if (employeeRole) {
             list = list.filter((e) => String(e.role) === String(employeeRole));
         }
@@ -217,7 +166,7 @@ function DashboardTables({ isSuperAdmin, branchId }) {
         }
         return list;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [employees, branchFilter, branchId, isSuperAdmin, employeeRole]);
+    }, [employees, isSuperAdmin, employeeRole]);
 
     // NEW: filtered suggestions for the dropdown (max 20)
     const empMatches = useMemo(() => {
@@ -233,24 +182,13 @@ function DashboardTables({ isSuperAdmin, branchId }) {
             .slice(0, 20);
     }, [employeeQuery, employeesForUI]);
 
-    // Reset employee when branch/role changes (optional but cleaner)
+    // Reset employee when role changes (optional but cleaner)
     useEffect(() => {
         setSelectedUserId("");
         setEmployeeQuery("");
-    }, [branchFilter, employeeRole]);
+    }, [employeeRole]);
 
     const srcRows = sourceCard.source_analytics ?? [];
-
-    // Branch tabs (SA only)
-    const branchTabs =
-        [{ value: "All", label: "All Branches" }].concat(
-            branches.map((b) => ({ value: String(b.id), label: b.name }))
-        );
-
-    // NEW: branch id -> name
-    const getBranchName = (id) =>
-        branches.find((b) => String(b.id) === String(id))?.name ??
-        (id ? `Branch ${id}` : "");
 
     return (
         <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-8 pb-6">
@@ -324,24 +262,6 @@ export default DashboardTables;
             //             Breakdown of lead responses
             //         </p>
 
-            //         {/* Branch Tabs (SuperAdmin only) */}
-            //         {isSuperAdmin && (
-            //             <div className="flex gap-2 overflow-x-auto pt-3">
-            //                 {branchTabs.map((opt) => (
-            //                     <button
-            //                         key={`right-${opt.value}`}
-            //                         onClick={() => setBranchFilter(opt.value)}
-            //                         className={`px-3 py-1.5 rounded-lg border text-sm whitespace-nowrap ${branchFilter === opt.value
-            //                             ? "bg-blue-600 text-white border-blue-600"
-            //                             : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-            //                             }`}
-            //                         title="Branch"
-            //                     >
-            //                         {opt.label}
-            //                     </button>
-            //                 ))}
-            //             </div>
-            //         )}
             //     </div>
 
             //     {/* Filters Row */}
@@ -431,9 +351,6 @@ export default DashboardTables;
             //                                         ({emp.employee_code})
             //                                     </span>
             //                                 ) : null}
-            //                             </div>
-            //                             <div className="text-xs text-gray-500">
-            //                                 {emp.role ? `${emp.role}` : ""} {emp.branch_id ? `• ${getBranchName(emp.branch_id)}` : ""}
             //                             </div>
             //                         </div>
             //                     ))}

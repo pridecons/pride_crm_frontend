@@ -101,8 +101,7 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
   return "";
 }
 
-// human display ("BRANCH_MANAGER" → "BRANCH MANAGER")
-const displayRole = (key) => (key === "BRANCH_MANAGER" ? "BRANCH MANAGER" : key || null);
+const displayRole = (key) => (key || null);
 
 // Hook that returns the canonical role key
 function useRoleKey() {
@@ -141,7 +140,6 @@ const LeadManage = () => {
 
   // Data
   const [leadData, setLeadData] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
   const [allSources, setAllSources] = useState([]);
@@ -152,7 +150,6 @@ const LeadManage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("All");
   const [responseFilter, setResponseFilter] = useState("All");
-  const [branchFilter, setBranchFilter] = useState("All");
   const [kycFilter, setKycFilter] = useState("All");
 
   // Employee autocomplete
@@ -176,12 +173,9 @@ const LeadManage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Role / branch (use role_name!)
   const [role, setRole] = useState(null); // normalized role_name
   const roleKey = useRoleKey();
-  const [branchId, setBranchId] = useState(null); // string
-  const [ready, setReady] = useState(false); // when role/branch is resolved
-  const prevBranchRef = useRef(branchFilter);
+  const [ready, setReady] = useState(false); // when role is resolved
 
   const isSuperAdmin = roleKey === "SUPERADMIN";
 
@@ -206,32 +200,9 @@ const LeadManage = () => {
     return out;
   }
 
-  /* ---------- read role + branch once (uses dynamic roleKey) ---------- */
   useEffect(() => {
     try {
-      let b = null;
-      const ui = Cookies.get("user_info");
-      if (ui) {
-        const parsed = JSON.parse(ui);
-        b = parsed?.branch_id ?? parsed?.user?.branch_id ?? parsed?.branch?.id ?? null;
-      } else {
-        const token = Cookies.get("access_token");
-        if (token) {
-          const payload = jwtDecode(token);
-          b = payload?.branch_id ?? payload?.user?.branch_id ?? null;
-        }
-      }
-
-      const bid = b ? String(b) : null;
-      setBranchId(bid);
-
       setRole(displayRole(roleKey));
-
-      if (roleKey !== "SUPERADMIN" && bid) {
-        setBranchFilter(String(bid));
-      } else {
-        setBranchFilter("All");
-      }
     } catch (e) {
       console.error("Failed to read user info from cookies/JWT", e);
     } finally {
@@ -246,14 +217,12 @@ const LeadManage = () => {
 
     const loadFilterLists = async () => {
       try {
-        const [bRes, allEmps, sRes, rRes] = await Promise.all([
-          axiosInstance.get("/branches/?skip=0&limit=100&active_only=false"),
+        const [allEmps, sRes, rRes] = await Promise.all([
           fetchAllPaginated("/users/", { limit: 100, dataKey: "data" }), // <— fetch ALL pages
           axiosInstance.get("/lead-config/sources/?skip=0&limit=100"),
           axiosInstance.get("/lead-config/responses/?skip=0&limit=100"),
         ]);
 
-        const allBranches = bRes.data || [];
         const allSrc = Array.isArray(sRes.data) ? sRes.data : [];
         const allResp = Array.isArray(rRes.data) ? rRes.data : [];
 
@@ -261,17 +230,11 @@ const LeadManage = () => {
         setAllEmployees(allEmps);
 
         if (isSuperAdmin) {
-          setBranches(allBranches);
           // IMPORTANT: use freshly fetched array (allEmps), not state (allEmployees)
-          const scopedEmployees =
-            branchFilter !== "All"
-              ? allEmps.filter((e) => String(e.branch_id) === String(branchFilter))
-              : allEmps;
+          const scopedEmployees = allEmps;
           setEmployees(scopedEmployees);
         } else {
-          const safeBranchId = String(branchId || "");
-          setBranches(allBranches.filter((b) => String(b.id) === safeBranchId));
-          setEmployees(allEmps.filter((e) => String(e.branch_id) === safeBranchId));
+          setEmployees(allEmps);
         }
 
         setAllSources(allSrc);
@@ -285,7 +248,7 @@ const LeadManage = () => {
     return () => {
       cancelled = true;
     };
-  }, [ready, isSuperAdmin, branchId, branchFilter]);
+  }, [ready, isSuperAdmin]);
 
   /* ---------- load leads (server-side filtering) ---------- */
   useEffect(() => {
@@ -302,15 +265,8 @@ const LeadManage = () => {
           view: "all",
         };
 
-        const selectedBranchId = !isSuperAdmin ? branchId : branchFilter !== "All" ? branchFilter : null;
-
-        if (selectedBranchId) params.branch_id = selectedBranchId;
-
         if (employeeFilter !== "All") {
           params.assigned_to_user = String(employeeFilter).trim().toUpperCase();
-          if (isSuperAdmin && branchFilter === "All" && params.branch_id) {
-            delete params.branch_id;
-          }
         }
 
         if (sourceFilter !== "All") params.lead_source_id = sourceFilter;
@@ -345,8 +301,6 @@ const LeadManage = () => {
   }, [
     ready,
     isSuperAdmin,
-    branchId,
-    branchFilter,
     employeeFilter,
     sourceFilter,
     responseFilter,
@@ -358,7 +312,7 @@ const LeadManage = () => {
   ]);
 
   /* ---------- quick cards (admins only) ---------- */
-  /* ---------- quick cards (everyone, branch-scoped) ---------- */
+  /* ---------- quick cards (everyone) ---------- */
   useEffect(() => {
     if (!ready) return;
 
@@ -366,15 +320,6 @@ const LeadManage = () => {
     (async () => {
       try {
         const params = { days: 30 };
-
-        // Scope by role:
-        // - SUPERADMIN: all branches if "All", else the selected branch
-        // - Others: always their own branch
-        if (isSuperAdmin) {
-          if (branchFilter !== "All") params.branch_id = branchFilter;
-        } else if (branchId) {
-          params.branch_id = branchId;
-        }
 
         const { data } = await axiosInstance.get(
           "/analytics/leads/admin/dashboard-card",
@@ -389,7 +334,7 @@ const LeadManage = () => {
     return () => {
       cancelled = true;
     };
-  }, [ready, isSuperAdmin, branchId, branchFilter]);
+  }, [ready, isSuperAdmin]);
 
   /* ---------- name helpers (prefer embedded object, fall back to cached lists) ---------- */
   const sourcesMap = useMemo(() => {
@@ -403,12 +348,6 @@ const LeadManage = () => {
     (Array.isArray(responsesList) ? responsesList : []).forEach(r => m.set(String(r.id), r.name));
     return m;
   }, [responsesList]);
-
-  const branchesMap = useMemo(() => {
-    const m = new Map();
-    (Array.isArray(branches) ? branches : []).forEach(b => m.set(String(b.id), b.name));
-    return m;
-  }, [branches]);
 
   // Map employee_code → display name
   const employeesMap = useMemo(() => {
@@ -467,12 +406,6 @@ const LeadManage = () => {
     return id == null ? "—" : (responsesMap.get(String(id)) || String(id));
   }
 
-  function getBranchName(idOrLead) {
-    // (No embedded branch object in your sample; keep id→name map)
-    const id = typeof idOrLead === "object" ? idOrLead?.branch_id : idOrLead;
-    return id == null ? "—" : (branchesMap.get(String(id)) || String(id));
-  }
-
   const getEmployeeName = (code) => {
     const c = String(code ?? "").trim();
     if (!c) return "—";
@@ -488,7 +421,7 @@ const LeadManage = () => {
   const sourcesScoped = useMemo(() => {
     const list = Array.isArray(allSources) ? allSources : [];
 
-    if (isSuperAdmin && branchFilter === "All") {
+    if (isSuperAdmin) {
       const seen = new Set();
       const dedup = [];
       for (const s of list) {
@@ -504,10 +437,8 @@ const LeadManage = () => {
       );
     }
 
-    const selectedBranchId = !isSuperAdmin ? branchId : branchFilter !== "All" ? branchFilter : null;
-    if (!selectedBranchId) return list;
-    return list.filter((s) => String(s.branch_id) === String(selectedBranchId));
-  }, [allSources, isSuperAdmin, branchFilter, branchId]);
+    return list;
+  }, [allSources, isSuperAdmin]);
 
   const sourceOptions = useMemo(
     () => [
@@ -532,17 +463,8 @@ const LeadManage = () => {
   useEffect(() => {
     setPage(1);
     setOpenLead(null);
-  }, [searchQuery, branchFilter, employeeFilter, sourceFilter, responseFilter, kycFilter, applyDateFilter]);
+  }, [searchQuery, employeeFilter, sourceFilter, responseFilter, kycFilter, applyDateFilter]);
 
-  useEffect(() => {
-    if (prevBranchRef.current !== branchFilter) {
-      setEmployeeFilter("All");
-      setEmployeeQuery("");
-      setShowEmpDrop(false);
-      setSourceFilter("All");
-      prevBranchRef.current = branchFilter;
-    }
-  }, [branchFilter]);
 
   useEffect(() => {
     setOpenLead(null);
@@ -567,7 +489,7 @@ const LeadManage = () => {
   const empMatches = useMemo(() => {
     const q = employeeQuery.trim().toLowerCase();
     if (!q) return [];
-    const pool = isSuperAdmin && branchFilter === "All" ? allEmployees : employees;
+    const pool = isSuperAdmin && employees;
     return pool
       .filter(
         (e) =>
@@ -575,7 +497,7 @@ const LeadManage = () => {
           String(e.employee_code || "").toLowerCase().includes(q)
       )
       .slice(0, 20);
-  }, [employeeQuery, employees, allEmployees, isSuperAdmin, branchFilter]);
+  }, [employeeQuery, employees, allEmployees, isSuperAdmin]);
 
   const handleEmployeeSelect = (emp) => {
     setEmployeeFilter(String(emp.employee_code));
@@ -603,28 +525,6 @@ const LeadManage = () => {
     <div className="min-h-screen bg-[var(--theme-background)] p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        {/* Branches*/}
-        <div className="flex flex-col gap-4">
-          {/* Branch Tabs → SUPERADMIN only */}
-          {isSuperAdmin && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {[{ value: "All", label: "All Branches" }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))].map(
-                (opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setBranchFilter(opt.value)}
-                    className={`px-4 py-2 rounded-lg border whitespace-nowrap transition-colors ${branchFilter === opt.value
-                      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] border-[var(--theme-primary)]"
-                      : "bg-[var(--theme-surface)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]"
-                      }`}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              )}
-            </div>
-          )}
-        </div>
 
         <div className="flex items-center justify-between">
           {/* Date Filter */}
@@ -844,7 +744,6 @@ const LeadManage = () => {
                         <div className="font-medium text-[var(--theme-text)]">{emp.name}</div>
                         <div className="text-xs text-[var(--theme-text-muted)]">
                           Code: {emp.employee_code}
-                          {emp.branch_id ? ` • ${getBranchName(emp.branch_id)}` : ""}
                         </div>
                       </div>
                     ))}
@@ -985,9 +884,6 @@ const LeadManage = () => {
                     <div className="px-4 sm:px-6 pb-5 text-sm text-[var(--theme-text)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div><span className="font-medium">Email:</span> {lead.email || "—"}</div>
                       <div><span className="font-medium">PAN:</span> {lead.pan || "—"}</div>
-                      {isSuperAdmin && (
-                        <div><span className="font-medium">Branch:</span> {getBranchName(lead)}</div>
-                      )}
                       <div>
                         <span className="font-medium">Assigned To:</span>{" "}
                         {getAssignedName(lead)}

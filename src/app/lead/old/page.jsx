@@ -216,13 +216,6 @@ function readUserFromCookies() {
 const normalizeRoleKey = (r) =>
   (r ?? "").toString().trim().toUpperCase().replace(/\s+/g, "_");
 
-const pickBranchId = (u) =>
-  u?.branch_id ??
-  u?.user?.branch_id ??
-  u?.branch?.id ??
-  u?.assigned_user?.branch_id ??
-  null;
-
 const pickEmployeeCode = (u) =>
   u?.employee_code ?? u?.user?.employee_code ?? null;
 
@@ -306,8 +299,7 @@ const Show = (v) =>
   );
 
 export default function OldLeadsTable() {
-  const [myRole, setMyRole] = useState("");       // e.g. "SUPERADMIN", "BRANCH_MANAGER", "SBA", "BA"
-const [myBranchId, setMyBranchId] = useState(null);
+  const [myRole, setMyRole] = useState("");       // e.g. "SUPERADMIN", "SBA", "BA"
 const [myEmployeeCode, setMyEmployeeCode] = useState(null);
   const [leads, setLeads] = useState([]);
   const [responses, setResponses] = useState([]);
@@ -381,7 +373,6 @@ useEffect(() => {
     info?.user?.role ??
     "";
   setMyRole(normalizeRoleKey(roleGuess));
-  setMyBranchId(pickBranchId(info));
   setMyEmployeeCode(pickEmployeeCode(info));
 }, []);
 
@@ -399,7 +390,7 @@ const searchAssignees = useCallback((q) => {
     try {
       setAssigneeLoading(true);
 
-      // ✅ Only pass the search term. The API applies role/branch/team scoping from the cookie.
+      // ✅ Only pass the search term. The API applies role/team scoping from the cookie.
       const { data } = await axiosInstance.get("/users-fiter/", {
         params: { search: query }
       });
@@ -644,7 +635,7 @@ const handleResetFilters = () => {
     }
   };
 
-  // 🔁 Response change with FT/Callback branching
+  // 🔁 Response change with FT/Callback
   const handleResponseChange = async (lead, newResponseId) => {
     const id = Number(newResponseId);
     if (!id) return;

@@ -28,7 +28,6 @@ export function middleware(req) {
     '/dashboard/users/create': ['add_user'],
     '/dashboard/leads': ['view_lead'],
     '/dashboard/leads/new': ['add_lead'],
-    '/dashboard/branches': ['view_branch'],
   };
 
   const currentPath = req.nextUrl.pathname;

@@ -40,11 +40,10 @@ function normalizeThreads(arr = [], prev = []) {
 }
 
 /* --------------------------------- API helpers -------------------------------- */
-async function createGroup({ name, participant_codes, branch_id }) {
+async function createGroup({ name, participant_codes }) {
   const { data } = await axiosInstance.post("/chat/group/create", {
     name,
     participant_codes,
-    ...(branch_id ? { branch_id } : {}),
   });
   return data;
 }
@@ -79,7 +78,6 @@ export default function WhatsAppChatPage() {
 
   // Directory
   const [users, setUsers] = useState([]);
-  const [branches, setBranches] = useState([]); // reserved
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,7 +130,6 @@ export default function WhatsAppChatPage() {
     }
   }, []);
 
-  /* ------------------------------- Load users/branches once ------------------------------- */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -144,20 +141,11 @@ export default function WhatsAppChatPage() {
         const normalized = list.map((u) => ({
           employee_code: u.employee_code || u.code || u.id || "",
           full_name: u.full_name || u.name || u.username || "",
-          branch_name: u.branch?.name || u.branch_name || "",
           ...u,
         }));
         if (alive) setUsers(normalized);
       } catch (e) {
         console.error("users load error", e);
-      }
-
-      try {
-        const { data: bdata } = await axiosInstance.get("/branches/");
-        const blist = Array.isArray(bdata?.data) ? bdata.data : Array.isArray(bdata) ? bdata : [];
-        if (alive) setBranches(blist);
-      } catch (e) {
-        console.error("branches load error", e);
       }
     })();
     return () => {
@@ -667,10 +655,10 @@ export default function WhatsAppChatPage() {
         isOpen={showNewChat}
         onClose={() => setShowNewChat(false)}
         users={users}
-        onCreateGroup={async (name, usersArr, branchIdOptional) => {
+        onCreateGroup={async (name, usersArr) => {
           try {
             const participant_codes = usersArr.map((u) => u.employee_code);
-            const t = await createGroup({ name, participant_codes, branch_id: branchIdOptional });
+            const t = await createGroup({ name, participant_codes });
             setThreads((prev) => [t, ...prev]);
             setSelected(t);
             setMessages([]);

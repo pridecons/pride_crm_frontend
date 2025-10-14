@@ -181,7 +181,6 @@ const getPermissionIcon = (perm) => {
     delete_lead: Trash2,
     view_users: Users,
     view_lead: Eye,
-    view_branch: Building,
     view_accounts: DollarSign,
     view_research: BarChart3,
     view_client: UserCheck,
@@ -197,14 +196,12 @@ const getPermissionIcon = (perm) => {
     lead_recording_upload: Plus,
     lead_story_view: Eye,
     lead_transfer: RefreshCw,
-    lead_branch_view: Building,
     create_lead: Plus,
     create_new_lead_response: Plus,
     edit_response: Edit,
     delete_response: Trash2,
     user_add_user: Plus,
     user_all_roles: Users,
-    user_all_branches: Building,
     user_view_user_details: Eye,
     user_edit_user: Edit,
     user_delete_user: Trash2,
@@ -214,7 +211,6 @@ const getPermissionIcon = (perm) => {
     plans_create: Plus,
     edit_plan: Edit,
     delete_plane: Trash2,
-    client_select_branch: Building,
     client_invoice: FileText,
     client_story: Eye,
     client_comments: MessageSquare,
@@ -234,7 +230,6 @@ const getPermissionIcon = (perm) => {
     template: FileText,
     sms_page: MessageSquare,
     email_page: MessageSquare,
-    branch_page: Building,
     old_lead_page: FileText,
     new_lead_page: FileText,
     rational_download: Download,
@@ -251,10 +246,6 @@ const getPermissionIcon = (perm) => {
     sms_add: Plus,
     sms_edit: Edit,
     sms_delete: Trash2,
-    branch_add: Plus,
-    branch_edit: Edit,
-    branch_details: Eye,
-    branch_agreement_view: Eye,
     header_global_search: Search,
   };
   return iconMap[perm] || Settings;
@@ -267,7 +258,6 @@ const getPermissionCategory = (perm) => {
   if (perm.includes("payment") || perm.includes("invoice") || perm.includes("accounts"))
     return "Financial";
   if (perm.includes("client")) return "Client Management";
-  if (perm.includes("branch")) return "Branch Management";
   if (perm.includes("rational")) return "Reports & Analytics";
   if (perm.includes("sms") || perm.includes("email") || perm.includes("messanger"))
     return "Communication";

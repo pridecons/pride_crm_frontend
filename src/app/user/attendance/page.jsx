@@ -17,7 +17,6 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
-  const [selectedBranch, setSelectedBranch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const itemsPerPage = 5;
@@ -48,9 +47,6 @@ export default function AttendancePage() {
     }
     if (selectedRole) {
       data = data.filter((emp) => emp.role === selectedRole);
-    }
-    if (selectedBranch) {
-      data = data.filter((emp) => String(emp.branch_id) === selectedBranch);
     }
     setFilteredEmployees(data);
     setCurrentPage(1);
@@ -103,9 +99,6 @@ export default function AttendancePage() {
 
   // ----- derived data -----
   const roles = Array.from(new Set(employees.map((e) => e.role).filter(Boolean)));
-  const branches = Array.from(
-    new Set(employees.map((e) => String(e.branch_id || "")).filter((v) => v && v !== "null"))
-  );
 
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -212,18 +205,6 @@ export default function AttendancePage() {
                   </option>
                 ))}
               </select>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-400 bg-white min-w-36"
-              >
-                <option value="">All Branches</option>
-                {branches.map((branch) => (
-                  <option key={branch} value={branch}>
-                    Branch {branch}
-                  </option>
-                ))}
-              </select>
               <button
                 onClick={applyFilters}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -238,7 +219,7 @@ export default function AttendancePage() {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
                 <tr>
-                  {["#", "Employee Code", "Name", "Role", "Branch", "Attendance Status"].map((h) => (
+                  {["#", "Employee Code", "Name", "Role", "Attendance Status"].map((h) => (
                     <th
                       key={h}
                       className="px-6 py-4 text-left font-semibold text-gray-700 text-sm uppercase tracking-wider"
@@ -265,9 +246,6 @@ export default function AttendancePage() {
                         <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
                           {emp.role}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {emp.branch_id ? `Branch ${emp.branch_id}` : "-"}
                       </td>
                       <td className="px-6 py-4">
                         <select

@@ -102,14 +102,13 @@ const [userMenuOpen, setUserMenuOpen] = useState(false);
     } catch (_) {}
     return "UNKNOWN_USER";
   }, []);
-  // Fallback role/branch from cookies/token while users are still loading
+  // Fallback role from cookies/token while users are still loading
 const cookieUserMeta = useMemo(() => {
   try {
     const raw = Cookies.get("user_info");
     if (raw) {
       const info = JSON.parse(raw);
       return {
-        branch_id: info?.branch_id ?? null,
         role_name: normalizeRole(info?.profile_role?.name || info?.role_name),
       };
     }
@@ -119,12 +118,11 @@ const cookieUserMeta = useMemo(() => {
     if (at) {
       const payload = jwtDecode(at);
       return {
-        branch_id: payload?.branch_id ?? null,
         role_name: normalizeRole(payload?.role_name),
       };
     }
   } catch (_) {}
-  return { branch_id: null, role_name: "" };
+  return { role_name: "" };
 }, []);
 const currentUser = useMemo(
   () => (Array.isArray(users) ? users.find(u => u?.employee_code === userCode) : null),
@@ -133,11 +131,6 @@ const currentUser = useMemo(
 
 const roleName = useMemo(
   () => normalizeRole(currentUser?.profile_role?.name || cookieUserMeta.role_name),
-  [currentUser, cookieUserMeta]
-);
-
-const viewerBranchId = useMemo(
-  () => currentUser?.branch_id ?? cookieUserMeta.branch_id ?? null,
   [currentUser, cookieUserMeta]
 );
 
@@ -172,8 +165,6 @@ const fetchUsers = async () => {
 useEffect(() => { fetchUsers(); }, []);
 
 // team-only list (include self). If SUPERADMIN, show all.
-// SUPERADMIN: all users (all branches)
-// BRANCH_MANAGER: everyone in their branch
 // Others: self + direct reports (senior_profile_id === viewer's code)
 const teamMembers = useMemo(() => {
   const all = Array.isArray(users) ? users : [];
@@ -183,14 +174,10 @@ const teamMembers = useMemo(() => {
     return all;
   }
 
-  if (roleName === "BRANCH_MANAGER" && viewerBranchId != null) {
-    return all.filter(u => u?.branch_id === viewerBranchId);
-  }
-
   return all.filter(
     u => u?.employee_code === userCode || u?.senior_profile_id === userCode
   );
-}, [users, userCode, roleName, viewerBranchId]);
+}, [users, userCode, roleName]);
 
 const suggestions = useMemo(() => {
   const base = teamMembers;

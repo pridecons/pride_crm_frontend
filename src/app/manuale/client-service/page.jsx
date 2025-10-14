@@ -13,14 +13,8 @@ import {
 } from "lucide-react";
 
 const Page = () => {
-  const [branches, setBranches] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
   const [responses, setResponses] = useState([]);
-
-  // NEW: minimal local state used by the uploader
-  const [isSuperAdmin] = useState(true); // <-- plug your actual role check
-  const [branchId] = useState(null);     // <-- for non-superadmin hidden field
-  const [selectedBranchId, setSelectedBranchId] = useState("");
 
   // --- Import form state ---
   const [selectedLeadSourceId, setSelectedLeadSourceId] = useState("");
@@ -55,32 +49,18 @@ const Page = () => {
   // build visible sources if API fallback returns all
   const visibleSources = useMemo(() => {
     if (!Array.isArray(leadSources)) return [];
-    if (!selectedBranchId) return leadSources;
-    return leadSources.filter((s) => String(s.branch_id || "") === String(selectedBranchId));
-  }, [leadSources, selectedBranchId]);
+    return leadSources
+  }, [leadSources]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await axiosInstance.get("/branches/?skip=0&limit=100&active_only=false");
-        setBranches(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load branches:", err);
-      }
-    })();
-    fetchResponses();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedBranchId) return;
     (async () => {
       try {
         const { data } = await axiosInstance.get(
-          `/lead-config/sources/?skip=0&limit=100&branch_id=${selectedBranchId}`
+          `/lead-config/sources/?skip=0&limit=100`
         );
         setLeadSources(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error("Branch-filtered lead sources failed, falling back:", err);
+        console.error("lead sources failed, falling back:", err);
         try {
           const { data } = await axiosInstance.get(`/lead-config/sources/?skip=0&limit=100`);
           setLeadSources(Array.isArray(data) ? data : []);
@@ -89,7 +69,7 @@ const Page = () => {
         }
       }
     })();
-  }, [selectedBranchId]);
+  }, []);
 
   const fetchResponses = async () => {
     try {
@@ -129,10 +109,6 @@ const Page = () => {
       alert("Please choose CSV/XLSX file.");
       return;
     }
-    if (!selectedBranchId && !branchId) {
-      alert("Please select a branch.");
-      return;
-    }
     if (!selectedLeadSourceId) {
       alert("Please select a lead source.");
       return;
@@ -146,7 +122,6 @@ const Page = () => {
     form.append("file", file);
     form.append("lead_response_id", String(selectedResponseId));
     form.append("lead_source_id", String(selectedLeadSourceId));
-    form.append("branch_id", String(selectedBranchId || branchId));
     form.append("column_map_json", buildColumnMapJSON());
     form.append("one_based", String(Boolean(oneBased)));
     form.append("dry_run", String(Boolean(dryRun)));
@@ -168,34 +143,7 @@ const Page = () => {
   return (
     <div className="w-full space-y-6 p-8">
       {/* Top filters */}
-      <div className={`grid grid-cols-1 ${isSuperAdmin ? "md:grid-cols-2" : "md:grid-cols-1"} gap-4`}>
-        {/* Branch (dropdown only for SUPERADMIN) */}
-        {isSuperAdmin ? (
-          <div className="space-y-1">
-            <label className="flex items-center gap-2 text-sm font-medium text-[var(--theme-text)]">
-              <Building2 className="w-4 h-4 text-[var(--theme-primary)]" />
-              Select Branch
-            </label>
-            <select
-              name="branch_id"
-              required
-              className="w-full px-4 py-2 rounded-lg transition bg-[var(--theme-components-input-bg)] text-[var(--theme-components-input-text)] border border-[var(--theme-components-input-border)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-components-input-focus)] focus:border-transparent"
-              value={selectedBranchId || ""}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-            >
-              <option value="" disabled>
-                {branches.length ? "Choose a branch…" : "Loading branches…"}
-              </option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <input type="hidden" name="branch_id" value={branchId ?? ""} />
-        )}
+      <div className={`gap-4`}>
 
         {/* Lead source dropdown */}
         <div className="space-y-1 w-full">
@@ -211,7 +159,7 @@ const Page = () => {
             onChange={(e) => setSelectedLeadSourceId(e.target.value)}
           >
             <option value="" disabled>
-              {selectedBranchId ? "Choose a source…" : "Pick a branch first…"}
+              Choose a source…
             </option>
             {visibleSources.map((s) => (
               <option key={s.id} value={s.id}>

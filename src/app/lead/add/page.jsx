@@ -114,7 +114,6 @@ export default function LeadForm() {
     call_back_date: '', profile: '',
   })
 
-  const [branchId, setBranchId] = useState(null)
   const [aadharFront, setAadharFront] = useState(null)
   const [aadharBack, setAadharBack] = useState(null)
   const [panPic, setPanPic] = useState(null)
@@ -173,15 +172,6 @@ export default function LeadForm() {
   }
 
   useEffect(() => {
-    try {
-      const raw = Cookies.get('user_info')
-      if (raw) {
-        const u = JSON.parse(raw)
-        const b = u?.branch_id ?? u?.user?.branch_id ?? u?.branch?.id ?? null
-        setBranchId(b)
-      }
-    } catch { }
-
     axiosInstance.get('/lead-config/sources/?skip=0&limit=100')
       .then(r => setLeadSources(r.data || []))
       .catch(() => setLeadSources([]))
@@ -350,7 +340,7 @@ export default function LeadForm() {
         comment: formData.comment?.trim() || undefined,
         call_back_date: normalizeDate(formData.call_back_date) || undefined,
         profile: formData.profile?.trim() || undefined,
-        ...(role && role !== 'SUPERADMIN' && branchId ? { branch_id: branchId } : {}),
+        ...(role && role !== 'SUPERADMIN'),
       }
       const payload = Object.fromEntries(Object.entries(basePayload).filter(([, v]) => v !== undefined))
 

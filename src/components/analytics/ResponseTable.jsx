@@ -9,13 +9,12 @@ const Loader =
     <div className="p-6 text-gray-500">{message || "Loading..."}</div>
   ));
 
-function ResponseDistribution({ isSuperAdmin, branchId }) {
+function ResponseDistribution({ isSuperAdmin }) {
   const [respLoading, setRespLoading] = useState(true);
   const [respError, setRespError] = useState(null);
   const [responseTotal, setResponseTotal] = useState(0);
   const [responseRows, setResponseRows] = useState([]);
 
-  const [branchFilter, setBranchFilter] = useState("");
   const [employeeRole, setEmployeeRole] = useState("");
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -24,19 +23,12 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
   const [applied, setApplied] = useState(false);
 
   const [roles, setRoles] = useState([]);
-  const [branches, setBranches] = useState([]);
 
   // ——— Employees search (kept as-is; works alongside UsersDropdown) ———
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [showEmpDrop, setShowEmpDrop] = useState(false);
   const [empMatches, setEmpMatches] = useState([]);
 
-  // If not superadmin, lock to provided branch
-  useEffect(() => {
-    if (!isSuperAdmin && branchId) {
-      setBranchFilter(String(branchId));
-    }
-  }, [isSuperAdmin, branchId]);
 
   // // Roles
   // const fetchRoles = async () => {
@@ -48,16 +40,6 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
   //   }
   // };
 
-  // Branches (for SuperAdmin)
-  const fetchBranches = async () => {
-    if (!isSuperAdmin) return;
-    try {
-      const res = await axiosInstance.get("/branches");
-      setBranches(res.data?.data || res.data || []);
-    } catch (err) {
-      console.error("Failed to fetch branches:", err);
-    }
-  };
 
   // Search employees
   const searchEmployees = async (query) => {
@@ -121,7 +103,6 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
         params.to_date = toDate;     // YYYY-MM-DD
       }
 
-      if (branchFilter) params.branch_id = branchFilter;           // ✅ API: branch_id
       if (employeeRole) params.employee_role = employeeRole;       // ✅ API: employee_role (id or name)
       if (selectedSourceId) params.source_id = selectedSourceId;   // ✅ API: source_id
       if (selectedUserId) params.user_id = selectedUserId;         // ✅ API: user_id (employee_code)
@@ -154,50 +135,18 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
     return () => clearTimeout(timer);
   }, [employeeQuery, showEmpDrop]);
 
-  // // Init
-  // useEffect(() => {
-  //   fetchRoles();
-  //   fetchBranches();
-  // }, []);
 
   // Re-fetch on filter changes
   useEffect(() => {
     fetchResponseDistribution();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter, employeeRole, selectedSourceId, selectedUserId, applied]);
-
-  const branchTabs = [
-    { value: "", label: "All Branches" },
-    ...branches.map((b) => ({
-      value: String(b.id),
-      label: b.name || ` Branch ${b.id}`,
-    })),
-  ];
+  }, [employeeRole, selectedSourceId, selectedUserId, applied]);
 
   return (
     <div className="lg:col-span-2 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100">
         <h2 className="text-xl font-semibold text-gray-900">Response Distribution</h2>
         <p className="text-gray-600 text-sm mt-1">Breakdown of lead responses</p>
-
-        {/* Branch Tabs (SuperAdmin only) */}
-        {isSuperAdmin && (
-          <div className="flex gap-2 overflow-x-auto pt-3">
-            {branchTabs.map((opt) => (
-              <button
-                key={branch - `${opt.value}`}
-                onClick={() => setBranchFilter(opt.value)}
-                className={`px-3 py-1.5 rounded-lg border text-sm whitespace-nowrap ${branchFilter === opt.value
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                  }`}
-                title="Branch"
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
       <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-gray-100 flex-wrap gap-3">
         {/* Filters Row */}
@@ -322,7 +271,6 @@ function ResponseDistribution({ isSuperAdmin, branchId }) {
                   </div>
                   <div className="text-xs text-gray-500">
                     Role ID: {emp.role_id || "N/A"}{" "}
-                    {emp.branch_id ? `• Branch: ${emp.branch_id}` : ""}
                   </div>
 
                 </div>

@@ -220,8 +220,6 @@ const Lead = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const [branchNameMap, setBranchNameMap] = useState({});
-
   const [showFTModal, setShowFTModal] = useState(false);
   const [ftFromDate, setFTFromDate] = useState("");
   const [ftToDate, setFTToDate] = useState("");
@@ -427,10 +425,9 @@ const apiCall = async (method, endpoint, data = null) => {
 
   const fetchData = async () => {
     try {
-      const [sourcesRes, responsesRes, branchesRes] = await Promise.all([
+      const [sourcesRes, responsesRes] = await Promise.all([
         apiCall("GET", "/lead-config/sources/?skip=0&limit=100"),
         apiCall("GET", "/lead-config/responses/?skip=0&limit=100"),
-        apiCall("GET", "/branches/?skip=0&limit=100"),
       ]);
 
       setLeadSources(
@@ -447,21 +444,7 @@ const apiCall = async (method, endpoint, data = null) => {
         }))
       );
 
-      const rawBranches = Array.isArray(branchesRes?.data)
-        ? branchesRes.data
-        : Array.isArray(branchesRes?.items)
-          ? branchesRes.items
-          : Array.isArray(branchesRes?.branches)
-            ? branchesRes.branches
-            : Array.isArray(branchesRes)
-              ? branchesRes
-              : [];
-      const bMap = {};
-      rawBranches.forEach((b) => {
-        if (b?.id != null)
-          bMap[b.id] = b?.name || b?.branch_name || `Branch #${b.id}`;
-      });
-      setBranchNameMap(bMap);
+
     } catch (err) {
       console.log("Error fetching data:", err);
     }
@@ -723,7 +706,6 @@ if (!loading && !currentLead && error?.status === 403) {
         <div style={{ color: "var(--theme-text)" }}>
           <LeadHeader
   currentLead={currentLead}
-  branchNameMap={branchNameMap}
   isSuperAdmin={isSuperAdmin}
 />
         </div>

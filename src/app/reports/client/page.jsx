@@ -15,53 +15,6 @@ const todayLocalISO = () => {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 };
 
-function useRoleBranch() {
-  const [role, setRole] = React.useState(null);
-  const [branchId, setBranchId] = React.useState(null);
-
-  React.useEffect(() => {
-    try {
-      const uiRaw = Cookies.get("user_info");
-      let r = null;
-      let b = null;
-
-      if (uiRaw) {
-        const ui = JSON.parse(uiRaw);
-        r =
-          ui?.role_name ||
-          ui?.role ||
-          ui?.user?.role_name ||
-          ui?.user?.role ||
-          ui?.profile_role?.name ||
-          null;
-
-        b =
-          ui?.branch_id ??
-          ui?.user?.branch_id ??
-          ui?.branch?.id ??
-          ui?.user?.branch?.id ??
-          null;
-      } else {
-        const token = Cookies.get("access_token");
-        if (token) {
-          const p = jwtDecode(token);
-          r = p?.role_name || p?.role || null;
-          b = p?.branch_id ?? p?.user?.branch_id ?? null;
-        }
-      }
-
-      const canon = String(r || "").toUpperCase().trim().replace(/\s+/g, " ");
-      const fixedRole = canon === "SUPER ADMINISTRATOR" ? "SUPERADMIN" : canon;
-
-      setRole(fixedRole || null);
-      setBranchId(b != null ? String(b) : null);
-    } catch (e) {
-      console.error("role/branch decode failed", e);
-    }
-  }, []);
-
-  return { role, branchId, isSuperAdmin: role === "SUPERADMIN" };
-}
 
 function AutoComplete({
   value,
@@ -191,7 +144,6 @@ const COLUMN_OPTIONS = [
   ["lead_response", "Lead Response"],
   ["employee_code", "Employee Code"],
   ["employee_name", "Employee Name"],
-  ["branch_name", "Branch"],
 ];
 
 // backend defaults
@@ -213,7 +165,6 @@ const DEFAULT_COLS = [
   "lead_response",
   "employee_code",
   "employee_name",
-  "branch_name",
 ];
 
 const moneyINR = (n) => {
@@ -307,7 +258,6 @@ function AllClientsTab() {
   const [days, setDays] = useState(30);
   const [filterBy, setFilterBy] = useState("payment_date"); // "payment_date" | "registration_date"
 
-  const [branchId, setBranchId] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [responseId, setResponseId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -332,29 +282,17 @@ function AllClientsTab() {
   const [windowInfo, setWindowInfo] = useState(null);
 
   // --- new: options for autocomplete ---
-const [branchOptions, setBranchOptions] = useState([]);   // value = id (string)
 const [sourceOptions, setSourceOptions] = useState([]);   // value = id (string)
 const [employeeOptions, setEmployeeOptions] = useState([]); // value = employee_code (string)
 const [loadingLookups, setLoadingLookups] = useState(false);
-const { isSuperAdmin, branchId: myBranchId } = useRoleBranch();
 
-// load branches, sources, employees
+// load sources, employees
 useEffect(() => {
   let mounted = true;
   async function loadLookups() {
     setLoadingLookups(true);
     try {
-      // 1) branches (no auth in your sample; axiosInstance ok either way)
-      const br = await axiosInstance.get("/branches", {
-        params: { skip: 0, limit: 100, active_only: false },
-      });
-      const _branches = (br.data || []).map(b => ({
-        value: String(b.id),
-        label: `${b.name}`,
-        subtitle: `#${b.id} • Manager: ${b.manager_id ?? "—"}`,
-      }));
-      // index by id for later subtitles
-      const branchById = new Map(_branches.map(b => [Number(b.value), b.label]));
+
 
       // 2) sources (needs auth; axiosInstance already has it)
       const src = await axiosInstance.get("/lead-config/sources/", {
@@ -362,9 +300,7 @@ useEffect(() => {
       });
       const _sources = (src.data || []).map(s => ({
         value: String(s.id),
-        label: `${s.name} (#${s.id})`,
-        subtitle: `Branch: ${branchById.get(Number(s.branch_id)) ?? `#${s.branch_id}`}`,
-        branch_id: s.branch_id,
+        label: `${s.name} (#${s.id})`
       }));
 
       // 3) users (employees)
@@ -374,12 +310,9 @@ useEffect(() => {
       const _employees = (usr.data?.data || []).map(u => ({
         value: String(u.employee_code),
         label: `${u.employee_code} — ${u.name ?? "—"}`,
-        subtitle: `${u.profile_role?.name ?? "—"} • Branch: ${u.branch_id ?? "—"}`,
-        branch_id: u.branch_id ?? null,
       }));
 
       if (!mounted) return;
-      setBranchOptions(_branches);
       setSourceOptions(_sources);
       setEmployeeOptions(_employees);
     } catch (e) {
@@ -392,12 +325,6 @@ useEffect(() => {
   return () => { mounted = false; };
 }, []);
 
-// non-superadmin: force their own branch (hide tabs)
-useEffect(() => {
-  if (!isSuperAdmin && myBranchId && !branchId) {
-    setBranchId(String(myBranchId));
-  }
-}, [isSuperAdmin, myBranchId, branchId]);
 
   const page = Math.floor(skip / limit) + 1;
   const maxPage = Math.max(1, Math.ceil(total / limit));
@@ -435,12 +362,6 @@ useEffect(() => {
   setSkip(0);
   setLimit(50);
 
-  // key bit: branch reset depends on role
-  if (isSuperAdmin) {
-    setBranchId("");
-  } else if (myBranchId) {
-    setBranchId(String(myBranchId));
-  }
 };
 
 const buildParams = useCallback(() => {
@@ -465,7 +386,6 @@ const buildParams = useCallback(() => {
     }
   }
 
-  if (branchId) p.branch_id = Number(branchId);
   if (sourceId) p.source_id = Number(sourceId);
   if (responseId) p.response_id = Number(responseId);
   if (employeeId) p.employee_id = employeeId;
@@ -480,7 +400,7 @@ const buildParams = useCallback(() => {
 }, [
   filterBy, view, skip, limit,
   fromDate, toDate, days,
-  branchId, sourceId, responseId, employeeId,
+  sourceId, responseId, employeeId,
   profileId, departmentId,
   minAmount, maxAmount,
   searchApplied, columns
@@ -508,33 +428,20 @@ const buildParams = useCallback(() => {
     }
   };
 
-  // when a branch is selected, narrow the lists for convenience (doesn't change params logic)
+  // when is selected, narrow the lists for convenience (doesn't change params logic)
 const filteredSourceOptions = useMemo(() => {
-  if (!branchId) return sourceOptions;
-  return sourceOptions.filter(s => String(s.branch_id) === String(branchId));
-}, [sourceOptions, branchId]);
+   return sourceOptions;
+}, [sourceOptions]);
 
 const filteredEmployeeOptions = useMemo(() => {
-  if (!branchId) return employeeOptions;
-  return employeeOptions.filter(e => String(e.branch_id ?? "") === String(branchId));
-}, [employeeOptions, branchId]);
-
-const branchLabelById = useMemo(() => {
-  const m = new Map();
-  branchOptions.forEach(b => m.set(String(b.value), b.label));
-  return m;
-}, [branchOptions]);
-
-const currentBranchName =
-  branchLabelById.get(String(branchId)) ||
-  (branchId ? `Branch #${branchId}` : "All Branches");
+  return employeeOptions;
+}, [employeeOptions]);
 
   // fetch on mount + when filters change
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    branchId,
     sourceId,
     responseId,
     employeeId,
@@ -657,41 +564,6 @@ const showDateReset = useMemo(() => {
           <Filter size={18} strokeWidth={1.5}/>
           <span className="font-semibold text-slate-700">Filters</span>
         </div>
-{/* Branch chooser — visible only to SUPERADMIN */}
-{isSuperAdmin && (
-  <div className="bg-white/90 space-y-2">
-    <div className="text-xs font-medium text-slate-600">Branch</div>
-    <div className="flex flex-wrap gap-2">
-      <button
-        type="button"
-        onClick={() => { setBranchId(""); setSkip(0); }}
-        className={`px-4 py-2 rounded-xl text-sm border transition-all duration-150 ${
-          branchId === ""
-            ? "bg-indigo-600 text-white border-indigo-600 shadow"
-            : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
-        }`}
-      >
-        All Branches
-      </button>
-
-      {branchOptions.map((b) => (
-        <button
-          key={`branch-tab-${b.value}`}
-          type="button"
-          onClick={() => { setBranchId(String(b.value)); setSkip(0); }}
-          className={`px-4 py-2 rounded-xl text-sm border transition-all duration-150 ${
-            String(branchId) === String(b.value)
-              ? "bg-indigo-600 text-white border-indigo-600 shadow"
-              : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
-          }`}
-          title={b.subtitle}
-        >
-          {b.label}
-        </button>
-      ))}
-    </div>
-  </div>
-)}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
 
@@ -764,7 +636,7 @@ const showDateReset = useMemo(() => {
       className="w-full h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-sm hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
     >
       <option value="">All Sources</option>
-      {(branchId ? filteredSourceOptions : sourceOptions).map(s => (
+      {(sourceOptions).map(s => (
         <option key={`src-${s.value}`} value={s.value}>
           {s.label}
         </option>
@@ -972,7 +844,6 @@ function LeadDetailsTab() {
 
 const [leadOptions, setLeadOptions] = useState([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
-  const { isSuperAdmin, branchId: myBranchId } = useRoleBranch();
 
   useEffect(() => {
     let mounted = true;
@@ -985,8 +856,6 @@ const [leadOptions, setLeadOptions] = useState([]);
             limit: 100,
             kyc_only: false,
             view: "all",
-            // scope to user's branch automatically if not superadmin
-            ...(isSuperAdmin ? {} : { branch_id: myBranchId ? Number(myBranchId) : undefined }),
           },
         });
 
@@ -1027,7 +896,7 @@ if (mounted) setLeadOptions(opts);
     }
     loadLeads();
     return () => { mounted = false; };
-  }, [isSuperAdmin, myBranchId]);
+  }, []);
 
   const fetchLead = async () => {
     if (!leadId) {
@@ -1129,7 +998,6 @@ if (mounted) setLeadOptions(opts);
             <Meta label="Email" value={client.email} icon="✉️" />
             <Meta label="Mobile" value={client.mobile} mono icon="📱" />
             <Meta label="Product/Service" value={client.product} icon="📦" />
-            <Meta label="Branch" value={client.branch_name} icon="🏢" />
             <Meta label="Primary Emp Code" value={client.employee_primary_code} mono icon="👤" />
             <Meta label="Primary Emp Name" value={client.employee_primary_name} icon="👤" />
             <Meta label="Service Start" value={fmtDate(client.service_start)} icon="▶️" />

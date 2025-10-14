@@ -181,7 +181,6 @@ const getPermissionIcon = (perm) => {
     delete_lead: Trash2,
     view_users: Users,
     view_lead: Eye,
-    view_branch: Building,
     view_accounts: DollarSign,
     view_research: BarChart3,
     view_client: UserCheck,
@@ -197,14 +196,12 @@ const getPermissionIcon = (perm) => {
     lead_recording_upload: Plus,
     lead_story_view: Eye,
     lead_transfer: RefreshCw,
-    lead_branch_view: Building,
     create_lead: Plus,
     create_new_lead_response: Plus,
     edit_response: Edit,
     delete_response: Trash2,
     user_add_user: Plus,
     user_all_roles: Users,
-    user_all_branches: Building,
     user_view_user_details: Eye,
     user_edit_user: Edit,
     user_delete_user: Trash2,
@@ -214,7 +211,6 @@ const getPermissionIcon = (perm) => {
     plans_create: Plus,
     edit_plan: Edit,
     delete_plane: Trash2,
-    client_select_branch: Building,
     client_invoice: FileText,
     client_story: Eye,
     client_comments: MessageSquare,
@@ -234,7 +230,6 @@ const getPermissionIcon = (perm) => {
     template: FileText,
     sms_page: MessageSquare,
     email_page: MessageSquare,
-    branch_page: Building,
     old_lead_page: FileText,
     new_lead_page: FileText,
     rational_download: Download,
@@ -251,10 +246,6 @@ const getPermissionIcon = (perm) => {
     sms_add: Plus,
     sms_edit: Edit,
     sms_delete: Trash2,
-    branch_add: Plus,
-    branch_edit: Edit,
-    branch_details: Eye,
-    branch_agreement_view: Eye,
     header_global_search: Search,
   };
   return iconMap[perm] || Settings;
@@ -267,7 +258,6 @@ const getPermissionCategory = (perm) => {
   if (perm.includes("payment") || perm.includes("invoice") || perm.includes("accounts"))
     return "Financial";
   if (perm.includes("client")) return "Client Management";
-  if (perm.includes("branch")) return "Branch Management";
   if (perm.includes("rational")) return "Reports & Analytics";
   if (perm.includes("sms") || perm.includes("email") || perm.includes("messanger"))
     return "Communication";
@@ -311,37 +301,65 @@ export default function PermissionsPage() {
     setFilteredPermissions([]);
   };
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      const [permRes, usersRes] = await Promise.all([
-        axiosInstance.get("/permissions/?skip=0&limit=100"),
-        axiosInstance.get("/users/?skip=0&limit=100&active_only=false"),
-      ]);
+// Helper: fetch all pages of users in one go (keeps your API & shapes)
+async function fetchAllUsers({ pageSize = 100 } = {}) {
+  let all = [];
+  let skip = 0;
 
-      const usersArray = Array.isArray(usersRes?.data?.data)
-        ? usersRes.data.data
-        : [];
+  // Defensive loop guard (avoid infinite loops on bad backends)
+  for (let i = 0; i < 200; i++) {
+    const res = await axiosInstance.get(`/users/?skip=${skip}&limit=${pageSize}&active_only=false`);
+    const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+    const pagination = res?.data?.pagination || {};
+    all = all.concat(data);
 
-      const map = {};
-      for (const u of usersArray) map[u.employee_code] = u;
+    const total = typeof pagination.total === "number" ? pagination.total : all.length;
+    // If we've reached or exceeded total, or the page returned less than pageSize, we’re done
+    if (all.length >= total || data.length < pageSize) break;
 
-      const permList = usersArray.map((user) => ({
-        user_id: user.employee_code,
-        user,
-        permissions: user.permissions || [],
-      }));
+    skip += pageSize;
+  }
 
-      setPermissions(permList);
-      setUsersByCode(map);
-      setUsersTotal(usersRes?.data?.pagination?.total ?? usersArray.length);
-    } catch (err) {
-      console.error(err);
-      ErrorHandling({ error: err, defaultError: "Failed to load users/permissions" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  return all;
+}
+
+const fetchAllData = async () => {
+  try {
+    setLoading(true);
+
+    // 1) Pull all users across pages
+    const usersArray = await fetchAllUsers({ pageSize: 100 });
+
+    // 2) You still hit /permissions/?skip=0&limit=100 — keep if you need it elsewhere
+    //    (Left as-is since you asked to keep everything intact)
+    const permRes = await axiosInstance.get("/permissions/?skip=0&limit=100");
+
+    // 3) Build maps and lists exactly like before
+    const map = {};
+    for (const u of usersArray) map[u.employee_code] = u;
+
+    const permList = usersArray.map((user) => ({
+      user_id: user.employee_code,
+      user,
+      permissions: user.permissions || [],
+    }));
+
+    setPermissions(permList);
+    setUsersByCode(map);
+
+    // Prefer backend total if present on ANY page; else fallback to full length
+    const totalFromAny =
+      (permRes?.data?.pagination?.total) ??
+      usersArray.length;
+
+    setUsersTotal(totalFromAny);
+  } catch (err) {
+    console.error(err);
+    ErrorHandling({ error: err, defaultError: "Failed to load users/permissions" });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchAllPermissions = async () => {
     await fetchAllData();

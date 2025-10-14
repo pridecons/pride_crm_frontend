@@ -132,7 +132,7 @@ export function ActionButtons({
       >
         ₹ Manuale Payment
       </button>
-}
+      }
 
       {/* Email */}
       <button

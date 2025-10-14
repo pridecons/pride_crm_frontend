@@ -362,7 +362,6 @@ const handleEnter = () => {
         title: "SETTINGS", section: "setting", icon: FileText,
         items: [
           { href: "/setting", icon: MailOpen, label: "Setting", access: "Setting" },
-          // { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
         ],
       },
     ],

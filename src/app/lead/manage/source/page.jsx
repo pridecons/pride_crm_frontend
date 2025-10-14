@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import { useTheme } from "@/context/ThemeContext";
+import { MiniLoader } from "@/components/LoadingState";
 
 /* --------------------------- helpers --------------------------- */
 const btnPrimary =

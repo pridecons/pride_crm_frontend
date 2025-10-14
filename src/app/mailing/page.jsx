@@ -30,15 +30,15 @@ function EmployeeAutocomplete({
       const label = getLabel(e).toLowerCase();
       const code = String(e?.employee_code || "").toLowerCase();
       const name = String(e?.name || e?.full_name || "").toLowerCase();
-      return (
-        label.includes(q) || code.includes(q) || name.includes(q)
-      );
+      return label.includes(q) || code.includes(q) || name.includes(q);
     });
   }, [items, query, getLabel]);
 
   // keep query in sync with selected value
   useEffect(() => {
-    const current = items.find((e) => String(e.employee_code) === String(value));
+    const current = items.find(
+      (e) => String(e.employee_code) === String(value)
+    );
     setQuery(current ? getLabel(current) : "");
   }, [value, items, getLabel]);
 
@@ -106,10 +106,9 @@ function EmployeeAutocomplete({
           background: "var(--theme-card-bg)",
           color: "var(--theme-text)",
           borderColor: "var(--theme-border)",
-          boxShadow:
-            open
-              ? "0 0 0 4px color-mix(in oklab, var(--theme-primary) 18%, transparent)"
-              : "none",
+          boxShadow: open
+            ? "0 0 0 4px color-mix(in oklab, var(--theme-primary) 18%, transparent)"
+            : "none",
         }}
       />
 
@@ -134,8 +133,7 @@ function EmployeeAutocomplete({
           ) : (
             filtered.map((emp, idx) => {
               const active = idx === highlight;
-              const selected =
-                String(emp.employee_code) === String(value);
+              const selected = String(emp.employee_code) === String(value);
               return (
                 <button
                   key={emp.employee_code}
@@ -145,10 +143,11 @@ function EmployeeAutocomplete({
                   onMouseEnter={() => setHighlight(idx)}
                   onMouseDown={(e) => e.preventDefault()} // prevent input blur before click
                   onClick={() => selectItem(emp)}
-                  className={`w-full text-left px-3 py-2 text-sm transition ${active
+                  className={`w-full text-left px-3 py-2 text-sm transition ${
+                    active
                       ? "bg-[color:color-mix(in_oklab,var(--theme-text)_10%,transparent)]"
                       : ""
-                    }`}
+                  }`}
                   style={{
                     color: "var(--theme-text)",
                   }}
@@ -179,11 +178,9 @@ export default function InternalMailingForm() {
 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [mode, setMode] = useState(""); // "profiles" | "employees" | "branches" | "all"
+  const [mode, setMode] = useState(""); // "profiles" | "employees" | "all"
   const [employeeId, setEmployeeId] = useState("");
-  const [branchId, setBranchId] = useState("");
   const [profileId, setProfileId] = useState("");
-  const [branches, setBranches] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [file, setFile] = useState(null);
@@ -191,7 +188,6 @@ export default function InternalMailingForm() {
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [myBranchId, setMyBranchId] = useState("");
 
   // Shared field styles (theme-driven)
   const fieldBase = "w-full rounded-lg outline-none transition";
@@ -227,10 +223,7 @@ export default function InternalMailingForm() {
         const roleKey = (payload?.role_name || payload?.role || "")
           .toString()
           .toUpperCase();
-        const bId = payload?.branch_id ?? payload?.branchId ?? "";
         setIsSuperAdmin(roleKey === "SUPERADMIN");
-        setMyBranchId(bId ? String(bId) : "");
-        if (roleKey !== "SUPERADMIN" && bId) setBranchId(String(bId));
       }
     } catch (e) {
       console.warn("JWT decode failed:", e);
@@ -239,17 +232,6 @@ export default function InternalMailingForm() {
 
   /* -------------------- Fetch Data -------------------- */
   useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        const { data } = await axiosInstance.get(
-          "/branches/?skip=0&limit=100&active_only=false"
-        );
-        setBranches(data);
-      } catch (err) {
-        console.error("Error fetching branches:", err);
-      }
-    };
-
     const fetchProfiles = async () => {
       try {
         const { data } = await axiosInstance.get(
@@ -260,25 +242,16 @@ export default function InternalMailingForm() {
         console.error("Error fetching profiles:", err);
       }
     };
-
-    fetchBranches();
     fetchProfiles();
   }, []);
 
-  // lock non-superadmin to their branch when switching to employees/branches
-  useEffect(() => {
-    if (!isSuperAdmin && myBranchId && (mode === "employees" || mode === "branches")) {
-      setBranchId(myBranchId);
-    }
-  }, [mode, isSuperAdmin, myBranchId]);
-
   // fetch employees when needed
   useEffect(() => {
-    if (mode === "employees" && branchId) {
+    if (mode === "employees") {
       const fetchEmployees = async () => {
         try {
           const { data } = await axiosInstance.get(
-            `/users/?skip=0&limit=100&active_only=false&branch_id=${branchId}`
+            `/users/?skip=0&limit=100&active_only=false`
           );
           setEmployees(data?.data || []);
         } catch (err) {
@@ -289,7 +262,7 @@ export default function InternalMailingForm() {
     } else {
       setEmployees([]);
     }
-  }, [branchId, mode]);
+  }, [mode]);
 
   /* -------------------- Submit -------------------- */
   const handleSubmit = async (e) => {
@@ -306,8 +279,6 @@ export default function InternalMailingForm() {
         formData.append("employee_ids", employeeId);
       if (mode === "profiles" && profileId)
         formData.append("profile_ids", profileId);
-      if (mode === "branches" && branchId)
-        formData.append("branch_ids", branchId);
 
       // safer file append (only if exists)
       if (file instanceof File) {
@@ -332,11 +303,6 @@ export default function InternalMailingForm() {
   };
 
   /* -------------------- Memos / helpers -------------------- */
-  const myBranchName = useMemo(() => {
-    if (!branchId) return "";
-    const found = branches.find((b) => String(b.id) === String(branchId));
-    return found?.name || "";
-  }, [branchId, branches]);
 
   const getRecipientDisplay = () => {
     if (mode === "all") return "All Users";
@@ -350,21 +316,27 @@ export default function InternalMailingForm() {
         ? `${emp.name || emp.full_name || "Employee"} (${emp.employee_code})`
         : "";
     }
-    if (mode === "branches" && branchId) return myBranchName;
     return "";
   };
 
   /* -------------------- UI helpers -------------------- */
-  const ChipButton = ({ active, onClick, children, disabled = false, title }) => (
+  const ChipButton = ({
+    active,
+    onClick,
+    children,
+    disabled = false,
+    title,
+  }) => (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${active
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+        active
           ? "bg-[color:color-mix(in_oklab,var(--theme-primary)_14%,transparent)] text-[var(--theme-primary)] border-[color:color-mix(in_oklab,var(--theme-primary)_36%,transparent)]"
           : "bg-[var(--theme-card-bg)] text-[var(--theme-text)] hover:bg-[color:color-mix(in_oklab,var(--theme-text)_6%,transparent)] border-[var(--theme-border)]"
-        } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+      } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
     >
       {children}
     </button>
@@ -394,15 +366,21 @@ export default function InternalMailingForm() {
             style={{
               background: "var(--theme-components-header-bg)",
               color: "var(--theme-components-header-text)",
-              borderColor: "var(--theme-components-header-border, var(--theme-border))",
-              boxShadow: "0 1px 0 var(--theme-components-header-shadow, transparent)"
+              borderColor:
+                "var(--theme-components-header-border, var(--theme-border))",
+              boxShadow:
+                "0 1px 0 var(--theme-components-header-shadow, transparent)",
             }}
           >
-            <h2 className="text-sm font-medium" style={{ color: "var(--theme-components-header-text)" }}>
+            <h2
+              className="text-sm font-medium"
+              style={{ color: "var(--theme-components-header-text)" }}
+            >
               <span>
                 <Mail className="inline-block mr-2" size={16} />
               </span>
-              Mailing</h2>
+              Mailing
+            </h2>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -427,7 +405,6 @@ export default function InternalMailingForm() {
                       onClick={() => {
                         setMode("profiles");
                         setEmployeeId("");
-                        if (isSuperAdmin) setBranchId("");
                       }}
                     >
                       Profiles
@@ -443,17 +420,6 @@ export default function InternalMailingForm() {
                       Employees
                     </ChipButton>
 
-                    <ChipButton
-                      active={mode === "branches"}
-                      onClick={() => {
-                        setMode("branches");
-                        setProfileId("");
-                        setEmployeeId("");
-                      }}
-                    >
-                      Branches
-                    </ChipButton>
-
                     {isSuperAdmin && (
                       <ChipButton
                         active={mode === "all"}
@@ -461,7 +427,6 @@ export default function InternalMailingForm() {
                           setMode("all");
                           setProfileId("");
                           setEmployeeId("");
-                          setBranchId("");
                         }}
                       >
                         All Users
@@ -475,7 +440,6 @@ export default function InternalMailingForm() {
                           setMode("");
                           setProfileId("");
                           setEmployeeId("");
-                          if (isSuperAdmin) setBranchId("");
                         }}
                       >
                         × Clear
@@ -509,87 +473,20 @@ export default function InternalMailingForm() {
                     </select>
                   )}
 
-                  {/* BRANCHES */}
-                  {mode === "branches" && (
-                    <>
-                      {isSuperAdmin ? (
-                        <select
-                          className={`${fieldBase} px-2 py-2 text-sm min-w-[260px]`}
-                          style={selectStyle}
-                          value={branchId}
-                          onChange={(e) => setBranchId(e.target.value)}
-                          onFocus={(e) =>
-                            Object.assign(e.currentTarget.style, focusRing)
-                          }
-                          onBlur={(e) =>
-                            Object.assign(e.currentTarget.style, selectStyle)
-                          }
-                        >
-                          <option value="">Select branch...</option>
-                          {branches.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span
-                          className="text-sm"
-                          style={{ color: "var(--theme-text-muted)" }}
-                        >
-                          (Auto-selected: {myBranchName || "My Branch"})
-                        </span>
-                      )}
-                    </>
-                  )}
-
                   {/* EMPLOYEES */}
                   {mode === "employees" && (
                     <>
-                      {/* Branch chooser for SUPERADMIN first */}
-                      {isSuperAdmin && (
-                        <select
-                          className={`${fieldBase} px-2 py-2 text-sm min-w-[220px]`}
-                          style={selectStyle}
-                          value={branchId}
-                          onChange={(e) => setBranchId(e.target.value)}
-                          onFocus={(e) =>
-                            Object.assign(e.currentTarget.style, focusRing)
-                          }
-                          onBlur={(e) =>
-                            Object.assign(e.currentTarget.style, selectStyle)
-                          }
-                        >
-                          <option value="">Select branch first...</option>
-                          {branches.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      {/* Employee list (appears when branch is known) */}
-                      {branchId && (
-                        <EmployeeAutocomplete
-                          items={employees}
-                          value={employeeId}
-                          onChange={setEmployeeId}
-                          placeholder="Search employee by name or code..."
-                          getLabel={(emp) =>
-                            `${emp?.name || emp?.full_name || "Employee"} (${emp?.employee_code || ""})`
-                          }
-                        />
-                      )}
-
-                      {!isSuperAdmin && branchId && (
-                        <span
-                          className="text-xs"
-                          style={{ color: "var(--theme-text-muted)" }}
-                        >
-                          (Branch: {myBranchName})
-                        </span>
-                      )}
+                      <EmployeeAutocomplete
+                        items={employees}
+                        value={employeeId}
+                        onChange={setEmployeeId}
+                        placeholder="Search employee by name or code..."
+                        getLabel={(emp) =>
+                          `${emp?.name || emp?.full_name || "Employee"} (${
+                            emp?.employee_code || ""
+                          })`
+                        }
+                      />
                     </>
                   )}
 
@@ -615,7 +512,8 @@ export default function InternalMailingForm() {
                         style={{
                           background: "var(--theme-components-tag-info-bg)",
                           color: "var(--theme-components-tag-info-text)",
-                          borderColor: "var(--theme-components-tag-info-border)"
+                          borderColor:
+                            "var(--theme-components-tag-info-border)",
                         }}
                       >
                         {txt}
@@ -682,8 +580,13 @@ export default function InternalMailingForm() {
                     color: "var(--theme-primary-contrast)",
                     opacity: loading ? 0.8 : 1,
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--theme-primary-hover)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--theme-primary)"; }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "var(--theme-primary-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--theme-primary)";
+                  }}
                 >
                   {loading ? (
                     <>

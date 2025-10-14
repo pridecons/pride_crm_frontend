@@ -173,6 +173,25 @@ export default function LeadSourcesPage() {
     setIsCreateNew(false);
   };
 
+  useEffect(()=>{
+    fetchRoles()
+  },[])
+
+    const fetchRoles = async () => {
+    try {
+      const { data } = await axiosInstance.get(
+        "/profile-role/?skip=0&limit=50&order_by=hierarchy_level"
+      );
+      const list = Array.isArray(data) ? data.filter((r) => r?.is_active) : [];
+      setRoles(list);
+    } catch (err) {
+      ErrorHandling({
+        error: err,
+        defaultError: "Failed to load profiles",
+      });
+    }
+  };
+
   const roleAlreadyUsed = (role_id) =>
     form.fetch_configs.some((fc) => Number(fc.role_id) === Number(role_id));
 

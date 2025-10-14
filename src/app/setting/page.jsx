@@ -27,6 +27,50 @@ function Section({ title, open, onToggle, children }) {
   );
 }
 
+/* ---------- Company mappers (API <-> UI) ---------- */
+const companyKeyMap = [
+  ["COMPANY_NAME", "name"],
+  ["COMPANY_MAIL", "mail"],
+  ["COMPANY_NUMBER", "number"],
+  ["COMPANY_ADDRESS", "address"],
+  ["COMPANY_ADDRESS_BREAK", "address_break"],
+  ["COMPANY_DISTRICT", "district"],
+  ["COMPANY_SORT_ADDRESS", "sort_address"],
+  ["COMPANY_STARTUP_INDIA_REG", "startup_india_reg"],
+  ["COMPANY_CIN_NO", "cin_no"],
+  ["COMPANY_REGISTRATION_NO", "registration_no"],
+  ["COMPANY_WEBSITE_URL", "website_url"],
+  ["COMPANY_WEBSITE_URL_DISCLOSURE", "website_url_disclosure"],
+  ["COMPANY_GSTIN", "gstin"],
+  ["COMPANY_CUSTOMER_NUMBER", "customer_number"],
+  ["COMPANY_CUSTOMER_NAME", "customer_name"],
+  ["COMPANY_CUSTOMER_MAIL", "customer_mail"],
+  ["COMPANY_COMPLIANCE_OFFICER_NUMBER", "compliance_officer_number"],
+  ["COMPANY_COMPLIANCE_OFFICER_NAME", "compliance_officer_name"],
+  ["COMPANY_COMPLIANCE_OFFICER_MAIL", "compliance_officer_mail"],
+  ["COMPANY_PRINCIPAL_OFFICER_NUMBER", "principal_officer_number"],
+  ["COMPANY_PRINCIPAL_OFFICER_NAME", "principal_officer_name"],
+  ["COMPANY_PRINCIPAL_OFFICER_MAIL", "principal_officer_mail"],
+];
+
+function companyFromApi(apiObj = {}) {
+  const out = {};
+  companyKeyMap.forEach(([legacy, clean]) => {
+    out[legacy] = apiObj[legacy] ?? apiObj[clean] ?? "";
+  });
+  if (apiObj.id != null) out.id = apiObj.id;
+  return out;
+}
+
+function companyToApi(uiObj = {}) {
+  const out = {};
+  companyKeyMap.forEach(([legacy, clean]) => {
+    out[clean] = uiObj[legacy] ?? null;
+  });
+  if (uiObj.id != null) out.id = uiObj.id;
+  return out;
+}
+
 /* ---------- Component ---------- */
 const Settings = () => {
   const headers = useAuthHeaders();
@@ -40,30 +84,7 @@ const Settings = () => {
   const [openSMTP, setOpenSMTP] = useState(false);
   const [openApp, setOpenApp] = useState(false);
 
-  const [company, setCompany] = useState({
-    COMPANY_NAME: "",
-    COMPANY_MAIL: "",
-    COMPANY_NUMBER: "",
-    COMPANY_ADDRESS: "",
-    COMPANY_ADDRESS_BREAK: "",
-    COMPANY_DISTRICT: "",
-    COMPANY_SORT_ADDRESS: "",
-    COMPANY_STARTUP_INDIA_REG: "",
-    COMPANY_CIN_NO: "",
-    COMPANY_REGISTRATION_NO: "",
-    COMPANY_WEBSITE_URL: "",
-    COMPANY_WEBSITE_URL_DISCLOSURE: "",
-    COMPANY_GSTIN: "",
-    COMPANY_CUSTOMER_NUMBER: "",
-    COMPANY_CUSTOMER_NAME: "",
-    COMPANY_CUSTOMER_MAIL: "",
-    COMPANY_COMPLIANCE_OFFICER_NUMBER: "",
-    COMPANY_COMPLIANCE_OFFICER_NAME: "",
-    COMPANY_COMPLIANCE_OFFICER_MAIL: "",
-    COMPANY_PRINCIPAL_OFFICER_NUMBER: "",
-    COMPANY_PRINCIPAL_OFFICER_NAME: "",
-    COMPANY_PRINCIPAL_OFFICER_MAIL: "",
-  });
+  const [company, setCompany] = useState(companyFromApi());
 
   const [smtp, setSmtp] = useState({
     COM_SMTP_SERVER: "",
@@ -74,6 +95,7 @@ const Settings = () => {
     COM_SMTP_PORT: 587,
     COM_SMTP_CC: "",
     COM_SMTP_BCC: "",
+    id: undefined,
   });
 
   const [app, setApp] = useState({
@@ -83,13 +105,29 @@ const Settings = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      // Company
       const c = await axiosInstance.get("/settings/company", { headers });
-      if (c?.data) setCompany(c.data);
+      if (c?.data) setCompany(companyFromApi(c.data));
 
+      // SMTP
       const s = await axiosInstance.get("/settings/smtp", { headers });
-      if (s?.data) setSmtp(s.data);
+      if (s?.data) {
+        setSmtp({
+          COM_SMTP_SERVER: s.data.server ?? "",
+          COM_SMTP_USER: s.data.user ?? "",
+          COM_SMTP_PASSWORD: s.data.password ?? "",
+          // map API -> UI
+          COM_SMTP_FROM: s.data.from_email ?? s.data.from ?? "",
+          COM_SMTP_REPLY: s.data.reply_to ?? s.data.reply ?? "",
+          COM_SMTP_PORT: s.data.port ?? 587,
+          COM_SMTP_CC: s.data.cc ?? "",
+          COM_SMTP_BCC: s.data.bcc ?? "",
+          id: s.data.id,
+        });
+      }
 
-      const a = await axiosInstance.get("/settings/app/payment_limit", {
+      // App
+      const a = await axiosInstance.get("/settings/app/payment-limit", {
         headers,
       });
       if (a?.data && typeof a.data.payment_limit !== "undefined") {
@@ -110,10 +148,8 @@ const Settings = () => {
   const saveCompany = async () => {
     setSavingCompany(true);
     try {
-      await axiosInstance.put("/settings/company", company, { headers });
-      await axiosInstance.post("/settings/reload", null, { headers }).catch(
-        () => {}
-      );
+      const payload = companyToApi(company);
+      await axiosInstance.put("/settings/company", payload, { headers });
       alert("Company profile saved.");
     } catch (err) {
       console.error(err);
@@ -126,10 +162,19 @@ const Settings = () => {
   const saveSMTP = async () => {
     setSavingSMTP(true);
     try {
-      await axiosInstance.put("/settings/smtp", smtp, { headers });
-      await axiosInstance.post("/settings/reload", null, { headers }).catch(
-        () => {}
-      );
+      // API accepts `from` & `reply` (server normalizes to from_email/reply_to)
+      const payload = {
+        id: smtp.id,
+        server: smtp.COM_SMTP_SERVER || null,
+        user: smtp.COM_SMTP_USER || null,
+        password: smtp.COM_SMTP_PASSWORD || null,
+        from: smtp.COM_SMTP_FROM || null,
+        reply: smtp.COM_SMTP_REPLY || null,
+        port: Number(smtp.COM_SMTP_PORT) || 587,
+        cc: smtp.COM_SMTP_CC || null,
+        bcc: smtp.COM_SMTP_BCC || null,
+      };
+      await axiosInstance.put("/settings/smtp", payload, { headers });
       alert("SMTP config saved.");
     } catch (err) {
       console.error(err);
@@ -143,12 +188,9 @@ const Settings = () => {
     setSavingApp(true);
     try {
       await axiosInstance.put(
-        "/settings/app/payment_limit",
+        "/settings/app/payment-limit",
         { payment_limit: Number(app.payment_limit) },
         { headers }
-      );
-      await axiosInstance.post("/settings/reload", null, { headers }).catch(
-        () => {}
       );
       alert("App settings saved.");
     } catch (err) {
@@ -168,7 +210,6 @@ const Settings = () => {
         <button
           onClick={fetchAll}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-md border text-sm hover:bg-gray-50"
-          title="Reload from server"
         >
           <RefreshCcw className="w-4 h-4" />
           Reload
@@ -182,161 +223,35 @@ const Settings = () => {
         onToggle={() => setOpenCompany((v) => !v)}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Company Name"
-            value={company.COMPANY_NAME}
-            onChange={(v) => setCompany((s) => ({ ...s, COMPANY_NAME: v }))}
-          />
-          <Input
-            label="Company Email"
-            value={company.COMPANY_MAIL}
-            onChange={(v) => setCompany((s) => ({ ...s, COMPANY_MAIL: v }))}
-          />
-          <Input
-            label="Company Number"
-            value={company.COMPANY_NUMBER}
-            onChange={(v) => setCompany((s) => ({ ...s, COMPANY_NUMBER: v }))}
-          />
-          <Input
-            label="Website URL"
-            value={company.COMPANY_WEBSITE_URL || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_WEBSITE_URL: v }))
-            }
-          />
-          <Input
-            label="Disclosure URL"
-            value={company.COMPANY_WEBSITE_URL_DISCLOSURE || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_WEBSITE_URL_DISCLOSURE: v }))
-            }
-          />
-          <Input
-            label="GSTIN"
-            value={company.COMPANY_GSTIN || ""}
-            onChange={(v) => setCompany((s) => ({ ...s, COMPANY_GSTIN: v }))}
-          />
-          <Input
-            label="CIN No"
-            value={company.COMPANY_CIN_NO || ""}
-            onChange={(v) => setCompany((s) => ({ ...s, COMPANY_CIN_NO: v }))}
-          />
-          <Input
-            label="Registration No"
-            value={company.COMPANY_REGISTRATION_NO || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_REGISTRATION_NO: v }))
-            }
-          />
-          <Input
-            label="Startup India Reg"
-            value={company.COMPANY_STARTUP_INDIA_REG || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_STARTUP_INDIA_REG: v }))
-            }
-          />
-          <Input
-            label="District"
-            value={company.COMPANY_DISTRICT || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_DISTRICT: v }))
-            }
-          />
-          <Input
-            label="Sort Address"
-            value={company.COMPANY_SORT_ADDRESS || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_SORT_ADDRESS: v }))
-            }
-          />
-          <Input
-            label="Customer Name"
-            value={company.COMPANY_CUSTOMER_NAME || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_CUSTOMER_NAME: v }))
-            }
-          />
-          <Input
-            label="Customer Email"
-            value={company.COMPANY_CUSTOMER_MAIL || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_CUSTOMER_MAIL: v }))
-            }
-          />
-          <Input
-            label="Customer Number"
-            value={company.COMPANY_CUSTOMER_NUMBER || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_CUSTOMER_NUMBER: v }))
-            }
-          />
+          <Input label="Company Name" value={company.COMPANY_NAME} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_NAME: v }))} />
+          <Input label="Company Email" value={company.COMPANY_MAIL} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_MAIL: v }))} />
+          <Input label="Company Number" value={company.COMPANY_NUMBER} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_NUMBER: v }))} />
+          <Input label="Website URL" value={company.COMPANY_WEBSITE_URL || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_WEBSITE_URL: v }))} />
+          <Input label="Disclosure URL" value={company.COMPANY_WEBSITE_URL_DISCLOSURE || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_WEBSITE_URL_DISCLOSURE: v }))} />
+          <Input label="GSTIN" value={company.COMPANY_GSTIN || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_GSTIN: v }))} />
+          <Input label="CIN No" value={company.COMPANY_CIN_NO || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_CIN_NO: v }))} />
+          <Input label="Registration No" value={company.COMPANY_REGISTRATION_NO || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_REGISTRATION_NO: v }))} />
+          <Input label="Startup India Reg" value={company.COMPANY_STARTUP_INDIA_REG || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_STARTUP_INDIA_REG: v }))} />
+          <Input label="District" value={company.COMPANY_DISTRICT || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_DISTRICT: v }))} />
+          <Input label="Sort Address" value={company.COMPANY_SORT_ADDRESS || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_SORT_ADDRESS: v }))} />
+          <Input label="Customer Name" value={company.COMPANY_CUSTOMER_NAME || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_CUSTOMER_NAME: v }))} />
+          <Input label="Customer Email" value={company.COMPANY_CUSTOMER_MAIL || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_CUSTOMER_MAIL: v }))} />
+          <Input label="Customer Number" value={company.COMPANY_CUSTOMER_NUMBER || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_CUSTOMER_NUMBER: v }))} />
 
-          <Textarea
-            label="Address"
-            value={company.COMPANY_ADDRESS || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_ADDRESS: v }))
-            }
-          />
-          <Textarea
-            label="Address (Break)"
-            value={company.COMPANY_ADDRESS_BREAK || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_ADDRESS_BREAK: v }))
-            }
-          />
+          <Textarea label="Address" value={company.COMPANY_ADDRESS || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_ADDRESS: v }))} />
+          <Textarea label="Address (Break)" value={company.COMPANY_ADDRESS_BREAK || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_ADDRESS_BREAK: v }))} />
 
-          <Input
-            label="Compliance Officer Name"
-            value={company.COMPANY_COMPLIANCE_OFFICER_NAME || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_COMPLIANCE_OFFICER_NAME: v }))
-            }
-          />
-          <Input
-            label="Compliance Officer Mail"
-            value={company.COMPANY_COMPLIANCE_OFFICER_MAIL || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_COMPLIANCE_OFFICER_MAIL: v }))
-            }
-          />
-          <Input
-            label="Compliance Officer Number"
-            value={company.COMPANY_COMPLIANCE_OFFICER_NUMBER || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_COMPLIANCE_OFFICER_NUMBER: v }))
-            }
-          />
+          <Input label="Compliance Officer Name" value={company.COMPANY_COMPLIANCE_OFFICER_NAME || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_COMPLIANCE_OFFICER_NAME: v }))} />
+          <Input label="Compliance Officer Mail" value={company.COMPANY_COMPLIANCE_OFFICER_MAIL || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_COMPLIANCE_OFFICER_MAIL: v }))} />
+          <Input label="Compliance Officer Number" value={company.COMPANY_COMPLIANCE_OFFICER_NUMBER || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_COMPLIANCE_OFFICER_NUMBER: v }))} />
 
-          <Input
-            label="Principal Officer Name"
-            value={company.COMPANY_PRINCIPAL_OFFICER_NAME || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_PRINCIPAL_OFFICER_NAME: v }))
-            }
-          />
-          <Input
-            label="Principal Officer Mail"
-            value={company.COMPANY_PRINCIPAL_OFFICER_MAIL || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_PRINCIPAL_OFFICER_MAIL: v }))
-            }
-          />
-          <Input
-            label="Principal Officer Number"
-            value={company.COMPANY_PRINCIPAL_OFFICER_NUMBER || ""}
-            onChange={(v) =>
-              setCompany((s) => ({ ...s, COMPANY_PRINCIPAL_OFFICER_NUMBER: v }))
-            }
-          />
+          <Input label="Principal Officer Name" value={company.COMPANY_PRINCIPAL_OFFICER_NAME || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_PRINCIPAL_OFFICER_NAME: v }))} />
+          <Input label="Principal Officer Mail" value={company.COMPANY_PRINCIPAL_OFFICER_MAIL || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_PRINCIPAL_OFFICER_MAIL: v }))} />
+          <Input label="Principal Officer Number" value={company.COMPANY_PRINCIPAL_OFFICER_NUMBER || ""} onChange={(v) => setCompany((s) => ({ ...s, COMPANY_PRINCIPAL_OFFICER_NUMBER: v }))} />
         </div>
 
         <div className="mt-4 flex gap-3">
-          <button
-            onClick={saveCompany}
-            disabled={savingCompany}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60"
-          >
+          <button onClick={saveCompany} disabled={savingCompany} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60">
             <Save className="w-4 h-4" />
             {savingCompany ? "Saving..." : "Save Company"}
           </button>
@@ -344,67 +259,20 @@ const Settings = () => {
       </Section>
 
       {/* SMTP */}
-      <Section
-        title="SMTP Settings"
-        open={openSMTP}
-        onToggle={() => setOpenSMTP((v) => !v)}
-      >
+      <Section title="SMTP Settings" open={openSMTP} onToggle={() => setOpenSMTP((v) => !v)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Server"
-            value={smtp.COM_SMTP_SERVER || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_SERVER: v }))}
-          />
-          <Input
-            label="User"
-            value={smtp.COM_SMTP_USER || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_USER: v }))}
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={smtp.COM_SMTP_PASSWORD || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_PASSWORD: v }))}
-          />
-          <Input
-            label="From Email"
-            value={smtp.COM_SMTP_FROM || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_FROM: v }))}
-          />
-          <Input
-            label="Reply-To"
-            value={smtp.COM_SMTP_REPLY || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_REPLY: v }))}
-          />
-          <Input
-            label="Port"
-            type="number"
-            value={smtp.COM_SMTP_PORT ?? 587}
-            onChange={(v) =>
-              setSmtp((s) => ({
-                ...s,
-                COM_SMTP_PORT: Number(v) || 587,
-              }))
-            }
-          />
-          <Input
-            label="CC"
-            value={smtp.COM_SMTP_CC || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_CC: v }))}
-          />
-          <Input
-            label="BCC"
-            value={smtp.COM_SMTP_BCC || ""}
-            onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_BCC: v }))}
-          />
+          <Input label="Server" value={smtp.COM_SMTP_SERVER || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_SERVER: v }))} />
+          <Input label="User" value={smtp.COM_SMTP_USER || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_USER: v }))} />
+          <Input label="Password" type="password" value={smtp.COM_SMTP_PASSWORD || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_PASSWORD: v }))} />
+          <Input label="From Email" value={smtp.COM_SMTP_FROM || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_FROM: v }))} />
+          <Input label="Reply-To" value={smtp.COM_SMTP_REPLY || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_REPLY: v }))} />
+          <Input label="Port" type="number" value={smtp.COM_SMTP_PORT ?? 587} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_PORT: Number(v) || 587 }))} />
+          <Input label="CC" value={smtp.COM_SMTP_CC || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_CC: v }))} />
+          <Input label="BCC" value={smtp.COM_SMTP_BCC || ""} onChange={(v) => setSmtp((s) => ({ ...s, COM_SMTP_BCC: v }))} />
         </div>
 
         <div className="mt-4 flex gap-3">
-          <button
-            onClick={saveSMTP}
-            disabled={savingSMTP}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60"
-          >
+          <button onClick={saveSMTP} disabled={savingSMTP} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60">
             <Save className="w-4 h-4" />
             {savingSMTP ? "Saving..." : "Save SMTP"}
           </button>
@@ -412,28 +280,13 @@ const Settings = () => {
       </Section>
 
       {/* App Settings */}
-      <Section
-        title="App Settings"
-        open={openApp}
-        onToggle={() => setOpenApp((v) => !v)}
-      >
+      <Section title="App Settings" open={openApp} onToggle={() => setOpenApp((v) => !v)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Payment Limit (₹)"
-            type="number"
-            value={app.payment_limit}
-            onChange={(v) =>
-              setApp((s) => ({ ...s, payment_limit: Number(v) || 0 }))
-            }
-          />
+          <Input label="Payment Limit (₹)" type="number" value={app.payment_limit} onChange={(v) => setApp((s) => ({ ...s, payment_limit: Number(v) || 0 }))} />
         </div>
 
         <div className="mt-4 flex gap-3">
-          <button
-            onClick={saveApp}
-            disabled={savingApp}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60"
-          >
+          <button onClick={saveApp} disabled={savingApp} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60">
             <Save className="w-4 h-4" />
             {savingApp ? "Saving..." : "Save App Settings"}
           </button>
@@ -472,4 +325,3 @@ function Textarea({ label, value, onChange }) {
     </label>
   );
 }
-

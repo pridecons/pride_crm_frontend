@@ -333,29 +333,36 @@ const handleEnter = () => {
         ],
       },
       { items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }] },
-      {
-        title: "RESEARCHER", items: [
-          { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
-          { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
-        ]
-      },
+      // {
+      //   title: "RESEARCHER", items: [
+      //     { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
+      //     { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
+      //   ]
+      // },
       { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
       { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
       { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
 
-      {
-        title: "REPORTS", section: "reports", icon: PieChart,
-        items: [
-          { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
-          { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
-        ],
-      },
+      // {
+      //   title: "REPORTS", section: "reports", icon: PieChart,
+      //   items: [
+      //     { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
+      //     { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
+      //   ],
+      // },
 
       {
         title: "TEMPLATE", section: "template", icon: FileText,
         items: [
           { href: "/email", icon: MailOpen, label: "Email", access: "email_page" },
-          { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
+          // { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
+        ],
+      },
+       {
+        title: "SETTINGS", section: "setting", icon: FileText,
+        items: [
+          { href: "/setting", icon: MailOpen, label: "Setting", access: "Setting" },
+          // { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
         ],
       },
     ],

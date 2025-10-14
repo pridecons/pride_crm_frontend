@@ -122,6 +122,7 @@ export function ActionButtons({
       <button
         onClick={onPaymentClick}
         className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100 rupee`}
+        disabled
       >
         ₹ Payment
       </button>
@@ -147,6 +148,7 @@ export function ActionButtons({
       <button
         onClick={onSendSMSClick}
         className={`${btnBase} border-sky-500 text-sky-600 hover:bg-sky-100`}
+        disabled
       >
         <Send size={16} className="mr-2" />
         SMS

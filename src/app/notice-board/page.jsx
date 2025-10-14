@@ -89,10 +89,6 @@ function readFromSession(keys = []) {
   return null;
 }
 const getRole = () => (readFromSession(["role", "role_name", "roleName"]) || "").toString().toUpperCase();
-const getBranchIdFromSession = () => {
-  const v = readFromSession(["branch_id", "branchId"]);
-  return v === null || String(v).trim() === "" ? null : String(v);
-};
 const isSuper = (r) => ["SUPERADMIN", "SUPER_ADMIN"].includes((r || "").toString().toUpperCase());
 
 /* -----------------------------
@@ -101,7 +97,7 @@ const isSuper = (r) => ["SUPERADMIN", "SUPER_ADMIN"].includes((r || "").toString
 export default function NoticeBoardPage() {
   const { theme } = useTheme();
 
-  // mode: "users" | "branch" | "all"
+  // mode: "users" | "all"
   const [mode, setMode] = useState("users");
 
   // form
@@ -114,12 +110,6 @@ export default function NoticeBoardPage() {
   const [role, setRole] = useState("");
   const [superadmin, setSuperadmin] = useState(false);
 
-  // branches
-  const [branchId, setBranchId] = useState(null); // used by superadmin
-  const [myBranchId, setMyBranchId] = useState(null); // enforced branch for non-superadmin
-  const [branches, setBranches] = useState([]);
-  const [loadingBranches, setLoadingBranches] = useState(false);
-
   // users
   const [usersLoading, setUsersLoading] = useState(false);
   const [users, setUsers] = useState([]);
@@ -131,32 +121,7 @@ export default function NoticeBoardPage() {
     setRole(r);
     const _isSuper = isSuper(r);
     setSuperadmin(_isSuper);
-
-    const b = getBranchIdFromSession();
-    setBranchId(b);    // superadmin can change this
-    setMyBranchId(b);  // non-superadmin enforced branch
   }, []);
-
-  // fetch branches (superadmin only)
-  useEffect(() => {
-    if (!superadmin) return;
-    (async () => {
-      try {
-        setLoadingBranches(true);
-        const { data } = await axiosInstance.get("/branches/");
-        const list = Array.isArray(data) ? data : data?.items || [];
-        setBranches(list);
-        if (!branchId && list.length > 0) {
-          const first = String(list[0]?.id ?? list[0]?.branch_id ?? "").trim();
-          if (first) setBranchId(first);
-        }
-      } catch (err) {
-        ErrorHandling({ error: err, defaultError: "Failed to load branches." });
-      } finally {
-        setLoadingBranches(false);
-      }
-    })();
-  }, [superadmin]);
 
   // fetch users (for listing)
   useEffect(() => {
@@ -179,13 +144,11 @@ export default function NoticeBoardPage() {
   // derived
   const userCodes = useMemo(() => parseCodes(userCodesRaw), [userCodesRaw]);
 
-  // Non-superadmin: ALWAYS scoped to myBranchId
-  // Superadmin: list filtered by currently selected branchId
   const visibleUsers = useMemo(() => {
-    const targetBranch = superadmin ? branchId : myBranchId;
+
 
     let list = users;
-    if (targetBranch) list = list.filter((u) => String(u?.branch_id) === String(targetBranch));
+  
 
     const q = userSearch.trim().toLowerCase();
     if (!q) return list.slice(0, 12);
@@ -198,12 +161,7 @@ export default function NoticeBoardPage() {
         return code.includes(q) || name.includes(q) || phone.includes(q);
       })
       .slice(0, 12);
-  }, [users, userSearch, branchId, myBranchId, superadmin]);
-
-  // make sure non-superadmins never sit in "all" mode
-  useEffect(() => {
-    if (!superadmin && mode === "all") setMode("branch");
-  }, [superadmin, mode]);
+  }, [users, userSearch, superadmin]);
 
   const canSend = useMemo(() => {
     const hasText = title.trim() && message.trim();
@@ -211,13 +169,9 @@ export default function NoticeBoardPage() {
 
     if (mode === "all") return superadmin; // only superadmin can system-wide
 
-    if (mode === "branch") {
-      return superadmin ? Boolean(branchId) : Boolean(myBranchId);
-    }
-
     // users
     return userCodes.length > 0;
-  }, [title, message, sending, mode, branchId, myBranchId, superadmin, userCodes.length]);
+  }, [title, message, sending, mode, superadmin, userCodes.length]);
 
   // actions
   const addChip = (code) => {
@@ -235,12 +189,6 @@ export default function NoticeBoardPage() {
       return;
     }
 
-    const effectiveBranchId = superadmin ? branchId : myBranchId;
-
-    if (mode === "branch" && !effectiveBranchId) {
-      ErrorHandling({ defaultError: "Branch is required for Branch mode." });
-      return;
-    }
     if (mode === "users" && userCodes.length === 0) {
       ErrorHandling({ defaultError: "Please select at least one user." });
       return;
@@ -249,23 +197,16 @@ export default function NoticeBoardPage() {
     // build payload exactly as API expects
     const payload = { mode, title: title.trim(), message: message.trim() };
 
-    if (mode === "branch") {
-      payload.branch_id = isNaN(Number(effectiveBranchId))
-        ? effectiveBranchId
-        : Number(effectiveBranchId);
-    }
-
     if (mode === "users") {
-      // non-superadmins can only DM users in their own branch
+      // non-superadmins can only DM users
       if (!superadmin) {
         const allowed = new Set(
           users
-            .filter((u) => String(u.branch_id) === String(myBranchId))
             .map((u) => String(u.employee_code))
         );
         const filtered = userCodes.filter((c) => allowed.has(String(c)));
         if (filtered.length !== userCodes.length) {
-          toast.error("You can only send to users in your branch.");
+          toast.error("You can only send to users.");
         }
         payload.user_ids = filtered;
       } else {
@@ -292,16 +233,13 @@ export default function NoticeBoardPage() {
         title: payload.title,
         message: payload.message,
         mode: data.mode || mode,
-        branch_id: data.branch_id ?? (mode === "branch" ? payload.branch_id : undefined),
         metrics: data.metrics || {},
         delivered_to: data.delivered_to || [],
         failed_to: data.failed_to || [],
         recipients:
           mode === "all"
             ? ["ALL_CONNECTED_USERS"]
-            : mode === "branch"
-            ? [`BRANCH_${payload.branch_id}`]
-            : payload.user_ids,
+            :payload.user_ids,
         results: [],
       };
 
@@ -315,14 +253,6 @@ export default function NoticeBoardPage() {
             ok: true,
             info: `delivered_sockets=${entry.metrics?.delivered_sockets ?? "?"}`,
           },
-        ];
-      } else if (mode === "branch") {
-        toast.success(
-          `Branch ${entry.branch_id}: delivered ${entry.metrics?.delivered_users ?? 0}/${entry.metrics?.requested_users ?? 0}`
-        );
-        entry.results = [
-          ...entry.delivered_to.map((c) => ({ code: c, ok: true })),
-          ...entry.failed_to.map((c) => ({ code: c, ok: false })),
         ];
       } else {
         toast.success(
@@ -361,7 +291,7 @@ export default function NoticeBoardPage() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* LEFT */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Mode + Branch */}
+            {/* Mode */}
             <div className={cardSoftClass}>
               <div className="flex items-center gap-3 mb-4">
                 <Radio className="w-5 h-5 text-[var(--theme-primary)]" />
@@ -387,20 +317,6 @@ export default function NoticeBoardPage() {
                   <input
                     type="radio"
                     name="mode"
-                    value="branch"
-                    checked={mode === "branch"}
-                    onChange={() => setMode("branch")}
-                    className="h-4 w-4 border-[var(--theme-border)] [accent-color:var(--theme-primary)]"
-                  />
-                  <span className="text-sm text-[var(--theme-text)]">
-                    {superadmin ? "Branch" : "All"}
-                  </span>
-                </label>
-
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="mode"
                     value="users"
                     checked={mode === "users"}
                     onChange={() => setMode("users")}
@@ -409,48 +325,6 @@ export default function NoticeBoardPage() {
                   <span className="text-sm text-[var(--theme-text)]">Specific Users</span>
                 </label>
               </div>
-
-              {/* Branch selector (superadmin only) */}
-              {mode !== "all" && superadmin && (
-                <div className="mt-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Building2 className="w-5 h-5 text-[var(--theme-primary)]" />
-                    <h3 className="text-sm font-semibold text-[var(--theme-text)]">Branch</h3>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <select
-                      value={branchId || ""}
-                      onChange={(e) => setBranchId(e.target.value)}
-                      className={`flex-1 ${inputClass}`}
-                      disabled={loadingBranches}
-                    >
-                      {!branchId && <option value="">Choose a branch...</option>}
-                      {branches.map((b) => {
-                        const val = String(b?.id ?? b?.branch_id ?? "").trim();
-                        const label = b?.name || b?.branch_name || `Branch ${val || ""}`;
-                        return (
-                          <option key={val} value={val}>
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    {loadingBranches && (
-                      <Loader2 className="w-5 h-5 animate-spin text-[var(--theme-primary)]" />
-                    )}
-                  </div>
-
-                  {mode === "branch" && !branchId && (
-                    <p
-                      className="mt-2 text-xs"
-                      style={{ color: "var(--theme-components-tag-warning-text)" }}
-                    >
-                      Branch is required for Branch mode.
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Recipients (only when mode === "users") */}
@@ -479,11 +353,6 @@ export default function NoticeBoardPage() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Loading employees...</span>
                     </div>
-                  ) : superadmin && !branchId ? (
-                    <div className="text-center p-6 text-[var(--theme-text-muted)]">
-                      <Users className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--theme-primary-softer)" }} />
-                      <p>Select a branch to view employees</p>
-                    </div>
                   ) : visibleUsers.length === 0 ? (
                     <div className="text-center p-6 text-[var(--theme-text-muted)]">
                       <Users className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--theme-primary-softer)" }} />
@@ -509,7 +378,7 @@ export default function NoticeBoardPage() {
                                 </span>
                               </div>
                               <div className={`text-sm ${muted}`}>
-                                {u.phone_number || "—"} • Branch {String(u.branch_id ?? "—")}
+                                {u.phone_number || "—"}
                               </div>
                             </div>
                             <button onClick={() => addChip(u.employee_code)} className={btnSoft}>
@@ -615,16 +484,6 @@ export default function NoticeBoardPage() {
                     <span>
                       Ready to broadcast to <b>ALL</b> connected users
                     </span>
-                  ) : mode === "branch" ? (
-                    <span>
-                      {superadmin ? (
-                        <>
-                          Ready to notify <b>Branch {branchId || "—"}</b>
-                        </>
-                      ) : (
-                        <>Ready to notify <b>all users in your branch</b></>
-                      )}
-                    </span>
                   ) : userCodes.length > 0 ? (
                     <span>
                       Ready to send to <b>{userCodes.length}</b> recipient
@@ -685,12 +544,6 @@ export default function NoticeBoardPage() {
 
                       <div className={`text-xs ${muted} mb-2`}>
                         Mode: <b>{item.mode}</b>
-                        {item.mode === "branch" && (
-                          <>
-                            {" "}
-                            • Branch: <b>{item.branch_id}</b>
-                          </>
-                        )}
                       </div>
 
                       {/* Chips for success/failure */}

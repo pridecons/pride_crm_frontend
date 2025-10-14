@@ -20,7 +20,6 @@ const normalizeRoleKey = (r) =>
 
 const toDisplayRole = (raw) => {
   const key = normalizeRoleKey(raw);
-  if (key === "BRANCH_MANAGER") return "BRANCH MANAGER";
   if (key === "COMPLIANCE_OFFICER") return "COMPLIANCE OFFICER";
   return key; // SUPERADMIN, HR, SALES_MANAGER, TL, SBA, BA, RESEARCHER, etc.
 };
@@ -84,7 +83,6 @@ export default function UserDetailsModal({
   isOpen,
   onClose,
   user,
-  branchMap,
   roleMap: roleMapProp = {},
 }) {
   const [showAllPerms, setShowAllPerms] = useState(false);
@@ -203,9 +201,6 @@ export default function UserDetailsModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DetailField label="Employee Code" value={user.employee_code} />
             <DetailField label="Role" value={roleName} />
-            {viewerIsSuperAdmin && (
-              <DetailField label="Branch" value={branchMap?.[user.branch_id] || "—"} />
-            )}
             <DetailField label="Reporting" value={user.senior_profile_id || "—"} />
           </div>
 
@@ -364,9 +359,6 @@ export default function UserDetailsModal({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailField label="Role ID" value={user.role_id} />
-              {viewerIsSuperAdmin && (
-                <DetailField label="Branch ID" value={user.branch_id ?? "—"} />
-              )}
               <DetailField label="Created At" value={formatDate(user.created_at)} />
               <DetailField label="Updated At" value={formatDate(user.updated_at)} />
             </div>

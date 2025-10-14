@@ -7,11 +7,10 @@ import React from "react";
 export default function StatsCards({
   totalUsers = 0,
   activeUsers = 0,
-  branchesCount = 0,
   rolesCount = 0,
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-6 mb-8">
       <Card
         title="Total Users"
         value={totalUsers}
@@ -23,12 +22,6 @@ export default function StatsCards({
         value={activeUsers}
         icon={<CheckCircle2 className="w-6 h-6" />}
         iconColorVar="--theme-success"
-      />
-      <Card
-        title="Branches"
-        value={branchesCount}
-        icon={<Building2 className="w-6 h-6" />}
-        iconColorVar="--theme-accent"
       />
       <Card
         title="Roles"

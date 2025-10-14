@@ -26,7 +26,7 @@ const decrementModalCount = () => {
     }
 };
 
-export default function BulkUploadModal({ isOpen, onClose, branches }) {
+export default function BulkUploadModal({ isOpen, onClose }) {
     const [uploading, setUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
 
@@ -207,23 +207,7 @@ export default function BulkUploadModal({ isOpen, onClose, branches }) {
                                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                                     <span className="text-blue-600">⚙️</span> Configuration
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="group">
-                                        <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                                            <span className="text-lg">🏢</span>
-                                            Select Branch
-                                        </label>
-                                        <select
-                                            name="branch_id"
-                                            required
-                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 group-hover:border-gray-400"
-                                        >
-                                            <option value="">Choose a branch...</option>
-                                            {branches.map((branch) => (
-                                                <option key={branch.id} value={branch.id}>{branch.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                                     <div className="group">
                                         <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                                             <span className="text-lg">🔖</span>

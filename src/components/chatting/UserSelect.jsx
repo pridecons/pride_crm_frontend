@@ -58,7 +58,7 @@ export default function UserSelect({ users, value, onChange, placeholder, multip
             >
               <div className="font-medium">{user.full_name || user.name || user.employee_code}</div>
               <div className="text-xs text-gray-500">
-                {user.employee_code}{user.branch_name ? ` • ${user.branch_name}` : ""}
+                {user.employee_code}
               </div>
             </button>
           ))}

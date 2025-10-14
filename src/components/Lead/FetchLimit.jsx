@@ -26,11 +26,9 @@ import {
 const FetchLimitModel = ({ open, setOpen }) => {
   const [configs, setConfigs] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [isCreateNew, setIsCreateNew] = useState(false);
   const [form, setForm] = useState({
     role: "",
-    branch_id: "",
     per_request_limit: "",
     daily_call_limit: "",
     assignment_ttl_hours: "",
@@ -45,7 +43,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
     if (open) {
       fetchConfigs();
       fetchRoles();
-      fetchBranches();
     }
   }, [open]);
 
@@ -69,21 +66,9 @@ const FetchLimitModel = ({ open, setOpen }) => {
     }
   };
 
-  const fetchBranches = async () => {
-    try {
-      const { data } = await axiosInstance.get(
-        "/branches/?skip=0&limit=100&active_only=false"
-      );
-      setBranches(data);
-    } catch (err) {
-      console.error("Failed to load branches:", err);
-    }
-  };
-
   const resetForm = () => {
     setForm({
       role: "",
-      branch_id: "",
       per_request_limit: "",
       daily_call_limit: "",
       assignment_ttl_hours: "",
@@ -100,7 +85,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
 
     const payload = {
       role: form.role,
-      branch_id: Number(form.branch_id),
       per_request_limit: Number(form.per_request_limit),
       daily_call_limit: Number(form.daily_call_limit),
       assignment_ttl_hours: Number(form.assignment_ttl_hours),
@@ -135,7 +119,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
     setEditingId(cfg.id);
     setForm({
       role: cfg.role,
-      branch_id: cfg.branch_id.toString(),
       per_request_limit: cfg.per_request_limit.toString(),
       daily_call_limit: cfg.daily_call_limit.toString(),
       assignment_ttl_hours: cfg.assignment_ttl_hours.toString(),
@@ -156,8 +139,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
   };
 
   const filteredConfigs = configs.filter(cfg =>
-    cfg.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cfg.branch_name.toLowerCase().includes(searchTerm.toLowerCase())
+    cfg.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Calculate statistics
@@ -264,7 +246,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Role and Branch Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -283,28 +264,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
                       {roles.map((r) => (
                         <option key={r?.id} value={r?.id}>
                           {r?.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <Building className="w-4 h-4" />
-                      Branch
-                    </label>
-                    <select
-                      value={form.branch_id}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, branch_id: e.target.value }))
-                      }
-                      required
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 bg-white"
-                    >
-                      <option value="">Select branch</option>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
                         </option>
                       ))}
                     </select>
@@ -455,7 +414,7 @@ const FetchLimitModel = ({ open, setOpen }) => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Search by role or branch..."
+                    placeholder="Search by role..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 w-72"
@@ -477,7 +436,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
                       Old Lead Remove (Days)
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">TTL (hrs)</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Branch</th>
                     <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -537,16 +495,6 @@ const FetchLimitModel = ({ open, setOpen }) => {
                             <Timer className="w-3 h-3 text-red-600" />
                           </div>
                           <span className="text-sm text-gray-900">{cfg.assignment_ttl_hours}h</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-gray-100 rounded-full p-1">
-                            <Building className="w-3 h-3 text-gray-600" />
-                          </div>
-                          <span className="text-sm text-gray-900 max-w-32 truncate" title={cfg.branch_name}>
-                            {cfg.branch_name}
-                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">

@@ -4,11 +4,11 @@ import React from "react";
 import { UserCheck, Building } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 
-export default function LeadHeader({ currentLead, branchNameMap = {}, isSuperAdmin = false }) {
+export default function LeadHeader({ currentLead, isSuperAdmin = false }) {
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
       {/* <h3 className="text-2xl font-bold text-gray-800"> Lead Details {currentLead?.id ? - ID #${currentLead.id} : ""} </h3> */}
-      {/* Assigned + Branch chips */}
+      {/* Assigned  */}
       {currentLead && (
         <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
             {/* Assigned To */}
@@ -56,7 +56,7 @@ export default function LeadHeader({ currentLead, branchNameMap = {}, isSuperAdm
               })()}
             </div>
 
-            {/* Branch — only for SUPERADMIN */}
+            {/* only for SUPERADMIN */}
             {isSuperAdmin && (
               <div
                 className="group inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs shadow-sm"
@@ -71,24 +71,6 @@ export default function LeadHeader({ currentLead, branchNameMap = {}, isSuperAdm
                   style={{ background: "color-mix(in srgb, var(--theme-success) 12%, transparent)" }}
                 >
                   <Building size={14} style={{ color: "var(--theme-success)" }} />
-                </span>
-                <span className="font-medium" style={{ color: "var(--theme-text)" }}>
-                  Branch
-                </span>
-                <span style={{ color: "var(--theme-muted)" }}>•</span>
-                <span
-                  className="truncate max-w-[160px] sm:max-w-[220px]"
-                  title={
-                    branchNameMap[currentLead?.branch_id] ||
-                    (currentLead?.branch_id ? `#${currentLead.branch_id}` : "—")
-                  }
-                >
-                  <span style={{ color: "var(--theme-text)" }}>
-                    {branchNameMap[currentLead?.branch_id] || "—"}
-                  </span>
-                  {currentLead?.branch_id ? (
-                    <span style={{ color: "var(--theme-muted)" }}> (#{currentLead.branch_id})</span>
-                  ) : null}
                 </span>
               </div>
             )}

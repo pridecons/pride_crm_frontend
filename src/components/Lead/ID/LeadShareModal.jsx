@@ -294,11 +294,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                             — {u.name || "—"}
                           </span>
                         </div>
-                        {u.branch_id != null && (
-                          <span className="text-xs" style={{ color: "var(--theme-text-muted,#94a3b8)" }}>
-                            Branch #{u.branch_id}
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-4 text-xs" style={{ color: "var(--theme-text-muted,#64748b)" }}>
                         {u.phone_number && (

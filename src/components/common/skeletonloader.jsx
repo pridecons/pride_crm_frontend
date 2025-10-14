@@ -19,7 +19,6 @@ export default function DashboardSkeleton() {
         <Skeleton className="h-4 w-64" />
       </div>
 
-      {/* Branch Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto">
         {[...Array(4)].map((_, i) => (
           <Skeleton key={i} className="h-8 w-28" />

@@ -203,7 +203,7 @@ const CreatePaymentLink = ({
   const [response, setResponse] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const [service_plan, setService_plan] = useState({});
+  const [service_plan, setService_plan] = useState(null);
   const [selectService, setSelectService] = useState(service);
   const [description, setDescription] = useState("");
   const [call, setCall] = useState(2);
@@ -889,7 +889,7 @@ const handleShare = async (linkOverride) => {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || !service_plan}
               className="px-6 py-3 rounded-lg inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
               style={{
                 background: "var(--theme-primary,#4f46e5)",

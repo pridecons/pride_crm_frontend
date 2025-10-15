@@ -741,7 +741,7 @@ export default function FtLeadsPage() {
 
   return (
     <div
-      className="fixed top-16 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200 p-4 overflow-hidden flex flex-col"
+      className=" transition-[left] duration-200 px-4 overflow-hidden flex flex-col"
       style={{ background: "var(--theme-background)" }}
     >
       {/* Filters Bar */}

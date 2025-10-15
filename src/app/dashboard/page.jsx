@@ -641,7 +641,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
       themeConfig={themeConfig}
     />
     <Card
-      title="Running FT Leads"
+      title="Today Running FT Leads"
       value={num(leadsCard?.running_ft)}
       icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
       themeConfig={themeConfig}
@@ -724,36 +724,6 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
             {/* Top performers */}
             {!!data && (
               <div className="gap-4">
-                {isSuperAdmin && (
-                  <TableWrap className="mb-6" title="Top Branches (Revenue)" icon={<Building2 className="h-5 w-5" style={{ color: themeConfig.primary }} />} themeConfig={themeConfig}>
-                    <div className="max-h-72 overflow-y-auto pr-1">
-                      <SimpleTable
-                        cols={['Branch', 'Revenue', 'Paid Count', 'Conversion %']}
-                        rows={(data?.top?.branches || []).map((b) => [
-                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${b.branch_code}-name`}>
-                            {b.branch_name || '—'}
-                          </span>,
-                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${b.branch_code}-rev`}>
-                            {inr(b.revenue)}
-                          </span>,
-                          <span style={{ color: themeConfig.text }} key={`${b.branch_code}-paid`}>
-                            {num(b.paid_count)}
-                          </span>,
-                          <span
-                            className="font-semibold"
-                            style={{ color: Number(b.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
-                            key={`${b.branch_code}-rate`}
-                          >
-                            {b.conversion_rate ?? 0}%
-                          </span>,
-                        ])}
-                        themeConfig={themeConfig}
-                        className="w-full rounded-2xl"
-                      />
-                    </div>
-                  </TableWrap>
-                )}
-
                 <div className="mt-6">
                   <TableWrap
                     className="mb-6"
@@ -763,35 +733,13 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
                   >
                     <div className="max-h-72 overflow-y-auto pr-1">
                       <SimpleTable
-                        cols={['Employee', 'Role', 'Leads', 'Clients', 'Revenue', 'Target', 'Achieved', 'Conv %']}
+                        cols={['Employee', 'Achieved']}
                         rows={(data?.top?.employees || []).map((e) => [
                           <span className="font-medium" style={{ color: themeConfig.text }} key={`${e.employee_code}-name`}>
                             {e.employee_name} <span style={{ color: themeConfig.textSecondary }}>({e.employee_code})</span>
                           </span>,
-                          <span style={{ color: themeConfig.textSecondary }} key={`${e.employee_code}-role`}>
-                            {e.role_name || e.role_id}
-                          </span>,
-                          <span style={{ color: themeConfig.text }} key={`${e.employee_code}-leads`}>
-                            {num(e.total_leads)}
-                          </span>,
-                          <span style={{ color: themeConfig.text }} key={`${e.employee_code}-conv`}>
-                            {num(e.converted_leads)}
-                          </span>,
-                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${e.employee_code}-rev`}>
-                            {inr(e.total_revenue)}
-                          </span>,
-                          <span style={{ color: themeConfig.accent }} key={`${e.employee_code}-tgt`}>
-                            {inr(e.target)}
-                          </span>,
                           <span style={{ color: themeConfig.primaryHover || themeConfig.primary }} key={`${e.employee_code}-ach`}>
                             {inr(e.achieved_target ?? e.total_revenue)}
-                          </span>,
-                          <span
-                            className="font-semibold"
-                            style={{ color: Number(e.conversion_rate) >= 50 ? themeConfig.success : themeConfig.error }}
-                            key={`${e.employee_code}-rate`}
-                          >
-                            {e.conversion_rate}%
                           </span>,
                         ])}
                         themeConfig={themeConfig}
@@ -811,7 +759,6 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
                     <SimpleTable
   cols={[
     'Profile',
-    'Employees',
     'Total Leads',
     'Old Leads',
     'FT Leads',
@@ -823,11 +770,6 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
       // Profile name
       <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
         {prof?.name || p.profile_name || (p.profile_id ?? '—')}
-      </span>,
-
-      // Employees
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-emps`}>
-        {num(p.total_employees ?? 0)}
       </span>,
 
       // Total leads
@@ -1601,7 +1543,7 @@ function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }
   if (!data) return <p className="text-center py-10" style={{ color: themeConfig.textSecondary }}>No lead data available.</p>;
 
   const ageData = [
-    { name: 'No Response', value: N(data?.cards?.leads?.fresh_leads) },
+    { name: 'Fresh Lead', value: N(data?.cards?.leads?.fresh_leads) },
     { name: 'Old Leads', value: N(data?.cards?.leads?.old_leads) },
   ];
 
@@ -1700,10 +1642,9 @@ function LeadsPiePanel({ data, themeConfig, COLORS_AGE, COLORS_OUT, COLORS_PER }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
       {renderPie('Lead Age Composition', ageData, COLORS_AGE)}
       {renderPie('Outcome Breakdown', outcomeData, COLORS_OUT)}
-      {renderPie('Period Distribution', periodData, COLORS_PER)}
     </div>
   );
 }

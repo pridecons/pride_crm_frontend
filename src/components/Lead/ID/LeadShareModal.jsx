@@ -208,7 +208,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
               className="block text-sm font-medium"
               style={{ color: "var(--theme-text,#0f172a)" }}
             >
-              Target Employee Code <span style={{ color: "var(--theme-danger,#dc2626)" }}>*</span>
+              Target Employee Name <span style={{ color: "var(--theme-danger,#dc2626)" }}>*</span>
             </label>
 
             <div
@@ -334,23 +334,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
             >
               You can search by code (e.g. <span className="font-medium">EMP003</span> or{" "}
               <span className="font-medium">012</span>), name, phone, or email.
-            </p>
-          </div>
-
-          {/* Info Note */}
-          <div
-            className="flex items-start gap-2.5 rounded-xl p-3 border"
-            style={{
-              background:
-                "color-mix(in srgb, var(--theme-primary,#4f46e5) 10%, var(--theme-card-bg,#fff))",
-              borderColor:
-                "color-mix(in srgb, var(--theme-primary,#4f46e5) 35%, var(--theme-border,#e5e7eb))",
-              color: "var(--theme-text,#0f172a)",
-            }}
-          >
-            <Info size={16} style={{ color: "var(--theme-primary,#4f46e5)" }} />
-            <p className="text-xs" style={{ color: "var(--theme-text,#0f172a)" }}>
-              Action is audit-logged with your code and timestamp.
             </p>
           </div>
 

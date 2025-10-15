@@ -14,7 +14,6 @@ export default function StatusBadge({ status, type = "default" }) {
 
   const text = (() => {
     switch (type) {
-      case "call": return status ? "Called" : "Not Called";
       case "kyc":  return status ? "KYC Completed" : "KYC Pending";
       case "old":  return status ? "Old Lead" : "New Lead";
       case "client": return "Client";

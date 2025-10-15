@@ -785,9 +785,9 @@ export default function LeadSourcesPage() {
               <tr className="text-[var(--theme-text-muted)]">
                 <th className="px-2 py-3 text-center w-8 font-semibold first:rounded-tl-2xl"></th>
                 <th className="px-4 py-3 text-left font-semibold first:rounded-tl-2xl">Source</th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total</th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Pending</th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Available</th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Total Leads</th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Fresh</th>
+                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Available In Source</th>
                 <th className="px-4 py-3 text-left font-semibold">Roles</th>
                 {showBranchColumn && (
                   <th className="px-4 py-3 text-left font-semibold">Branch</th>

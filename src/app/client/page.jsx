@@ -1277,9 +1277,9 @@ const applyDate = useCallback(() => {
                 <table className="w-full min-w-[860px]">
                   <TableHeader
                     cols={[
-                      "Name", "Email", "Mobile", "City",
+                      "Client Name", "Email", "Mobile", "City",
                       ...(showBranchColumn ? ["Branch"] : []),
-                      "Assigned", "KYC", "Paid", "Calls", "Actions",
+                      "Assigned Employee", "KYC", "Paid", "Calls", "Actions",
                     ]}
                   />
                   <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>

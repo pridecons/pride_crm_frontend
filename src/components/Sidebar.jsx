@@ -13,7 +13,8 @@ import {
   PlusCircle, MessagesSquare, ClipboardCheck, FileSearch, StickyNote,
   PieChart, UserCog, MailOpen, MessageSquareText,
   Share,
-  Recycle
+  Recycle,
+  Settings2
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -361,7 +362,7 @@ const handleEnter = () => {
        {
         title: "SETTINGS", section: "setting", icon: FileText,
         items: [
-          { href: "/setting", icon: MailOpen, label: "Setting", access: "Setting" },
+          { href: "/setting", icon: Settings2, label: "Setting", access: "Setting" },
         ],
       },
     ],

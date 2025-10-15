@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Cookies from "js-cookie";
 import { axiosInstance } from "@/api/Axios";
 import LoadingState from "@/components/LoadingState";
-import { ChevronDown, ChevronUp, Save, RefreshCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Save, RefreshCcw, ImageIcon, UploadCloud } from "lucide-react";
 
 /* ---------- Helpers ---------- */
 function useAuthHeaders() {
@@ -83,6 +83,13 @@ const Settings = () => {
   const [openCompany, setOpenCompany] = useState(true);
   const [openSMTP, setOpenSMTP] = useState(false);
   const [openApp, setOpenApp] = useState(false);
+  const [openLogo, setOpenLogo] = useState(true);
+
+  const [logoFile, setLogoFile] = useState(null);
+ const [logoPreview, setLogoPreview] = useState("");
+ const [logoPath, setLogoPath] = useState("");      // last server path returned (e.g., "logo/crm.png")
+ const [uploadingLogo, setUploadingLogo] = useState(false);
+ const [replacingLogo, setReplacingLogo] = useState(false);
 
   const [company, setCompany] = useState(companyFromApi());
 
@@ -101,6 +108,17 @@ const Settings = () => {
   const [app, setApp] = useState({
     payment_limit: 178000,
   });
+
+  function onPickLogo(e) {
+   const file = e.target.files?.[0];
+   if (!file) return;
+   setLogoFile(file);
+   const url = URL.createObjectURL(file);
+   setLogoPreview((old) => {
+     if (old) URL.revokeObjectURL(old);
+     return url;
+   });
+ }
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -201,6 +219,48 @@ const Settings = () => {
     }
   };
 
+// ----- Logo upload/replace -----
+ const uploadLogo = async () => {
+   if (!logoFile) return alert("Please select a logo file first.");
+   setUploadingLogo(true);
+   try {
+     const fd = new FormData();
+     fd.append("file", logoFile, logoFile.name);
+     // NOTE: don't set Content-Type — browser will set correct multipart boundary
+     const res = await axiosInstance.post("/settings/logo", fd, {
+  headers: {
+    "Content-Type": "multipart/form-data",
+  },
+});
+     setLogoPath(res?.data?.path || "");
+     alert("Logo uploaded successfully.");
+   } catch (err) {
+     console.error(err);
+     alert("Failed to upload logo.");
+   } finally {
+     setUploadingLogo(false);
+   }
+ };
+
+ const replaceLogo = async () => {
+   if (!logoFile) return alert("Please select a logo file first.");
+   setReplacingLogo(true);
+   try {
+     const fd = new FormData();
+     fd.append("file", logoFile, logoFile.name);
+     const res = await axiosInstance.put("/settings/logo", fd, { headers: {
+    "Content-Type": "multipart/form-data",
+  },});
+     setLogoPath(res?.data?.path || "");
+     alert("Logo replaced successfully.");
+   } catch (err) {
+     console.error(err);
+     alert("Failed to replace logo.");
+   } finally {
+     setReplacingLogo(false);
+   }
+ };
+
   if (loading) return <LoadingState label="Loading settings..." />;
 
   return (
@@ -257,6 +317,71 @@ const Settings = () => {
           </button>
         </div>
       </Section>
+
+{/* Branding — Logo */}
+      <Section
+        title="Branding — Logo"
+        open={openLogo}
+        onToggle={() => setOpenLogo((v) => !v)}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          <label className="block md:col-span-2">
+            <div className="text-sm text-gray-600 mb-1">Select Logo (PNG/JPG/SVG)</div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={onPickLogo}
+              className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Recommended: square image, reasonable size (&lt; 1 MB).
+            </p>
+          </label>
+
+          <div className="border rounded-lg p-3 flex flex-col items-center justify-center">
+            <div className="flex items-center gap-2 text-gray-700 mb-2">
+              <ImageIcon className="w-4 h-4" />
+              <span className="text-sm font-medium">Preview</span>
+            </div>
+            <div className="w-40 h-40 border rounded-md overflow-hidden bg-gray-50 flex items-center justify-center">
+              {logoPreview ? (
+                // local preview
+                <img src={logoPreview} alt="Logo preview" className="max-w-full max-h-full object-contain" />
+              ) : logoPath ? (
+                // NOTE: If your static files serve from site root, this will work.
+                // Otherwise, show as a link or adjust to your static path.
+                <img src={`/${logoPath}?v=${Date.now()}`} alt="Current logo" className="max-w-full max-h-full object-contain" />
+              ) : (
+                <span className="text-xs text-gray-400">No preview</span>
+              )}
+            </div>
+            {logoPath && (
+              <div className="text-xs text-gray-500 mt-2 break-all">
+                Stored at: <code>{logoPath}</code>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={uploadLogo}
+            disabled={uploadingLogo || !logoFile}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white disabled:opacity-60"
+          >
+            <UploadCloud className="w-4 h-4" />
+            {uploadingLogo ? "Uploading..." : "Upload (POST)"}
+          </button>
+          <button
+            onClick={replaceLogo}
+            disabled={replacingLogo || !logoFile}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCcw className="w-4 h-4" />
+            {replacingLogo ? "Replacing..." : "Replace (PUT)"}
+          </button>
+        </div>
+</Section>
 
       {/* SMTP */}
       <Section title="SMTP Settings" open={openSMTP} onToggle={() => setOpenSMTP((v) => !v)}>

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { ChevronDown, ChevronRight, Settings2, Send, Info } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 const scopes = [
   { value: "all", label: "All leads in this source" },
@@ -11,6 +12,8 @@ const scopes = [
 ];
 
 export default function SourceToolsPage() {
+  const { theme } = useTheme(); // not used directly, but ensures re-render on theme change
+
   // tab is just transfer for now
   const [activeTab] = useState("transfer");
 
@@ -63,7 +66,7 @@ export default function SourceToolsPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
-  // ---------- load sources ONCE (sources already include responses per source) ----------
+  // ---------- load sources ONCE ----------
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -79,7 +82,7 @@ export default function SourceToolsPage() {
     return () => { isMounted = false; };
   }, []);
 
-  // ---------- set responses when source changes (source-wise responses only) ----------
+  // ---------- set responses when source changes ----------
   useEffect(() => {
     setSelectedLeadIds([]);
     setResponseIds([]);
@@ -186,13 +189,13 @@ export default function SourceToolsPage() {
     }
   }
 
-  // ---------- UI helpers ----------
+  // ---------- UI helpers (themed) ----------
   function Field({ label, children, hint }) {
     return (
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-gray-800">{label}</label>
+        <label className="block text-sm font-medium text-[var(--theme-text)]">{label}</label>
         {children}
-        {hint ? <p className="mt-0.5 text-xs text-gray-500">{hint}</p> : null}
+        {hint ? <p className="mt-0.5 text-xs text-[var(--theme-text-muted)]">{hint}</p> : null}
       </div>
     );
   }
@@ -214,9 +217,12 @@ export default function SourceToolsPage() {
               <span
                 className="
                   flex w-full h-full items-center justify-center rounded-xl border px-3 py-3 text-sm
-                  border-gray-200 hover:border-gray-300
-                  peer-checked:border-indigo-500 peer-checked:ring-2 peer-checked:ring-indigo-200 peer-checked:bg-indigo-50
-                  text-gray-800 text-center whitespace-normal
+                  border-[var(--theme-border)] hover:border-[var(--theme-border)]
+                  peer-checked:border-[var(--theme-primary)]
+                  peer-checked:ring-2 peer-checked:ring-[var(--theme-primary-soft)]
+                  peer-checked:bg-[var(--theme-primary-softer)]
+                  text-[var(--theme-text)] text-center whitespace-normal
+                  bg-[var(--theme-card-bg)]
                 "
               >
                 {opt.label}
@@ -229,20 +235,24 @@ export default function SourceToolsPage() {
   }
 
   const inputBase =
-    "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm " +
-    "focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition";
+    "w-full rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input-background)] px-3 py-2 text-sm text-[var(--theme-text)] shadow-sm " +
+    "focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary-soft)] focus:border-[var(--theme-primary)] transition placeholder-[var(--theme-text-muted)]";
 
   const btnPrimary =
-    "inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-sky-600 to-blue-600 " +
-    "px-4 py-2 text-sm font-medium text-white shadow hover:opacity-95 active:opacity-90 transition disabled:opacity-60";
+    "inline-flex items-center gap-2 rounded-xl bg-[var(--theme-primary)] hover:bg-[var(--theme-primary-hover)] " +
+    "px-4 py-2 text-sm font-medium text-[var(--theme-primary-contrast)] shadow transition disabled:opacity-60";
 
   const btnSecondary =
-    "inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white " +
-    "px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 active:bg-gray-100 transition disabled:opacity-60";
+    "inline-flex items-center gap-2 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-surface)] " +
+    "px-4 py-2 text-sm font-medium text-[var(--theme-text)] shadow-sm hover:bg-[var(--theme-primary-softer)] transition disabled:opacity-60";
 
   function SourceSelect({ value, onChange, placeholder = "Select source" }) {
     return (
-      <select className={inputBase} value={value} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className={inputBase}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
         <option value="">{placeholder}</option>
         {sources.map((s) => (
           <option key={s.id} value={s.id}>
@@ -255,7 +265,7 @@ export default function SourceToolsPage() {
 
   function ResponseMulti({ values, onChange }) {
     return (
-      <div className="rounded-xl border border-gray-200 p-3 shadow-sm">
+      <div className="rounded-xl border border-[var(--theme-border)] p-3 shadow-sm bg-[var(--theme-card-bg)]">
         <div className="flex flex-wrap gap-2">
           {responses.map((r) => {
             const checked = values.includes(r.id);
@@ -263,11 +273,13 @@ export default function SourceToolsPage() {
               <label
                 key={r.id}
                 className={`flex items-center gap-2 rounded-lg border px-2 py-1 text-sm transition
-                ${checked ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-gray-300"}`}
+                ${checked
+                  ? "border-[var(--theme-primary)] bg-[var(--theme-primary-softer)]"
+                  : "border-[var(--theme-border)] hover:bg-[var(--theme-primary-softer)]/60"} text-[var(--theme-text)]`}
               >
                 <input
                   type="checkbox"
-                  className="accent-indigo-600"
+                  className="accent-[var(--theme-primary)]"
                   checked={checked}
                   onChange={(e) => {
                     if (e.target.checked) onChange([...values, r.id]);
@@ -279,8 +291,8 @@ export default function SourceToolsPage() {
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-          <Info className="h-3.5 w-3.5" /> Responses are **source-wise**.
+        <p className="mt-2 text-xs text-[var(--theme-text-muted)] flex items-center gap-1">
+          <Info className="h-3.5 w-3.5 text-[var(--theme-text-muted)]" /> Responses are <strong className="font-semibold">&nbsp;source-wise</strong>.
         </p>
       </div>
     );
@@ -289,12 +301,23 @@ export default function SourceToolsPage() {
   function Accordion({ title, icon: Icon = Settings2, defaultOpen = true, children, subtle = false }) {
     const [open, setOpen] = useState(defaultOpen);
     return (
-      <div className={`rounded-2xl border ${subtle ? "border-gray-100" : "border-gray-200"} bg-white shadow-sm`}>
-        <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-3">
+      <div
+        className={`rounded-2xl border ${subtle ? "border-[var(--theme-border)]/60" : "border-[var(--theme-border)]"} 
+        bg-[var(--theme-card-bg)] shadow-sm`}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-3"
+        >
           <div className="flex items-center gap-2">
-            {open ? <ChevronDown className="h-4 w-4 text-indigo-600" /> : <ChevronRight className="h-4 w-4 text-indigo-600" />}
-            <span className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-              <Icon className="h-4 w-4 text-indigo-600" />
+            {open ? (
+              <ChevronDown className="h-4 w-4 text-[var(--theme-primary)]" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-[var(--theme-primary)]" />
+            )}
+            <span className="text-sm font-semibold text-[var(--theme-text)] flex items-center gap-2">
+              <Icon className="h-4 w-4 text-[var(--theme-primary)]" />
               {title}
             </span>
           </div>
@@ -332,7 +355,7 @@ export default function SourceToolsPage() {
     const allIds = useMemo(() => items.map((x) => x.id), [items]);
 
     return (
-      <div className="rounded-2xl border border-gray-200 p-3 shadow-sm">
+      <div className="rounded-2xl border border-[var(--theme-border)] p-3 shadow-sm bg-[var(--theme-card-bg)]">
         <div className="mb-2 flex items-center gap-2">
           <input
             className={inputBase}
@@ -342,7 +365,7 @@ export default function SourceToolsPage() {
           />
           <button
             type="button"
-            className="rounded-xl border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 transition"
+            className="rounded-xl border border-[var(--theme-border)] px-3 py-2 text-sm hover:bg-[var(--theme-primary-softer)] transition text-[var(--theme-text)] bg-[var(--theme-surface)]"
             onClick={() => setQ("")}
           >
             Clear
@@ -352,7 +375,7 @@ export default function SourceToolsPage() {
         <div className="mb-2 flex flex-wrap gap-2">
           <button
             type="button"
-            className="rounded-lg border border-gray-200 px-2 py-1 text-xs hover:bg-gray-50 transition"
+            className="rounded-lg border border-[var(--theme-border)] px-2 py-1 text-xs hover:bg-[var(--theme-primary-softer)] transition text-[var(--theme-text)] bg-[var(--theme-surface)]"
             onClick={() => onChange(Array.from(new Set([...values, ...allIds])))}
             disabled={loading || !allIds.length}
           >
@@ -360,20 +383,20 @@ export default function SourceToolsPage() {
           </button>
           <button
             type="button"
-            className="rounded-lg border border-gray-200 px-2 py-1 text-xs hover:bg-gray-50 transition"
+            className="rounded-lg border border-[var(--theme-border)] px-2 py-1 text-xs hover:bg-[var(--theme-primary-softer)] transition text-[var(--theme-text)] bg-[var(--theme-surface)]"
             onClick={() => onChange(values.filter((id) => !allIds.includes(id)))}
             disabled={loading || !values.length}
           >
             Unselect Loaded
           </button>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-[var(--theme-text-muted)]">
             {loading ? "Loading..." : `${items.length} shown`} • Selected: {values.length}
           </span>
         </div>
 
-        <div className="max-h-64 overflow-auto rounded-lg border border-gray-100">
+        <div className="max-h-64 overflow-auto rounded-lg border border-[var(--theme-border)]/60">
           {!items.length && !loading && (
-            <div className="p-3 text-sm text-gray-500">No leads.</div>
+            <div className="p-3 text-sm text-[var(--theme-text-muted)]">No leads.</div>
           )}
           {items.map((ld) => {
             const checked = values.includes(ld.id);
@@ -381,11 +404,12 @@ export default function SourceToolsPage() {
               <label
                 key={ld.id}
                 className={`flex items-center gap-2 border-b px-3 py-2 transition
-                ${checked ? "bg-indigo-50/50" : "hover:bg-gray-50"}`}
+                ${checked ? "bg-[var(--theme-primary-softer)]" : "hover:bg-[var(--theme-primary-softer)]/60"}
+                border-[var(--theme-border)]`}
               >
                 <input
                   type="checkbox"
-                  className="accent-indigo-600"
+                  className="accent-[var(--theme-primary)]"
                   checked={checked}
                   onChange={(e) => {
                     if (e.target.checked) onChange([...values, ld.id]);
@@ -393,8 +417,10 @@ export default function SourceToolsPage() {
                   }}
                 />
                 <div className="text-sm">
-                  <div className="font-medium text-gray-800">{ld.full_name || "—"} <span className="text-gray-400">#{ld.id}</span></div>
-                  <div className="text-gray-500 text-xs">
+                  <div className="font-medium text-[var(--theme-text)]">
+                    {ld.full_name || "—"} <span className="text-[var(--theme-text-muted)]">#{ld.id}</span>
+                  </div>
+                  <div className="text-[var(--theme-text-muted)] text-xs">
                     {ld.mobile || "—"} • {ld.email || "—"}
                   </div>
                 </div>
@@ -402,17 +428,17 @@ export default function SourceToolsPage() {
             );
           })}
         </div>
-        {hint ? <p className="mt-1 text-xs text-gray-500">{hint}</p> : null}
+        {hint ? <p className="mt-1 text-xs text-[var(--theme-text-muted)]">{hint}</p> : null}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
       <main className="mx-2 px-4 py-6 space-y-6">
 
         {/* Card */}
-        <div className="rounded-3xl border border-indigo-100/70 bg-white p-6 shadow-xl shadow-indigo-100/60">
+        <div className="rounded-3xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-6 shadow-xl">
           {/* Source (from) */}
           <div className="mb-6">
             <Field label="Source (from)">
@@ -446,14 +472,19 @@ export default function SourceToolsPage() {
                     </Field>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                      <input type="checkbox" className="accent-indigo-600" checked={distributeEqual} onChange={(e) => setDistributeEqual(e.target.checked)} />
-                      <span className="text-sm text-gray-800">Distribute equally by current assignee</span>
+                    <label className="flex items-center gap-2 rounded-xl border border-[var(--theme-border)] px-3 py-2 hover:bg-[var(--theme-primary-softer)] bg-[var(--theme-surface)]">
+                      <input
+                        type="checkbox"
+                        className="accent-[var(--theme-primary)]"
+                        checked={distributeEqual}
+                        onChange={(e) => setDistributeEqual(e.target.checked)}
+                      />
+                      <span className="text-sm text-[var(--theme-text)]">Distribute equally by current assignee</span>
                     </label>
                   </div>
 
                   <div className="w-full">
-                    <label className="block text-sm font-medium text-gray-800 mb-2">Scope</label>
+                    <label className="block text-sm font-medium text-[var(--theme-text)] mb-2">Scope</label>
                     <ScopePicker value={scope} onChange={setScope} />
                   </div>
                 </div>
@@ -490,21 +521,19 @@ export default function SourceToolsPage() {
 
               <Accordion title="Field Clearing on Transfer (core)" icon={Settings2} subtle>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearAssigned} onChange={(e) => setClearAssigned(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Clear assigned_to_user</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearResponse} onChange={(e) => setClearResponse(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Clear response (lead_response_id)</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearDates} onChange={(e) => setClearDates(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Clear response dates</span>
-                  </label>
+                  {[
+                    ["Clear assigned_to_user", clearAssigned, setClearAssigned],
+                    ["Clear response (lead_response_id)", clearResponse, setClearResponse],
+                    ["Clear response dates", clearDates, setClearDates],
+                  ].map(([label, val, set]) => (
+                    <label key={label} className="flex items-center gap-2 rounded-xl border border-[var(--theme-border)] px-3 py-2 hover:bg-[var(--theme-primary-softer)] bg-[var(--theme-surface)]">
+                      <input type="checkbox" className="accent-[var(--theme-primary)]" checked={val} onChange={(e) => set(e.target.checked)} />
+                      <span className="text-sm text-[var(--theme-text)]">{label}</span>
+                    </label>
+                  ))}
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  By default all three are cleared and <code className="rounded bg-gray-100 px-1">is_old_lead</code> false ho jata hai.
+                <p className="mt-2 text-xs text-[var(--theme-text-muted)]">
+                  By default all three are cleared and <code className="rounded px-1 bg-[var(--theme-primary-softer)]">is_old_lead</code> false ho jata hai.
                 </p>
               </Accordion>
 
@@ -521,9 +550,9 @@ export default function SourceToolsPage() {
                     ["Occupation", clearOccupation, setClearOccupation],
                     ["Segment", clearSegment, setClearSegment],
                   ].map(([label, val, set]) => (
-                    <label key={label} className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                      <input type="checkbox" className="accent-indigo-600" checked={val} onChange={(e) => set(e.target.checked)} />
-                      <span className="text-sm text-gray-800">Clear {label}</span>
+                    <label key={label} className="flex items-center gap-2 rounded-xl border border-[var(--theme-border)] px-3 py-2 hover:bg-[var(--theme-primary-softer)] bg-[var(--theme-surface)]">
+                      <input type="checkbox" className="accent-[var(--theme-primary)]" checked={val} onChange={(e) => set(e.target.checked)} />
+                      <span className="text-sm text-[var(--theme-text)]">Clear {label}</span>
                     </label>
                   ))}
                 </div>
@@ -541,30 +570,19 @@ export default function SourceToolsPage() {
 
               <Accordion title="Also clear related data (optional)" icon={Settings2} subtle>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearSmsLogs} onChange={(e) => setClearSmsLogs(e.target.checked)} />
-                    <span className="text-sm text-gray-800">SMS logs</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearEmailLogs} onChange={(e) => setClearEmailLogs(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Email logs</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearComments} onChange={(e) => setClearComments(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Comments</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearStories} onChange={(e) => setClearStories(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Stories</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 hover:bg-gray-50">
-                    <input type="checkbox" className="accent-indigo-600" checked={clearRecordings} onChange={(e) => setClearRecordings(e.target.checked)} />
-                    <span className="text-sm text-gray-800">Recordings</span>
-                  </label>
+                  {[
+                    ["SMS logs", clearSmsLogs, setClearSmsLogs],
+                    ["Email logs", clearEmailLogs, setClearEmailLogs],
+                    ["Comments", clearComments, setClearComments],
+                    ["Stories", clearStories, setClearStories],
+                    ["Recordings", clearRecordings, setClearRecordings],
+                  ].map(([label, val, set]) => (
+                    <label key={label} className="flex items-center gap-2 rounded-xl border border-[var(--theme-border)] px-3 py-2 hover:bg-[var(--theme-primary-softer)] bg-[var(--theme-surface)]">
+                      <input type="checkbox" className="accent-[var(--theme-primary)]" checked={val} onChange={(e) => set(e.target.checked)} />
+                      <span className="text-sm text-[var(--theme-text)]">{label}</span>
+                    </label>
+                  ))}
                 </div>
-                <p className="mt-2 text-xs text-amber-600">
-                  Dhyan se use karein — agar backend hard delete karta hai to irreversible hai.
-                </p>
               </Accordion>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -574,21 +592,11 @@ export default function SourceToolsPage() {
                 <button type="button" disabled={loading} className={btnPrimary} onClick={() => callTransfer(false)}>
                   {loading ? "Transferring..." : "Transfer Leads"}
                 </button>
-                {error && <span className="text-sm text-red-600">{error}</span>}
+                {error && <span className="text-sm text-[var(--theme-danger)]">{error}</span>}
               </div>
             </div>
           )}
         </div>
-
-        {/* Result */}
-        {/* {result && (
-          <div className="rounded-3xl border border-indigo-100/70 bg-white p-6 shadow-xl shadow-indigo-100/60">
-            <h2 className="text-lg font-semibold text-gray-800 mb-3">Result</h2>
-            <pre className="overflow-auto rounded-2xl bg-gray-900 p-4 text-sm text-gray-100">
-{JSON.stringify(result, null, 2)}
-            </pre>
-          </div>
-        )} */}
       </main>
     </div>
   );

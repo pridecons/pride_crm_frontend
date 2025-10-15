@@ -131,7 +131,7 @@ export function ActionButtons({
         onClick={onManualePaymentClick}
         className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100 rupee`}
       >
-        ₹ Manuale Payment
+        ₹ Manual Payment
       </button>
       }
 

@@ -503,6 +503,7 @@ export default function LeadSourcesPage() {
             className={`flex items-center gap-1 ${btnPrimary}`}
           >
             <Plus className="w-5 h-5" />
+            Add
           </button>
         )}
       </div>

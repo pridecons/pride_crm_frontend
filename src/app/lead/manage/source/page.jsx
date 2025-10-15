@@ -21,7 +21,7 @@ import toast from "react-hot-toast";
 import { usePermissions } from "@/context/PermissionsContext";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 import { useTheme } from "@/context/ThemeContext";
-import LoadingState from "@/components/LoadingState";
+import LoadingState, { MiniLoader } from "@/components/LoadingState";
 
 /* --------------------------- helpers --------------------------- */
 const btnPrimary =
@@ -113,37 +113,37 @@ export default function LeadSourcesPage() {
     fetch_configs: [], // [{ role_id, per_request_limit, daily_call_limit }]
   });
 
-const [openRowId, setOpenRowId] = useState(null);
+  const [openRowId, setOpenRowId] = useState(null);
 
   const [fetchingBranches, setFetchingBranches] = useState(false);
 
-// ⬇ replace your role cell state + helpers with this
-const [openRoleCells, setOpenRoleCells] = useState(new Set());
+  // ⬇ replace your role cell state + helpers with this
+  const [openRoleCells, setOpenRoleCells] = useState(new Set());
 
-const toggleRoleCell = (rawId) => {
-  const key = Number(rawId);             // normalize
-  setOpenRoleCells((prev) => {
-    const next = new Set(prev);
-    next.has(key) ? next.delete(key) : next.add(key);
-    return next;
-  });
-};
-
-const isRoleCellOpen = (rawId) => openRoleCells.has(Number(rawId)); // normalize everywhere
-const closeAllRoleCells = () => setOpenRoleCells(new Set());
-
-const roleNameById = (rolesArr, id) =>
-  (rolesArr.find((r) => Number(r.id) === Number(id))?.name) || `#${id}`;
-
-useEffect(() => {
-  const onDocDown = (e) => {
-    // if the click is inside a “safe” area (arrow/panel), do nothing
-    if (e.target.closest('[data-acc-safe]')) return;
-    setOpenRowId(null); // close accordion
+  const toggleRoleCell = (rawId) => {
+    const key = Number(rawId);             // normalize
+    setOpenRoleCells((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   };
-  document.addEventListener('pointerdown', onDocDown, true); // capture
-  return () => document.removeEventListener('pointerdown', onDocDown, true);
-}, []);
+
+  const isRoleCellOpen = (rawId) => openRoleCells.has(Number(rawId)); // normalize everywhere
+  const closeAllRoleCells = () => setOpenRoleCells(new Set());
+
+  const roleNameById = (rolesArr, id) =>
+    (rolesArr.find((r) => Number(r.id) === Number(id))?.name) || `#${id}`;
+
+  useEffect(() => {
+    const onDocDown = (e) => {
+      // if the click is inside a “safe” area (arrow/panel), do nothing
+      if (e.target.closest('[data-acc-safe]')) return;
+      setOpenRowId(null); // close accordion
+    };
+    document.addEventListener('pointerdown', onDocDown, true); // capture
+    return () => document.removeEventListener('pointerdown', onDocDown, true);
+  }, []);
 
   const isCreate = isCreateNew && !editingId;
 
@@ -593,43 +593,43 @@ useEffect(() => {
       <div className="flex items-center justify-end mb-6">
         {!isCreateNew && hasPermission("create_lead") && (
           <button
-  onClick={async () => {
-    try {
-      setFetchingBranches(true);
-      // ✅ Always refresh branches when opening the create modal
-      await fetchBranches();
+            onClick={async () => {
+              try {
+                setFetchingBranches(true);
+                // ✅ Always refresh branches when opening the create modal
+                await fetchBranches();
 
-      // (Optional) ensure current user's branch name is present in map
-      if (!isSuperAdmin && userBranchId && userBranchName) {
-        setBranchMap((prev) => ({
-          ...prev,
-          [Number(userBranchId)]: userBranchName,
-        }));
-      }
+                // (Optional) ensure current user's branch name is present in map
+                if (!isSuperAdmin && userBranchId && userBranchName) {
+                  setBranchMap((prev) => ({
+                    ...prev,
+                    [Number(userBranchId)]: userBranchName,
+                  }));
+                }
 
-      // Prepare default form
-      setEditingId(null);
-      setForm({
-        name: "",
-        description: "",
-        branch_id: isSuperAdmin ? "" : userBranchId || "",
-        fetch_configs: makeDefaultConfigs(),
-      });
+                // Prepare default form
+                setEditingId(null);
+                setForm({
+                  name: "",
+                  description: "",
+                  branch_id: isSuperAdmin ? "" : userBranchId || "",
+                  fetch_configs: makeDefaultConfigs(),
+                });
 
-      setIsCreateNew(true);
-    } catch (err) {
-      ErrorHandling({ error: err, defaultError: "Failed to load branches" });
-    } finally {
-      setFetchingBranches(false);
-    }
-  }}
-  className={`flex items-center gap-1 ${btnPrimary}`}
-  disabled={fetchingBranches}
-  title={fetchingBranches ? "Loading branches..." : "Add"}
->
-  <Plus className="w-5 h-5" />
-  {fetchingBranches ? "Loading..." : "Add"}
-</button>
+                setIsCreateNew(true);
+              } catch (err) {
+                ErrorHandling({ error: err, defaultError: "Failed to load branches" });
+              } finally {
+                setFetchingBranches(false);
+              }
+            }}
+            className={`flex items-center gap-1 ${btnPrimary}`}
+            disabled={fetchingBranches}
+            title={fetchingBranches ? "Loading branches..." : "Add"}
+          >
+            <Plus className="w-5 h-5" />
+            {fetchingBranches ? "Loading..." : "Add"}
+          </button>
         )}
       </div>
 
@@ -834,27 +834,27 @@ useEffect(() => {
                       aria-expanded={isOpen}
                     >
                       <td className="px-2 py-3 text-center w-8 align-top">
-  <button
-    type="button"
-    data-acc-safe
-    onPointerDown={(e) => e.stopPropagation()}
-    onClick={(e) => {
-      e.stopPropagation();
-      setOpenRowId((prev) => (prev === src.id ? null : src.id));
-    }}
-    aria-label={openRowId === src.id ? "Collapse details" : "Expand details"}
-    aria-expanded={openRowId === src.id}
-    aria-controls={`panel-${src.id}`}
-    className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
-    title={openRowId === src.id ? "Collapse" : "Expand"}
-  >
-    {openRowId === src.id ? (
-      <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
-    ) : (
-      <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
-    )}
-  </button>
-</td>
+                        <button
+                          type="button"
+                          data-acc-safe
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenRowId((prev) => (prev === src.id ? null : src.id));
+                          }}
+                          aria-label={openRowId === src.id ? "Collapse details" : "Expand details"}
+                          aria-expanded={openRowId === src.id}
+                          aria-controls={`panel-${src.id}`}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--theme-primary-softer)] transition"
+                          title={openRowId === src.id ? "Collapse" : "Expand"}
+                        >
+                          {openRowId === src.id ? (
+                            <ChevronDown className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-[var(--theme-text-muted)]" strokeWidth={3} />
+                          )}
+                        </button>
+                      </td>
                       <td className="px-4 py-3 align-top">
                         <div className="font-semibold">{src.name}</div>
                         <div className="text-xs text-[var(--theme-text-muted)] truncate">
@@ -902,80 +902,79 @@ useEffect(() => {
                       </td>
 
                       <td className="px-4 py-3 align-top">
-  <div
-   className="relative"
-   data-acc-safe
-   onPointerDown={(e) => e.stopPropagation()}
- >
-    {/* Head: only the count is visible */}
-    <button
-      type="button"
-       onClick={(e) => { e.stopPropagation(); toggleRoleCell(src.id); }}
-      aria-expanded={isRoleCellOpen(src.id)}
-      className="inline-flex items-center gap-2 px-2 py-1 rounded-md border border-[var(--theme-border)] bg-[var(--theme-surface)] hover:bg-[var(--theme-primary-softer)] transition"
-      title="Show role limits"
-    >
-      <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
-        {fc.length} role{fc.length !== 1 ? "s" : ""}
-      </span>
-      <ChevronDown
-        className={`w-4 h-4 text-[var(--theme-text-muted)] transition-transform ${
-         isRoleCellOpen(src.id) ? "rotate-180" : ""
-        }`}
-      />
-    </button>
+                        <div
+                          className="relative"
+                          data-acc-safe
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          {/* Head: only the count is visible */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleRoleCell(src.id); }}
+                            aria-expanded={isRoleCellOpen(src.id)}
+                            className="inline-flex items-center gap-2 px-2 py-1 rounded-md border border-[var(--theme-border)] bg-[var(--theme-surface)] hover:bg-[var(--theme-primary-softer)] transition"
+                            title="Show role limits"
+                          >
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+                              {fc.length} role{fc.length !== 1 ? "s" : ""}
+                            </span>
+                            <ChevronDown
+                              className={`w-4 h-4 text-[var(--theme-text-muted)] transition-transform ${isRoleCellOpen(src.id) ? "rotate-180" : ""
+                                }`}
+                            />
+                          </button>
 
-    {/* Body: accordion panel */}
-    {isRoleCellOpen(src.id) && (
-      <div
-        id={`roles-panel-${src.id}`}
-        className="absolute z-50 mt-2 w-60 right-0 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] shadow-xl"
-        role="region"
-      >
-        <div className="p-3 border-b border-[var(--theme-border)] text-xs font-semibold text-[var(--theme-text-muted)]">
-          Roles & limits
-        </div>
+                          {/* Body: accordion panel */}
+                          {isRoleCellOpen(src.id) && (
+                            <div
+                              id={`roles-panel-${src.id}`}
+                              className="absolute z-50 mt-2 w-60 right-0 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] shadow-xl"
+                              role="region"
+                            >
+                              <div className="p-3 border-b border-[var(--theme-border)] text-xs font-semibold text-[var(--theme-text-muted)]">
+                                Roles & limits
+                              </div>
 
-        <ul className="max-h-64 overflow-auto p-2">
-          {fc
-            .slice()
-            .sort((a, b) => (roleNameById(roles, a.role_id)).localeCompare(roleNameById(roles, b.role_id)))
-            .map((x, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between gap-2 px-2 py-2 rounded hover:bg-[var(--theme-primary-softer)]/60"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-[var(--theme-text)] truncate">
-                    {roleNameById(roles, x.role_id)}
-                  </div>
-                  <div className="text-xs text-[var(--theme-text-muted)]">
-                    per-request / daily
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-[var(--theme-border)] bg-[var(--theme-surface)]">
-                    {x.per_request_limit ?? 0}/{x.daily_call_limit ?? 0}
-                  </span>
-                </div>
-              </li>
-            ))}
-        </ul>
+                              <ul className="max-h-64 overflow-auto p-2">
+                                {fc
+                                  .slice()
+                                  .sort((a, b) => (roleNameById(roles, a.role_id)).localeCompare(roleNameById(roles, b.role_id)))
+                                  .map((x, i) => (
+                                    <li
+                                      key={i}
+                                      className="flex items-center justify-between gap-2 px-2 py-2 rounded hover:bg-[var(--theme-primary-softer)]/60"
+                                    >
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium text-[var(--theme-text)] truncate">
+                                          {roleNameById(roles, x.role_id)}
+                                        </div>
+                                        <div className="text-xs text-[var(--theme-text-muted)]">
+                                          per-request / daily
+                                        </div>
+                                      </div>
+                                      <div className="shrink-0">
+                                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-[var(--theme-border)] bg-[var(--theme-surface)]">
+                                          {x.per_request_limit ?? 0}/{x.daily_call_limit ?? 0}
+                                        </span>
+                                      </div>
+                                    </li>
+                                  ))}
+                              </ul>
 
-        <div className="p-2 border-t border-[var(--theme-border)] flex items-center justify-end">
-          <button
-            type="button"
-            onClick={() => toggleRoleCell(src.id)}
-            className="text-xs px-2 py-1 rounded hover:bg-[var(--theme-primary-softer)]"
-            title="Close"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    )}
-  </div>
-</td>
+                              <div className="p-2 border-t border-[var(--theme-border)] flex items-center justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRoleCell(src.id)}
+                                  className="text-xs px-2 py-1 rounded hover:bg-[var(--theme-primary-softer)]"
+                                  title="Close"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
 
                       {showBranchColumn && (
                         <td className="px-4 py-3 align-top">
@@ -1024,11 +1023,11 @@ useEffect(() => {
                       <tr className="bg-[var(--theme-surface)]">
                         <td className="px-0 py-0" colSpan={COLS}>
                           <div
-         id={`panel-${src.id}`}
-         data-acc-safe
-         onPointerDown={(e) => e.stopPropagation()}
-         className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]"
-       >
+                            id={`panel-${src.id}`}
+                            data-acc-safe
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="px-4 sm:px-6 pt-3 pb-5 border-t border-[var(--theme-border)]"
+                          >
                             {/* Put the “accordion panel” content here (same as earlier) */}
                             <div className="mb-3">
                               <h4 className="text-sm font-semibold text-[var(--theme-text)]">

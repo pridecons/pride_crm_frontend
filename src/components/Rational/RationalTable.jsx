@@ -9,10 +9,10 @@ import { useTheme } from "@/context/ThemeContext";
 const formatDate = (d) =>
   d
     ? new Date(d).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
     : "-";
 
 /** Themed Status Badge */
@@ -21,17 +21,17 @@ const StatusBadge = ({ label }) => {
   const tone =
     label === "OPEN"
       ? {
-          bg: "var(--theme-primary-softer)",
-          text: "var(--theme-primary)",
-          ring: "var(--theme-border)",
-        }
+        bg: "var(--theme-primary-softer)",
+        text: "var(--theme-primary)",
+        ring: "var(--theme-border)",
+      }
       : label === "CLOSED"
-      ? {
+        ? {
           bg: "var(--theme-success-soft)",
           text: "var(--theme-success)",
           ring: "var(--theme-border)",
         }
-      : {
+        : {
           bg: "var(--theme-surface)",
           text: "var(--theme-text)",
           ring: "var(--theme-border)",
@@ -50,6 +50,36 @@ const StatusBadge = ({ label }) => {
       {label}
     </span>
   );
+};
+
+// ---- Status transition helpers ----
+const STATUS = {
+  OPEN: "OPEN",
+  TARGET1: "TARGET1_HIT",
+  TARGET2: "TARGET2_HIT",
+  TARGET3: "TARGET3_HIT",
+  STOP_LOSS: "STOP_LOSS_HIT",
+  CLOSED: "CLOSED",
+};
+
+const getAllowedNextStatuses = (current) => {
+  switch ((current || "").toUpperCase()) {
+    case STATUS.OPEN:
+      return [
+        STATUS.TARGET1,
+        STATUS.TARGET2,
+        STATUS.TARGET3,
+        STATUS.STOP_LOSS,
+        STATUS.CLOSED,
+      ];
+    case STATUS.TARGET1:
+      return [STATUS.TARGET2, STATUS.TARGET3];
+    case STATUS.TARGET2:
+      return [STATUS.TARGET3];
+    default:
+      // TARGET3 / STOP_LOSS / CLOSED (or unknown) => locked
+      return [];
+  }
 };
 
 function RationalTable({
@@ -215,8 +245,8 @@ function RationalTable({
                       {hasPermission("rational_status") ? (
                         (() => {
                           const current = (item.status || "").toString().trim();
-                          const normalized = current.toUpperCase();
-                          const isEditable = normalized === "OPEN";
+                          const allowed = getAllowedNextStatuses(current);
+                          const isEditable = allowed.length > 0;
 
                           return (
                             <>
@@ -224,12 +254,18 @@ function RationalTable({
                                 type="button"
                                 onClick={() => {
                                   if (!isEditable) return;
-                                  setOpenStatusDropdown(openStatusDropdown === item.id ? null : item.id);
+                                  setOpenStatusDropdown(
+                                    openStatusDropdown === item.id ? null : item.id
+                                  );
                                 }}
-                                className={`inline-flex items-center gap-1.5 ${
-                                  isEditable ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-                                }`}
+                                className={`inline-flex items-center gap-1.5 ${isEditable ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+                                  }`}
                                 aria-disabled={!isEditable}
+                                title={
+                                  isEditable
+                                    ? "Change status"
+                                    : "Status is locked (no further transitions)"
+                                }
                               >
                                 <StatusBadge
                                   label={
@@ -238,7 +274,12 @@ function RationalTable({
                                     "N/A"
                                   }
                                 />
-                                <ChevronDown size={14} style={{ color: "var(--theme-text-muted)" }} />
+                                {isEditable && (
+                                  <ChevronDown
+                                    size={14}
+                                    style={{ color: "var(--theme-text-muted)" }}
+                                  />
+                                )}
                               </button>
 
                               {isEditable && openStatusDropdown === item.id && (
@@ -250,26 +291,25 @@ function RationalTable({
                                     boxShadow: `0 10px 25px ${themeConfig.shadow}`,
                                   }}
                                 >
-                                  {statusOptions.map(({ label, value }) => {
-                                    const active = item.status === value;
-                                    return (
+                                  {statusOptions
+                                    .filter(({ value }) => allowed.includes(value))
+                                    .map(({ label, value }) => (
                                       <button
                                         key={value}
                                         onClick={() => {
-                                          if (active) return;
+                                          if (value === item.status) return; // no-op if same
                                           handleStatusChange(item.id, value);
                                           setOpenStatusDropdown(null);
                                         }}
                                         className="w-full text-left px-3.5 py-2 text-sm transition-colors"
                                         style={{
-                                          background: active ? "var(--theme-primary-softer)" : "transparent",
-                                          color: active ? "var(--theme-primary)" : "var(--theme-text)",
+                                          background: "transparent",
+                                          color: "var(--theme-text)",
                                         }}
                                       >
-                                        {label} {active && <span className="ml-1">✓</span>}
+                                        {label}
                                       </button>
-                                    );
-                                  })}
+                                    ))}
                                 </div>
                               )}
                             </>
@@ -279,7 +319,6 @@ function RationalTable({
                         <StatusBadge label={item.status || "N/A"} />
                       )}
                     </td>
-
                     {/* Action */}
                     <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-2">

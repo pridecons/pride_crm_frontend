@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 import { jwtDecode } from "jwt-decode";
 import { axiosInstance } from '@/api/Axios';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, Trophy, } from 'lucide-react';
+import { Building2, PhoneCall, PhoneIncoming, Clock3, PhoneOff, Store, CalendarDays, Calendar, Eye, User, Users, Search, CheckCircle2, Info, BarChart3, Briefcase, AlertTriangle, LineChart, IndianRupee, CalendarCheck, Target, SlidersHorizontal, Trophy, Currency, } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import DashboardSkeleton from '@/components/common/skeletonloader';
 
@@ -156,6 +156,25 @@ export default function Dashboard() {
     );
   }, [appliedFilters, baseDefaults, isSuperAdmin, branchTabId]);
 
+  // --- Employee table: independent filters (defaults mirror baseDefaults) ---
+const empDefaults = useMemo(() => ({ ...baseDefaults }), [baseDefaults]);
+
+const [draftEmpFilters, setDraftEmpFilters] = useState(empDefaults);
+const [appliedEmpFilters, setAppliedEmpFilters] = useState(empDefaults);
+
+// Ensure non-admins never land on "all"
+useEffect(() => {
+  if (isEmployee && draftEmpFilters.view === 'all') {
+    setDraftEmpFilters((d) => ({ ...d, view: 'self' }));
+  }
+}, [isEmployee, draftEmpFilters.view]);
+
+useEffect(() => {
+  if (isEmployee && appliedEmpFilters.view === 'all') {
+    setAppliedEmpFilters((d) => ({ ...d, view: 'self' }));
+  }
+}, [isEmployee, appliedEmpFilters.view]);
+
   const showReset = !!user && hasActiveFilters;
 
   // one-click reset (clears draft, applied, and SA branch tab)
@@ -270,11 +289,11 @@ export default function Dashboard() {
   // Pagination for users table
   const EMP_PAGE_SIZE = 10;
   const [empPage, setEmpPage] = useState(1);
+
   useEffect(() => {
     setEmpPage(1);
   }, [appliedFilters, effectiveBranchId, employeesTable]);
   
-
   const queryParams = useMemo(() => {
     const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedFilters;
     const p = { days, view };
@@ -286,6 +305,19 @@ export default function Dashboard() {
     if (departmentId) p.department_id = Number(departmentId);
     return p;
   }, [appliedFilters, effectiveBranchId]);
+
+  // Employee table query params (independent from global)
+const queryParamsEmp = useMemo(() => {
+  const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedEmpFilters;
+  const p = { days, view };
+  if (fromDate) p.from_date = fromDate;
+  if (toDate) p.to_date = toDate;
+  if (effectiveBranchId) p.branch_id = Number(effectiveBranchId);
+  if (employeeCode) p.employee_id = employeeCode;
+  if (profileId) p.profile_id = Number(profileId);
+  if (departmentId) p.department_id = Number(departmentId);
+  return p;
+}, [appliedEmpFilters, effectiveBranchId]);
 
   const fetchDashboard = async () => {
     try {
@@ -300,26 +332,31 @@ export default function Dashboard() {
     }
   };
 
-  const fetchUserTable = async () => {
-    try {
-      setLoading(true);
-      setErrMsg('');
-      const res = await axiosInstance.get('/analytics/leads/users', { params: queryParams });
-      setEmployeesTable(res.data || []);
-    } catch (e) {
-      setErrMsg(e?.response?.data?.detail || e?.message || 'Failed to load users');
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchUserTable = async () => {
+  try {
+    setLoading(true);
+    setErrMsg('');
+    const res = await axiosInstance.get('/analytics/leads/users', { params: queryParamsEmp });
+    setEmployeesTable(res.data || []);
+  } catch (e) {
+    setErrMsg(e?.response?.data?.detail || e?.message || 'Failed to load users');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Run fetch when applied filters (or user) change
   useEffect(() => {
     if (!user) return;
     fetchDashboard();
-    fetchUserTable();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, queryParams]);
+
+  useEffect(() => {
+  if (!user) return;
+  fetchUserTable();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user, queryParamsEmp]);
 
   /* ----------------------------- Autocomplete (draft) ----------------------------- */
   const filteredUsers = useMemo(() => {
@@ -594,7 +631,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
     <Card
       title="Total Target"
       value={inr(totalTarget)}
-      icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
+      icon={<Currency className="h-5 w-5 text-[var(--theme-warning)]" />}
       themeConfig={themeConfig}
     />
     <Card
@@ -623,7 +660,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
     title="Targets (Overall)"
     achieved={achievedTarget}
     total={totalTarget}
-    icon={<IndianRupee className="h-5 w-5 text-[var(--theme-warning)]" />}
+    icon={<Currency className="h-5 w-5 text-[var(--theme-warning)]" />}
     themeConfig={themeConfig}
   />
 
@@ -832,93 +869,93 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
               >
                 {/* Inline filters (draft) with Apply */}
                 <div className="mb-3 px-2 pt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
-                      <input
-                        type="date"
-                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-                        value={draftFilters.fromDate}
-                        onChange={(e) => setDraftFilters((d) => ({ ...d, fromDate: e.target.value }))}
-                        style={{
-                          backgroundColor: themeConfig.inputBackground,
-                          color: themeConfig.text,
-                          border: `1px solid ${themeConfig.inputBorder}`,
-                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                        }}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
-                      <input
-                        type="date"
-                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-                        value={draftFilters.toDate}
-                        onChange={(e) => setDraftFilters((d) => ({ ...d, toDate: e.target.value }))}
-                        style={{
-                          backgroundColor: themeConfig.inputBackground,
-                          color: themeConfig.text,
-                          border: `1px solid ${themeConfig.inputBorder}`,
-                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                        }}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
-                      <select
-                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-                        value={draftFilters.days}
-                        onChange={(e) => setDraftFilters((d) => ({ ...d, days: Number(e.target.value) }))}
-                        style={{
-                          backgroundColor: themeConfig.inputBackground,
-                          color: themeConfig.text,
-                          border: `1px solid ${themeConfig.inputBorder}`,
-                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-                        }}
-                      >
-                        {DAY_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+  <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
+    <div className="md:col-span-2">
+      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
+      <input
+        type="date"
+        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+        value={draftEmpFilters.fromDate}
+        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, fromDate: e.target.value }))}
+        style={{
+          backgroundColor: themeConfig.inputBackground,
+          color: themeConfig.text,
+          border: `1px solid ${themeConfig.inputBorder}`,
+          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+        }}
+      />
+    </div>
+    <div className="md:col-span-2">
+      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
+      <input
+        type="date"
+        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+        value={draftEmpFilters.toDate}
+        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, toDate: e.target.value }))}
+        style={{
+          backgroundColor: themeConfig.inputBackground,
+          color: themeConfig.text,
+          border: `1px solid ${themeConfig.inputBorder}`,
+          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+        }}
+      />
+    </div>
+    <div className="md:col-span-2">
+      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
+      <select
+        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+        value={draftEmpFilters.days}
+        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, days: Number(e.target.value) }))}
+        style={{
+          backgroundColor: themeConfig.inputBackground,
+          color: themeConfig.text,
+          border: `1px solid ${themeConfig.inputBorder}`,
+          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+        }}
+      >
+        {DAY_OPTIONS.map(opt => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
 
-                    <div className="md:col-span-2 flex md:justify-end gap-2">
-                      <button
-                        onClick={() =>
-                          setDraftFilters((d) => ({
-                            ...d,
-                            fromDate: '',
-                            toDate: '',
-                            days: 30,
-                          }))
-                        }
-                        className="h-9 px-3 rounded-md text-sm font-medium transition"
-                        style={{
-                          backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
-                          color: themeConfig.text,
-                          border: `1px solid ${themeConfig.border}`
-                        }}
-                      >
-                        Clear
-                      </button>
-                      <button
-                        onClick={() => setAppliedFilters(draftFilters)}
-                        className="h-9 px-3 rounded-md text-sm font-medium transition"
-                        style={{
-                          backgroundColor: themeConfig.primary,
-                          color: '#fff',
-                          boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-                </div>
+    <div className="md:col-span-2 flex md:justify-end gap-2">
+      <button
+        onClick={() =>
+          setDraftEmpFilters((d) => ({
+            ...d,
+            fromDate: '',
+            toDate: '',
+            days: 30,
+          }))
+        }
+        className="h-9 px-3 rounded-md text-sm font-medium transition"
+        style={{
+          backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
+          color: themeConfig.text,
+          border: `1px solid ${themeConfig.border}`
+        }}
+      >
+        Clear
+      </button>
+      <button
+        onClick={() => setAppliedEmpFilters(draftEmpFilters)}
+        className="h-9 px-3 rounded-md text-sm font-medium transition"
+        style={{
+          backgroundColor: themeConfig.primary,
+          color: '#fff',
+          boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
+        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
+      >
+        Apply
+      </button>
+    </div>
+  </div>
+</div>
 
                 {/* Table */}
                 <div className="max-h-[480px] overflow-y-auto overflow-x-auto pr-1 relative">

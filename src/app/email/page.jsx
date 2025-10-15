@@ -152,7 +152,7 @@ export default function EmailTemplates() {
       setEditTemplate(null);
       setFormData({
         name: "",
-        template_type: "[]", // reset to empty array
+        template_type: [], // reset to empty array
         subject: "",
         body: "",
       });
@@ -249,10 +249,10 @@ export default function EmailTemplates() {
         </h1>
         {hasPermission("email_add_temp") && <button
           onClick={() => {
-            const defaults = roleOptions.slice(0, 2);
+            // const defaults = roleOptions.slice(0, 1).map((r) => norm(r)); // default to first role if exists
             setFormData({
               name: "",
-              template_type: defaults,
+              template_type: [],
               subject: "",
               body: "",
             });

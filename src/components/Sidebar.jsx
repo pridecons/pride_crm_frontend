@@ -12,8 +12,8 @@ import {
   ChevronDown, ChevronRight, LogOut, User, SlidersHorizontal, PhoneCall,
   PlusCircle, MessagesSquare, ClipboardCheck, FileSearch, StickyNote,
   PieChart, UserCog, MailOpen, MessageSquareText,
-  Share,
-  Recycle
+  Share, Recycle, Hourglass,
+  SquarePlus, Flag, Funnel, MessageSquareMore, FlaskConical
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -300,68 +300,75 @@ const handleEnter = () => {
   };
 
   /* ------------ MENU ------------- */
-  const rawMenu = useMemo(
-    () => [
-      { items: [{ href: "/dashboard", icon: Home, label: "Home", access: "" }] },
-      {
-        title: "LEADS", section: "leads", icon: Target,
-        items: [
-          { href: "/lead", icon: Target, label: "New Lead", access: "new_lead_page", activeMatch: "exact" },
-          { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page", activeMatch: "exact" },
-          { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page", activeMatch: "exact" },
-          { href: "/client", icon: Users, label: "Client", access: "client_page" },
-        ],
-      },
-      {
-        title: "LEAD MANAGEMENT", section: "management", icon: SlidersHorizontal,
-        items: [
-          { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "exact" },
-          { href: "/lead/manage/source", icon: Tag, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
-          { href: "/lead/manage/response", icon: MessagesSquare, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
-          { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
-          { href: "/lead/transfer", icon: Recycle, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact"},
-        ],
-      },
-      {
-        title: "CONFIGURATION", section: "configuration", icon: Settings,
-        items: [
-          { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
-          { href: "/department", icon: Building, label: "Department", access: "department_page" },
-          { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
-          // { href: "/user/attendance", icon: CalendarCheck, label: "Attendance", access: "attandance_page" },
-          { href: "/plans", icon: ClipboardCheck, label: "Plans", access: "plane_page" },
-          { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
-        ],
-      },
-      { items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }] },
-      {
-        title: "RESEARCHER", items: [
-          { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
-          { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
-        ]
-      },
-      { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
-      { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
-      { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
+const rawMenu = useMemo(
+  () => [
+    { items: [{ href: "/dashboard", icon: Home, label: "Home", access: "" }] },
 
-      {
-        title: "REPORTS", section: "reports", icon: PieChart,
-        items: [
-          { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
-          { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
-        ],
-      },
+    {
+      title: "LEADS", section: "leads", icon: Target,
+      items: [
+        { href: "/lead", icon: SquarePlus, label: "New Lead", access: "new_lead_page", activeMatch: "exact" },
+        { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page", activeMatch: "exact" },
+        { href: "/lead/ft", icon: Flag, label: "All FT's", access: "", activeMatch: "exact" },
+        { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page", activeMatch: "exact" },
+        { href: "/client", icon: Users, label: "Client", access: "client_page" },
+      ],
+    },
 
-      {
-        title: "TEMPLATE", section: "template", icon: FileText,
-        items: [
-          { href: "/email", icon: MailOpen, label: "Email", access: "email_page" },
-          { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
-        ],
-      },
-    ],
-    []
-  );
+    {
+      title: "LEAD MANAGEMENT", section: "management", icon: SlidersHorizontal,
+      items: [
+        { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "exact" },
+        { href: "/lead/manage/source", icon: Funnel, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
+        { href: "/lead/manage/response", icon: MessageSquareMore, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
+        { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
+        { href: "/lead/transfer", icon: Recycle, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact"},
+      ],
+    },
+
+    {
+      title: "CONFIGURATION", section: "configuration", icon: Settings,
+      items: [
+        { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
+        { href: "/department", icon: Building, label: "Department", access: "department_page" },
+        { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
+        { href: "/plans", icon: ClipboardCheck, label: "Plans", access: "plane_page" },
+        { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
+      ],
+    },
+
+    { items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }] },
+
+    {
+      title: "RESEARCHER", section: null, icon: FlaskConical,
+      items: [
+        { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
+        { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
+      ]
+    },
+
+    { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
+    { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
+    { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
+
+    {
+      title: "REPORTS", section: "reports", icon: PieChart,
+      items: [
+        { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
+        { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
+      ],
+    },
+
+    {
+      title: "TEMPLATE", section: "template", icon: FileText,
+      items: [
+        { href: "/email", icon: MailOpen, label: "Email", access: "email_page" },
+        { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
+      ],
+    },
+  ],
+  []
+);
 
   const filteredMenu = useMemo(() => {
     const can = (acc) => acc === "" || hasPermission(acc);

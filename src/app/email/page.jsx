@@ -35,7 +35,7 @@ export default function EmailTemplates() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    template_type: "[]", // ← now an array
+    template_type: [], // ← now an array
     subject: "",
     body: "",
   });
@@ -83,9 +83,10 @@ export default function EmailTemplates() {
     const loadRoles = async () => {
       try {
         const { data } = await axiosInstance.get("/profile-role/");
-        setRoleOptions(data);
+        const mapped = (Array.isArray(data) ? data : []).map((r) => norm(r));
+        setRoleOptions(Array.from(new Set(mapped)));
       } catch (err) {
-        ErrorHandling({ error: err, defaultError: "Failed to  load templates types" });
+        ErrorHandling({ error: err, defaultError: "Failed to  load templates types" });
       }
     };
     loadRoles();
@@ -97,7 +98,7 @@ export default function EmailTemplates() {
       const { data } = await axiosInstance.get("/email/templates/");
       setTemplates(data);
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to  load templates" });
+      ErrorHandling({ error: error, defaultError: "Failed to  load templates" });
     } finally {
       setLoading(false);
     }
@@ -113,26 +114,16 @@ export default function EmailTemplates() {
   };
 
   // Handle checkbox changes for template_type
-  const handleTypeChange = (roleType) => {
+  const handleTypeChange = (raw) => {
+    const v = norm(raw);
     setFormData((prev) => {
-      const currentTypes = Array.isArray(prev.template_type) ? prev.template_type : [];
-      const isSelected = currentTypes.includes(roleType);
-      
-      if (isSelected) {
-        // Remove the type
-        return {
-          ...prev,
-          template_type: currentTypes.filter(type => type !== roleType)
-        };
-      } else {
-        // Add the type
-        return {
-          ...prev,
-          template_type: [...currentTypes, roleType]
-        };
-      }
+      const cur = new Set(prev.template_type || []);
+      if (cur.has(v)) cur.delete(v);
+      else cur.add(v);
+      return { ...prev, template_type: Array.from(cur) };
     });
   };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -161,14 +152,14 @@ export default function EmailTemplates() {
       setEditTemplate(null);
       setFormData({
         name: "",
-        template_type: "[]", // reset to empty array
+        template_type: [], // reset to empty array
         subject: "",
         body: "",
       });
       setIsModalOpen(false);
       setIsDropdownOpen(false);
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to save template" });
+      ErrorHandling({ error: error, defaultError: "Failed to save template" });
     }
   };
 
@@ -179,7 +170,7 @@ export default function EmailTemplates() {
       toast.success("Template deleted");
       fetchTemplates();
     } catch (error) {
-      ErrorHandling({ error: error, defaultError: "Failed to delete template" });
+      ErrorHandling({ error: error, defaultError: "Failed to delete template" });
 
     }
   };
@@ -188,7 +179,11 @@ export default function EmailTemplates() {
     setEditTemplate(template);
     setFormData({
       name: template.name,
-      template_type: Array.isArray(template.template_type) ? template.template_type : [template.template_type],
+      template_type: Array.isArray(template.template_type)
+        ? Array.from(new Set(template.template_type.map((v) => norm(v))))
+        : template.template_type
+          ? [norm(template.template_type)]
+          : [],
       subject: template.subject,
       body: template.body,
     });
@@ -210,10 +205,14 @@ export default function EmailTemplates() {
         }));
       } else {
         // fallback: append at end
+        // wherever you set formData from API:
         setFormData((prev) => ({
           ...prev,
-          body: prev.body + " " + placeholder,
+          template_type: Array.isArray(apiValue?.template_type)
+            ? apiValue.template_type.map((v) => norm(v))
+            : [],
         }));
+
       }
     }
   };
@@ -229,6 +228,19 @@ export default function EmailTemplates() {
     return `${formData.template_type.length} types selected`;
   };
 
+
+
+  // --- helpers ---
+  const norm = (x) =>
+    String(x?.name ?? x?.role ?? x?.label ?? x?.value ?? x ?? "")
+      .trim()
+      .toLowerCase();
+
+  const toTitle = (s) => (s ? s[0].toUpperCase() + s.slice(1) : "");
+
+  // replace your setRoleOptions(...) after fetching
+
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -237,10 +249,10 @@ export default function EmailTemplates() {
         </h1>
         {hasPermission("email_add_temp") && <button
           onClick={() => {
-            setEditTemplate(null);
+            // const defaults = roleOptions.slice(0, 1).map((r) => norm(r)); // default to first role if exists
             setFormData({
               name: "",
-              template_type: "[]",
+              template_type: [],
               subject: "",
               body: "",
             });
@@ -281,8 +293,8 @@ export default function EmailTemplates() {
                 <tr key={template.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">{template.name}</td>
                   <td className="px-4 py-3 capitalize">
-                    {Array.isArray(template.template_type) 
-                      ? template.template_type.join(", ") 
+                    {Array.isArray(template.template_type)
+                      ? template.template_type.join(", ")
                       : template.template_type}
                   </td>
                   <td className="px-4 py-3">{template.subject}</td>
@@ -365,34 +377,38 @@ export default function EmailTemplates() {
                     </span>
                     <ChevronDown size={16} className={`transform transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
-                  
+
                   {isDropdownOpen && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {roleOptions.map((roleType) => (
-                        <div
-                          key={roleType}
-                          className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleTypeChange(roleType)}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.template_type.includes(roleType)}
-                            onChange={() => handleTypeChange(roleType)}
-                            className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <label className="flex-1 cursor-pointer">
-                            {roleType.charAt(0).toUpperCase() + roleType.slice(1)}
-                          </label>
-                        </div>
-                      ))}
+                      {roleOptions.map((opt, idx) => {
+                        const value = norm(opt);        // normalized value
+                        const label = toTitle(value);   // display label
+                        const checked = (formData.template_type || []).includes(value);
+
+                        return (
+                          <div
+                            key={value || idx}
+                            className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => handleTypeChange(opt)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => handleTypeChange(opt)}
+                              className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <label className="flex-1 cursor-pointer">{label}</label>
+                          </div>
+                        );
+                      })}
+
                       {roleOptions.length === 0 && (
-                        <div className="px-3 py-2 text-gray-500">
-                          No types available
-                        </div>
+                        <div className="px-3 py-2 text-gray-500">No types available</div>
                       )}
                     </div>
                   )}
+
                 </div>
                 {formData.template_type.length === 0 && (
                   <p className="text-red-500 text-sm mt-1">Please select at least one type</p>
@@ -496,8 +512,8 @@ export default function EmailTemplates() {
 
       {/* Click outside to close dropdown */}
       {isDropdownOpen && (
-        <div 
-          className="fixed inset-0 z-0" 
+        <div
+          className="fixed inset-0 z-0"
           onClick={() => setIsDropdownOpen(false)}
         />
       )}

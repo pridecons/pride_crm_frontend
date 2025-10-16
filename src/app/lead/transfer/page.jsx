@@ -8,7 +8,6 @@ const scopes = [
   { value: "all", label: "All leads in this source" },
   { value: "new_only", label: "Only NEW leads (no response set)" },
   { value: "by_response", label: "Filter by response(s)" },
-  { value: "lead_ids", label: "Only selected lead IDs" },
 ];
 
 export default function SourceToolsPage() {
@@ -17,9 +16,14 @@ export default function SourceToolsPage() {
   // tab is just transfer for now
   const [activeTab] = useState("transfer");
 
-  // dropdown data (sources already contain responses per-source)
-  const [sources, setSources] = useState([]); // [{id, name, count, responses:[{id,name,count}]}]
-  const [responses, setResponses] = useState([]);
+  // dropdown data (server now returns only id/name/count for options)
+  const [sources, setSources] = useState([]); // [{id, name, count}]
+  const [responses, setResponses] = useState([]); // [{id,name,count}] from response-stats.breakdown
+
+  // response-stats panel state
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState("");
 
   // Common
   const [sourceId, setSourceId] = useState("");
@@ -28,7 +32,6 @@ export default function SourceToolsPage() {
   const [targetSourceId, setTargetSourceId] = useState("");
   const [scope, setScope] = useState("all");
   const [responseIds, setResponseIds] = useState([]);
-  const [leadIdsText, setLeadIdsText] = useState("");
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
 
   // Clear core flags
@@ -39,7 +42,6 @@ export default function SourceToolsPage() {
   // Clear profile/contact fields
   const [clearName, setClearName] = useState(false);
   const [clearEmail, setClearEmail] = useState(false);
-  const [clearMobile, setClearMobile] = useState(false);
   const [clearAddress, setClearAddress] = useState(false);
   const [clearPincode, setClearPincode] = useState(false);
   const [clearCity, setClearCity] = useState(false);
@@ -55,18 +57,18 @@ export default function SourceToolsPage() {
   const [distributeEqual, setDistributeEqual] = useState(false);
 
   // clear related records
-  const [clearSmsLogs, setClearSmsLogs] = useState(false);
-  const [clearEmailLogs, setClearEmailLogs] = useState(false);
-  const [clearComments, setClearComments] = useState(false);
-  const [clearStories, setClearStories] = useState(false);
-  const [clearRecordings, setClearRecordings] = useState(false);
+  const [clearSmsLogs, setClearSmsLogs] = useState(true);
+  const [clearEmailLogs, setClearEmailLogs] = useState(true);
+  const [clearComments, setClearComments] = useState(true);
+  const [clearStories, setClearStories] = useState(true);
+  const [clearRecordings, setClearRecordings] = useState(true);
 
   // Result / errors
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
-  // ---------- load sources ONCE (sources already include responses per source) ----------
+  // ---------- load sources ONCE ----------
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -82,25 +84,44 @@ export default function SourceToolsPage() {
     return () => { isMounted = false; };
   }, []);
 
-  // ---------- set responses when source changes (source-wise responses only) ----------
+  // ---------- fetch response-stats whenever source or date range changes ----------
+  useEffect(() => {
+    let cancel = false;
+    async function loadStats() {
+      setStats(null);
+      setResponses([]);
+      setStatsError("");
+      if (!sourceId) return;
+      setStatsLoading(true);
+      try {
+        const params = { source_id: Number(sourceId) };
+        if (fromDate) params.from_date = fromDate;
+        if (toDate) params.to_date = toDate;
+        const { data } = await axiosInstance.get("/source-tools/response-stats", { params });
+        if (cancel) return;
+        setStats(data || null);
+        // feed breakdown to responses list for UI (ResponseMulti)
+        const breakdown = Array.isArray(data?.breakdown) ? data.breakdown : [];
+        setResponses(breakdown.map(b => ({ id: b.response_id, name: b.response_name, count: b.count })));
+      } catch (e) {
+        if (!cancel) {
+          setStats(null);
+          setResponses([]);
+          setStatsError(e?.response?.data?.detail || e.message || "Failed to fetch stats");
+        }
+      } finally {
+        if (!cancel) setStatsLoading(false);
+      }
+    }
+    loadStats();
+    return () => { cancel = true; };
+  }, [sourceId, fromDate, toDate]);
+
+  // Reset selections when source changes
   useEffect(() => {
     setSelectedLeadIds([]);
     setResponseIds([]);
-    if (!sourceId) { setResponses([]); return; }
-    const sid = Number(sourceId);
-    const src = sources.find(s => s.id === sid);
-    setResponses(src?.responses || []);
-  }, [sourceId, sources]);
-
-  // ---------- helpers ----------
-  function parseCsvInts(csv) {
-    return (csv || "")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean)
-      .map(Number)
-      .filter(n => !Number.isNaN(n));
-  }
+  }, [sourceId]);
 
   function parseCsvStrings(csv) {
     return (csv || "")
@@ -122,7 +143,6 @@ export default function SourceToolsPage() {
       // profile clears
       clear_name: clearName,
       clear_email: clearEmail,
-      clear_mobile: clearMobile,
       clear_address: clearAddress,
       clear_pincode: clearPincode,
       clear_city: clearCity,
@@ -148,18 +168,14 @@ export default function SourceToolsPage() {
     if (distributeEqual) p.distribute_equal_by_assignee = true;
 
     if (scope === "by_response") p.response_ids = responseIds;
-    if (scope === "lead_ids") {
-      p.lead_ids =
-        selectedLeadIds.length > 0 ? selectedLeadIds : parseCsvInts(leadIdsText);
-    }
     return p;
   }, [
     scope, targetSourceId,
     clearAssigned, clearResponse, clearDates,
-    clearName, clearEmail, clearMobile, clearAddress, clearPincode, clearCity, clearState, clearOccupation, clearSegment, extraFieldsCsv,
+    clearName, clearEmail, clearAddress, clearPincode, clearCity, clearState, clearOccupation, clearSegment, extraFieldsCsv,
     clearSmsLogs, clearEmailLogs, clearComments, clearStories, clearRecordings,
     fromDate, toDate, limitCount, distributeEqual,
-    responseIds, selectedLeadIds, leadIdsText
+    responseIds, selectedLeadIds
   ]);
 
   // ---------- actions ----------
@@ -170,8 +186,6 @@ export default function SourceToolsPage() {
     if (!targetSourceId) return setError("Target Source is required.");
     if (scope === "by_response" && (!transferPayload.response_ids || transferPayload.response_ids.length === 0))
       return setError("Select at least one response.");
-    if (scope === "lead_ids" && (!transferPayload.lead_ids || transferPayload.lead_ids.length === 0))
-      return setError("Select or enter at least one lead ID.");
 
     const body = { ...transferPayload, dry_run };
 
@@ -262,7 +276,7 @@ export default function SourceToolsPage() {
   function ResponseMulti({ values, onChange }) {
     return (
       <div className="rounded-xl border border-[var(--theme-border)] p-3 shadow-sm bg-[var(--theme-card-bg)]">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {responses.map((r) => {
             const checked = values.includes(r.id);
             return (
@@ -288,7 +302,7 @@ export default function SourceToolsPage() {
           })}
         </div>
         <p className="mt-2 text-xs text-[var(--theme-text-muted)] flex items-center gap-1">
-          <Info className="h-3.5 w-3.5 text-[var(--theme-text-muted)]" /> Responses are <strong className="font-semibold">&nbsp;source-wise</strong>.
+          <Info className="h-3.5 w-3.5 text-[var(--theme-text-muted)]" /> Counts reflect current filters (source & date range).
         </p>
       </div>
     );
@@ -312,111 +326,32 @@ export default function SourceToolsPage() {
     );
   }
 
-  function LeadMulti({ sourceId, values, onChange, hint }) {
-    const [items, setItems] = useState([]);
-    const [q, setQ] = useState("");
-    const [loading, setLoading] = useState(false);
+  // Build a quick lookup: response_id -> count (already date-filtered by API)
+const breakdownMap = useMemo(() => {
+  const map = {};
+  (stats?.breakdown || []).forEach((b) => { map[b.response_id] = b.count || 0; });
+  return map;
+}, [stats]);
 
-    useEffect(() => {
-      let cancel = false;
-      async function load() {
-        if (!sourceId) { setItems([]); return; }
-        setLoading(true);
-        try {
-          const { data } = await axiosInstance.get(`/source-tools/leads`, {
-            params: { source_id: Number(sourceId), q }
-          });
-          if (!cancel) setItems(Array.isArray(data?.leads) ? data.leads : []);
-        } catch (e) {
-          if (!cancel) setItems([]);
-        } finally {
-          if (!cancel) setLoading(false);
-        }
-      }
-      load();
-      return () => { cancel = true; };
-    }, [sourceId, q]);
-
-    const allIds = useMemo(() => items.map((x) => x.id), [items]);
-
-    return (
-      <div className="rounded-2xl border border-[var(--theme-border)] p-3 shadow-sm bg-[var(--theme-card-bg)]">
-        <div className="mb-2 flex items-center gap-2">
-          <input
-            className={inputBase}
-            placeholder="Search by name, mobile, email..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button
-            type="button"
-            className="rounded-xl border border-[var(--theme-border)] px-3 py-2 text-sm hover:bg-[var(--theme-primary-softer)] transition text-[var(--theme-text)] bg-[var(--theme-surface)]"
-            onClick={() => setQ("")}
-          >
-            Clear
-          </button>
-        </div>
-
-        <div className="mb-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-[var(--theme-border)] px-2 py-1 text-xs hover:bg-[var(--theme-primary-softer)] transition text-[var(--theme-text)] bg-[var(--theme-surface)]"
-            onClick={() => onChange(Array.from(new Set([...values, ...allIds])))}
-            disabled={loading || !allIds.length}
-          >
-            Select All (loaded)
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-[var(--theme-border)] px-2 py-1 text-xs hover:bg-[var(--theme-primary-softer)] transition text-[var(--theme-text)] bg-[var(--theme-surface)]"
-            onClick={() => onChange(values.filter((id) => !allIds.includes(id)))}
-            disabled={loading || !values.length}
-          >
-            Unselect Loaded
-          </button>
-          <span className="text-xs text-[var(--theme-text-muted)]">
-            {loading ? "Loading..." : `${items.length} shown`} • Selected: {values.length}
-          </span>
-        </div>
-
-        <div className="max-h-64 overflow-auto rounded-lg border border-[var(--theme-border)]/60">
-          {!items.length && !loading && (
-            <div className="p-3 text-sm text-[var(--theme-text-muted)]">No leads.</div>
-          )}
-          {items.map((ld) => {
-            const checked = values.includes(ld.id);
-            return (
-              <label
-                key={ld.id}
-                className={`flex items-center gap-2 border-b px-3 py-2 transition
-                ${checked ? "bg-[var(--theme-primary-softer)]" : "hover:bg-[var(--theme-primary-softer)]/60"}
-                border-[var(--theme-border)]`}
-              >
-                <input
-                  type="checkbox"
-                  className="accent-[var(--theme-primary)]"
-                  checked={checked}
-                  onChange={(e) => {
-                    if (e.target.checked) onChange([...values, ld.id]);
-                    else onChange(values.filter((x) => x !== ld.id));
-                  }}
-                />
-                <div className="text-sm">
-                  <div className="font-medium text-[var(--theme-text)]">
-                    {ld.full_name || "—"} <span className="text-[var(--theme-text-muted)]">#{ld.id}</span>
-                  </div>
-                  <div className="text-[var(--theme-text-muted)] text-xs">
-                    {ld.mobile || "—"} • {ld.email || "—"}
-                  </div>
-                </div>
-              </label>
-            );
-          })}
-        </div>
-        {hint ? <p className="mt-1 text-xs text-[var(--theme-text-muted)]">{hint}</p> : null}
-      </div>
-    );
+// What number should we show for the chosen scope?
+const scopeCount = useMemo(() => {
+  if (!stats) return null;
+  if (scope === "all") return stats.total ?? 0;
+  if (scope === "new_only") return stats.new_count ?? 0;
+  if (scope === "by_response") {
+    if (!responseIds?.length) return 0;
+    return responseIds.reduce((sum, id) => sum + (breakdownMap[id] || 0), 0);
   }
+  return null;
+}, [stats, scope, responseIds, breakdownMap]);
+
+// Label to show above the count
+const scopeCountLabel = useMemo(() => {
+  if (scope === "all") return "Total";
+  if (scope === "new_only") return "NEW (no response)";
+  return "Selected responses";
+}, [scope]);
+
 
   return (
     <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
@@ -440,12 +375,9 @@ export default function SourceToolsPage() {
             <div className="space-y-6 w-full">
               <Accordion title="Target & Scope" icon={Send}>
                 <div className="flex flex-col gap-4 w-full">
-                  <Field label="Target Source">
-                    <SourceSelect value={targetSourceId} onChange={setTargetSourceId} placeholder="Select target source" />
-                  </Field>
 
                   {/* Date range + Limit + Distribution */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Field label="From Date">
                       <input type="date" className={inputBase} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
                     </Field>
@@ -455,12 +387,14 @@ export default function SourceToolsPage() {
                     <Field label="Count (max leads to transfer)">
                       <input type="number" min={1} className={inputBase} value={limitCount} onChange={(e) => setLimitCount(e.target.value)} placeholder="e.g. 10000" />
                     </Field>
+                    <div className="">
+                    <Field label="Distribute equally by current assignee">
+                      <div className="w-full rounded-xl border border-[var(--theme-border)] bg-[var(--theme-input-background)] px-3 py-2 text-sm text-[var(--theme-text)] shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary-soft)] focus:border-[var(--theme-primary)] transition placeholder-[var(--theme-text-muted)] flex gap-2">
+                      <input type="checkbox" checked={distributeEqual} onChange={(e) => setDistributeEqual(e.target.checked)} />
+                      <span className="text-sm text-[var(--theme-text)]">Distribute equally</span>
+                      </div>
+                    </Field>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <label className="flex items-center gap-2 rounded-xl border border-[var(--theme-border)] px-3 py-2 hover:bg-[var(--theme-primary-softer)] bg-[var(--theme-surface)]">
-                      <input type="checkbox" className="accent-[var(--theme-primary)]" checked={distributeEqual} onChange={(e) => setDistributeEqual(e.target.checked)} />
-                      <span className="text-sm text-[var(--theme-text)]">Distribute equally by current assignee</span>
-                    </label>
                   </div>
 
                   <div className="w-full">
@@ -469,31 +403,40 @@ export default function SourceToolsPage() {
                   </div>
                 </div>
 
+                            {/* Response-stats panel (appears after selecting source) */}
+            {sourceId ? (
+             <div className="mt-4 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-surface)] p-4">
+ <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Scope-aware count */}
+      <div className="rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-3">
+        <div className="text-xs text-[var(--theme-text-muted)]">{scopeCountLabel}</div>
+        <div className="text-lg font-semibold text-[var(--theme-text)]">
+          {statsLoading ? "…" : (scopeCount ?? "—")}
+        </div>
+      </div>
+
+      {/* Keep these as reference info */}
+      <div className="rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-3">
+        <div className="text-xs text-[var(--theme-text-muted)]">Total (all)</div>
+        <div className="text-lg font-semibold text-[var(--theme-text)]">
+          {statsLoading ? "…" : (stats?.total ?? "—")}
+        </div>
+      </div>
+      <div className="rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-3">
+        <div className="text-xs text-[var(--theme-text-muted)]">NEW (no response)</div>
+        <div className="text-lg font-semibold text-[var(--theme-text)]">
+          {statsLoading ? "…" : (stats?.new_count ?? "—")}
+        </div>
+      </div>
+    </div>
+</div>
+
+            ) : null}
+
                 {scope === "by_response" && (
                   <div className="mt-4">
-                    <Field label="Responses (source-wise)">
+                    <Field label="Responses (from response-stats)">
                       <ResponseMulti values={responseIds} onChange={setResponseIds} />
-                    </Field>
-                  </div>
-                )}
-
-                {scope === "lead_ids" && (
-                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <Field label="Select Leads (from chosen Source)">
-                      <LeadMulti
-                        sourceId={sourceId}
-                        values={selectedLeadIds}
-                        onChange={setSelectedLeadIds}
-                        hint="Search, then select. You can also type IDs below if needed."
-                      />
-                    </Field>
-                    <Field label="Or, enter Lead IDs (comma-separated)">
-                      <input
-                        className={inputBase}
-                        placeholder="e.g. 101,102,103"
-                        value={leadIdsText}
-                        onChange={(e) => setLeadIdsText(e.target.value)}
-                      />
                     </Field>
                   </div>
                 )}
@@ -524,7 +467,6 @@ export default function SourceToolsPage() {
                   {[
                     ["Name", clearName, setClearName],
                     ["Email", clearEmail, setClearEmail],
-                    ["Mobile", clearMobile, setClearMobile],
                     ["Address", clearAddress, setClearAddress],
                     ["Pincode", clearPincode, setClearPincode],
                     ["City", clearCity, setClearCity],
@@ -537,16 +479,6 @@ export default function SourceToolsPage() {
                       <span className="text-sm text-[var(--theme-text)]">Clear {label}</span>
                     </label>
                   ))}
-                </div>
-                <div className="mt-3">
-                  <Field label="Extra fields to clear (comma-separated)">
-                    <input
-                      className={inputBase}
-                      placeholder="e.g. address_line1,address_line2,zip"
-                      value={extraFieldsCsv}
-                      onChange={(e) => setExtraFieldsCsv(e.target.value)}
-                    />
-                  </Field>
                 </div>
               </Accordion>
 
@@ -567,6 +499,10 @@ export default function SourceToolsPage() {
                 </div>
               </Accordion>
 
+                                <Field label="Target Source">
+                    <SourceSelect value={targetSourceId} onChange={setTargetSourceId} placeholder="Select target source" />
+                  </Field>
+
               <div className="flex flex-wrap items-center gap-3">
                 <button type="button" disabled={loading} className={btnSecondary} onClick={() => callTransfer(true)}>
                   {loading ? "Working..." : "Preview"}
@@ -578,6 +514,7 @@ export default function SourceToolsPage() {
               </div>
             </div>
           )}
+          
         </div>
 
         {/* Result */}

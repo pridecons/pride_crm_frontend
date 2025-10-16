@@ -21,7 +21,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 const btnBase =
   "inline-flex flex-1 basis-0 items-center justify-center h-10 px-4 rounded-lg border font-semibold transition-all text-sm text-center whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed";
 
-  function useOverflowX(ref) {
+function useOverflowX(ref) {
   const [overflowing, setOverflowing] = useState(false);
 
   useLayoutEffect(() => {
@@ -96,7 +96,7 @@ export function ActionButtons({
       </CallButton> */}
 
       {/* Agreement / KYC */}
-            {currentLead?.kyc ? (
+      {currentLead?.kyc ? (
         <button
           onClick={onViewKycClick}
           className={`${btnBase} border-blue-500 text-blue-600 hover:bg-blue-100`}
@@ -118,35 +118,34 @@ export function ActionButtons({
             )}
             KYC
           </button>
-         {Boolean(kycSigningUrl) && (
-           <button
-             onClick={handleCopyClick}
-             disabled={copied}
-             className={`${btnBase} ${
-               copied
-                 ? "border-green-600 text-green-700 hover:bg-green-100"
-                 : "border-emerald-500 text-emerald-600 hover:bg-emerald-100"
-             }`}
-             title={copied ? "Copied" : "Copy signing URL"}
-             aria-live="polite"
-           >
-             {copied ? (
-               <>
-                 <Check size={16} className="mr-2" />
-                 Copied
-              </>
-            ) : (
-               <>
-                 <Copy size={16} className="mr-2" />
-                 Copy KYC Link
-               </>
-             )}
-           </button>
-         )}
+          {Boolean(kycSigningUrl) && (
+            <button
+              onClick={handleCopyClick}
+              disabled={copied}
+              className={`${btnBase} ${copied
+                  ? "border-green-600 text-green-700 hover:bg-green-100"
+                  : "border-emerald-500 text-emerald-600 hover:bg-emerald-100"
+                }`}
+              title={copied ? "Copied" : "Copy signing URL"}
+              aria-live="polite"
+            >
+              {copied ? (
+                <>
+                  <Check size={16} className="mr-2" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy size={16} className="mr-2" />
+                  Copy KYC Link
+                </>
+              )}
+            </button>
+          )}
         </>
       )}
 
-      
+
 
       {/* Payment */}
       <button
@@ -155,14 +154,14 @@ export function ActionButtons({
       >
         ₹ Payment
       </button>
-     {hasPermission("lead_manuale_payment_create") &&
-      <button
-        onClick={onManualePaymentClick}
-        className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100 rupee`}
-      >
-        ₹ Manuale Payment
-      </button>
-}
+      {hasPermission("lead_manuale_payment_create") &&
+        <button
+          onClick={onManualePaymentClick}
+          className={`${btnBase} border-red-500 text-red-600 hover:bg-red-100 rupee`}
+        >
+          ₹ Manual Payment
+        </button>
+      }
 
       {/* Email */}
       <button

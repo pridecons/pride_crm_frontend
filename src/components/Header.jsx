@@ -108,11 +108,13 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
   // ---- Global Search state ----
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const totalResults = suggestions.length;
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
+  const reqSeqRef = useRef(0);
   const searchWrapRef = useRef(null);
   const overlayRef = useRef(null);
   const inputRef = useRef(null);
@@ -159,22 +161,13 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     if (u) setUser(u);
   }, []);
 
-  const loadLookupsIfNeeded = useCallback(async () => {
+  const loadLookupsIfNeeded = useCallback(() => {
     if (lookupsLoadedRef.current) return;
     lookupsLoadedRef.current = true;
-    try {
-      const [{ data: responses }, { data: sources }, { data: branches }] =
-        await Promise.all([
-          axiosInstance.get('/lead-config/responses/'),
-          axiosInstance.get('/lead-config/sources/'),
-          axiosInstance.get('/branches/?skip=0&limit=200'),
-        ]);
-      setRespOptions(Array.isArray(responses) ? responses : []);
-      setSourceOptions(Array.isArray(sources) ? sources : []);
-      setBranchOptions(Array.isArray(branches?.items || branches) ? (branches.items || branches) : []);
-    } catch (e) {
-      ErrorHandling({ error: e, defaultError: "Failed loading lookups." });
-    }
+    // Lookups now come from the /leads/search payload, so keep these empty.
+    setRespOptions([]);
+    setSourceOptions([]);
+    setBranchOptions([]);
   }, []);
 
   const respSummary = useMemo(() => {
@@ -256,6 +249,11 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     "not interested": ["ni", "not interested"],
   };
 
+  // simple in-memory cache for suggestions (term -> { list, counts, ts })
+ const cacheRef = useRef(new Map());
+ const STALE_MS = 15_000; // 15s freshness window
+ const lastTermRef = useRef("");
+
   const norm = (s) => String(s || "").trim().toLowerCase();
 
   const buildResponseMatches = (q, options) => {
@@ -299,15 +297,16 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
 
   useEffect(() => {
-    const id = setTimeout(() => {
-      if (typeof onSearch === 'function') onSearch(query);
-      if (typeof window !== 'undefined') sessionStorage.setItem('globalSearchQuery', query);
-    }, 500);
-    return () => clearTimeout(id);
-  }, [query, onSearch]);
+if (open) return; // pause global search while overlay suggestions are active
+  const id = setTimeout(() => {
+    if (typeof onSearch === 'function') onSearch(query);
+    if (typeof window !== 'undefined') sessionStorage.setItem('globalSearchQuery', query);
+  }, 500);
+  return () => clearTimeout(id);
+}, [query, onSearch, open]);
 
   function getResponseName(lead) {
-    return lead?.lead_response_name || "No Response";
+    return lead?.response_name || lead?.lead_response_name || "No Response";
   }
 
   const fetchSuggestions = useCallback(async (q) => {
@@ -315,13 +314,29 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
     if (term.length < 2) {
       try { abortRef.current?.abort(); } catch { }
       setSuggestions([]); setRespCounts({}); setRespMatches([]); setResponseCounts({}); setLoading(false);
+      lastTermRef.current = term;
       return;
     }
+
+    // if same term as last time, do nothing
+ if (lastTermRef.current === term) return;
+lastTermRef.current = term;
+
+// serve from cache if fresh
+ const cached = cacheRef.current.get(term);
+ if (cached && (Date.now() - cached.ts) < STALE_MS) {
+   setResponseCounts(cached.counts);
+   setSuggestions(cached.list);
+   setRespMatches(buildResponseMatches(term, respOptions));
+   setLoading(false);
+   return;
+ }
 
     try { abortRef.current?.abort(); } catch { }
     const ac = new AbortController();
     abortRef.current = ac;
 
+    const mySeq = ++reqSeqRef.current; // capture my request number
     setLoading(true);
     try {
       const url = `/leads/search/?q=${encodeURIComponent(term)}&search_type=all`;
@@ -355,9 +370,11 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
           email: l?.email ?? "",
 
           lead_response_id: l?.lead_response_id ?? null,
-          lead_response_name: l?.lead_response_name ?? "",
+          lead_response_name: l?.response_name ?? l?.lead_response_name ?? "",
           source_id: l?.lead_source_id ?? null,
+          source_name: l?.source_name ?? l?.lead_source_name ?? "",
           branch_id: l?.branch_id ?? null,
+          branch_name: l?.branch_name ?? "",
 
           assigned_user: au,
           assigned_to_code: au?.employee_code ?? "",
@@ -387,20 +404,27 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
 
       const countsByName = {};
       for (const l of list) {
-        const rname = l?.lead_response_name || "No Response";
+        const rname = l?.response_name || l?.lead_response_name || "No Response";
         countsByName[rname] = (countsByName[rname] || 0) + 1;
       }
 
-      setResponseCounts(countsByName);
-      setSuggestions(list);
-      setRespMatches(buildResponseMatches(term, respOptions));
+      if (mySeq === reqSeqRef.current) {
+        setResponseCounts(countsByName);
+        setSuggestions(list);
+        setRespMatches(buildResponseMatches(term, respOptions));
+      }
     } catch (err) {
-      const canceled = err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError';
-      if (!canceled) ErrorHandling({ error: err, defaultError: "Search failed." });
+    const canceled =
+      err?.code === 'ERR_CANCELED' ||
+      err?.name === 'CanceledError' ||
+      err?.message === 'canceled';
+    if (!canceled) {
+      ErrorHandling({ error: err, defaultError: "Search failed." });
       setSuggestions([]); setRespCounts({}); setResponseCounts({});
       setRespMatches(buildResponseMatches(term, respOptions));
-    } finally {
-      setLoading(false);
+    }
+  } finally {
+      if (mySeq === reqSeqRef.current) setLoading(false);
     }
   }, [respOptions, user]);
 
@@ -600,6 +624,7 @@ export default function Header({ onMenuClick, onSearch, sidebarOpen }) {
                     portalHost={portalHostRef.current}
                     query={query}
                     setQuery={setQuery}
+                    totalResults={totalResults}
                     onClose={() => { setOpen(false); setExpanded(false); setHighlight(-1); }}
                     loading={loading}
                     responseTabs={responseTabs}
@@ -757,6 +782,7 @@ function SearchOverlay({
   onEnterNoPick,
   overlayRef,
   showBranch,
+  totalResults = 0,
 }) {
   const { themeConfig } = useTheme();
 
@@ -887,7 +913,7 @@ function SearchOverlay({
             </div>
           )}
 
-          {!loading && visibleLeads.length === 0 && (
+          {!loading && visibleLeads.length === 0 && totalResults === 0 && (
             <div className="p-8 text-center text-sm" style={{ color: themeConfig.textSecondary }}>
               No matching leads. Press <span className="font-semibold" style={{ color: themeConfig.text }}>Enter</span> to run a full search.
             </div>
@@ -925,13 +951,12 @@ function SearchOverlay({
                   <ul>
                     {items.map((lead, index) => {
                       const active = visibleLeads[highlight]?.id === lead.id;
-                      const rName = lead.lead_response_name || respMap[lead.lead_response_id] || 'No Response';
-                      const bName = branchMap[lead.branch_id] || lead.branch_name || '—';
-                      const sName =
-                        sourceMap[lead.source_id ?? lead.lead_source_id] ||
-                        lead.source_name ||
-                        lead.lead_source_name ||
-                        '—';
+                      const rName = lead.response_name || lead.lead_response_name || 'No Response';
+                      const bName = lead.branch_name || branchMap[lead.branch_id] || '—';
+                      const sName = lead.source_name
+                        || lead.lead_source_name
+                        || sourceMap[lead.source_id ?? lead.lead_source_id]
+                        || '—';
                       const aName =
                         lead.assigned_to_name ||
                         (lead.__assigned ? 'You' : '—');

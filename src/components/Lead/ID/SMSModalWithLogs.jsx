@@ -134,8 +134,20 @@ export default function SMSModalWithLogs({
   const [messageOverride, setMessageOverride] = useState("");
   const [sending, setSending] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
-  // add with other useState hooks
+
+  // ADD (near other useState hooks)
   const [exporting, setExporting] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  // ADD (helpers)
+  const toDMY = (iso) => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    return `${d}-${m}-${y}`;
+  };
+
+  const extFor = (format) => (format === "csv" ? "csv" : format === "pdf" ? "pdf" : "xlsx");
+  const labelFor = (format) => (format === "csv" ? "CSV" : format === "pdf" ? "PDF" : "XLS");
 
   // small helper to trigger a browser download
   const downloadBlob = (blob, filename = "sms_logs.xlsx") => {
@@ -149,47 +161,45 @@ export default function SMSModalWithLogs({
     URL.revokeObjectURL(url);
   };
 
-  // export handler (re-use current filters)
-  const handleExport = async () => {
+
+  // REPLACE handleExport with this
+  const handleExport = async (format = "xlsx") => {
     try {
       setExporting(true);
 
-      // Build params for the export endpoint
       const params = cleanParams({
-        date_from: filters.date_from || undefined,
-        date_to: filters.date_to || undefined,
+        date_from: filters.date_from ? toDMY(filters.date_from) : undefined,
+        date_to: filters.date_to ? toDMY(filters.date_to) : undefined,
         lead_id: filters.lead_id || leadId || undefined,
-        // backend supports a large cap via max_rows
-        max_rows: 100000,
-        // (optional extras; backend can ignore if not supported)
         status: filters.status || undefined,
         sms_type: filters.sms_type || undefined,
         template_id: filters.template_id || undefined,
         search: filters.search || undefined,
+        format,                 // <-- pdf | csv | xlsx
+        max_rows: 100000,
       });
 
-      // NOTE: responseType 'blob' is required for files
-      const res = await axiosInstance.get("/reports/sms/export.xlsx", {
+      const res = await axiosInstance.get("/reports/sms/export", {
         params,
         responseType: "blob",
       });
 
-      // file name suggestion
       const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
       const nameParts = [
         "sms_logs",
-        filters.lead_id || leadId ? `lead-${filters.lead_id || leadId}` : null,
-        filters.date_from ? `from-${filters.date_from}` : null,
-        filters.date_to ? `to-${filters.date_to}` : null,
+        (filters.lead_id || leadId) ? `lead-${filters.lead_id || leadId}` : null,
+        filters.date_from ? `from-${toDMY(filters.date_from)}` : null,
+        filters.date_to ? `to-${toDMY(filters.date_to)}` : null,
         ts
-      ].filter(Boolean).join("_") + ".xlsx";
+      ].filter(Boolean).join("_") + `.${extFor(format)}`;
 
       downloadBlob(res.data, nameParts);
-      toast.success("Export generated");
+      toast.success(`Exported ${labelFor(format)}`);
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Export failed" });
     } finally {
       setExporting(false);
+      setExportMenuOpen(false);
     }
   };
 
@@ -367,7 +377,7 @@ export default function SMSModalWithLogs({
     <div className="btn-group">
       <button
         onClick={() => setTab("send")}
-        className={`btn ${tab === "send" ? "btn-outline": "btn-primary"}`}
+        className={`btn ${tab === "send" ? "btn-outline" : "btn-primary"}`}
         style={{ height: 36 }}
       >
         Send
@@ -693,14 +703,58 @@ export default function SMSModalWithLogs({
                         Reset
                       </button>
 
-                      {hasPermission("sms_logs_export") && <button
-                        onClick={handleExport}
-                        disabled={exporting}
-                        className="btn btn-primary"
-                        title="Download Excel"
-                      >
-                        {exporting ? "Exporting…" : "Export(.xlsx)"}
-                      </button>}
+                      {hasPermission("sms_logs_export") && (
+                        <div className="relative">
+                          <button
+                            onClick={() => setExportMenuOpen((o) => !o)}
+                            disabled={exporting}
+                            className="btn btn-primary"
+                            title="Export as PDF / CSV / XLS"
+                            aria-haspopup="menu"
+                            aria-expanded={exportMenuOpen}
+                          >
+                            {exporting ? "Exporting…" : "Export"}
+                          </button>
+
+                          {/* Dropdown */}
+                          {exportMenuOpen && (
+                            <div
+                              role="menu"
+                              className="absolute right-0 mt-2 w-40 rounded-xl overflow-hidden z-20"
+                              style={{
+                                background: "var(--theme-card)",
+                                border: "1px solid var(--theme-border)",
+                                boxShadow: "0 8px 24px rgba(15,23,42,.12)",
+                              }}
+                            >
+                              <button
+                                role="menuitem"
+                                onClick={() => handleExport("pdf")}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--theme-primary-softer)]"
+                                disabled={exporting}
+                              >
+                                Export as PDF
+                              </button>
+                              <button
+                                role="menuitem"
+                                onClick={() => handleExport("csv")}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--theme-primary-softer)]"
+                                disabled={exporting}
+                              >
+                                Export as CSV
+                              </button>
+                              <button
+                                role="menuitem"
+                                onClick={() => handleExport("xlsx")}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--theme-primary-softer)]"
+                                disabled={exporting}
+                              >
+                                Export as XLS
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -718,13 +772,13 @@ export default function SMSModalWithLogs({
                         style={{ background: "var(--theme-panel)", color: "var(--theme-text)" }}
                       >
                         <tr>
-                          <th className="text-left p-2">ID</th>
-                          <th className="text-left p-2">Template ID</th>
                           <th className="text-left p-2">Phone</th>
                           <th className="text-left p-2">Status</th>
                           <th className="text-left p-2">Body</th>
                           <th className="text-left p-2">Sent At</th>
                           <th className="text-left p-2">User</th>
+                          <th className="text-left p-2">Delivered</th>
+                          <th className="text-left p-2">Failed</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -743,8 +797,6 @@ export default function SMSModalWithLogs({
                         ) : (
                           logs.map((row) => (
                             <tr key={row.id} style={{ borderTop: `1px solid var(--theme-border)` }}>
-                              <td className="p-2">{row.id}</td>
-                              <td className="p-2">#{row.template_id}</td>
                               <td className="p-2">{row.recipient_phone_number}</td>
                               <td className="p-2">{row.status ?? "—"}</td>
                               <td className="p-2 align-top">
@@ -753,6 +805,8 @@ export default function SMSModalWithLogs({
 
                               <td className="p-2">{fmtDateTime(row.sent_at)}</td>
                               <td className="p-2">{row.user_name}</td>
+                              <td className="p-2">{row.delivered_time}</td>
+                              <td className="p-2">{row.failed_reason}</td>
                             </tr>
                           ))
                         )}

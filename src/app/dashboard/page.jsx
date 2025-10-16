@@ -157,23 +157,23 @@ export default function Dashboard() {
   }, [appliedFilters, baseDefaults, isSuperAdmin, branchTabId]);
 
   // --- Employee table: independent filters (defaults mirror baseDefaults) ---
-const empDefaults = useMemo(() => ({ ...baseDefaults }), [baseDefaults]);
+  const empDefaults = useMemo(() => ({ ...baseDefaults }), [baseDefaults]);
 
-const [draftEmpFilters, setDraftEmpFilters] = useState(empDefaults);
-const [appliedEmpFilters, setAppliedEmpFilters] = useState(empDefaults);
+  const [draftEmpFilters, setDraftEmpFilters] = useState(empDefaults);
+  const [appliedEmpFilters, setAppliedEmpFilters] = useState(empDefaults);
 
-// Ensure non-admins never land on "all"
-useEffect(() => {
-  if (isEmployee && draftEmpFilters.view === 'all') {
-    setDraftEmpFilters((d) => ({ ...d, view: 'self' }));
-  }
-}, [isEmployee, draftEmpFilters.view]);
+  // Ensure non-admins never land on "all"
+  useEffect(() => {
+    if (isEmployee && draftEmpFilters.view === 'all') {
+      setDraftEmpFilters((d) => ({ ...d, view: 'self' }));
+    }
+  }, [isEmployee, draftEmpFilters.view]);
 
-useEffect(() => {
-  if (isEmployee && appliedEmpFilters.view === 'all') {
-    setAppliedEmpFilters((d) => ({ ...d, view: 'self' }));
-  }
-}, [isEmployee, appliedEmpFilters.view]);
+  useEffect(() => {
+    if (isEmployee && appliedEmpFilters.view === 'all') {
+      setAppliedEmpFilters((d) => ({ ...d, view: 'self' }));
+    }
+  }, [isEmployee, appliedEmpFilters.view]);
 
   const showReset = !!user && hasActiveFilters;
 
@@ -201,9 +201,9 @@ useEffect(() => {
       try {
         setOptLoading(true);
         setOptError('');
-        const [profRes,  usersRes, branchesRes, respRes] = await Promise.all([
+        const [profRes, usersRes, branchesRes, respRes] = await Promise.all([
           axiosInstance.get('/profile-role', { params: { skip: 0, limit: 50, order_by: 'hierarchy_level' } }),
-          
+
           axiosInstance.get('/users', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/branches', { params: { skip: 0, limit: 100, active_only: false } }),
           axiosInstance.get('/lead-config/responses/', { params: { skip: 0, limit: 100 } }),
@@ -293,7 +293,7 @@ useEffect(() => {
   useEffect(() => {
     setEmpPage(1);
   }, [appliedFilters, effectiveBranchId, employeesTable]);
-  
+
   const queryParams = useMemo(() => {
     const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedFilters;
     const p = { days, view };
@@ -307,17 +307,17 @@ useEffect(() => {
   }, [appliedFilters, effectiveBranchId]);
 
   // Employee table query params (independent from global)
-const queryParamsEmp = useMemo(() => {
-  const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedEmpFilters;
-  const p = { days, view };
-  if (fromDate) p.from_date = fromDate;
-  if (toDate) p.to_date = toDate;
-  if (effectiveBranchId) p.branch_id = Number(effectiveBranchId);
-  if (employeeCode) p.employee_id = employeeCode;
-  if (profileId) p.profile_id = Number(profileId);
-  if (departmentId) p.department_id = Number(departmentId);
-  return p;
-}, [appliedEmpFilters, effectiveBranchId]);
+  const queryParamsEmp = useMemo(() => {
+    const { days, fromDate, toDate, view, profileId, departmentId, employeeCode } = appliedEmpFilters;
+    const p = { days, view };
+    if (fromDate) p.from_date = fromDate;
+    if (toDate) p.to_date = toDate;
+    if (effectiveBranchId) p.branch_id = Number(effectiveBranchId);
+    if (employeeCode) p.employee_id = employeeCode;
+    if (profileId) p.profile_id = Number(profileId);
+    if (departmentId) p.department_id = Number(departmentId);
+    return p;
+  }, [appliedEmpFilters, effectiveBranchId]);
 
   const fetchDashboard = async () => {
     try {
@@ -332,18 +332,18 @@ const queryParamsEmp = useMemo(() => {
     }
   };
 
-const fetchUserTable = async () => {
-  try {
-    setLoading(true);
-    setErrMsg('');
-    const res = await axiosInstance.get('/analytics/leads/users', { params: queryParamsEmp });
-    setEmployeesTable(res.data || []);
-  } catch (e) {
-    setErrMsg(e?.response?.data?.detail || e?.message || 'Failed to load users');
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchUserTable = async () => {
+    try {
+      setLoading(true);
+      setErrMsg('');
+      const res = await axiosInstance.get('/analytics/leads/users', { params: queryParamsEmp });
+      setEmployeesTable(res.data || []);
+    } catch (e) {
+      setErrMsg(e?.response?.data?.detail || e?.message || 'Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Run fetch when applied filters (or user) change
   useEffect(() => {
@@ -353,10 +353,10 @@ const fetchUserTable = async () => {
   }, [user, queryParams]);
 
   useEffect(() => {
-  if (!user) return;
-  fetchUserTable();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [user, queryParamsEmp]);
+    if (!user) return;
+    fetchUserTable();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, queryParamsEmp]);
 
   /* ----------------------------- Autocomplete (draft) ----------------------------- */
   const filteredUsers = useMemo(() => {
@@ -390,7 +390,7 @@ const fetchUserTable = async () => {
   const totalEmpPages = Math.max(1, Math.ceil(totalEmp / EMP_PAGE_SIZE));
   const startIdx = (empPage - 1) * EMP_PAGE_SIZE;
   const endIdx = Math.min(startIdx + EMP_PAGE_SIZE, totalEmp);
-  const pageRowsRaw = (employeesTable || []).slice(startIdx, endIdx);
+  // const pageRowsRaw = (employeesTable || []).slice(startIdx, endIdx);
 
   // Dynamic response column names (e.g., "FT", "BUSY", "CALL BACK", ...)
   const responseNames = useMemo(
@@ -422,26 +422,26 @@ const fetchUserTable = async () => {
   const COLORS_PER = [themeConfig.accent, themeConfig.primaryHover || themeConfig.primary, themeConfig.success];
 
 
-  
+
 
   /* ----------------------------- Render ----------------------------- */
 
   const pay = data?.cards?.payments || {};
-const leadsCard = data?.cards?.leads || {};
+  const leadsCard = data?.cards?.leads || {};
 
-const totalTarget = N(pay.total_target);
-const achievedTarget = N(pay.achieved_target);
+  const totalTarget = N(pay.total_target);
+  const achievedTarget = N(pay.achieved_target);
 
-const teamTarget = N(pay.team_target);
-const teamAchieved = N(pay.achive_team_target ?? pay.achieved_team_target);
+  const teamTarget = N(pay.team_target);
+  const teamAchieved = N(pay.achive_team_target ?? pay.achieved_team_target);
 
-const hideTeamPairForAdmin =
-  (isSuperAdmin || isBranchManager) &&
-  teamTarget === 0 &&
-  teamAchieved === 0;
+  const hideTeamPairForAdmin =
+    (isSuperAdmin || isBranchManager) &&
+    teamTarget === 0 &&
+    teamAchieved === 0;
 
-// If SA/BM & team zero -> keep old 4-card layout
-const useExistingAdminLayout = hideTeamPairForAdmin;
+  // If SA/BM & team zero -> keep old 4-card layout
+  const useExistingAdminLayout = hideTeamPairForAdmin;
 
   return (
     <>
@@ -457,7 +457,7 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
         >
           <div className="p-4 md:p-6 space-y-6 mx-2">
             {/* Greeting header (BM & Employees) */}
-{user && !isSuperAdmin && (
+            {user && !isSuperAdmin && (
               <div className="w-fit">
                 <h1 className="text-2xl font-semibold" style={{ color: themeConfig.text }}>
                   {getGreeting()}, {firstName}!
@@ -625,69 +625,69 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
               <>
                 <SectionHeader title="Payments Overview" themeConfig={themeConfig} />
 
-{useExistingAdminLayout ? (
-  /* ---- EXISTING LAYOUT for SA/BM when team cards are zero ---- */
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <Card
-      title="Total Target"
-      value={inr(totalTarget)}
-      icon={<Currency className="h-5 w-5 text-[var(--theme-warning)]" />}
-      themeConfig={themeConfig}
-    />
-    <Card
-      title="Achieved Target"
-      value={inr(achievedTarget)}
-      icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />}
-      themeConfig={themeConfig}
-    />
-    <Card
-      title="Today Running FT Leads"
-      value={num(leadsCard?.running_ft)}
-      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
-      themeConfig={themeConfig}
-    />
-    <Card
-      title="Today FT Leads"
-      value={num(leadsCard?.total_ft)}
-      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
-      themeConfig={themeConfig}
-    />
-  </div>
-) : (
+                {useExistingAdminLayout ? (
+                  /* ---- EXISTING LAYOUT for SA/BM when team cards are zero ---- */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <Card
+                      title="Total Target"
+                      value={inr(totalTarget)}
+                      icon={<Currency className="h-5 w-5 text-[var(--theme-warning)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Achieved Target"
+                      value={inr(achievedTarget)}
+                      icon={<Target className="h-5 w-5 text-[var(--theme-success)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Today Running FT Leads"
+                      value={num(leadsCard?.running_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Today FT Leads"
+                      value={num(leadsCard?.total_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
+                      themeConfig={themeConfig}
+                    />
+                  </div>
+                ) : (
 
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <SingleLineTargetCard
-    title="Targets (Overall)"
-    achieved={achievedTarget}
-    total={totalTarget}
-    icon={<Currency className="h-5 w-5 text-[var(--theme-warning)]" />}
-    themeConfig={themeConfig}
-  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <SingleLineTargetCard
+                      title="Targets (Overall)"
+                      achieved={achievedTarget}
+                      total={totalTarget}
+                      icon={<Currency className="h-5 w-5 text-[var(--theme-warning)]" />}
+                      themeConfig={themeConfig}
+                    />
 
-  {!(isSuperAdmin || isBranchManager) || teamTarget > 0 || teamAchieved > 0 ? (
-    <SingleLineTargetCard
-      title="Team Targets"
-      achieved={teamAchieved}
-      total={teamTarget}
-      icon={<Trophy className="h-5 w-5 text-[var(--theme-success)]" />}
-      themeConfig={themeConfig}
-    />
-  ) : null}
+                    {!(isSuperAdmin || isBranchManager) || teamTarget > 0 || teamAchieved > 0 ? (
+                      <SingleLineTargetCard
+                        title="Team Targets"
+                        achieved={teamAchieved}
+                        total={teamTarget}
+                        icon={<Trophy className="h-5 w-5 text-[var(--theme-success)]" />}
+                        themeConfig={themeConfig}
+                      />
+                    ) : null}
 
-  <Card
-    title="Running FT Leads"
-    value={num(leadsCard?.running_ft)}
-    icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
-    themeConfig={themeConfig}
-  />
-  <Card
-    title="Today FT Leads"
-    value={num(leadsCard?.total_ft)}
-    icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
-    themeConfig={themeConfig}
-  />
-</div>
-)}
+                    <Card
+                      title="Running FT Leads"
+                      value={num(leadsCard?.running_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-accent)]" />}
+                      themeConfig={themeConfig}
+                    />
+                    <Card
+                      title="Today FT Leads"
+                      value={num(leadsCard?.total_ft)}
+                      icon={<CalendarDays className="h-5 w-5 text-[var(--theme-text)]" />}
+                      themeConfig={themeConfig}
+                    />
+                  </div>
+                )}
                 <SectionHeader title="Call Analytics" themeConfig={themeConfig} />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <Card
@@ -757,45 +757,45 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
                 <TableWrap className="mb-6" title="Profile-wise Analysis" icon={<Briefcase className="h-5 w-5" style={{ color: themeConfig.warning }} />} themeConfig={themeConfig}>
                   <div className="max-h-72 overflow-y-auto pr-1">
                     <SimpleTable
-  cols={[
-    'Profile',
-    'Total Leads',
-    'Old Leads',
-    'FT Leads',
-    'Paid Revenue',
-  ]}
-  rows={(data?.breakdowns?.profile_wise || []).map((p) => {
-    const prof = profiles.find((x) => x.id === p.profile_id);
-    return [
-      // Profile name
-      <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
-        {prof?.name || p.profile_name || (p.profile_id ?? '—')}
-      </span>,
+                      cols={[
+                        'Profile',
+                        'Total Leads',
+                        'Old Leads',
+                        'FT Leads',
+                        'Paid Revenue',
+                      ]}
+                      rows={(data?.breakdowns?.profile_wise || []).map((p) => {
+                        const prof = profiles.find((x) => x.id === p.profile_id);
+                        return [
+                          // Profile name
+                          <span className="font-medium" style={{ color: themeConfig.text }} key={`${p.profile_id}-name`}>
+                            {prof?.name || p.profile_name || (p.profile_id ?? '—')}
+                          </span>,
 
-      // Total leads
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
-        {num(p.total_leads ?? 0)}
-      </span>,
+                          // Total leads
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-leads`}>
+                            {num(p.total_leads ?? 0)}
+                          </span>,
 
-      // Old leads
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-old`}>
-        {num(p.old_leads ?? 0)}
-      </span>,
+                          // Old leads
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-old`}>
+                            {num(p.old_leads ?? 0)}
+                          </span>,
 
-      // FT leads
-      <span style={{ color: themeConfig.text }} key={`${p.profile_id}-ft`}>
-        {num(p.ft_leads ?? 0)}
-      </span>,
+                          // FT leads
+                          <span style={{ color: themeConfig.text }} key={`${p.profile_id}-ft`}>
+                            {num(p.ft_leads ?? 0)}
+                          </span>,
 
-      // Paid revenue
-      <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
-        {inr(p.paid_revenue ?? 0)}
-      </span>,
-    ];
-  })}
-  themeConfig={themeConfig}
-  className="w-full rounded-2xl"
-/>
+                          // Paid revenue
+                          <span className="font-medium" style={{ color: themeConfig.primary }} key={`${p.profile_id}-revenue`}>
+                            {inr(p.paid_revenue ?? 0)}
+                          </span>,
+                        ];
+                      })}
+                      themeConfig={themeConfig}
+                      className="w-full rounded-2xl"
+                    />
                   </div>
                 </TableWrap>
               </div>
@@ -811,99 +811,99 @@ const useExistingAdminLayout = hideTeamPairForAdmin;
               >
                 {/* Inline filters (draft) with Apply */}
                 <div className="mb-3 px-2 pt-4">
-  <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
-    <div className="md:col-span-2">
-      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
-      <input
-        type="date"
-        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-        value={draftEmpFilters.fromDate}
-        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, fromDate: e.target.value }))}
-        style={{
-          backgroundColor: themeConfig.inputBackground,
-          color: themeConfig.text,
-          border: `1px solid ${themeConfig.inputBorder}`,
-          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-        }}
-      />
-    </div>
-    <div className="md:col-span-2">
-      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
-      <input
-        type="date"
-        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-        value={draftEmpFilters.toDate}
-        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, toDate: e.target.value }))}
-        style={{
-          backgroundColor: themeConfig.inputBackground,
-          color: themeConfig.text,
-          border: `1px solid ${themeConfig.inputBorder}`,
-          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-        }}
-      />
-    </div>
-    <div className="md:col-span-2">
-      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
-      <select
-        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
-        value={draftEmpFilters.days}
-        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, days: Number(e.target.value) }))}
-        style={{
-          backgroundColor: themeConfig.inputBackground,
-          color: themeConfig.text,
-          border: `1px solid ${themeConfig.inputBorder}`,
-          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
-        }}
-      >
-        {DAY_OPTIONS.map(opt => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>From Date</label>
+                      <input
+                        type="date"
+                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+                        value={draftEmpFilters.fromDate}
+                        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, fromDate: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>To Date</label>
+                      <input
+                        type="date"
+                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+                        value={draftEmpFilters.toDate}
+                        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, toDate: e.target.value }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium mb-1" style={{ color: themeConfig.textSecondary }}>Days</label>
+                      <select
+                        className="h-9 w-full rounded-md px-2.5 text-sm shadow-sm focus:ring-2 outline-none"
+                        value={draftEmpFilters.days}
+                        onChange={(e) => setDraftEmpFilters((d) => ({ ...d, days: Number(e.target.value) }))}
+                        style={{
+                          backgroundColor: themeConfig.inputBackground,
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.inputBorder}`,
+                          boxShadow: `0 4px 12px ${hexToRgba(themeConfig.shadow || '#000', 0.05)}`
+                        }}
+                      >
+                        {DAY_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-    <div className="md:col-span-2 flex md:justify-end gap-2">
-      <button
-        onClick={() =>
-          setDraftEmpFilters((d) => ({
-            ...d,
-            fromDate: '',
-            toDate: '',
-            days: 30,
-          }))
-        }
-        className="h-9 px-3 rounded-md text-sm font-medium transition"
-        style={{
-          backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
-          color: themeConfig.text,
-          border: `1px solid ${themeConfig.border}`
-        }}
-      >
-        Clear
-      </button>
-      <button
-        onClick={() => setAppliedEmpFilters(draftEmpFilters)}
-        className="h-9 px-3 rounded-md text-sm font-medium transition"
-        style={{
-          backgroundColor: themeConfig.primary,
-          color: '#fff',
-          boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
-      >
-        Apply
-      </button>
-    </div>
-  </div>
-</div>
+                    <div className="md:col-span-2 flex md:justify-end gap-2">
+                      <button
+                        onClick={() =>
+                          setDraftEmpFilters((d) => ({
+                            ...d,
+                            fromDate: '',
+                            toDate: '',
+                            days: 30,
+                          }))
+                        }
+                        className="h-9 px-3 rounded-md text-sm font-medium transition"
+                        style={{
+                          backgroundColor: hexToRgba(themeConfig.textSecondary, 0.15),
+                          color: themeConfig.text,
+                          border: `1px solid ${themeConfig.border}`
+                        }}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => setAppliedEmpFilters(draftEmpFilters)}
+                        className="h-9 px-3 rounded-md text-sm font-medium transition"
+                        style={{
+                          backgroundColor: themeConfig.primary,
+                          color: '#fff',
+                          boxShadow: `0 10px 20px ${hexToRgba(themeConfig.primary, 0.25)}`
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primaryHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = themeConfig.primary; }}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Table */}
                 <div className="max-h-[480px] overflow-y-auto overflow-x-auto pr-1 relative">
                   <EmployeeTableAccordion
                     cols={empPerfCols}
-                    rows={pageRowsRaw}
+                    // rows={pageRowsRaw}
                     otherResponses={otherResponses}
                     expanded={expandedEmp}
                     onToggle={toggleEmp}
@@ -1327,7 +1327,7 @@ function SingleLineTargetCard({
           className="text-xs font-semibold px-2 py-1 rounded-md"
           style={{
             color: themeConfig.primary,
-            backgroundColor: `rgba(${parseInt(themeConfig.primary?.slice(1,3),16)},${parseInt(themeConfig.primary?.slice(3,5),16)},${parseInt(themeConfig.primary?.slice(5,7),16)},0.10)`,
+            backgroundColor: `rgba(${parseInt(themeConfig.primary?.slice(1, 3), 16)},${parseInt(themeConfig.primary?.slice(3, 5), 16)},${parseInt(themeConfig.primary?.slice(5, 7), 16)},0.10)`,
             border: `1px solid rgba(0,0,0,0.12)`,
           }}
         >
@@ -1408,13 +1408,13 @@ function TwoStatCard({
 
           <div className="mt-3 space-y-2">
             <div className="flex items-center justify-between rounded-md px-3 py-2"
-                 style={{ backgroundColor: hexToRgba(themeConfig.primary, 0.06), border: `1px solid ${hexToRgba(themeConfig.primary, 0.18)}` }}>
+              style={{ backgroundColor: hexToRgba(themeConfig.primary, 0.06), border: `1px solid ${hexToRgba(themeConfig.primary, 0.18)}` }}>
               <span className="text-xs font-semibold" style={{ color: themeConfig.textSecondary }}>{primaryLabel}</span>
               <span className="text-base font-bold rupee" style={{ color: themeConfig.primary }}>{primaryValue ?? '—'}</span>
             </div>
 
             <div className="flex items-center justify-between rounded-md px-3 py-2"
-                 style={{ backgroundColor: hexToRgba(themeConfig.accent, 0.06), border: `1px solid ${hexToRgba(themeConfig.accent, 0.18)}` }}>
+              style={{ backgroundColor: hexToRgba(themeConfig.accent, 0.06), border: `1px solid ${hexToRgba(themeConfig.accent, 0.18)}` }}>
               <span className="text-xs font-semibold" style={{ color: themeConfig.textSecondary }}>{secondaryLabel}</span>
               <span className="text-base font-bold rupee" style={{ color: themeConfig.accent }}>{secondaryValue ?? '—'}</span>
             </div>

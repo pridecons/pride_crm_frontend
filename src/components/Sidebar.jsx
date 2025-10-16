@@ -13,7 +13,8 @@ import {
   PlusCircle, MessagesSquare, ClipboardCheck, FileSearch, StickyNote,
   PieChart, UserCog, MailOpen, MessageSquareText,
   Share, Recycle, Hourglass,
-  SquarePlus, Flag, Funnel, MessageSquareMore, FlaskConical
+  SquarePlus, Flag, Funnel, MessageSquareMore, FlaskConical,
+  UserCheck2
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
 import { createPortal } from "react-dom";
@@ -356,6 +357,7 @@ const rawMenu = useMemo(
       items: [
         { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
         { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
+        { href: "/reports/employee", icon: UserCheck2, label: "Employee", access: "reports_employee_page" },
       ],
     },
 

@@ -6,16 +6,6 @@ import { axiosInstance, BASE_URL } from "@/api/Axios";
 import { Modal } from "./ID/Modal";
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
-/**
- * InvoiceModal - Show all invoices for a lead in a modal
- *
- * Props:
- *   isOpen (bool) - show/hide modal
- *   onClose (fn) - close modal callback
- *   leadId (number|string) - Lead ID
- *   onViewPdf (fn) - open a viewer with (url, title)
- *   canDownload (bool) - optional flag (kept for compatibility)
- */
 const InvoiceModal = ({ isOpen, onClose, leadId, onViewPdf, canDownload = false }) => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);

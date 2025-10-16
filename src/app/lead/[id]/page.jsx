@@ -41,6 +41,7 @@ import { jwtDecode } from "jwt-decode";
 import { formatCallbackForAPI, isoToDatetimeLocal, toIST } from "@/utils/dateUtils";
 import DocumentViewer from "@/components/DocumentViewer";
 import { ErrorHandling } from "@/helper/ErrorHandling";
+import KycViewerOverlay from "@/components/Lead/ID/KycViewerModal";
 
 /* ========================= THEME HELPERS (colors only) =========================
    Use CSS variables defined in your global theme:
@@ -75,7 +76,7 @@ async function loadRoleMap() {
     if (cached && typeof cached === "object" && Object.keys(cached).length) {
       return cached;
     }
-  } catch {}
+  } catch { }
 
   try {
     const res = await axiosInstance.get("/profile-role/", {
@@ -110,7 +111,7 @@ function getEffectiveRole({ accessToken, userInfo, roleMap = {} }) {
         if (mapped) return mapped;
       }
     }
-  } catch {}
+  } catch { }
 
   if (userInfo) {
     const uiRole =
@@ -268,54 +269,54 @@ const Lead = () => {
     }
   };
 
-// Put this helper above apiCall (or inside it)
-function extractErrorDetail(err) {
-  // Raw payloads we might see
-  const data = err?.response?.data;
+  // Put this helper above apiCall (or inside it)
+  function extractErrorDetail(err) {
+    // Raw payloads we might see
+    const data = err?.response?.data;
 
-  // 1) Your case: { detail: { message: "...", errors: ["...","..."] } }
-  if (data?.detail && typeof data.detail === "object") {
-    const msg = String(data.detail.message || data.detail.msg || "").trim();
-    const arr = Array.isArray(data.detail.errors) ? data.detail.errors : [];
-    const joined = arr.filter(Boolean).join("; ");
-    if (msg && joined) return `${msg} — ${joined}`;
-    if (msg) return msg;
-    if (joined) return joined;
+    // 1) Your case: { detail: { message: "...", errors: ["...","..."] } }
+    if (data?.detail && typeof data.detail === "object") {
+      const msg = String(data.detail.message || data.detail.msg || "").trim();
+      const arr = Array.isArray(data.detail.errors) ? data.detail.errors : [];
+      const joined = arr.filter(Boolean).join("; ");
+      if (msg && joined) return `${msg} — ${joined}`;
+      if (msg) return msg;
+      if (joined) return joined;
+    }
+
+    // 2) Sometimes backends send plain string detail
+    if (typeof data?.detail === "string" && data.detail.trim()) {
+      return data.detail.trim();
+    }
+
+    // 3) Alternate top-level message
+    if (typeof data?.message === "string" && data.message.trim()) {
+      return data.message.trim();
+    }
+
+    // 4) Axios/network/message fallback
+    if (err?.message) return err.message;
+
+    return "Something went wrong";
   }
 
-  // 2) Sometimes backends send plain string detail
-  if (typeof data?.detail === "string" && data.detail.trim()) {
-    return data.detail.trim();
-  }
+  const apiCall = async (method, endpoint, data = null) => {
+    try {
+      const config = { method, url: endpoint };
+      if (data) config.data = data;
+      const response = await axiosInstance(config);
+      return response.data;
+    } catch (err) {
+      const status = err?.response?.status ?? null;
+      const detailStr = extractErrorDetail(err); // <-- normalized for ErrorHandling/toast
 
-  // 3) Alternate top-level message
-  if (typeof data?.message === "string" && data.message.trim()) {
-    return data.message.trim();
-  }
-
-  // 4) Axios/network/message fallback
-  if (err?.message) return err.message;
-
-  return "Something went wrong";
-}
-
-const apiCall = async (method, endpoint, data = null) => {
-  try {
-    const config = { method, url: endpoint };
-    if (data) config.data = data;
-    const response = await axiosInstance(config);
-    return response.data;
-  } catch (err) {
-    const status = err?.response?.status ?? null;
-    const detailStr = extractErrorDetail(err); // <-- normalized for ErrorHandling/toast
-
-    const e = new Error(detailStr);
-    e.status = status;
-    e.detail = detailStr;
-    e.raw = err;
-    throw e;
-  }
-};
+      const e = new Error(detailStr);
+      e.status = status;
+      e.detail = detailStr;
+      e.raw = err;
+      throw e;
+    }
+  };
 
 
   const fetchCurrentLead = async () => {
@@ -348,12 +349,12 @@ const apiCall = async (method, endpoint, data = null) => {
         },
       });
       const url =
-       data?.signing_url ||
-       data?.signer_details?.requests?.[0]?.signing_url ||
-       data?.signer_details?.signing_url ||
-       null;
-     if (url) setKycSigningUrl(url);
-     toast.success("KYC initiated successfully!");
+        data?.signing_url ||
+        data?.signer_details?.requests?.[0]?.signing_url ||
+        data?.signer_details?.signing_url ||
+        null;
+      if (url) setKycSigningUrl(url);
+      toast.success("KYC initiated successfully!");
     } catch (err) {
       ErrorHandling({ error: err, defaultError: "Failed to initiate KYC:" });
     } finally {
@@ -361,29 +362,29 @@ const apiCall = async (method, endpoint, data = null) => {
     }
   };
 
-   const handleCopyKycLink = async () => {
-   try {
-     if (!kycSigningUrl) return false;
-     await navigator.clipboard.writeText(kycSigningUrl);
-     toast.success("Signing link copied!");
-     return true;
- } catch {
-     // Fallback for older browsers
-     try {
-       const ta = document.createElement("textarea");
-       ta.value = kycSigningUrl;
-       document.body.appendChild(ta);
-       ta.select();
-       document.execCommand("copy");
-       document.body.removeChild(ta);
-       toast.success("Signing link copied!");
-       return true;
-     } catch {
-       toast.error("Unable to copy link");
-       return false;
-     }
-   }
- };
+  const handleCopyKycLink = async () => {
+    try {
+      if (!kycSigningUrl) return false;
+      await navigator.clipboard.writeText(kycSigningUrl);
+      toast.success("Signing link copied!");
+      return true;
+    } catch {
+      // Fallback for older browsers
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = kycSigningUrl;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        toast.success("Signing link copied!");
+        return true;
+      } catch {
+        toast.error("Unable to copy link");
+        return false;
+      }
+    }
+  };
 
   const handleFileChange = (e, setter, previewSetter) => {
     const file = e.target.files[0];
@@ -580,7 +581,7 @@ const apiCall = async (method, endpoint, data = null) => {
   const getResponseNameById = (rid) => {
     const match = leadResponses.find((r) => r.value === rid || r.id === rid);
     return match?.label?.toLowerCase?.() ?? match?.name?.toLowerCase?.() ?? "";
-    };
+  };
 
   const dmyToYmd = (dmy) => {
     if (!dmy) return "";
@@ -665,50 +666,50 @@ const apiCall = async (method, endpoint, data = null) => {
   };
 
   // ✅ Permission denied view for 403
-if (!loading && !currentLead && error?.status === 403) {
-  return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: "var(--theme-page-bg)", color: "var(--theme-text)" }}
-    >
+  if (!loading && !currentLead && error?.status === 403) {
+    return (
       <div
-        className="max-w-lg w-full rounded-xl p-6 shadow"
-        style={{
-          background: "var(--theme-card-bg)",
-          border: "1px solid var(--theme-border)",
-        }}
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: "var(--theme-page-bg)", color: "var(--theme-text)" }}
       >
-        <div className="flex items-start">
-          <AlertCircle
-            className="mr-3 flex-shrink-0"
-            size={22}
-            style={{ color: "var(--theme-warning)" }}
-          />
-          <div>
-            <h2 className="text-lg font-semibold">Access denied</h2>
-            <p className="mt-1 text-sm" style={{ color: "var(--theme-muted)" }}>
-              {error?.detail || "You do not have permission to view this lead."}
-            </p>
+        <div
+          className="max-w-lg w-full rounded-xl p-6 shadow"
+          style={{
+            background: "var(--theme-card-bg)",
+            border: "1px solid var(--theme-border)",
+          }}
+        >
+          <div className="flex items-start">
+            <AlertCircle
+              className="mr-3 flex-shrink-0"
+              size={22}
+              style={{ color: "var(--theme-warning)" }}
+            />
+            <div>
+              <h2 className="text-lg font-semibold">Access denied</h2>
+              <p className="mt-1 text-sm" style={{ color: "var(--theme-muted)" }}>
+                {error?.detail || "You do not have permission to view this lead."}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => history.back()}
+              className="px-3 py-1.5 rounded-lg text-sm"
+              style={{
+                border: "1px solid var(--theme-border)",
+                background: "var(--theme-surface)",
+                color: "var(--theme-text)",
+              }}
+            >
+              Go back
+            </button>
           </div>
         </div>
-
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={() => history.back()}
-            className="px-3 py-1.5 rounded-lg text-sm"
-            style={{
-              border: "1px solid var(--theme-border)",
-              background: "var(--theme-surface)",
-              color: "var(--theme-text)",
-            }}
-          >
-            Go back
-          </button>
-        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   if (loading && !currentLead) return <LoadingState />;
   if (error && !currentLead)
@@ -722,10 +723,10 @@ if (!loading && !currentLead && error?.status === 403) {
       <div className="mx-2 px-4 py-6">
         <div style={{ color: "var(--theme-text)" }}>
           <LeadHeader
-  currentLead={currentLead}
-  branchNameMap={branchNameMap}
-  isSuperAdmin={isSuperAdmin}
-/>
+            currentLead={currentLead}
+            branchNameMap={branchNameMap}
+            isSuperAdmin={isSuperAdmin}
+          />
         </div>
 
         {currentLead?.lead_response_id &&
@@ -844,7 +845,7 @@ if (!loading && !currentLead && error?.status === 403) {
             onDocumentsClick={() => setIsDocumentsModalOpen(true)}
             onInvoiceClick={() => setIsInvoiceModalOpen(true)}
             onShareClick={() => setIsShareModalOpen(true)}
-            // (buttons inside should already be themed or neutral; if needed, add style overrides there)
+          // (buttons inside should already be themed or neutral; if needed, add style overrides there)
           />
         </div>
 
@@ -908,6 +909,7 @@ if (!loading && !currentLead && error?.status === 403) {
             onClose={() => setIsSMSModalOpen(false)}
             leadMobile={currentLead?.mobile}
             leadName={currentLead?.full_name}
+            leadId={currentLead?.id}
           />
         )}
 
@@ -980,12 +982,14 @@ if (!loading && !currentLead && error?.status === 403) {
           onConfirm={handleMarkAsCalled}
         />
 
-        <KycViewerModal
+        <KycViewerOverlay
           open={isKycModalOpen}
           onClose={() => setIsKycModalOpen(false)}
           url={kycUrl}
           canDownload={isSuperAdmin}
+          title="KYC Document"
         />
+
 
         {isCommentsModalOpen && (
           <CommentModal
@@ -1114,7 +1118,7 @@ if (!loading && !currentLead && error?.status === 403) {
         />
       )}
 
-      {isOpenManualePayment &&(
+      {isOpenManualePayment && (
         <CreateManualePayment
           open={isOpenManualePayment}
           setOpen={setIsOpenManualePayment}

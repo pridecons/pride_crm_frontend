@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import {
   PhoneCall,
   Eye,
@@ -19,7 +19,34 @@ import { usePermissions } from "@/context/PermissionsContext";
 // import CallButton from "../CallButton";
 
 const btnBase =
-  "flex items-center px-4 py-2 rounded-lg border font-bold transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex flex-1 basis-0 items-center justify-center h-10 px-4 rounded-lg border font-semibold transition-all text-sm text-center whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed";
+
+  function useOverflowX(ref) {
+  const [overflowing, setOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const check = () => {
+      // +1 px tolerance to avoid jitter
+      setOverflowing(el.scrollWidth > el.clientWidth + 1);
+    };
+
+    check();
+
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    window.addEventListener("resize", check);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", check);
+    };
+  }, [ref]);
+
+  return overflowing;
+}
 
 export function ActionButtons({
   currentLead,
@@ -53,8 +80,11 @@ export function ActionButtons({
     }
   };
 
+  const rowRef = useRef(null);
+  const isOverflowing = useOverflowX(rowRef);
+
   return (
-    <div className="flex flex-wrap gap-3 mb-5 justify-center">
+    <div className="flex w-full flex-nowrap items-center gap-3 mb-5">
       {/* Call */}
       {/* <CallButton
         lead={currentLead}

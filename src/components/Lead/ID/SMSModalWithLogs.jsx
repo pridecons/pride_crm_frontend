@@ -272,20 +272,6 @@ export default function SMSModalWithLogs({
   const [total, setTotal] = useState(0);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  /**
-   * Filters mapped to /api/v1/reports/sms:
-   * - date_from  (string, YYYY-MM-DD)
-   * - date_to    (string, YYYY-MM-DD)
-   * - lead_id    (number)
-   * - status     (string | null)          // optional
-   * - sms_type   (string | null)          // optional
-   * - template_id(number | null)          // optional
-   * - search     (string | null)          // optional
-   * - skip       (number)
-   * - limit      (number)
-   *
-   * We keep local `offset` for UI but send `skip` to API.
-   */
   const [filters, setFilters] = useState({
     date_from: "",     // maps from your old "start_date"
     date_to: "",       // maps from your old "end_date"
@@ -381,14 +367,14 @@ export default function SMSModalWithLogs({
     <div className="btn-group">
       <button
         onClick={() => setTab("send")}
-        className={`btn ${tab === "send" ? "btn-primary" : "btn-outline"}`}
+        className={`btn ${tab === "send" ? "btn-outline": "btn-primary"}`}
         style={{ height: 36 }}
       >
         Send
       </button>
       <button
         onClick={() => setTab("logs")}
-        className={`btn ${tab === "logs" ? "btn-primary" : "btn-outline"}`}
+        className={`btn ${tab === "logs" ? "btn-outline" : "btn-primary"}`}
         style={{ height: 36 }}
       >
         Logs
@@ -766,7 +752,7 @@ export default function SMSModalWithLogs({
                               </td>
 
                               <td className="p-2">{fmtDateTime(row.sent_at)}</td>
-                              <td className="p-2">{row.user_id}</td>
+                              <td className="p-2">{row.user_name}</td>
                             </tr>
                           ))
                         )}

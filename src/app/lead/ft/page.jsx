@@ -208,6 +208,48 @@ function DateInputPill({ label = "Date", value, onChange, placeholder = "yyyy-mm
   );
 }
 
+function FTLegend() {
+  const Chip = ({ colorVar, label, hint }) => (
+    <span
+      className="inline-flex items-center gap-1 text-xs px-2 py-0.5"
+      style={{
+        background: "var(--theme-input-bg)",
+        color: `var(${colorVar})`,
+      }}
+      title={hint}
+    >
+      <span
+        className="w-2 h-2 rounded-full"
+        style={{ background: `var(${colorVar})` }}
+      />
+      {label}
+    </span>
+  );
+
+  return (
+    <div
+      className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex flex-wrap items-center gap-2"
+      style={{ pointerEvents: "none" }} // legend is display-only
+    >
+      <Chip
+        colorVar="--theme-info, #3b82f6"
+        label="FT assigned (future)"
+        hint="FT dates are in the future or missing"
+      />
+      <Chip
+        colorVar="--theme-success, #16a34a"
+        label="FT running (today)"
+        hint="Today is within the FT date range"
+      />
+      <Chip
+        colorVar="--theme-error, #ef4444"
+        label="FT over (ended)"
+        hint="FT end date has passed"
+      />
+    </div>
+  );
+}
+
 /** ========= FT Leads Page (old page cloned, FT filter locked) ========= */
 export default function FtLeadsPage() {
   const [myRole, setMyRole] = useState("");
@@ -452,6 +494,31 @@ export default function FtLeadsPage() {
     return `${local}@…..`;
   };
 
+  // Accepts "yyyy-mm-dd" or "dd-mm-yyyy"
+const normalizeYMD = (d) => {
+  if (!d) return null;
+  const s = String(d).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;        // yyyy-mm-dd
+  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);      // dd-mm-yyyy
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+};
+
+const todayYMD = () => new Date().toISOString().slice(0, 10);
+
+const getFTState = (lead) => {
+  const from = normalizeYMD(lead.ft_from_date);
+  const to   = normalizeYMD(lead.ft_to_date);
+  const today = todayYMD();
+
+  // default → assigned (future/unscheduled)
+  if (!from || !to) return { label: "FT assigned", color: "var(--theme-info, #3b82f6)" }; // blue
+  if (to < today)   return { label: "FT Over",     color: "var(--theme-error, #ef4444)" }; // red
+  if (from <= today && today <= to)
+                    return { label: "FT running",  color: "var(--theme-success, #16a34a)" };// green
+  return { label: "FT assigned", color: "var(--theme-info, #3b82f6)" }; // blue
+};
+
   // columns same as old page
   const baseColumns = [
     {
@@ -527,57 +594,52 @@ export default function FtLeadsPage() {
         };
 
         if (respName === "ft") {
-          return (
-            <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--theme-textSecondary)" }}>
-              <div className="inline-flex items-center gap-2 min-w-0">
-                <span className="shrink-0 text-[11px]">From:</span>
-                <span className="truncate font-medium" style={{ color: "var(--theme-text)" }}>
-                  {lead.ft_from_date || "N/A"}
-                </span>
-                <span className="shrink-0 text-[11px] ml-3">To:</span>
-                <span className="truncate font-medium" style={{ color: "var(--theme-text)" }}>
-                  {lead.ft_to_date || "N/A"}
-                </span>
-                <button
-                  onClick={editFT}
-                  title="Edit FT"
-                  className="ml-auto inline-flex h-7 px-2 items-center rounded text-[11px]"
-                  style={{ color: "var(--theme-primary)", border: "1px solid var(--theme-primary)", background: "transparent" }}
-                >
-                  Edit
-                </button>
-              </div>
+  const ft = getFTState(lead);
 
-              <select
-                className="w-full px-2 py-1 rounded text-sm"
-                style={inputPillStyle}
-                value={lead.lead_response_id || ""}
-                onChange={(e) => handleResponseChange(lead, e.target.value)}
-              >
-                <option value="">Select Response</option>
-                {responses
-                  .filter((r) => r.name !== "CLIENT")
-                  .map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-              </select>
+  return (
+    <div className="flex flex-col gap-1 text-xs" style={{ color: "var(--theme-textSecondary)" }}>
+      {/* top row: From / To / Edit — right aligned */}
+      <div className="flex items-center justify-end gap-2">
+        <span className="shrink-0">From:</span>
+        <span className="font-medium" style={{ color: "var(--theme-text)" }}>
+          {lead.ft_from_date || "N/A"}
+        </span>
+        <span className="shrink-0">To:</span>
+        <span className="font-medium" style={{ color: "var(--theme-text)" }}>
+          {lead.ft_to_date || "N/A"}
+        </span>
+        <button
+          onClick={editFT}
+          title="Edit FT"
+          className="ml-2 inline-flex h-7 px-2 items-center rounded text-[11px] border"
+          style={{ color: "var(--theme-primary)", borderColor: "var(--theme-primary)", background: "transparent" }}
+        >
+          Edit
+        </button>
+      </div>
 
-              <div
-                className="italic"
-                style={{
-                  color: isFTOver(lead.ft_to_date)
-                    ? "var(--theme-error, #ef4444)"
-                    : "var(--theme-success, #22c55e)",
-                }}
-              >
-                {isFTOver(lead.ft_to_date) ? "FT Over" : lead.comment || "FT assigned"}
-              </div>
-            </div>
-          );
-        }
+      {/* middle row: the select (unchanged) */}
+      <select
+        className="w-full px-2 py-1 rounded text-sm"
+        style={inputPillStyle}
+        value={lead.lead_response_id || ""}
+        onChange={(e) => handleResponseChange(lead, e.target.value)}
+      >
+        <option value="">Select Response</option>
+        {responses
+          .filter((r) => r.name !== "CLIENT")
+          .map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+      </select>
 
+      {/* bottom row: status text centered, colored */}
+      <div className="w-full text-center italic mt-1" style={{ color: ft.color }}>
+        {ft.label}
+      </div>
+    </div>
+  );
+}
         if (respName === "call back" || respName === "callback") {
           return (
             <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--theme-textSecondary)" }}>
@@ -740,14 +802,17 @@ export default function FtLeadsPage() {
   }
 
   return (
-    <div
-      className=" transition-[left] duration-200 px-4 overflow-hidden flex flex-col"
+<div
+      className="fixed top-7 right-0 bottom-0 left-[var(--sbw)] transition-[left] duration-200 p-4 overflow-hidden flex flex-col"
       style={{ background: "var(--theme-background)" }}
     >
       {/* Filters Bar */}
       <div className="shrink-0 w-full py-4" style={{ background: "var(--theme-background)" }}>
         {/* Tabs */}
-        <div className="text-sm font-medium text-center border-b" style={{ color: "var(--theme-textSecondary)", borderColor: "var(--theme-border)" }}>
+        <div
+  className="text-sm font-medium text-center border-b relative"
+  style={{ color: "var(--theme-textSecondary)", borderColor: "var(--theme-border)" }}
+>
           <ul className="flex flex-wrap -mb-px">
             <li className="me-2" onClick={() => setViewType("self")}>
               <p className={tabBase} style={viewType === "self" ? tabActiveStyle : tabInactiveStyle}>Self</p>
@@ -756,6 +821,7 @@ export default function FtLeadsPage() {
               <p className={tabBase} style={viewType === "team" ? tabActiveStyle : tabInactiveStyle}>My Team</p>
             </li>
           </ul>
+          <FTLegend />
         </div>
 
         {/* Controls */}

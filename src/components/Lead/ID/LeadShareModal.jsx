@@ -8,7 +8,8 @@ import { UserPlus, Info, Send, Loader2, User, Mail, Phone, X } from "lucide-reac
 import { ErrorHandling } from "@/helper/ErrorHandling";
 
 export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
-  const [targetUserId, setTargetUserId] = useState("");
+  const [targetUserId, setTargetUserId] = useState(""); // now holds NAME for display
+  const [selectedCode, setSelectedCode] = useState(""); // <-- NEW: holds employee_code for API
   const [loading, setLoading] = useState(false);
 
   // users for auto-complete
@@ -22,6 +23,8 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
     if (!isOpen) return;
     setListOpen(false);
     setHighlight(0);
+    setSelectedCode(""); // reset selection
+    setTargetUserId(""); // optional: clear previous name
     setUsersLoading(true);
     axiosInstance
       .get("/users/?skip=0&limit=100&active_only=false")
@@ -36,41 +39,54 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
       .finally(() => setUsersLoading(false));
   }, [isOpen]);
 
+  // We still compute a cleanedCode for fallback (typed code), but prefer selectedCode.
   const cleanedCode = useMemo(() => {
+    if (selectedCode) return selectedCode; // <-- prefer the selected employee_code
     const raw = String(targetUserId || "").trim().toUpperCase();
     if (!raw) return "";
+    // If user typed an actual code, we still support it:
     if (/^EMP\d+$/.test(raw) || /^ADMIN\d+/.test(raw)) return raw;
     if (/^\d+$/.test(raw)) return `EMP${raw.padStart(3, "0")}`;
-    return raw;
-  }, [targetUserId]);
+    // If they typed a name, there's no reliable way to derive code here.
+    return "";
+  }, [targetUserId, selectedCode]);
 
   const suggestions = useMemo(() => {
     const q = String(targetUserId || "").trim().toLowerCase();
     if (!q) return [];
     const pick = (u) =>
-      `${u.employee_code || ""} ${(u.name || "")} ${(u.phone_number || "")} ${(u.email || "")}`.toLowerCase();
+      `${u.name || ""} ${(u.employee_code || "")} ${(u.phone_number || "")} ${(u.email || "")}`.toLowerCase();
     return users.filter((u) => pick(u).includes(q)).slice(0, 8);
   }, [targetUserId, users]);
 
   const selectUser = (u) => {
-    setTargetUserId(u?.employee_code || "");
+    // show NAME in the input, remember CODE separately
+    setTargetUserId(u?.name || u?.employee_code || "");
+    setSelectedCode(u?.employee_code || "");
     setListOpen(false);
   };
 
   const canTransfer = cleanedCode.length > 0 && !loading;
 
   const handleTransfer = async () => {
-    if (!cleanedCode) {
-      ErrorHandling({ defaultError: "Please enter/select employee code (e.g. 012 or EMP012)" });
+    // If user typed a name and didn't select, try to use the highlighted suggestion
+    let codeForTransfer = cleanedCode;
+    if (!codeForTransfer && suggestions[highlight]) {
+      codeForTransfer = suggestions[highlight]?.employee_code || "";
+    }
+
+    if (!codeForTransfer) {
+      ErrorHandling({ defaultError: "Please select an employee from the list (or enter a valid code)." });
       return;
     }
+
     try {
       setLoading(true);
       const { data } = await axiosInstance.post("/leads/transfer/", {
         lead_id: Number(leadId),
-        employee_id: cleanedCode,
+        employee_id: codeForTransfer, // stays as employee_code for backend
       });
-      toast.success(data?.message || `Lead transferred to ${data?.to_user || cleanedCode}`);
+      toast.success(data?.message || `Lead transferred to ${data?.to_user || targetUserId || codeForTransfer}`);
       onSuccess?.(data);
       onClose?.();
     } catch (err) {
@@ -94,7 +110,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
     } else if (e.key === "Enter") {
       if (listOpen && suggestions[highlight]) {
         e.preventDefault();
-        selectUser(suggestions[highlight]);
+        selectUser(suggestions[highlight]); // sets name + code
       } else if (canTransfer) {
         e.preventDefault();
         handleTransfer();
@@ -202,7 +218,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
           className="p-5 space-y-5"
           style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}
         >
-          {/* Employee Code / Autocomplete */}
+          {/* Employee Name / Autocomplete */}
           <div className="relative">
             <label
               className="block text-sm font-medium"
@@ -227,19 +243,20 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                   background: "var(--theme-panel,#f8fafc)",
                 }}
               >
-                EMP
+                NAME{/* was EMP */}
               </span>
               <input
                 type="text"
                 value={targetUserId}
                 onChange={(e) => {
-                  setTargetUserId(e.target.value);
+                  setTargetUserId(e.target.value); // name string
+                  setSelectedCode(""); // reset until a suggestion is selected
                   setListOpen(true);
                   setHighlight(0);
                 }}
                 onKeyDown={onKeyDown}
                 onBlur={() => setTimeout(() => setListOpen(false), 120)}
-                placeholder="Type code, name, phone, or email…"
+                placeholder="Type name, code, phone, or email…"
                 className="w-full rounded-r-xl border-0 px-3 py-2 outline-none text-sm"
                 autoFocus
                 style={{
@@ -289,10 +306,13 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
                           style={{ color: "var(--theme-text,#0f172a)" }}
                         >
                           <User className="h-4 w-4" style={{ color: "var(--theme-text-muted,#64748b)" }} />
-                          <span className="font-medium">{u.employee_code}</span>
-                          <span style={{ color: "var(--theme-text-muted,#64748b)" }}>
-                            — {u.name || "—"}
-                          </span>
+                          {/* Name first, then subtle code */}
+                          <span className="font-medium">{u.name || "—"}</span>
+                          {u.employee_code && (
+                            <span style={{ color: "var(--theme-text-muted,#64748b)" }}>
+                              — {u.employee_code}
+                            </span>
+                          )}
                         </div>
                         {u.branch_id != null && (
                           <span className="text-xs" style={{ color: "var(--theme-text-muted,#94a3b8)" }}>
@@ -332,8 +352,8 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
               className="mt-1 text-xs"
               style={{ color: "var(--theme-text-muted,#64748b)" }}
             >
-              You can search by code (e.g. <span className="font-medium">EMP003</span> or{" "}
-              <span className="font-medium">012</span>), name, phone, or email.
+              You can search by <span className="font-medium">name</span>, code (e.g.{" "}
+              <span className="font-medium">EMP003</span> or <span className="font-medium">012</span>), phone, or email.
             </p>
           </div>
 
@@ -342,12 +362,6 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
             className="flex items-center justify-between text-xs"
             style={{ color: "var(--theme-text-muted,#64748b)" }}
           >
-            <div>
-              <span style={{ color: "var(--theme-text-muted,#94a3b8)" }}>Preview:</span>{" "}
-              <span className="font-medium" style={{ color: "var(--theme-text,#0f172a)" }}>
-                {cleanedCode || "EMP—"}
-              </span>
-            </div>
             {loading && <span className="animate-pulse">Processing…</span>}
           </div>
         </div>

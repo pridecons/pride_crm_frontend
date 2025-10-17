@@ -1337,7 +1337,7 @@ const BranchesPage = () => {
                 </div>
 
                 <div className="px-8 py-4 bg-gray-50 border-t border-gray-200">
-                  <div className="flex justify-end">
+                  <div className="flex justify-end flex-shrink-0">
                     <button
                       onClick={() => setShowDetails(false)}
                       className="px-6 py-1 bg-gray-600 text-white font-medium rounded-lg hover:bg-[var(--theme-primary-softer)] transition-colors duration-200"

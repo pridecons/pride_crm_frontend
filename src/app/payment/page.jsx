@@ -78,7 +78,7 @@ function parseClientQuery(q = "") {
 
 /* -------------------- Reusable Tailwind classnames -------------------- */
 const inputClass =
-  "px-3 py-2 border rounded-md w-full outline-none transition " +
+  "h-10 px-3 border rounded-md w-full outline-none transition text-sm " +
   "border-[var(--theme-border)] bg-[var(--theme-input-background)] text-[var(--theme-text)] " +
   "placeholder-[var(--theme-text-muted)] focus:ring-2 focus:ring-[var(--theme-primary)] focus:border-transparent";
 const badgeBase =
@@ -696,8 +696,8 @@ export default function PaymentHistoryPage() {
               type="button"
               onClick={() => setMyView(v)}
               className={`px-4 py-2 text-sm font-medium transition border-[var(--theme-border)] ${myView === v
-                  ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] shadow-md"
-                  : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)] shadow-md"
+                : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
                 } ${i === 0 ? "rounded-l-lg" : "rounded-r-lg"}`}
             >
               {v === "self" ? "My Payments" : "Team Payments"}
@@ -717,8 +717,8 @@ export default function PaymentHistoryPage() {
                 setOffset(0);
               }}
               className={`px-4 py-2 rounded border border-[var(--theme-border)] ${branchId === ""
-                  ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-                  : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
                 }`}
             >
               All Branches
@@ -748,8 +748,7 @@ export default function PaymentHistoryPage() {
       )}
 
 
-      {/* Filters (keep service/plan/client/employee inline for convenience) */}
-      <div className="bg-[var(--theme-card-bg)] border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="sticky top-[64px] z-40 bg-[var(--theme-card-bg)]/95 backdrop-blur border border-[var(--theme-border)] p-4 rounded-lg shadow mb-6 grid grid-cols-1 md:grid-cols-[200px_200px_minmax(260px,1fr)_minmax(220px,1fr)] gap-3 md:gap-4">
         <select
           className={inputClass}
           value={service}
@@ -824,19 +823,19 @@ export default function PaymentHistoryPage() {
             </div>
           )}
           {showClientDropdown && clientSuggestions.length > 0 && (
-            <ul className="absolute z-20 bg-[var(--theme-card-bg)] border border-[var(--theme-border)] w-full max-h-56 overflow-y-auto rounded shadow">
+            <ul role="listbox" className="absolute top-full left-0 right-0 mt-1 z-[60] bg-[var(--theme-card-bg)] border border-[var(--theme-border)] max-h-64 overflow-y-auto rounded-xl shadow-xl">
               {clientSuggestions.map((c, idx) => (
-                <li
-                  key={`${c.id}-${idx}`}
-                  onClick={() => handleClientSelect(c)}
-                  className="px-3 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
-                >
-                  <div className="font-medium">{c.name || "(No name)"}</div>
-                  <div className="text-xs text-[var(--theme-text-muted)]">
-                    {show(c.email)} • {show(c.phone_number)}
-                  </div>
-                </li>
-              ))}
+              <li
+                key={`${c.id}-${idx}`}
+                onClick={() => handleClientSelect(c)}
+                className="px-3 py-2 hover:bg-[var(--theme-primary-softer)] cursor-pointer"
+              >
+                <div className="font-medium">{c.name || "(No name)"}</div>
+                <div className="text-xs text-[var(--theme-text-muted)]">
+                  {show(c.email)} • {show(c.phone_number)}
+                </div>
+              </li>
+            ))}
             </ul>
           )}
         </div>
@@ -1018,15 +1017,15 @@ export default function PaymentHistoryPage() {
                     </td>
                     <td className="py-2 px-3 text-left">{show(p.name)}</td>
                     <td className="py-2 px-3 text-center">
-  <span
-    title={p.email || ""}                  // tooltip: full email
-    aria-label={p.email || "no email"}
-    className="inline-block max-w-[10rem] truncate align-middle
+                      <span
+                        title={p.email || ""}                  // tooltip: full email
+                        aria-label={p.email || "no email"}
+                        className="inline-block max-w-[10rem] truncate align-middle
                text-[var(--theme-text)]"
-  >
-    {show(p.email)}
-  </span>
-</td>
+                      >
+                        {show(p.email)}
+                      </span>
+                    </td>
 
                     <td className="py-2 px-3 text-center">{show(p.phone_number)}</td>
                     <td className="py-2 px-3 font-semibold text-center">{showINR(p.paid_amount)}</td>
@@ -1231,8 +1230,8 @@ export default function PaymentHistoryPage() {
                   key={n}
                   onClick={() => goToPage(n)}
                   className={`px-3 py-1 rounded border border-[var(--theme-border)] ${n === page
-                      ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
-                      : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
+                    ? "bg-[var(--theme-primary)] text-[var(--theme-primary-contrast)]"
+                    : "bg-[var(--theme-surface)] text-[var(--theme-text)] hover:bg-[var(--theme-primary-softer)]"
                     }`}
                 >
                   {n}

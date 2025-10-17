@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/context/PermissionsContext";
+import ExportClientsButton from "@/components/Client/Download";
 
 /* ===== Helpers: roles & user meta ===== */
 
@@ -30,17 +31,15 @@ const EmployeeAutoComplete = ({
 }) => {
   const wrapRef = useRef(null);
 
-  // ---- helper: refetch with no employee filter
   const refetchWithoutEmployee = useCallback(() => {
     const from = appliedFrom || "";
     const to = appliedTo || "";
-    const emp = ""; // cleared
+    const emp = "";
     if (isSuperAdmin || isBranchManager) {
       fetchClients(branchId ?? null, from, to, emp);
     } else if (myView === "other") {
       fetchMyClients("other", from, to, emp);
     } else {
-      // for "self" view there is no employee filter; keep as-is
       fetchMyClients("self", from, to, emp);
     }
   }, [appliedFrom, appliedTo, isSuperAdmin, isBranchManager, myView, branchId, fetchClients, fetchMyClients]);
@@ -59,6 +58,7 @@ const EmployeeAutoComplete = ({
       <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">
         Employee
       </label>
+
       <div className="relative">
         <input
           type="text"
@@ -66,18 +66,13 @@ const EmployeeAutoComplete = ({
           placeholder={placeholder}
           onChange={(e) => {
             const v = e.target.value;
-            // if the user is clearing the input, also clear the selection
             if (selectedEmployee) setSelectedEmployee(null);
             setEmployeeQuery(v);
 
             if (v.trim().length === 0) {
-              // input cleared -> close list, clear options, and refetch
               setEmployeeDropdownOpen(false);
-              // optional: clear any stale options
-              // setEmployeeOptions([]); // you have this state in parent
               refetchWithoutEmployee();
             } else {
-              // only search when >= 2 chars
               searchEmployees(v);
             }
           }}
@@ -93,12 +88,9 @@ const EmployeeAutoComplete = ({
           <button
             type="button"
             onClick={() => {
-              // Clear selection and query, then refetch list without employee filter
               setSelectedEmployee(null);
               setEmployeeQuery("");
               setEmployeeDropdownOpen(false);
-              // optional: clear options so the dropdown is empty
-              // setEmployeeOptions([]);
               refetchWithoutEmployee();
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[12px] px-2 py-1 rounded border"
@@ -192,7 +184,6 @@ const getUserMeta = () => {
   }
 };
 
-/* ===== Data transforms ===== */
 const parseServices = (client) => {
   const out = new Set();
   if (Array.isArray(client?.all_payments)) {
@@ -242,19 +233,17 @@ const uniqueGstTypes = (client) => {
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-/* ===== Page component ===== */
 export default function ClientsPage() {
   const { hasPermission } = usePermissions();
+  const [booted, setBooted] = useState(false);
   const [role, setRole] = useState(null);
   const [branchId, setBranchId] = useState(null);
   const [branches, setBranches] = useState([]);
   const [clients, setClients] = useState([]);
   const [myClients, setMyClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("card");      // "card" | "table"
-  const [myView, setMyView] = useState("self");  // "self" | "other"
-
-  // modals
+  const [view, setView] = useState("table");
+  const [myView, setMyView] = useState("self");
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
@@ -266,28 +255,31 @@ export default function ClientsPage() {
 
   const [dateFromInput, setDateFromInput] = useState("");
   const [dateToInput, setDateToInput] = useState("");
-  const [appliedFrom, setAppliedFrom] = useState(""); // only used after clicking Apply
+  const [appliedFrom, setAppliedFrom] = useState("");
   const [appliedTo, setAppliedTo] = useState("");
 
   const router = useRouter();
 
-  // payments modal state (belongs in ClientsPage, not ActionsDropdown)
   const [paymentsModal, setPaymentsModal] = useState({ open: false, client: null });
 
-  // employee filter (autocomplete)
   const [employeeQuery, setEmployeeQuery] = useState("");
-  const [employeeOptions, setEmployeeOptions] = useState([]); // [{employee_code, name, profile_role?.name}]
+  const [employeeOptions, setEmployeeOptions] = useState([]);
   const [employeeLoading, setEmployeeLoading] = useState(false);
   const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null); // { employee_code, name }
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
   const [myEmployeeCode, setMyEmployeeCode] = useState(null);
+  const [openRowId, setOpenRowId] = useState(null);
 
   const employeeSearchTimer = useRef(null);
 
   const isSuperAdmin = role === "SUPERADMIN";
   const isBranchManager = role === "BRANCH MANAGER";
   const showBranchColumn = isSuperAdmin;
+
+  const [expandedRows, setExpandedRows] = useState({}); // { [lead_id]: true/false }
+  const toggleRow = (id) => setExpandedRows(p => ({ ...p, [id]: !p[id] }));
+
 
   const searchEmployees = useCallback((q) => {
     if (employeeSearchTimer.current) clearTimeout(employeeSearchTimer.current);
@@ -338,11 +330,9 @@ export default function ClientsPage() {
       emp?.role ??
       emp?.role_id ??
       "";
-    // normalize for display: SUPERADMIN -> SUPERADMIN, BRANCH_MANAGER -> BRANCH MANAGER
     return String(raw).trim().toUpperCase().replace(/_/g, " ");
   };
 
-  // REPLACE fetchClients with this
   const fetchClients = async (branch = null, fromDate = "", toDate = "", employeeCode = "") => {
     try {
       setLoading(true);
@@ -365,7 +355,6 @@ export default function ClientsPage() {
     }
   };
 
-  // REPLACE fetchMyClients with this
   const fetchMyClients = async (scope, fromDate = "", toDate = "", employeeCode = "") => {
     try {
       setLoading(true);
@@ -1008,14 +997,16 @@ export default function ClientsPage() {
     setMyEmployeeCode(getMyEmployeeCodeFromCookie());
 
     if (r === "SUPERADMIN") {
-      fetchBranches();       // see function below
-      fetchClients(null);    // all branches by default
+      fetchBranches();
+      fetchClients(null);
     } else if (r === "BRANCH MANAGER") {
-      fetchClients(b);       // manager’s branch
+      fetchClients(b);
     } else {
       setMyView("self");
-      fetchMyClients("self"); // non-admins
+      fetchMyClients("self");
     }
+
+    setBooted(true);
   }, []);
 
   return (
@@ -1023,7 +1014,6 @@ export default function ClientsPage() {
       <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8">
         {(isSuperAdmin || isBranchManager) && (
           <div className="mb-5 sm:mb-6 space-y-4 sm:space-y-5">
-            {/* Branch picker (superadmin only) */}
             {isSuperAdmin && hasPermission("client_select_branch") && (
               <div>
                 <label className="text-sm font-bold text-[var(--theme-text)] mb-2 sm:mb-3 block">
@@ -1072,9 +1062,8 @@ export default function ClientsPage() {
               </div>
             )}
 
-            {/* Top controls */}
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4">
-              <div className="inline-flex rounded-lg shadow-sm self-start" role="group">
+            <div className="flex items-center flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4">
+              {/* <div className="inline-flex rounded-lg shadow-sm self-start" role="group">
                 <button
                   type="button"
                   className="px-4 sm:px-5 py-1.5 text-sm font-semibold border rounded-l-lg transition-all duration-200"
@@ -1101,94 +1090,157 @@ export default function ClientsPage() {
                 >
                   Table View
                 </button>
-              </div>
+              </div> */}
 
-              {/* Date filters (wrap nicely on mobile) */}
-              <div className="flex flex-wrap items-end gap-3">
-                <EmployeeAutoComplete
-                  employeeQuery={employeeQuery}
-                  setEmployeeQuery={setEmployeeQuery}
-                  employeeOptions={employeeOptions}
-                  employeeLoading={employeeLoading}
-                  employeeDropdownOpen={employeeDropdownOpen}
-                  setEmployeeDropdownOpen={setEmployeeDropdownOpen}
-                  selectedEmployee={selectedEmployee}
-                  setSelectedEmployee={setSelectedEmployee}
-                  searchEmployees={searchEmployees}
-                  isSuperAdmin={isSuperAdmin}
-                  isBranchManager={isBranchManager}
-                  myView={myView}
-                  branchId={branchId}
-                  appliedFrom={appliedFrom}
-                  appliedTo={appliedTo}
-                  fetchClients={fetchClients}
-                  fetchMyClients={fetchMyClients}
-                />
-                <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
-                  <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">From Date</label>
-                  <input
-                    type="date"
-                    value={dateFromInput}
-                    onChange={(e) => setDateFromInput(e.target.value)}
-                    className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
-                    style={{ borderColor: "var(--theme-input-border)" }}
-                  />
-                </div>
-                <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
-                  <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">To Date</label>
-                  <input
-                    type="date"
-                    value={dateToInput}
-                    onChange={(e) => setDateToInput(e.target.value)}
-                    className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
-                    style={{ borderColor: "var(--theme-input-border)" }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={applyDate}
-                  className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg transition-all duration-200"
-                  style={{
-                    background: "var(--theme-components-button-primary-bg)",
-                    color: "var(--theme-components-button-primary-text)",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  Apply
-                </button>
+<div className="inline-flex items-center rounded-lg shadow-sm self-start" role="group">
+  <button
+    type="button"
+    className="px-4 sm:px-5 py-2 text-sm font-semibold border rounded-l-lg transition-all duration-200"
+    onClick={() => setView("table")}
+    style={{
+      background: view === "table"
+        ? "var(--theme-components-button-primary-bg)"
+        : "var(--theme-surface)",
+      color: view === "table"
+        ? "var(--theme-components-button-primary-text)"
+        : "var(--theme-text)",
+      borderColor: view === "table"
+        ? "var(--theme-components-button-primary-bg)"
+        : "var(--theme-border)",
+      boxShadow: view === "table"
+        ? "0 2px 8px rgba(0,0,0,0.1)"
+        : "none",
+    }}
+  >
+    Table View
+  </button>
 
-                {(dateFromInput || dateToInput || appliedFrom || appliedTo) && (  /* optional: show when applied too */
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDateFromInput("");
-                      setDateToInput("");
-                      setAppliedFrom("");
-                      setAppliedTo("");
-                      setSelectedEmployee(null);
-                      setEmployeeQuery("");
+  <button
+    type="button"
+    className="px-4 sm:px-5 py-2 text-sm font-semibold border rounded-r-lg transition-all duration-200"
+    onClick={() => setView("card")}
+    style={{
+      background: view === "card"
+        ? "var(--theme-components-button-primary-bg)"
+        : "var(--theme-surface)",
+      color: view === "card"
+        ? "var(--theme-components-button-primary-text)"
+        : "var(--theme-text)",
+      borderColor: view === "card"
+        ? "var(--theme-components-button-primary-bg)"
+        : "var(--theme-border)",
+      boxShadow: view === "card"
+        ? "0 2px 8px rgba(0,0,0,0.1)"
+        : "none",
+    }}
+  >
+    Card View
+  </button>
+</div>
 
-                      if (isSuperAdmin) {
-                        fetchClients(branchId ?? null, "", "");
-                      } else if (isBranchManager) {
-                        fetchClients(branchId ?? null, "", "");
-                      } else {
-                        fetchMyClients(myView || "self", "", "");
-                      }
-                    }}
-                    className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold border hover:shadow-md transition-all duration-200"
-                    style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+
+        
+
+              <ExportClientsButton
+  className="ml-1"
+  // defaults using your current filters & selection
+  defaultFrom={appliedFrom || dateFromInput || ""}
+  defaultTo={appliedTo || dateToInput || ""}
+  defaultDays={30}
+  defaultFilterBy="payment_date"
+  defaultBranchId={branchId ?? undefined}
+  defaultEmployeeId={selectedEmployee?.employee_code || ""}
+  defaultDepartmentId={4}
+  defaultView="all"
+/>
+
+
 
             </div>
           </div>
         )}
+        {booted && (
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <EmployeeAutoComplete
+              employeeQuery={employeeQuery}
+              setEmployeeQuery={setEmployeeQuery}
+              employeeOptions={employeeOptions}
+              employeeLoading={employeeLoading}
+              employeeDropdownOpen={employeeDropdownOpen}
+              setEmployeeDropdownOpen={setEmployeeDropdownOpen}
+              selectedEmployee={selectedEmployee}
+              setSelectedEmployee={setSelectedEmployee}
+              searchEmployees={searchEmployees}
+              isSuperAdmin={isSuperAdmin}
+              isBranchManager={isBranchManager}
+              myView={myView}
+              branchId={branchId}
+              appliedFrom={appliedFrom}
+              appliedTo={appliedTo}
+              fetchClients={fetchClients}
+              fetchMyClients={fetchMyClients}
+            />
+            <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
+              <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">From Date</label>
+              <input
+                type="date"
+                value={dateFromInput}
+                onChange={(e) => setDateFromInput(e.target.value)}
+                className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
+                style={{ borderColor: "var(--theme-input-border)" }}
+              />
+            </div>
+            <div className="w-[calc(50%-6px)] sm:w-auto min-w-[140px]">
+              <label className="block text-[11px] font-bold text-[var(--theme-textSecondary)] mb-1.5 sm:mb-2">To Date</label>
+              <input
+                type="date"
+                value={dateToInput}
+                onChange={(e) => setDateToInput(e.target.value)}
+                className="w-full rounded-lg px-3 sm:px-4 py-2.5 text-sm border bg-[var(--theme-input-bg)] text-[var(--theme-text)] focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] transition-all"
+                style={{ borderColor: "var(--theme-input-border)" }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={applyDate}
+              className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold hover:shadow-lg transition-all duration-200"
+              style={{
+                background: "var(--theme-components-button-primary-bg)",
+                color: "var(--theme-components-button-primary-text)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            >
+              Apply
+            </button>
 
-        {/* Content */}
+            {(dateFromInput || dateToInput || appliedFrom || appliedTo) && (  /* optional: show when applied too */
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFromInput("");
+                  setDateToInput("");
+                  setAppliedFrom("");
+                  setAppliedTo("");
+                  setSelectedEmployee(null);
+                  setEmployeeQuery("");
+
+                  if (isSuperAdmin) {
+                    fetchClients(branchId ?? null, "", "");
+                  } else if (isBranchManager) {
+                    fetchClients(branchId ?? null, "", "");
+                  } else {
+                    fetchMyClients(myView || "self", "", "");
+                  }
+                }}
+                className="px-3 sm:px-4 py-2.5 rounded-lg text-sm font-semibold border hover:shadow-md transition-all duration-200"
+                style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <LoadingState message="Loading Clients..." />
         ) : (isSuperAdmin || isBranchManager) ? (
@@ -1198,7 +1250,6 @@ export default function ClientsPage() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl shadow-lg bg-[var(--theme-components-card-bg)] border border-[var(--theme-components-card-border)]">
-              {/* Mobile cards for table data */}
               <div className="md:hidden">
                 {clients.map((c) => (
                   <MobileRowCard key={c.lead_id}>
@@ -1243,52 +1294,177 @@ export default function ClientsPage() {
                 ))}
               </div>
 
-              {/* Desktop table */}
               <div className="overflow-x-auto hidden md:block">
                 <table className="w-full min-w-[860px]">
                   <TableHeader
                     cols={[
-                      "Client Name", "Email", "Mobile", "City",
+                      "",
+                      "Client Name", "Email", "Mobile",
                       ...(showBranchColumn ? ["Branch"] : []),
-                      "Assigned Employee", "KYC", "Paid", "Calls", "Actions",
+                      "Paid", "Calls", "Actions",
                     ]}
                   />
                   <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
-                    {clients.map((client) => (
-                      <tr key={client.lead_id} className="hover:bg-[var(--theme-surface)] transition-colors duration-150">
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm font-semibold truncate" title={client.full_name}>{client.full_name}</td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.email || "—"}</td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.mobile || "—"}</td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.city || "—"}</td>
-                        {showBranchColumn && (
-                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.branch_name || "—"}</td>
-                        )}
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">
-                          {client?.assigned_employee
-                            ? `${client.assigned_employee.name || "—"} (${roleLabel(client.assigned_employee)})`
-                            : "—"}
-                        </td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4">
-                          <Badge tone={client.kyc_status ? "ok" : "danger"}>{client.kyc_status ? "DONE" : "PENDING"}</Badge>
-                        </td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 font-bold"><Money val={client.total_amount_paid} /></td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.used_calls ?? 0}/{client.total_calls ?? 0}</td>
-                        <td className="px-5 lg:px-6 py-3 lg:py-4">
-                          <ActionsDropdown
-                            onView={() => router.push(`/lead/${client.lead_id}`)}
-                            onInvoices={() => { setSelectedLead(client); setIsInvoiceModalOpen(true); }}
-                            onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
-                            onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
-                            canInvoices={hasPermission("client_invoice")}
-                            canStory={hasPermission("client_story")}
-                            canComments={hasPermission("client_comments")}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {clients.map((client) => {
+                      const isOpen = !!expandedRows[client.lead_id];
+                      const colSpan = showBranchColumn ? 8 : 7; // must match header count
+                      return (
+                        < >
+                          <tr className="hover:bg-[var(--theme-surface)] transition-colors duration-150">
+                            <td className="px-3 lg:px-4 py-3 lg:py-4">
+                              <button
+                                type="button"
+                                onClick={() => toggleRow(client.lead_id)}
+                                className="w-8 h-8 rounded-md border flex items-center justify-center hover:shadow transition"
+                                style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
+                                aria-label={isOpen ? "Collapse details" : "Expand details"}
+                              >
+                                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </button>
+                            </td>
+
+                            <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm font-semibold truncate" title={client.full_name}>
+                              {client.full_name}
+                            </td>
+                            <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">
+                              <span
+                                className="inline-block max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap"
+                                title={client?.email || "—"}
+                                style={{ color: "var(--theme-text)" }}
+                              >
+                                {client?.email ? `${client.email.slice(0, 15)}…` : "—"}
+                              </span>
+                            </td>
+
+                            <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.mobile || "—"}</td>
+
+
+
+                            {showBranchColumn && (
+                              <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.branch_name || "—"}</td>
+                            )}
+
+
+                            <td className="px-5 lg:px-6 py-3 lg:py-4 font-bold"><Money val={client.total_amount_paid} /></td>
+                            <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.used_calls ?? 0}/{client.total_calls ?? 0}</td>
+
+                            <td className="px-5 lg:px-6 py-3 lg:py-4">
+                              <ActionsDropdown
+                                onView={() => router.push(`/lead/${client.lead_id}`)}
+                                onInvoices={() => { setSelectedLead(client); setIsInvoiceModalOpen(true); }}
+                                onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
+                                onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
+                                canInvoices={hasPermission("client_invoice")}
+                                canStory={hasPermission("client_story")}
+                                canComments={hasPermission("client_comments")}
+                              />
+                            </td>
+                          </tr>
+
+                          {/* Accordion detail row */}
+                          {isOpen && (
+                            <tr className="bg-[var(--theme-surface)]/60">
+                              <td colSpan={colSpan} className="px-6 py-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                  {/* City */}
+                                  <div className="p-3 rounded-lg border"
+                                    style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                                    <div className="text-[11px] font-bold uppercase tracking-wide"
+                                      style={{ color: "var(--theme-textSecondary)" }}>
+                                      City
+                                    </div>
+                                    <div className="text-sm font-medium" style={{ color: "var(--theme-text)" }}>
+                                      {client.city || "—"}
+                                    </div>
+                                  </div>
+
+                                  {/* GST Type */}
+                                  <div className="p-3 rounded-lg border"
+                                    style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                                    <div className="text-[11px] font-bold uppercase tracking-wide"
+                                      style={{ color: "var(--theme-textSecondary)" }}>
+                                      GST Type
+                                    </div>
+                                    <div className="text-sm font-medium truncate" style={{ color: "var(--theme-text)" }}>
+                                      {(() => {
+                                        const g = uniqueGstTypes(client);
+                                        return g && g.length ? g.join(", ") : "—";
+                                      })()}
+                                    </div>
+                                  </div>
+                              
+                                  <div className="p-3 rounded-lg border"
+                                    style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                                    <div className="text-[11px] font-bold uppercase tracking-wide"
+                                      style={{ color: "var(--theme-textSecondary)" }}>
+                                      Assigned Employee
+                                    </div>
+                                    <div className="text-sm font-medium truncate" style={{ color: "var(--theme-text)" }}>
+                                      {client?.assigned_employee
+                                        ? `${client.assigned_employee.name || "—"} (${roleLabel(client.assigned_employee)})`
+                                        : "—"}
+                                    </div>
+                                  </div>
+
+                                  {/* Payment History */}
+                                  <div className="p-3 rounded-lg border flex items-center justify-between gap-3"
+                                    style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                                    <div>
+                                      <div className="text-[11px] font-bold uppercase tracking-wide"
+                                        style={{ color: "var(--theme-textSecondary)" }}>
+                                        Payment History
+                                      </div>
+                                      <div className="text-sm" style={{ color: "var(--theme-textSecondary)" }}>
+                                        {client.all_payments?.length || 0} records
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPaymentsModal({ open: true, client })}
+                                      className="px-3 py-1.5 rounded-lg text-sm font-semibold border hover:shadow transition-all"
+                                      style={{ background: "var(--theme-components-button-primary-bg)", color: "var(--theme-components-button-primary-text)", borderColor: "var(--theme-components-button-primary-bg)" }}
+                                    >
+                                      View
+                                    </button>
+                                  </div>
+
+
+                                  {/* Active (count) */}
+                                  <div className="p-3 rounded-lg border"
+                                    style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                                    <div className="text-[11px] font-bold uppercase tracking-wide"
+                                      style={{ color: "var(--theme-textSecondary)" }}>
+                                      Active
+                                    </div>
+                                    <div className="text-sm font-semibold" style={{ color: "var(--theme-text)" }}>
+                                      {client.active_payments_count ?? 0}
+                                    </div>
+                                  </div>
+
+                                  {/* KYC */}
+                                  <div className="p-3 rounded-lg border"
+                                    style={{ background: "var(--theme-surface)", borderColor: "var(--theme-border)" }}>
+                                    <div className="text-[11px] font-bold uppercase tracking-wide"
+                                      style={{ color: "var(--theme-textSecondary)" }}>
+                                      KYC
+                                    </div>
+                                    <div className="mt-1">
+                                      <Badge tone={client.kyc_status ? "ok" : "danger"}>
+                                        {client.kyc_status ? "DONE" : "PENDING"}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+
             </div>
           )
         ) : (
@@ -1415,57 +1591,52 @@ export default function ClientsPage() {
             </div>
 
             {/* My clients list: mobile cards + desktop table */}
-            <div className="overflow-hidden rounded-xl shadow-lg bg-[var(--theme-components-card-bg)] border border-[var(--theme-components-card-border)]">
-              {/* Mobile cards */}
-              <div className="md:hidden">
-                {Array.isArray(myClients) && myClients.map((c) => {
-                  const lastPaidAt = lastPaymentISO(c);
-                  return (
-                    <MobileRowCard key={c.lead_id}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-semibold text-[15px] truncate" title={c.full_name}>{c.full_name}</div>
-                          <div className="text-[12px] text-[var(--theme-textSecondary)] truncate">{c.email || "—"}</div>
-                          <div className="text-[12px] text-[var(--theme-textSecondary)]">{c.mobile || "—"}</div>
-                          <div className="mt-1"><Money val={c.total_amount_paid} /></div>
-                          <div className="text-[12px] text-[var(--theme-textSecondary)]">Last: {lastPaidAt ? new Date(lastPaidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</div>
-                          <div className="text-[12px] text-[var(--theme-textSecondary)]">Calls: {c.used_calls ?? 0}/{c.total_calls ?? 0}</div>
-                        </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <button onClick={() => router.push(`/lead/${c.lead_id}`)} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:shadow-md" style={{ background: "var(--theme-components-button-primary-bg)", color: "#fff" }} aria-label="View">
-                            <Eye size={16} />
-                          </button>
-                          <button onClick={() => { setStoryLead(c); setIsStoryModalOpen(true); }} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:shadow-md" style={{ background: "var(--theme-secondary)", color: "#fff" }} aria-label="Story">
-                            <BookOpenText size={16} />
-                          </button>
-                          <button onClick={() => { setSelectedLeadId(c.lead_id); setIsCommentModalOpen(true); }} className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 hover:shadow-md" style={{ background: "var(--theme-accent)", color: "#fff" }} aria-label="Comments">
-                            <MessageCircle size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </MobileRowCard>
-                  );
-                })}
-              </div>
+            <div className="overflow-x-auto hidden md:block">
+              <table className="w-full min-w-[760px]">
+                <TableHeader
+                  cols={
+                    myView === "other"
+                      ? ["Name", "Email", "Mobile", "Assigned", "Total Paid", "Last Payment", "Calls", "Actions"]
+                      : ["Name", "Email", "Mobile", "Total Paid", "Last Payment", "Calls", "Actions"]
+                  }
+                />
+                <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
+                  {Array.isArray(myClients) && myClients.map((client) => {
+                    const lastPaidAt = lastPaymentISO(client);
+                    const isOpen = openRowId === client.lead_id;
+                    const toggle = () => setOpenRowId(isOpen ? null : client.lead_id);
 
-              {/* Desktop table */}
-              <div className="overflow-x-auto hidden md:block">
-                <table className="w-full min-w-[760px]">
-                  <TableHeader
-                    cols={
-                      myView === "other"
-                        ? ["Name", "Email", "Mobile", "Assigned", "Total Paid", "Last Payment", "kyc_status", "Calls", "Actions"]
-                        : ["Name", "Email", "Mobile", "Total Paid", "Last Payment", "kyc_status", "Calls", "Actions"]
-                    }
-                  />
-                  <tbody className="divide-y" style={{ divideColor: "var(--theme-border)" }}>
-                    {Array.isArray(myClients) && myClients.map((client) => {
-                      const lastPaidAt = lastPaymentISO(client);
-                      return (
-                        <tr key={client.lead_id} className="hover:bg-[var(--theme-surface)] transition-colors duration-150">
-                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm font-semibold truncate" title={client.full_name}>{client.full_name}</td>
-                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">{client.email || "—"}</td>
+                    return (
+                      <>
+                        <tr
+                          className={`transition-colors duration-150 hover:bg-[var(--theme-surface)] cursor-pointer ${isOpen ? "bg-[var(--theme-surface)]" : ""}`}
+                          onClick={toggle}
+                          aria-expanded={isOpen}
+                        >
+                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm font-semibold truncate" title={client.full_name}>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-block transition-transform ${isOpen ? "rotate-90" : "rotate-0"}`}
+                                aria-hidden
+                              >
+                                ▸
+                              </span>
+                              <span className="truncate">{client.full_name}</span>
+                            </div>
+                          </td>
+
+                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">
+                            <span
+                              className="inline-block max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap align-bottom"
+                              title={client?.email || "—"}
+                              style={{ color: "var(--theme-text)" }}
+                            >
+                              {client?.email || "—"}
+                            </span>
+                          </td>
+
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.mobile || "—"}</td>
+
                           {myView === "other" && (
                             <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm truncate">
                               {client?.assigned_employee
@@ -1473,45 +1644,101 @@ export default function ClientsPage() {
                                 : "—"}
                             </td>
                           )}
-                          <td className="px-5 lg:px-6 py-3 lg:py-4 font-bold"><Money val={client.total_amount_paid} /></td>
+
+                          <td className="px-5 lg:px-6 py-3 lg:py-4 font-bold">
+                            <Money val={client.total_amount_paid} />
+                          </td>
+
                           <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">
-                            {lastPaidAt ? new Date(lastPaidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                          </td>
-                          <td className="px-5 lg:px-6 py-3 lg:py-4">
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm font-semibold ${client.kyc_status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                }`}
-                            >
-                              {client.kyc_status ? "DONE" : "PENDING"}
-                            </span>
+                            {lastPaidAt
+                              ? new Date(lastPaidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                              : "—"}
                           </td>
 
+                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">
+                            {client.used_calls ?? 0}/{client.total_calls ?? 0}
+                          </td>
 
-                          <td className="px-5 lg:px-6 py-3 lg:py-4 text-sm">{client.used_calls ?? 0}/{client.total_calls ?? 0}</td>
-                          <td className="px-5 lg:px-6 py-3 lg:py-4">
+                          <td
+                            className="px-5 lg:px-6 py-3 lg:py-4"
+                            // prevent row toggle when clicking action buttons
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="flex flex-wrap gap-2">
                               <ActionsDropdown
                                 onView={() => router.push(`/lead/${client.lead_id}`)}
-                                onInvoices={undefined /* not shown in this table by default; add if you want */}
+                                onInvoices={undefined}
                                 onStory={() => { setStoryLead(client); setIsStoryModalOpen(true); }}
                                 onComments={() => { setSelectedLeadId(client.lead_id); setIsCommentModalOpen(true); }}
-                                canInvoices={false}  // set true + add handler if you want invoices here too
+                                canInvoices={false}
                                 canStory={true}
                                 canComments={true}
                               />
                             </div>
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        {isOpen && (
+                          <tr className="bg-[var(--theme-surface)]">
+                            <td
+                              className="px-5 lg:px-6 py-4"
+                              colSpan={myView === "other" ? 8 : 7}
+                            >
+                              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                                <div className="rounded-lg border p-3"
+                                  style={{ borderColor: "var(--theme-border)", background: "var(--theme-components-card-bg)" }}>
+                                  <div className="text-xs text-[var(--theme-textSecondary)] mb-1">Active Payments</div>
+                                  <div className="text-sm font-semibold">{client.active_payments_count ?? 0}</div>
+                                </div>
+
+                                <div className="rounded-lg border p-3"
+                                  style={{ borderColor: "var(--theme-border)", background: "var(--theme-components-card-bg)" }}>
+                                  <div className="text-xs text-[var(--theme-textSecondary)] mb-1">KYC</div>
+                                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${client.kyc_status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                    }`}>
+                                    {client.kyc_status ? "DONE" : "PENDING"}
+                                  </span>
+                                </div>
+
+                                <div className="rounded-lg border p-3 flex items-center justify-between"
+                                  style={{ borderColor: "var(--theme-border)", background: "var(--theme-components-card-bg)" }}>
+                                  <div>
+                                    <div className="text-xs text-[var(--theme-textSecondary)] mb-1">Payment History</div>
+                                    <div className="text-sm font-medium">View client payments</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPaymentsModal({ open: true, client })}
+                                    className="px-3 py-1.5 rounded-lg text-sm font-semibold border hover:shadow transition-all"
+                                    style={{ background: "var(--theme-surface)", color: "var(--theme-text)", borderColor: "var(--theme-border)" }}
+                                  >
+                                    View
+                                  </button>
+                                </div>
+
+                                <div className="rounded-lg border p-3"
+                                  style={{ borderColor: "var(--theme-border)", background: "var(--theme-components-card-bg)" }}>
+                                  <div className="text-xs text-[var(--theme-textSecondary)] mb-1">Last Payment</div>
+                                  <div className="text-sm">
+                                    {lastPaidAt
+                                      ? new Date(lastPaidAt).toLocaleString("en-GB", {
+                                        day: "2-digit", month: "short", year: "numeric",
+                                        hour: "2-digit", minute: "2-digit"
+                                      })
+                                      : "—"}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </>
         )}
-
-        {/* Empty state */}
         {!loading && ((isSuperAdmin || isBranchManager) ? clients.length === 0 : myClients.length === 0) && (
           <div className="text-center py-12 sm:py-16">
             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 rounded-full bg-[var(--theme-surface)] flex items-center justify-center">
@@ -1525,8 +1752,6 @@ export default function ClientsPage() {
             </p>
           </div>
         )}
-
-        {/* Compact Enhanced Payments Modal */}
         {paymentsModal.open && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
             <div className="absolute inset-0 bg-black/50" onClick={() => setPaymentsModal({ open: false, client: null })} />
@@ -1534,7 +1759,6 @@ export default function ClientsPage() {
             <div className="relative w-[96vw] max-w-5xl max-h-[92vh] border shadow-2xl flex flex-col"
               style={{ background: "var(--theme-components-card-bg)", borderColor: "var(--theme-components-card-border)" }}>
 
-              {/* Compact Header */}
               <div className="px-5 py-3 border-b flex items-center justify-between shrink-0"
                 style={{ borderColor: "var(--theme-border)", background: "var(--theme-surface)" }}>
                 <div>

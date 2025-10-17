@@ -717,7 +717,7 @@ const Lead = () => {
 
   return (
     <div
-      className="min-h-screen"
+       className="w-full overflow-x-hidden"
       style={{ background: "var(--theme-page-bg)", color: "var(--theme-text)" }}
     >
       <div className="mx-2 px-4 py-6">
@@ -826,8 +826,12 @@ const Lead = () => {
           </div>
         )}
 
-        <div style={{ color: "var(--theme-text)" }}>
-          <ActionButtons
+ <div
+   className="w-full
+              [&>*]:flex [&>*]:flex-wrap [&>*]:items-center [&>*]:gap-2 [&>*]:justify-start
+              [&>*>button]:shrink-0 [&>*>button]:w-auto [&>*>button]:max-w-max [&>*>button]:whitespace-nowrap
+              [&>*>a]:shrink-0 [&>*>a]:w-auto [&>*>a]:max-w-max [&>*>a]:whitespace-nowrap"   
+              >    <ActionButtons
             currentLead={currentLead}
             loading={loading}
             onRefresh={fetchCurrentLead}
@@ -850,7 +854,7 @@ const Lead = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+ <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 flex-wrap min-w-0">
           <div className="flex items-center gap-2 ml-4">
             {hasPermission("lead_story_view") && (
               <button

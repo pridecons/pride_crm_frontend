@@ -440,11 +440,8 @@ export default function DocumentsModal({
           onClick={handleClose}
           disabled={uploading}
           className="px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: "var(--theme-muted,#f1f5f9)",
-            color: "var(--theme-text,#0f172a)",
-            border: "1px solid var(--theme-border,#e5e7eb)",
-          }}
+           style={{ border: "1px solid var(--theme-border)",
+             color:" var(--theme-text)", background: "var(--theme-card-bg);"}}
         >
           {uploading ? "Uploading..." : "Close"}
         </button>,

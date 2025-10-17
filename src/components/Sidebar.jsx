@@ -114,11 +114,9 @@ export default function CoreSidebar({ collapsed = false, widthPx = 256, onClose 
   const pathname = usePathname();
   const { themeConfig } = useTheme();
 
-  // Sidebar color tokens (prefer components.sidebar; fallback to globals)
-// inside CoreSidebar, where you compute sidebarVars
-const baseSidebarVars = (themeConfig && themeConfig.components && themeConfig.components.sidebar)
-  ? themeConfig.components.sidebar
-  : {
+  const baseSidebarVars = (themeConfig && themeConfig.components && themeConfig.components.sidebar)
+    ? themeConfig.components.sidebar
+    : {
       bg: themeConfig.sidebar || themeConfig.surface || "#1e293b",
       text: themeConfig.sidebarText || themeConfig.text || "#f1f5f9",
       muted: themeConfig.textSecondary || "#94a3b8",
@@ -135,25 +133,24 @@ const baseSidebarVars = (themeConfig && themeConfig.components && themeConfig.co
       sectionTitle: themeConfig.textSecondary || "#94a3b8",
     };
 
-// compute contrast-aware tooltip palette
-const darkSidebar = luma(baseSidebarVars.bg) < 0.5;
-const compTip = themeConfig?.components?.tooltip || {};
-const tooltipBg   = compTip.bg   || (darkSidebar ? "rgba(17,24,39,0.98)" : "rgba(11,18,32,0.92)"); // #111827 / #0b1220
-const tooltipText = compTip.text || (darkSidebar ? "#F8FAFC" : "#FFFFFF");
-const tooltipBr   = compTip.border && compTip.border !== "transparent"
-  ? compTip.border
-  : (darkSidebar ? "rgba(148,163,184,0.28)" : "rgba(0,0,0,0.22)");
-const tooltipRing = darkSidebar ? "rgba(2,6,23,0.55)" : "rgba(255,255,255,0.55)";  // outer separation ring
-const tooltipSh   = compTip.shadow || (darkSidebar ? "rgba(0,0,0,0.45)" : baseSidebarVars.shadow);
+  const darkSidebar = luma(baseSidebarVars.bg) < 0.5;
+  const compTip = themeConfig?.components?.tooltip || {};
+  const tooltipBg = compTip.bg || (darkSidebar ? "rgba(17,24,39,0.98)" : "rgba(11,18,32,0.92)"); // #111827 / #0b1220
+  const tooltipText = compTip.text || (darkSidebar ? "#F8FAFC" : "#FFFFFF");
+  const tooltipBr = compTip.border && compTip.border !== "transparent"
+    ? compTip.border
+    : (darkSidebar ? "rgba(148,163,184,0.28)" : "rgba(0,0,0,0.22)");
+  const tooltipRing = darkSidebar ? "rgba(2,6,23,0.55)" : "rgba(255,255,255,0.55)";  // outer separation ring
+  const tooltipSh = compTip.shadow || (darkSidebar ? "rgba(0,0,0,0.45)" : baseSidebarVars.shadow);
 
-const sidebarVars = {
-  ...baseSidebarVars,
-  tooltipBg,
-  tooltipText,
-  tooltipBorder: tooltipBr,
-  tooltipRing,
-  tooltipShadow: tooltipSh,
-};
+  const sidebarVars = {
+    ...baseSidebarVars,
+    tooltipBg,
+    tooltipText,
+    tooltipBorder: tooltipBr,
+    tooltipRing,
+    tooltipShadow: tooltipSh,
+  };
 
   const [user, setUser] = useState(null);
   const [expanded, setExpanded] = useState({
@@ -175,75 +172,75 @@ const sidebarVars = {
 
   const toggle = (key) => setExpanded((s) => ({ ...s, [key]: !s[key] }));
 
-function HoverTip({ show, x, y, label, side = "right" }) {
-  if (!show) return null;
+  function HoverTip({ show, x, y, label, side = "right" }) {
+    if (!show) return null;
 
-  const pad = 12;
-  const vw = typeof window !== "undefined" ? window.innerWidth : 0;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 0;
+    const pad = 12;
+    const vw = typeof window !== "undefined" ? window.innerWidth : 0;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 0;
 
-  const safeX = Math.min(Math.max(x, pad), Math.max(vw - pad, 0));
-  const safeY = Math.min(Math.max(y, pad), Math.max(vh - pad, 0));
+    const safeX = Math.min(Math.max(x, pad), Math.max(vw - pad, 0));
+    const safeY = Math.min(Math.max(y, pad), Math.max(vh - pad, 0));
 
-  const arrowCommon = {
-    width: "10px",
-    height: "10px",
-    background: sidebarVars.tooltipBg,
-    boxShadow: `-2px -2px 6px ${sidebarVars.tooltipShadow}`,
-    backdropFilter: "blur(6px)",
-    WebkitBackdropFilter: "blur(6px)",
-  };
+    const arrowCommon = {
+      width: "10px",
+      height: "10px",
+      background: sidebarVars.tooltipBg,
+      boxShadow: `-2px -2px 6px ${sidebarVars.tooltipShadow}`,
+      backdropFilter: "blur(6px)",
+      WebkitBackdropFilter: "blur(6px)",
+    };
 
-  const arrowLeft = {
-    ...arrowCommon,
-    left: "-6px",
-    top: "50%",
-    transform: "translateY(-50%) rotate(45deg)",
-    borderLeft: `1px solid ${sidebarVars.tooltipBorder}`,
-    borderTop: `1px solid ${sidebarVars.tooltipBorder}`,
-  };
+    const arrowLeft = {
+      ...arrowCommon,
+      left: "-6px",
+      top: "50%",
+      transform: "translateY(-50%) rotate(45deg)",
+      borderLeft: `1px solid ${sidebarVars.tooltipBorder}`,
+      borderTop: `1px solid ${sidebarVars.tooltipBorder}`,
+    };
 
-  const arrowRight = {
-    ...arrowCommon,
-    right: "-6px",
-    top: "50%",
-    transform: "translateY(-50%) rotate(45deg)",
-    borderRight: `1px solid ${sidebarVars.tooltipBorder}`,
-    borderBottom: `1px solid ${sidebarVars.tooltipBorder}`,
-  };
+    const arrowRight = {
+      ...arrowCommon,
+      right: "-6px",
+      top: "50%",
+      transform: "translateY(-50%) rotate(45deg)",
+      borderRight: `1px solid ${sidebarVars.tooltipBorder}`,
+      borderBottom: `1px solid ${sidebarVars.tooltipBorder}`,
+    };
 
-  return createPortal(
-    <div
-      className="fixed z-[9999] pointer-events-none -translate-y-1/2 transition-opacity duration-100"
-      style={{ left: safeX, top: safeY, opacity: show ? 1 : 0 }}
-    >
-      <div className="relative">
-        <div
-          className="rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap"
-          style={{
-            background: sidebarVars.tooltipBg,
-            color: sidebarVars.tooltipText,
-            // stronger separation: shadow + inner border + outer ring
-            boxShadow: `
+    return createPortal(
+      <div
+        className="fixed z-[9999] pointer-events-none -translate-y-1/2 transition-opacity duration-100"
+        style={{ left: safeX, top: safeY, opacity: show ? 1 : 0 }}
+      >
+        <div className="relative">
+          <div
+            className="rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap"
+            style={{
+              background: sidebarVars.tooltipBg,
+              color: sidebarVars.tooltipText,
+              // stronger separation: shadow + inner border + outer ring
+              boxShadow: `
               0 12px 28px ${sidebarVars.tooltipShadow},
               0 0 0 1px ${sidebarVars.tooltipBorder},
               0 0 0 4px ${sidebarVars.tooltipRing}
             `,
-            textShadow: darkSidebar ? "0 1px 0 rgba(0,0,0,0.35)" : "none",
-            backdropFilter: "blur(4px)",
-            WebkitBackdropFilter: "blur(4px)",
-          }}
-        >
-          {label}
-        </div>
+              textShadow: darkSidebar ? "0 1px 0 rgba(0,0,0,0.35)" : "none",
+              backdropFilter: "blur(4px)",
+              WebkitBackdropFilter: "blur(4px)",
+            }}
+          >
+            {label}
+          </div>
 
-        {/* arrow */}
-        <div aria-hidden className="absolute" style={side === "right" ? arrowLeft : arrowRight} />
-      </div>
-    </div>,
-    document.body
-  );
-}
+          {/* arrow */}
+          <div aria-hidden className="absolute" style={side === "right" ? arrowLeft : arrowRight} />
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   const NavItem = ({ href, icon: Icon, label, activeMatch = "exact" }) => {
     const active = isPathActive(pathname, href, activeMatch);
@@ -260,16 +257,16 @@ function HoverTip({ show, x, y, label, side = "right" }) {
 
     const iconColor = active ? sidebarVars.iconActive : sidebarVars.icon;
 
-const handleEnter = () => {
-  setHover(true);
-  if (!collapsed || !iconRef) return;
-  const r = iconRef.getBoundingClientRect();
-  const spaceRight = (window.innerWidth - r.right);
-  const preferRight = spaceRight > 160; // min width for bubble + arrow
-  const x = preferRight ? (r.right + 10) : (r.left - 10);
-  const side = preferRight ? "right" : "left";
-  setTip({ show: true, x, y: r.top + r.height / 2, side });
-};
+    const handleEnter = () => {
+      setHover(true);
+      if (!collapsed || !iconRef) return;
+      const r = iconRef.getBoundingClientRect();
+      const spaceRight = (window.innerWidth - r.right);
+      const preferRight = spaceRight > 160; // min width for bubble + arrow
+      const x = preferRight ? (r.right + 10) : (r.left - 10);
+      const side = preferRight ? "right" : "left";
+      setTip({ show: true, x, y: r.top + r.height / 2, side });
+    };
 
     const handleLeave = () => { setHover(false); setTip((t) => ({ ...t, show: false })); };
 
@@ -294,83 +291,83 @@ const handleEnter = () => {
         </Link>
 
         {collapsed && (
-  <HoverTip show={tip.show} x={tip.x} y={tip.y} label={label} side={tip.side} />
-)}
+          <HoverTip show={tip.show} x={tip.x} y={tip.y} label={label} side={tip.side} />
+        )}
       </li>
     );
   };
 
   /* ------------ MENU ------------- */
-const rawMenu = useMemo(
-  () => [
-    { items: [{ href: "/dashboard", icon: Home, label: "Home", access: "" }] },
+  const rawMenu = useMemo(
+    () => [
+      { items: [{ href: "/dashboard", icon: Home, label: "Home", access: "" }] },
 
-    {
-      title: "LEADS", section: "leads", icon: Target,
-      items: [
-        { href: "/lead", icon: SquarePlus, label: "New Lead", access: "new_lead_page", activeMatch: "exact" },
-        { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page", activeMatch: "exact" },
-        { href: "/lead/ft", icon: Flag, label: "All FT's", access: "", activeMatch: "exact" },
-        { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page", activeMatch: "exact" },
-        { href: "/client", icon: Users, label: "Client", access: "client_page" },
-      ],
-    },
+      {
+        title: "LEADS", section: "leads", icon: Target,
+        items: [
+          { href: "/lead", icon: SquarePlus, label: "New Lead", access: "new_lead_page", activeMatch: "exact" },
+          { href: "/lead/old", icon: History, label: "Old Lead", access: "old_lead_page", activeMatch: "exact" },
+          { href: "/lead/ft", icon: Flag, label: "All FT's", access: "", activeMatch: "exact" },
+          { href: "/lead/add", icon: UserPlus, label: "Add Lead", access: "add_lead_page", activeMatch: "exact" },
+          { href: "/client", icon: Users, label: "Client", access: "client_page" },
+        ],
+      },
 
-    {
-      title: "LEAD MANAGEMENT", section: "management", icon: SlidersHorizontal,
-      items: [
-        { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "exact" },
-        { href: "/lead/manage/source", icon: Funnel, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
-        { href: "/lead/manage/response", icon: MessageSquareMore, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
-        { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
-        { href: "/lead/transfer", icon: Recycle, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact"},
-      ],
-    },
+      {
+        title: "LEAD MANAGEMENT", section: "management", icon: SlidersHorizontal,
+        items: [
+          { href: "/lead/manage", icon: Wrench, label: "Manage Leads", access: "lead_manage_page", activeMatch: "exact" },
+          { href: "/lead/manage/source", icon: Funnel, label: "Lead Source", access: "lead_source_page", activeMatch: "exact" },
+          { href: "/lead/manage/response", icon: MessageSquareMore, label: "Lead Response", access: "lead_response_page", activeMatch: "exact" },
+          { href: "/lead/manage/lead-upload", icon: UploadCloud, label: "Lead Upload", access: "lead_upload_page", activeMatch: "exact" },
+          { href: "/lead/transfer", icon: Recycle, label: "Lead Recycle", access: "lead_transfer_page", activeMatch: "exact" },
+        ],
+      },
 
-    {
-      title: "CONFIGURATION", section: "configuration", icon: Settings,
-      items: [
-        { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
-        { href: "/department", icon: Building, label: "Department", access: "department_page" },
-        { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
-        { href: "/plans", icon: ClipboardCheck, label: "Plans", access: "plane_page" },
-        { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
-      ],
-    },
+      {
+        title: "CONFIGURATION", section: "configuration", icon: Settings,
+        items: [
+          { href: "/branch", icon: Building2, label: "Branch", access: "branch_page" },
+          { href: "/department", icon: Building, label: "Department", access: "department_page" },
+          { href: "/user", icon: UserCheck, label: "Users", access: "user_page" },
+          { href: "/plans", icon: ClipboardCheck, label: "Plans", access: "plane_page" },
+          { href: "/permission", icon: ShieldCheck, label: "Permissions", access: "permission_page" },
+        ],
+      },
 
-    { items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }] },
+      { items: [{ href: "/payment", icon: CreditCard, label: "Payment", access: "payment_page" }] },
 
-    {
-      title: "RESEARCHER", section: null, icon: FlaskConical,
-      items: [
-        { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
-        { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
-      ]
-    },
+      {
+        title: "RESEARCHER", section: null, icon: FlaskConical,
+        items: [
+          { href: "/rational", icon: MessageCircle, label: "Messenger", access: "messanger_page" },
+          { href: "/research-report", icon: FileSearch, label: "Research Report", access: "research_report_page" },
+        ]
+      },
 
-    { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
-    { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
-    { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
+      { items: [{ href: "/chatting", icon: MessageSquare, label: "Chat", access: "chat_page" }] },
+      { items: [{ href: "/mailing", icon: Mail, label: "Mail", access: "mail_page" }] },
+      { items: [{ href: "/notice-board", icon: StickyNote, label: "Notice Board", access: "notice_board_page" }] },
 
-    {
-      title: "REPORTS", section: "reports", icon: PieChart,
-      items: [
-        { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
-        { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
-        { href: "/reports/employee", icon: UserCheck2, label: "Employee", access: "reports_employee_page" },
-      ],
-    },
+      {
+        title: "REPORTS", section: "reports", icon: PieChart,
+        items: [
+          { href: "/reports/client", icon: UserCog, label: "Client Report", access: "reports_client_page" },
+          { href: "/reports/vbc", icon: PhoneCall, label: "VBC", access: "reports_vbc_page" },
+          { href: "/reports/employee", icon: UserCheck2, label: "Employee", access: "reports_employee_page" },
+        ],
+      },
 
-    {
-      title: "TEMPLATE", section: "template", icon: FileText,
-      items: [
-        { href: "/email", icon: MailOpen, label: "Email", access: "email_page" },
-        { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
-      ],
-    },
-  ],
-  []
-);
+      {
+        title: "TEMPLATE", section: "template", icon: FileText,
+        items: [
+          { href: "/email", icon: MailOpen, label: "Email", access: "email_page" },
+          { href: "/sms", icon: MessageSquareText, label: "SMS", access: "sms_page" },
+        ],
+      },
+    ],
+    []
+  );
 
   const filteredMenu = useMemo(() => {
     const can = (acc) => acc === "" || hasPermission(acc);

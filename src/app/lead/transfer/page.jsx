@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { axiosInstance } from "@/api/Axios";
 import { ChevronDown, ChevronRight, Settings2, Send, Info } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import { useRouter } from "next/navigation";
 
 const scopes = [
   { value: "all", label: "All leads in this source" },
@@ -12,7 +13,7 @@ const scopes = [
 
 export default function SourceToolsPage() {
   const { theme } = useTheme(); // triggers re-render on theme change
-
+  const router = useRouter();
   // tab is just transfer for now
   const [activeTab] = useState("transfer");
 
@@ -196,6 +197,11 @@ export default function SourceToolsPage() {
         body
       );
       setResult(data);
+
+     if (!dry_run) {
+       resetForm();
+      router.refresh();
+     }
     } catch (err) {
       setError(err?.response?.data?.detail || err.message || "Request failed.");
     } finally {
@@ -347,11 +353,53 @@ const scopeCount = useMemo(() => {
 
 // Label to show above the count
 const scopeCountLabel = useMemo(() => {
-  if (scope === "all") return "Total";
-  if (scope === "new_only") return "NEW (no response)";
+  if (scope === "all") return "Total Selected Leads";
+  if (scope === "new_only") return "Selected NEW (no response)";
   return "Selected responses";
 }, [scope]);
 
+function resetForm() {
+  // keep or clear source as you prefer — clear here to fully reset
+  setSourceId("");
+  // transfer basics
+  setTargetSourceId("");
+  setScope("all");
+  setResponseIds([]);
+  setSelectedLeadIds([]);
+
+  // core clears
+  setClearAssigned(true);
+  setClearResponse(true);
+  setClearDates(true);
+
+  // profile/contact
+  setClearName(false);
+  setClearEmail(false);
+  setClearAddress(false);
+  setClearPincode(false);
+  setClearCity(false);
+  setClearState(false);
+  setClearOccupation(false);
+  setClearSegment(false);
+  setExtraFieldsCsv("");
+
+  // window + limit
+  setFromDate("");
+  setToDate("");
+  setLimitCount("");
+  setDistributeEqual(false);
+
+  // related
+  setClearSmsLogs(true);
+  setClearEmailLogs(true);
+  setClearComments(true);
+  setClearStories(true);
+  setClearRecordings(true);
+
+  // local result/error
+  setResult(null);
+  setError("");
+}
 
   return (
     <div className="min-h-screen bg-[var(--theme-background)] text-[var(--theme-text)]">
@@ -457,9 +505,7 @@ const scopeCountLabel = useMemo(() => {
                     <span className="text-sm text-[var(--theme-text)]">Clear response dates</span>
                   </label>
                 </div>
-                <p className="mt-2 text-xs text-[var(--theme-text-muted)]">
-                  By default all three are cleared and <code className="rounded px-1 bg-[var(--theme-primary-softer)]">is_old_lead</code> false ho jata hai.
-                </p>
+              
               </Accordion>
 
               <Accordion title="Clear Profile / Contact Fields (optional)" icon={Settings2} subtle>
@@ -515,17 +561,7 @@ const scopeCountLabel = useMemo(() => {
             </div>
           )}
           
-        </div>
-
-        {/* Result */}
-        {result && (
-          <div className="rounded-3xl border border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-[var(--theme-text)] mb-3">Result</h2>
-            <pre className="overflow-auto rounded-2xl bg-[var(--theme-surface)] p-4 text-sm text-[var(--theme-text)]">
-{JSON.stringify(result, null, 2)}
-            </pre>
-          </div>
-        )}
+        </div>     
       </main>
     </div>
   );

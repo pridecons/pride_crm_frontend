@@ -140,18 +140,16 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
       isOpen={isOpen}
       onClose={onClose}
       title=""
-      contentClassName="w-[42rem] max-w-2xl"
+      contentClassName="w-[46rem]"
       actions={[
         <button
           key="cancel"
           onClick={onClose}
           className="px-4 py-2 rounded-xl transition-colors"
           disabled={loading}
-          style={{
-            background: "var(--theme-muted,#f1f5f9)",
-            color: "var(--theme-text,#0f172a)",
-            border: "1px solid var(--theme-border,#e5e7eb)",
-          }}
+
+          style={{ border: "1px solid var(--theme-border)",
+             color:" var(--theme-text)", background: "var(--theme-card-bg);"}}
         >
           Cancel
         </button>,
@@ -172,7 +170,7 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
         </button>,
       ]}
     >
-      <div className="shadow-sm overflow-hidden">
+      <div className="shadow-sm overflow-visible">
         {/* Header */}
         <div
           className="px-5 py-4"
@@ -215,9 +213,8 @@ export default function LeadShareModal({ isOpen, onClose, leadId, onSuccess }) {
 
         {/* Body */}
         <div
-          className="p-5 space-y-5"
-          style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}
-        >
+          className="p-5 space-y-5 h-[18rem]"
+          style={{ background: "var(--theme-card-bg,#ffffff)", color: "var(--theme-text,#0f172a)" }}>
           {/* Employee Name / Autocomplete */}
           <div className="relative">
             <label
